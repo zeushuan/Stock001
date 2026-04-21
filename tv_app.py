@@ -115,29 +115,37 @@ def fetch_indicators(ticker: str, market: str):
         ema13 = ta.trend.EMAIndicator(c, 13).ema_indicator()
         ichi  = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
 
-        # ── FIX 1: 動量 = 收盤價差值 close - close[10]（對齊 TradingView）
-        mom_series = c - c.shift(10)
+        # 動量: 取當前值與前一期方向比較（TV邏輯）
+        stoch_obj   = ta.momentum.StochasticOscillator(h, l, c, 14, 3)
+        stoch_k_s   = stoch_obj.stoch()
+        stoch_d_s   = stoch_obj.stoch_signal()   # %D = %K的3期均線，TV用此判斷
 
-        # ── FIX 2: StochRSI 乘以 100（ta 庫回傳 0-1，TV 顯示 0-100）
-        stochrsi_raw = ta.momentum.StochRSIIndicator(c, 14, 3, 3).stochrsi_k()
-        stochrsi_scaled = stochrsi_raw * 100
+        ao_series   = ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()
+        mom_series  = c - c.shift(10)            # TV動量 = 差值
 
-        # ── FIX 3: 牛熊力度 = close - EMA(13)，不需額外修正，直接沿用
-        bbpower_series = c - ema13
+        stochrsi_obj = ta.momentum.StochRSIIndicator(c, 14, 3, 3)
+        stochrsi_d_s = stochrsi_obj.stochrsi_d() * 100  # TV用%D判斷，乘100對齊顯示
+
+        bbpower_series = c - ema13               # 牛熊力度
 
         return {
-            "close":    last(c),
-            "rsi":      last(ta.momentum.RSIIndicator(c, 14).rsi()),
-            "stoch_k":  last(ta.momentum.StochasticOscillator(h, l, c, 14, 3).stoch()),
-            "cci":      last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
-            "adx":      last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
-            "ao":       last(ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()),
-            "mom":      last(mom_series),          # FIX 1
-            "macd":     last(ta.trend.MACD(c).macd()),
-            "stochrsi": last(stochrsi_scaled),     # FIX 2
-            "willr":    last(ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()),
-            "bbpower":  last(bbpower_series),
-            "uo":       last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
+            "close":      last(c),
+            "rsi":        last(ta.momentum.RSIIndicator(c, 14).rsi()),
+            "stoch_k":    last(stoch_k_s),        # 顯示用
+            "stoch_d":    last(stoch_d_s),         # 判斷用
+            "cci":        last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
+            "adx":        last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
+            "ao":         last(ao_series),
+            "ao_prev":    float(ao_series.iloc[-2]) if len(ao_series) >= 2 and pd.notna(ao_series.iloc[-2]) else None,
+            "ao_prev2":   float(ao_series.iloc[-3]) if len(ao_series) >= 3 and pd.notna(ao_series.iloc[-3]) else None,
+            "mom":        last(mom_series),
+            "mom_prev":   float(mom_series.iloc[-2]) if len(mom_series) >= 2 and pd.notna(mom_series.iloc[-2]) else None,
+            "macd":       last(ta.trend.MACD(c).macd()),
+            "stochrsi":   last(stochrsi_d_s),      # 判斷用 %D×100
+            "willr":      last(ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()),
+            "bbpower":    last(bbpower_series),
+            "bbpower_prev": float(bbpower_series.iloc[-2]) if len(bbpower_series) >= 2 and pd.notna(bbpower_series.iloc[-2]) else None,
+            "uo":         last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
             "bbu":      last(bb.bollinger_hband()),
             "bbl":      last(bb.bollinger_lband()),
             "ema10":    last(ta.trend.EMAIndicator(c, 10).ema_indicator()),
@@ -189,31 +197,71 @@ def judge_oscillators(d: dict) -> list:
     bb_j = ("賣出" if pct_b is not None and pct_b > 100 else
             "買入" if pct_b is not None and pct_b < 0 else "中立")
 
-    # ── FIX 3: 威廉%R 判斷 — TV 定義：< -80 = 買入，> -20 = 賣出
-    wr = d["willr"]
+    # 隨機%K — 顯示%K，但用%D判斷（TV官方邏輯）
+    stoch_d = d.get("stoch_d")
+    stoch_j = _j(stoch_d, 20, 80) if stoch_d is not None else "中立"
+
+    # AO — TV碟形/零軸交叉邏輯
+    ao, ao1, ao2 = d.get("ao"), d.get("ao_prev"), d.get("ao_prev2")
+    if ao is not None and ao1 is not None and ao2 is not None:
+        if ao > 0 and ao > ao1 and ao1 < ao2:      # 碟形買入
+            ao_j = "買入"
+        elif ao < 0 and ao < ao1 and ao1 > ao2:    # 碟形賣出
+            ao_j = "賣出"
+        elif ao1 is not None and ao1 < 0 and ao > 0:  # 零軸向上穿越
+            ao_j = "買入"
+        elif ao1 is not None and ao1 > 0 and ao < 0:  # 零軸向下穿越
+            ao_j = "賣出"
+        else:
+            ao_j = "中立"
+    else:
+        ao_j = "中立"
+
+    # 動量 — TV：當前Mom > 前期Mom = 買入
+    mom, mom1 = d.get("mom"), d.get("mom_prev")
+    if mom is not None and mom1 is not None:
+        mom_j = "買入" if mom > mom1 else ("賣出" if mom < mom1 else "中立")
+    else:
+        mom_j = "中立"
+
+    # StochRSI — TV用%D判斷
+    sr = d.get("stochrsi")
+    sr_j = _j(sr, 20, 80) if sr is not None else "中立"
+
+    # 威廉%R — TV: < -80 = 買入, > -20 = 賣出
+    wr = d.get("willr")
     wr_j = ("買入" if wr is not None and wr < -80 else
             "賣出" if wr is not None and wr > -20 else "中立")
 
-    # ── FIX 4: AO — 對齊 TV：正值=買入，負值=賣出（維持原 _jz 邏輯即可）
-    # ── FIX 5: StochRSI（已乘以100）— < 20 買入，> 80 賣出
-    sr = d["stochrsi"]
-    sr_j = _j(sr, 20, 80)
+    # 牛熊力度 — TV：正且遞增=買入，負且遞減=賣出
+    bbp, bbp1 = d.get("bbpower"), d.get("bbpower_prev")
+    if bbp is not None and bbp1 is not None:
+        if bbp > 0 and bbp > bbp1:
+            bbp_j = "買入"
+        elif bbp < 0 and bbp < bbp1:
+            bbp_j = "賣出"
+        else:
+            bbp_j = "中立"
+    else:
+        bbp_j = "中立"
 
-    # ── FIX 6: 終極震盪 — TV 定義：< 30 = 買入，> 70 = 賣出（原邏輯正確，已確認）
-    # ── FIX 6: 動量 — TV：> 0 = 買入，< 0 = 賣出（_jz 邏輯正確）
+    # 終極震盪 — TV：> 70 = 買入，< 30 = 賣出（與RSI方向相反）
+    uo = d.get("uo")
+    uo_j = ("買入" if uo is not None and uo > 70 else
+            "賣出" if uo is not None and uo < 30 else "中立")
 
     return [
-        (fmt(d["rsi"]),       _j(d["rsi"],    30,  70)),
-        (fmt(d["stoch_k"]),   _j(d["stoch_k"], 20,  80)),
-        (fmt(d["cci"]),       _j(d["cci"],   -100, 100)),
-        (fmt(d["adx"]),       "中立"),                     # ADX 僅方向性，不判斷買賣
-        (fmt(d["ao"]),        _jz(d["ao"])),
-        (fmt(d["mom"]),       _jz(d["mom"])),              # FIX 1: 差值版動量
+        (fmt(d["rsi"]),       _j(d["rsi"],   30,  70)),
+        (fmt(d["stoch_k"]),   stoch_j),          # 顯示%K，判斷用%D
+        (fmt(d["cci"]),       _j(d["cci"],  -100, 100)),
+        (fmt(d["adx"]),       "中立"),
+        (fmt(ao),             ao_j),              # 碟形/零軸交叉
+        (fmt(mom),            mom_j),             # 方向比較
         (fmt(d["macd"]),      _jz(d["macd"])),
-        (fmt(sr),             sr_j),                       # FIX 2+5: 已縮放 StochRSI
-        (fmt(wr),             wr_j),                       # FIX 3: 威廉%R 邊界修正
-        (fmt(d["bbpower"]),   _jz(d["bbpower"])),
-        (fmt(d["uo"]),        _j(d["uo"],     30,  70)),   # FIX 6: < 30 買入 > 70 賣出
+        (fmt(sr),             sr_j),              # %D判斷
+        (fmt(wr),             wr_j),
+        (fmt(d["bbpower"]),   bbp_j),             # 正負+方向
+        (fmt(uo),             uo_j),              # >70買入 <30賣出
         (f"{pct_b:.1f}%" if pct_b is not None else "N/A", bb_j),
     ]
 
