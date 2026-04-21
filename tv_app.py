@@ -134,7 +134,8 @@ def get_tv_url(ticker: str, market: str) -> str:
         return base + f"{market}:{ticker}"
     return base + ticker
 
-def get_perplexity_url(ticker: str, name: str, d: dict, model_param: str = "") -> str:
+def get_perplexity_url(ticker: str, name: str, d: dict,
+                       platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
     import urllib.parse
     close  = d.get("close")  or 0
     sma50  = d.get("sma50")  or 0
@@ -172,7 +173,8 @@ def get_perplexity_url(ticker: str, name: str, d: dict, model_param: str = "") -
         "所有的分析以表格呈現。",
     ]
     prompt = "\n".join(lines)
-    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt) + model_param
+    encoded = urllib.parse.quote(prompt)
+    return platform_url_tpl.replace("{prompt}", encoded)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -505,7 +507,7 @@ def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
-def render_table(results, model_param: str = "") -> str:
+def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
     rows = ""
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         name = d.get("name", ticker) if d else ticker
@@ -524,7 +526,7 @@ def render_table(results, model_param: str = "") -> str:
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
         tv_url  = get_tv_url(ticker, market)
-        ppl_url = get_perplexity_url(ticker, name, d, model_param)
+        ppl_url = get_perplexity_url(ticker, name, d, platform_url_tpl)
         rows += (f'<tr>'
                  f'<td class="ticker-cell">'
                  f'<a href="{ppl_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
@@ -637,14 +639,15 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:.75rem;color:#5a8ab0;margin-bottom:4px">🤖 AI 分析模型</div>', unsafe_allow_html=True)
-    ppl_model = st.selectbox(
-        "AI 分析模型",
-        options=["預設（Sonar）","GPT-5","Claude Sonnet","Gemini 2.5 Pro","Grok","Deep Research"],
+    st.markdown('<div style="font-size:.75rem;color:#5a8ab0;margin-bottom:4px">🤖 AI 分析平台</div>', unsafe_allow_html=True)
+    st.selectbox(
+        "AI 分析平台",
+        options=["Perplexity","ChatGPT","Grok","Gemini","Claude","DeepSeek"],
         index=0,
         label_visibility="collapsed",
-        key="ppl_model",
+        key="ai_platform",
     )
+
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.68rem;color:#334455;line-height:1.8">
@@ -736,18 +739,19 @@ st.markdown(f"""
     <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
-MODEL_PARAMS = {
-    "預設（Sonar）":   "",
-    "GPT-5":           "&model=gpt-4o",
-    "Claude Sonnet":   "&model=claude-sonnet-4-5",
-    "Gemini 2.5 Pro":  "&model=gemini-2.0-flash-thinking-exp",
-    "Grok":            "&model=grok-2",
-    "Deep Research":   "&copilot=true",
+AI_PLATFORMS = {
+    "Perplexity": "https://www.perplexity.ai/search?q={prompt}",
+    "ChatGPT":    "https://chatgpt.com/?q={prompt}&hints=search&temporary-chat=true",
+    "Grok":       "https://grok.com/?q={prompt}",
+    "Gemini":     "https://gemini.google.com/app?q={prompt}",
+    "Claude":     "https://claude.ai/new?q={prompt}",
+    "DeepSeek":   "https://chat.deepseek.com/?q={prompt}",
 }
-model_param = MODEL_PARAMS.get(st.session_state.get("ppl_model", "預設（Sonar）"), "")
+selected_platform = st.session_state.get("ai_platform", "Perplexity")
+platform_url_tpl  = AI_PLATFORMS[selected_platform]
 
 st.markdown("#### 完整指標一覽表")
-st.markdown(render_table(results, model_param), unsafe_allow_html=True)
+st.markdown(render_table(results, platform_url_tpl), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
