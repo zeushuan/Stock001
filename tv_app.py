@@ -9,6 +9,11 @@ import numpy as np
 import pandas as pd
 import ta
 import yfinance as yf
+try:
+    import twstock
+    _TW_CODES = twstock.codes
+except Exception:
+    _TW_CODES = {}
 import streamlit as st
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -105,10 +110,17 @@ def fetch_indicators(ticker: str, market: str):
         df = yf_obj.history(period="1y", interval="1d")
         if df is None or len(df) < 60:
             return None
-        # 抓取股票名稱
+        # 抓取股票名稱：台股用 twstock 取中文名，美股用 yfinance
         try:
-            info = yf_obj.info
-            name = info.get("longName") or info.get("shortName") or ticker
+            if is_tw_stock(ticker):
+                tw_name = _TW_CODES.get(ticker, {})
+                if tw_name:
+                    name = tw_name.name
+                else:
+                    name = ticker
+            else:
+                info = yf_obj.info
+                name = info.get("longName") or info.get("shortName") or ticker
         except Exception:
             name = ticker
         df.columns = [c.capitalize() for c in df.columns]
