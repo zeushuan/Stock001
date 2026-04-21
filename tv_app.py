@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re
-import io, warnings
+import re, io, warnings
 from datetime import datetime
 
 warnings.filterwarnings("ignore")
@@ -69,7 +68,7 @@ MA_LABELS  = ["EMA(10)","SMA(10)","EMA(20)","SMA(20)","EMA(30)","SMA(30)",
               "一目均衡基準線","VWMA(20)","Hull MA(9)"]
 
 # ─────────────────────────────────────────────────────────────────
-# INDICATORS
+# HELPERS
 # ─────────────────────────────────────────────────────────────────
 def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
     half = max(n // 2, 1)
@@ -78,23 +77,28 @@ def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
     w2 = series.rolling(n).apply(
         lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
     diff = 2 * w1 - w2
-    sqn  = max(int(np.sqrt(n)), 1)
+    sqn = max(int(np.sqrt(n)), 1)
     return diff.rolling(sqn).apply(
         lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
 
 def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
-
+# ─────────────────────────────────────────────────────────────────
+# TAIWAN STOCK DETECTION  ← FIX: 支援 00632R / 006205L 等含字母代號
+# ─────────────────────────────────────────────────────────────────
 def is_tw_stock(ticker: str) -> bool:
-    """台股：純數字 或 數字+單一英文字母結尾（如 00632R、006205L）"""
-    return bool(re.match(r"^\d+[A-Z]?$", ticker))
+    """台股：純數字 或 數字+單一英文字母結尾（00632R、006205L）"""
+    return bool(re.match(r'^\d+[A-Z]?$', ticker))
 
 def get_yf_symbol(ticker: str) -> str:
     return ticker + ".TW" if is_tw_stock(ticker) else ticker
 
+# ─────────────────────────────────────────────────────────────────
+# DATA FETCH + INDICATORS
+# ─────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
-def fetch_indicators(ticker: str, market: str) -> dict | None:
+def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     try:
         df = yf.Ticker(symbol).history(period="1y", interval="1d")
@@ -103,39 +107,51 @@ def fetch_indicators(ticker: str, market: str) -> dict | None:
         df.columns = [c.capitalize() for c in df.columns]
         c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
 
-        def last(s): return float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
+        def last(s):
+            val = s.iloc[-1]
+            return float(val) if pd.notna(val) else None
 
-        bb  = ta.volatility.BollingerBands(c, 20, 2)
+        bb   = ta.volatility.BollingerBands(c, 20, 2)
         ema13 = ta.trend.EMAIndicator(c, 13).ema_indicator()
         ichi  = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
+
+        # ── FIX 1: 動量 = 收盤價差值 close - close[10]（對齊 TradingView）
+        mom_series = c - c.shift(10)
+
+        # ── FIX 2: StochRSI 乘以 100（ta 庫回傳 0-1，TV 顯示 0-100）
+        stochrsi_raw = ta.momentum.StochRSIIndicator(c, 14, 3, 3).stochrsi_k()
+        stochrsi_scaled = stochrsi_raw * 100
+
+        # ── FIX 3: 牛熊力度 = close - EMA(13)，不需額外修正，直接沿用
+        bbpower_series = c - ema13
 
         return {
             "close":    last(c),
             "rsi":      last(ta.momentum.RSIIndicator(c, 14).rsi()),
-            "stoch_k":  last(ta.momentum.StochasticOscillator(h,l,c,14,3).stoch()),
-            "cci":      last(ta.trend.CCIIndicator(h,l,c,20).cci()),
-            "adx":      last(ta.trend.ADXIndicator(h,l,c,14).adx()),
-            "ao":       last(ta.momentum.AwesomeOscillatorIndicator(h,l).awesome_oscillator()),
-            "mom":      last(ta.momentum.ROCIndicator(c,10).roc()),
+            "stoch_k":  last(ta.momentum.StochasticOscillator(h, l, c, 14, 3).stoch()),
+            "cci":      last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
+            "adx":      last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
+            "ao":       last(ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()),
+            "mom":      last(mom_series),          # FIX 1
             "macd":     last(ta.trend.MACD(c).macd()),
-            "stochrsi": last(ta.momentum.StochRSIIndicator(c,14,3,3).stochrsi_k()),
-            "willr":    last(ta.momentum.WilliamsRIndicator(h,l,c,14).williams_r()),
-            "bbpower":  last(c - ema13),
-            "uo":       last(ta.momentum.UltimateOscillator(h,l,c,7,14,28).ultimate_oscillator()),
+            "stochrsi": last(stochrsi_scaled),     # FIX 2
+            "willr":    last(ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()),
+            "bbpower":  last(bbpower_series),
+            "uo":       last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
             "bbu":      last(bb.bollinger_hband()),
             "bbl":      last(bb.bollinger_lband()),
-            "ema10":    last(ta.trend.EMAIndicator(c,10).ema_indicator()),
-            "sma10":    last(ta.trend.SMAIndicator(c,10).sma_indicator()),
-            "ema20":    last(ta.trend.EMAIndicator(c,20).ema_indicator()),
-            "sma20":    last(ta.trend.SMAIndicator(c,20).sma_indicator()),
-            "ema30":    last(ta.trend.EMAIndicator(c,30).ema_indicator()),
-            "sma30":    last(ta.trend.SMAIndicator(c,30).sma_indicator()),
-            "ema50":    last(ta.trend.EMAIndicator(c,50).ema_indicator()),
-            "sma50":    last(ta.trend.SMAIndicator(c,50).sma_indicator()),
-            "ema100":   last(ta.trend.EMAIndicator(c,100).ema_indicator()),
-            "sma100":   last(ta.trend.SMAIndicator(c,100).sma_indicator()),
-            "ema200":   last(ta.trend.EMAIndicator(c,200).ema_indicator()),
-            "sma200":   last(ta.trend.SMAIndicator(c,200).sma_indicator()),
+            "ema10":    last(ta.trend.EMAIndicator(c, 10).ema_indicator()),
+            "sma10":    last(ta.trend.SMAIndicator(c, 10).sma_indicator()),
+            "ema20":    last(ta.trend.EMAIndicator(c, 20).ema_indicator()),
+            "sma20":    last(ta.trend.SMAIndicator(c, 20).sma_indicator()),
+            "ema30":    last(ta.trend.EMAIndicator(c, 30).ema_indicator()),
+            "sma30":    last(ta.trend.SMAIndicator(c, 30).sma_indicator()),
+            "ema50":    last(ta.trend.EMAIndicator(c, 50).ema_indicator()),
+            "sma50":    last(ta.trend.SMAIndicator(c, 50).sma_indicator()),
+            "ema100":   last(ta.trend.EMAIndicator(c, 100).ema_indicator()),
+            "sma100":   last(ta.trend.SMAIndicator(c, 100).sma_indicator()),
+            "ema200":   last(ta.trend.EMAIndicator(c, 200).ema_indicator()),
+            "sma200":   last(ta.trend.SMAIndicator(c, 200).sma_indicator()),
             "ichimoku": last(ichi.ichimoku_base_line()),
             "vwma":     last(vwma(c, v, 20)),
             "hma":      last(hull_ma(c, 9)),
@@ -144,7 +160,7 @@ def fetch_indicators(ticker: str, market: str) -> dict | None:
         return None
 
 # ─────────────────────────────────────────────────────────────────
-# JUDGMENT
+# JUDGMENT LOGIC
 # ─────────────────────────────────────────────────────────────────
 def _j(v, lo, hi):
     if v is None: return "中立"
@@ -165,27 +181,39 @@ def fmt(v, d=2): return f"{v:.{d}f}" if v is not None else "N/A"
 
 def judge_oscillators(d: dict) -> list:
     close, bbu, bbl = d["close"], d["bbu"], d["bbl"]
+
+    # 布林 %B
     pct_b = None
     if bbu and bbl and (bbu - bbl) != 0:
         pct_b = (close - bbl) / (bbu - bbl) * 100
-    bb_j = ("賣出" if pct_b and pct_b > 100 else
+    bb_j = ("賣出" if pct_b is not None and pct_b > 100 else
             "買入" if pct_b is not None and pct_b < 0 else "中立")
-    wr   = d["willr"]
-    wr_j = ("買入" if wr and wr < -80 else "賣出" if wr and wr > -20 else "中立")
-    stochrsi = d["stochrsi"]
-    stochrsi_j = _j(stochrsi, 0.2, 0.8) if stochrsi is not None else "中立"
+
+    # ── FIX 3: 威廉%R 判斷 — TV 定義：< -80 = 買入，> -20 = 賣出
+    wr = d["willr"]
+    wr_j = ("買入" if wr is not None and wr < -80 else
+            "賣出" if wr is not None and wr > -20 else "中立")
+
+    # ── FIX 4: AO — 對齊 TV：正值=買入，負值=賣出（維持原 _jz 邏輯即可）
+    # ── FIX 5: StochRSI（已乘以100）— < 20 買入，> 80 賣出
+    sr = d["stochrsi"]
+    sr_j = _j(sr, 20, 80)
+
+    # ── FIX 6: 終極震盪 — TV 定義：< 30 = 買入，> 70 = 賣出（原邏輯正確，已確認）
+    # ── FIX 6: 動量 — TV：> 0 = 買入，< 0 = 賣出（_jz 邏輯正確）
+
     return [
-        (fmt(d["rsi"]),      _j(d["rsi"],   30,  70)),
-        (fmt(d["stoch_k"]),  _j(d["stoch_k"], 20, 80)),
-        (fmt(d["cci"]),      _j(d["cci"],  -100, 100)),
-        (fmt(d["adx"]),      "中立"),
-        (fmt(d["ao"]),       _jz(d["ao"])),
-        (fmt(d["mom"]),      _jz(d["mom"])),
-        (fmt(d["macd"]),     _jz(d["macd"])),
-        (fmt(stochrsi, 4),   stochrsi_j),
-        (fmt(d["willr"]),    wr_j),
-        (fmt(d["bbpower"]),  _jz(d["bbpower"])),
-        (fmt(d["uo"]),       _j(d["uo"],   30,  70)),
+        (fmt(d["rsi"]),       _j(d["rsi"],    30,  70)),
+        (fmt(d["stoch_k"]),   _j(d["stoch_k"], 20,  80)),
+        (fmt(d["cci"]),       _j(d["cci"],   -100, 100)),
+        (fmt(d["adx"]),       "中立"),                     # ADX 僅方向性，不判斷買賣
+        (fmt(d["ao"]),        _jz(d["ao"])),
+        (fmt(d["mom"]),       _jz(d["mom"])),              # FIX 1: 差值版動量
+        (fmt(d["macd"]),      _jz(d["macd"])),
+        (fmt(sr),             sr_j),                       # FIX 2+5: 已縮放 StochRSI
+        (fmt(wr),             wr_j),                       # FIX 3: 威廉%R 邊界修正
+        (fmt(d["bbpower"]),   _jz(d["bbpower"])),
+        (fmt(d["uo"]),        _j(d["uo"],     30,  70)),   # FIX 6: < 30 買入 > 70 賣出
         (f"{pct_b:.1f}%" if pct_b is not None else "N/A", bb_j),
     ]
 
@@ -195,23 +223,27 @@ def judge_mas(d: dict) -> list:
              "ema50","sma50","ema100","sma100","ema200","sma200",
              "ichimoku","vwma","hma"]
     return [(fmt(d[k]),
-             "買入" if d[k] and close > d[k] else
-             "賣出" if d[k] and close < d[k] else "中立")
+             "買入" if d[k] is not None and close > d[k] else
+             "賣出" if d[k] is not None and close < d[k] else "中立")
             for k in keys]
 
 def calc_summary(items):
-    b = sum(1 for _,j in items if j=="買入")
-    s = sum(1 for _,j in items if j=="賣出")
-    n = sum(1 for _,j in items if j=="中立")
+    b = sum(1 for _, j in items if j == "買入")
+    s = sum(1 for _, j in items if j == "賣出")
+    n = sum(1 for _, j in items if j == "中立")
     return b, s, n, _rec(b, s)
 
 # ─────────────────────────────────────────────────────────────────
-# INPUT PARSING
+# INPUT PARSING  ← FIX: 修正 NameError（ticker 未定義的問題）
 # ─────────────────────────────────────────────────────────────────
 def parse_input(text: str) -> list:
     stocks = []
     for raw in text.strip().splitlines():
         line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts  = [p.strip() for p in line.split(",")]
+        ticker = parts[0].upper()
         if is_tw_stock(ticker):
             stocks.append((ticker, "台股"))
         else:
@@ -224,18 +256,18 @@ def parse_input(text: str) -> list:
 # ─────────────────────────────────────────────────────────────────
 def badge(rec: str) -> str:
     cls = {"強力買入":"badge-strong-buy","買入":"badge-buy",
-           "強力賣出":"badge-strong-sell","賣出":"badge-sell"}.get(rec,"badge-neutral")
+           "強力賣出":"badge-strong-sell","賣出":"badge-sell"}.get(rec, "badge-neutral")
     return f'<span class="badge {cls}">{rec}</span>'
 
 def jcell(val, judg):
-    cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg,"j-neutral")
+    cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
 def render_table(results) -> str:
     osc_ths = "".join(f"<th>{h}</th>" for h in OSC_LABELS)
     ma_ths  = "".join(f"<th>{h}</th>" for h in MA_LABELS)
     rows = ""
-    for ticker,market,d,error,osc,mas,osumm,msumm,tsumm in results:
+    for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         if error or not d:
             rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
                      f'<td class="market-cell">{market}</td>'
@@ -244,9 +276,9 @@ def render_table(results) -> str:
         ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
         rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
                  f'<td class="market-cell">{market}</td>'
-                 + "".join(jcell(v,j) for v,j in osc)
+                 + "".join(jcell(v, j) for v, j in osc)
                  + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
-                 + "".join(jcell(v,j) for v,j in mas)
+                 + "".join(jcell(v, j) for v, j in mas)
                  + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
                  + f'<td style="background:#060c18;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
                  + '</tr>')
@@ -260,15 +292,15 @@ def render_table(results) -> str:
 def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
     ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
     def ind(label, val, judg):
-        cls = {"買入":"ind-buy","賣出":"ind-sell"}.get(judg,"ind-neu")
+        cls = {"買入":"ind-buy","賣出":"ind-sell"}.get(judg, "ind-neu")
         return (f'<div class="ind-item {cls}">'
                 f'<span class="ind-label">{label}</span>'
                 f'<span class="ind-val">{val} / {judg}</span></div>')
-    osc_items = "".join(ind(OSC_LABELS[i],v,j) for i,(v,j) in enumerate(osc))
-    ma_items  = "".join(ind(MA_LABELS[i], v,j) for i,(v,j) in enumerate(mas))
+    osc_items = "".join(ind(OSC_LABELS[i], v, j) for i, (v, j) in enumerate(osc))
+    ma_items  = "".join(ind(MA_LABELS[i],  v, j) for i, (v, j) in enumerate(mas))
     return (f'<div style="padding:4px 8px">'
             f'<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
-            f'<span style="color:#5a8ab0;font-size:.75rem">收盤價 <b style="color:#e8f4fd;font-family:IBM Plex Mono">{fmt(d["close"])}</b></span>'
+            f'<span style="color:#5a8ab0;font-size:.75rem">收盤價 <b style="color:#e8f4fd">{fmt(d["close"])}</b></span>'
             f'<span>震盪：{badge(or_)} <span style="color:#445566;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_}</span></span>'
             f'<span>均線：{badge(mr_)} <span style="color:#445566;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_}</span></span>'
             f'<span>整體：{badge(tr_)} <span style="color:#445566;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_}</span></span>'
@@ -284,7 +316,7 @@ def build_excel(results) -> bytes:
     wb = Workbook(); ws = wb.active; ws.title = "指標報告"
     ws.sheet_view.showGridLines = False
     def fill(h): return PatternFill("solid", start_color=h, fgColor=h)
-    def fnt(c="000000",sz=9,bd=False): return Font(name="Arial",size=sz,bold=bd,color=c)
+    def fnt(c="000000", sz=9, bd=False): return Font(name="Arial", size=sz, bold=bd, color=c)
     mid = Side(style="medium"); ctr = Alignment(horizontal="center", vertical="center")
     JCOL = {"買入":"0D47A1","賣出":"C0392B","中立":"888888","強力買入":"0D47A1","強力賣出":"C0392B"}
     col_defs = ([("代號",8,"1E3A5F"),("市場",7,"1E3A5F")]
@@ -292,39 +324,40 @@ def build_excel(results) -> bytes:
                 + [("震盪小結",28,"0D2244")]
                 + [(h,14,"1A4A2C") for h in MA_LABELS]
                 + [("均線小結",28,"0D3320"),("整體建議",30,"2C1654")])
-    for ci,(label,width,bg) in enumerate(col_defs,1):
-        c = ws.cell(1,ci,label)
+    for ci, (label, width, bg) in enumerate(col_defs, 1):
+        c = ws.cell(1, ci, label)
         c.font=fnt("FFFFFF",9,True); c.fill=fill(bg); c.alignment=ctr
         c.border=Border(bottom=mid)
-        ws.column_dimensions[get_column_letter(ci)].width=width
-    ws.row_dimensions[1].height=22; ws.freeze_panes="C2"
-    rf_e={"osc":"EBF0FA","os":"D6E4FF","ma":"EAFAF1","ms":"D5F5E3","base":"F0F4FF"}
-    rf_o={"osc":"F5F8FF","os":"E8F0FF","ma":"F5FFF8","ms":"E8FFF0","base":"FFFFFF"}
-    for ri,(ticker,market,d,error,osc,mas,osumm,msumm,tsumm) in enumerate(results,2):
-        ws.row_dimensions[ri].height=18
-        rf = rf_e if ri%2==0 else rf_o
-        def cell(col,val,bg,fc="000000",sz=9,bd=False):
-            c=ws.cell(ri,col,val); c.font=fnt(fc,sz,bd); c.fill=fill(bg); c.alignment=ctr; return c
-        cell(1,ticker,rf["base"],"1E3A5F",10,True)
-        cell(2,market,rf["base"],"555555",9)
+        ws.column_dimensions[get_column_letter(ci)].width = width
+    ws.row_dimensions[1].height = 22; ws.freeze_panes = "C2"
+    rf_e = {"osc":"EBF0FA","os":"D6E4FF","ma":"EAFAF1","ms":"D5F5E3","base":"F0F4FF"}
+    rf_o = {"osc":"F5F8FF","os":"E8F0FF","ma":"F5FFF8","ms":"E8FFF0","base":"FFFFFF"}
+    for ri, (ticker, market, d, error, osc, mas, osumm, msumm, tsumm) in enumerate(results, 2):
+        ws.row_dimensions[ri].height = 18
+        rf = rf_e if ri % 2 == 0 else rf_o
+        def cell(col, val, bg, fc="000000", sz=9, bd=False):
+            c = ws.cell(ri, col, val); c.font=fnt(fc,sz,bd); c.fill=fill(bg); c.alignment=ctr; return c
+        cell(1, ticker, rf["base"], "1E3A5F", 10, True)
+        cell(2, market, rf["base"], "555555", 9)
         if error or not d:
-            for ci in range(3,len(col_defs)+1): cell(ci,"無資料",rf["base"],"AAAAAA",9)
+            for ci in range(3, len(col_defs)+1): cell(ci, "無資料", rf["base"], "AAAAAA", 9)
             continue
-        ob,os_,on_,or_=osumm; mb,ms_,mn_,mr_=msumm; tb,ts_,tn_,tr_=tsumm
-        ci=3
-        for v,j in osc:
-            cell(ci,f"{v} / {j}",rf["osc"],JCOL.get(j,"000000"),9,j!="中立"); ci+=1
-        cell(ci,f"買入:{ob} 賣出:{os_} 中立:{on_} → {or_}",rf["os"],JCOL.get(or_,"444444"),9,True); ci+=1
-        for v,j in mas:
-            cell(ci,f"{v} / {j}",rf["ma"],JCOL.get(j,"000000"),9,j!="中立"); ci+=1
-        cell(ci,f"買入:{mb} 賣出:{ms_} 中立:{mn_} → {mr_}",rf["ms"],JCOL.get(mr_,"444444"),9,True); ci+=1
-        tot_bg={"強力買入":"1A5276","買入":"2471A3","強力賣出":"922B21","賣出":"C0392B"}.get(tr_,"626567")
-        cell(ci,f"買入:{tb} 賣出:{ts_} 中立:{tn_} → {tr_}",tot_bg,"FFFFFF",10,True)
-    ws.cell(len(results)+3,1,f"產出時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}").font=fnt("999999",8)
-    buf=io.BytesIO(); wb.save(buf); return buf.getvalue()
+        ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
+        ci = 3
+        for v, j in osc:
+            cell(ci, f"{v} / {j}", rf["osc"], JCOL.get(j,"000000"), 9, j!="中立"); ci += 1
+        cell(ci, f"買入:{ob} 賣出:{os_} 中立:{on_} → {or_}", rf["os"], JCOL.get(or_,"444444"), 9, True); ci += 1
+        for v, j in mas:
+            cell(ci, f"{v} / {j}", rf["ma"], JCOL.get(j,"000000"), 9, j!="中立"); ci += 1
+        cell(ci, f"買入:{mb} 賣出:{ms_} 中立:{mn_} → {mr_}", rf["ms"], JCOL.get(mr_,"444444"), 9, True); ci += 1
+        tot_bg = {"強力買入":"1A5276","買入":"2471A3","強力賣出":"922B21","賣出":"C0392B"}.get(tr_,"626567")
+        cell(ci, f"買入:{tb} 賣出:{ts_} 中立:{tn_} → {tr_}", tot_bg, "FFFFFF", 10, True)
+    ws.cell(len(results)+3, 1,
+            f"產出時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}").font = fnt("999999", 8)
+    buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 # ─────────────────────────────────────────────────────────────────
-# UI
+# STREAMLIT UI
 # ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="tv-header">
@@ -337,9 +370,10 @@ with st.sidebar:
     st.markdown("### 📋 股票清單")
     st.markdown("""
 <div style="font-size:.72rem;color:#5a8ab0;line-height:1.8;margin-bottom:8px">
-  <b style="color:#8ab8d8">台股</b>：直接輸入代號（純數字）<br>
+  <b style="color:#8ab8d8">台股</b>：直接輸入代號（純數字 或 含字母 ETF）<br>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">2330</code>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00878</code><br>
+  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00878</code>
+  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00632R</code><br>
   <b style="color:#8ab8d8">美股</b>：直接輸入代號<br>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">BOTZ</code>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">NVDA</code><br>
@@ -347,14 +381,14 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
     stock_input = st.text_area("輸入股票清單", label_visibility="collapsed",
-        value="2330\n2317\n00878\nBOTZ\nNVDA\nAAPL", height=220)
+        value="2330\n2317\n00878\n00632R\nBOTZ\nNVDA\nAAPL", height=220)
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.68rem;color:#334455;line-height:1.8">
   <b style="color:#3a5a7a">資料來源</b>：Yahoo Finance<br>
-  台股代號自動加 .TW<br><br>
+  台股自動加 .TW（含 00632R 等反/槓桿 ETF）<br><br>
   <b style="color:#3a5a7a">震盪指標（12）</b><br>
   RSI · 隨機%K · CCI · ADX · AO<br>動量 · MACD · StochRSI · 威廉%R<br>牛熊力度 · 終極震盪 · 布林%B<br><br>
   <b style="color:#3a5a7a">移動均線（15）</b><br>
@@ -366,7 +400,7 @@ if not fetch_btn:
 <div style="text-align:center;padding:60px 20px">
   <div style="font-size:3rem;margin-bottom:16px">📈</div>
   <div style="font-size:1rem;color:#3a6a9a">在左側輸入股票代號，點擊「開始抓取資料」</div>
-  <div style="font-size:.78rem;color:#1e3a5f;margin-top:8px">支援台股 · NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
+  <div style="font-size:.78rem;color:#1e3a5f;margin-top:8px">支援台股（含反/槓桿 ETF）· NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
 </div>""", unsafe_allow_html=True)
     st.stop()
 
@@ -386,22 +420,25 @@ for i, (ticker, market) in enumerate(stocks):
         unsafe_allow_html=True)
     d = fetch_indicators(ticker, market)
     if d and d.get("close"):
-        osc = judge_oscillators(d); mas = judge_mas(d)
-        osumm = calc_summary(osc);  msumm = calc_summary(mas)
-        ob,os_,on_,or_ = osumm;     mb,ms_,mn_,mr_ = msumm
+        osc   = judge_oscillators(d)
+        mas   = judge_mas(d)
+        osumm = calc_summary(osc)
+        msumm = calc_summary(mas)
+        ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
         tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
-        results.append((ticker,market,d,False,osc,mas,osumm,msumm,(tb,ts_,tn_,_rec(tb,ts_))))
+        results.append((ticker, market, d, False, osc, mas, osumm, msumm, (tb,ts_,tn_,_rec(tb,ts_))))
     else:
-        results.append((ticker,market,None,True,[],[],
-                        (0,0,0,"中立"),(0,0,0,"中立"),(0,0,0,"中立")))
+        results.append((ticker, market, None, True, [], [],
+                        (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立")))
 
 progress_bar.progress(1.0, text="完成 ✓")
 status_ph.empty()
 
-total=len(results); ok=sum(1 for r in results if not r[3])
-buy_count =sum(1 for r in results if not r[3] and r[8][3] in ("買入","強力買入"))
-sell_count=sum(1 for r in results if not r[3] and r[8][3] in ("賣出","強力賣出"))
-neu_count =sum(1 for r in results if not r[3] and r[8][3]=="中立")
+total      = len(results)
+ok         = sum(1 for r in results if not r[3])
+buy_count  = sum(1 for r in results if not r[3] and r[8][3] in ("買入","強力買入"))
+sell_count = sum(1 for r in results if not r[3] and r[8][3] in ("賣出","強力賣出"))
+neu_count  = sum(1 for r in results if not r[3] and r[8][3] == "中立")
 
 st.markdown(f"""
 <div class="cards-row">
@@ -418,19 +455,19 @@ st.markdown("#### 完整指標一覽表")
 st.markdown(render_table(results), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
-for ticker,market,d,error,osc,mas,osumm,msumm,tsumm in results:
-    _,_,_,tr_ = tsumm
+for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
+    _, _, _, tr_ = tsumm
     title = f"{ticker}  {market}  {tr_}" if not error else f"{ticker}  —  無資料"
     with st.expander(title, expanded=False):
         if error or not d:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
                         unsafe_allow_html=True)
         else:
-            st.markdown(render_detail(ticker,d,osc,mas,osumm,msumm,tsumm),
+            st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
 
 st.markdown("---")
-_,col2,_ = st.columns([1,2,1])
+_, col2, _ = st.columns([1, 2, 1])
 with col2:
     excel_bytes = build_excel(results)
     filename = f"Indicators_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
