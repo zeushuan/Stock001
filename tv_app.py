@@ -171,7 +171,7 @@ def get_perplexity_url(ticker: str, name: str, d: dict) -> str:
         "請用繁體中文作答，條列清楚，避免空洞的形容詞，重點放在可執行的「條件式規則」。",
     ]
     prompt = "\n".join(lines)
-    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt) + "&model=claude-sonnet-4-5"
+    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
