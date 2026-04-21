@@ -9,11 +9,7 @@ import numpy as np
 import pandas as pd
 import ta
 import yfinance as yf
-try:
-    import twstock
-    _TW_CODES = twstock.codes
-except Exception:
-    _TW_CODES = {}
+# twstock loaded on demand via cached function
 import streamlit as st
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -102,6 +98,32 @@ def get_yf_symbol(ticker: str) -> str:
 # ─────────────────────────────────────────────────────────────────
 # DATA FETCH + INDICATORS
 # ─────────────────────────────────────────────────────────────────
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_tw_names() -> dict:
+    """台股中文名稱字典，從 twstock 載入並快取"""
+    try:
+        import twstock
+        return {code: info.name for code, info in twstock.codes.items()}
+    except Exception:
+        return {}
+
+def _get_stock_name(ticker: str, symbol: str) -> str:
+    """取得股票中文/英文名稱"""
+    try:
+        if is_tw_stock(ticker):
+            tw_names = _get_tw_names()
+            return tw_names.get(ticker, ticker)
+        else:
+            # 從 yfinance 抓英文名，改用 fast_info 或 get_info 避免 timeout
+            t = yf.Ticker(symbol)
+            try:
+                info = t.get_info()
+                return info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                return ticker
+    except Exception:
+        return ticker
+
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
@@ -110,19 +132,8 @@ def fetch_indicators(ticker: str, market: str):
         df = yf_obj.history(period="1y", interval="1d")
         if df is None or len(df) < 60:
             return None
-        # 抓取股票名稱：台股用 twstock 取中文名，美股用 yfinance
-        try:
-            if is_tw_stock(ticker):
-                tw_name = _TW_CODES.get(ticker, {})
-                if tw_name:
-                    name = tw_name.name
-                else:
-                    name = ticker
-            else:
-                info = yf_obj.info
-                name = info.get("longName") or info.get("shortName") or ticker
-        except Exception:
-            name = ticker
+        # 抓取股票名稱
+        name = _get_stock_name(ticker, symbol)
         df.columns = [c.capitalize() for c in df.columns]
         c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
 
