@@ -205,11 +205,21 @@ def _get_stock_name(ticker: str, symbol: str) -> str:
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
+    df = None
+    for attempt in range(2):
+        try:
+            yf_obj = yf.Ticker(symbol)
+            df = yf_obj.history(period="1y", interval="1d")
+            if df is not None and len(df) >= 30:
+                break
+            df = None
+        except Exception:
+            df = None
+            if attempt == 0:
+                import time; time.sleep(1)
+    if df is None or len(df) < 30:
+        return None
     try:
-        yf_obj = yf.Ticker(symbol)
-        df = yf_obj.history(period="1y", interval="1d")
-        if df is None or len(df) < 60:
-            return None
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
         df.columns = [c.capitalize() for c in df.columns]
@@ -480,7 +490,9 @@ def render_table(results) -> str:
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         name = d.get("name", ticker) if d else ticker
         if error or not d:
-            rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
+            tv_url_err  = get_tv_url(ticker, market)
+            rows += (f'<tr>'
+                     f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#5a8ab0;font-size:.78rem">—</td>'
                      f'<td class="market-cell">{market}</td>'
                      f'<td class="j-na">— 無資料 —</td>'
