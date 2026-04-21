@@ -636,6 +636,15 @@ with st.sidebar:
         value="2330\n2317\n00878\n00632R\nBOTZ\nNVDA\nAAPL", height=220)
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div style="font-size:.75rem;color:#5a8ab0;margin-bottom:4px">🤖 AI 分析模型</div>', unsafe_allow_html=True)
+    ppl_model = st.selectbox(
+        "AI 分析模型",
+        options=["預設（Sonar）","GPT-5","Claude Sonnet","Gemini 2.5 Pro","Grok","Deep Research"],
+        index=0,
+        label_visibility="collapsed",
+        key="ppl_model",
+    )
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.68rem;color:#334455;line-height:1.8">
@@ -647,7 +656,50 @@ with st.sidebar:
   EMA/SMA 10/20/30/50/100/200<br>一目均衡 · VWMA · Hull MA
 </div>""", unsafe_allow_html=True)
 
-if not fetch_btn:
+# ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
+if fetch_btn:
+    stocks = parse_input(stock_input)
+    if not stocks:
+        st.error("股票清單為空，請重新輸入"); st.stop()
+
+    progress_bar = st.progress(0, text="準備中...")
+    status_ph    = st.empty()
+    results    = []
+    debug_msgs = []
+
+    for i, (ticker, market) in enumerate(stocks):
+        progress_bar.progress(i / len(stocks), text=f"抓取 {ticker}  ({i+1}/{len(stocks)})")
+        status_ph.markdown(
+            f'<div style="font-size:.78rem;color:#5a8ab0;text-align:center">'
+            f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
+            unsafe_allow_html=True)
+        d = fetch_indicators(ticker, market)
+        if d and d.get("_error"):
+            debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
+            d = None
+        if d and d.get("close"):
+            osc   = judge_oscillators(d)
+            mas   = judge_mas(d)
+            osumm = calc_summary(osc)
+            msumm = calc_summary(mas)
+            ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
+            tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
+            results.append((ticker, market, d, False, osc, mas, osumm, msumm, (tb,ts_,tn_,_rec(tb,ts_))))
+        else:
+            if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
+                debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
+            results.append((ticker, market, None, True, [], [],
+                            (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立")))
+
+    progress_bar.progress(1.0, text="完成 ✓")
+    status_ph.empty()
+
+    # 儲存到 session_state
+    st.session_state["results"]    = results
+    st.session_state["debug_msgs"] = debug_msgs
+
+# 從 session_state 讀取（保持結果在模型切換時不消失）
+if "results" not in st.session_state:
     st.markdown("""
 <div style="text-align:center;padding:60px 20px">
   <div style="font-size:3rem;margin-bottom:16px">📈</div>
@@ -656,43 +708,11 @@ if not fetch_btn:
 </div>""", unsafe_allow_html=True)
     st.stop()
 
-stocks = parse_input(stock_input)
-if not stocks:
-    st.error("股票清單為空，請重新輸入"); st.stop()
+results    = st.session_state["results"]
+debug_msgs = st.session_state.get("debug_msgs", [])
 
-progress_bar = st.progress(0, text="準備中...")
-status_ph    = st.empty()
-results = []
-debug_msgs = []
-
-for i, (ticker, market) in enumerate(stocks):
-    progress_bar.progress(i / len(stocks), text=f"抓取 {ticker}  ({i+1}/{len(stocks)})")
-    status_ph.markdown(
-        f'<div style="font-size:.78rem;color:#5a8ab0;text-align:center">'
-        f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
-        unsafe_allow_html=True)
-    d = fetch_indicators(ticker, market)
-    if d and d.get("_error"):
-        debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
-        d = None
-    if d and d.get("close"):
-        osc   = judge_oscillators(d)
-        mas   = judge_mas(d)
-        osumm = calc_summary(osc)
-        msumm = calc_summary(mas)
-        ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
-        tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
-        results.append((ticker, market, d, False, osc, mas, osumm, msumm, (tb,ts_,tn_,_rec(tb,ts_))))
-    else:
-        if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
-            debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
-        results.append((ticker, market, None, True, [], [],
-                        (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立")))
-
-progress_bar.progress(1.0, text="完成 ✓")
-status_ph.empty()
 if debug_msgs:
-    with st.expander(f"⚠️ {len(debug_msgs)} 筆無法取得資料（點擊展開查看原因）", expanded=True):
+    with st.expander(f"⚠️ {len(debug_msgs)} 筆無法取得資料（點擊展開查看原因）", expanded=False):
         for msg in debug_msgs:
             st.markdown(f"<div style='font-size:.8rem;color:#ff8080;font-family:monospace'>{msg}</div>",
                         unsafe_allow_html=True)
@@ -716,33 +736,17 @@ st.markdown(f"""
     <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
-col_title, col_model = st.columns([3, 1])
-with col_title:
-    st.markdown("#### 完整指標一覽表")
-with col_model:
-    ppl_model = st.selectbox(
-        "AI 分析模型",
-        options=[
-            "預設（Sonar）",
-            "GPT-5",
-            "Claude Sonnet",
-            "Gemini 2.5 Pro",
-            "Grok",
-            "Deep Research",
-        ],
-        index=0,
-        label_visibility="collapsed",
-    )
-    MODEL_PARAMS = {
-        "預設（Sonar）":   "",
-        "GPT-5":           "&model=gpt-4o",
-        "Claude Sonnet":   "&model=claude-sonnet-4-5",
-        "Gemini 2.5 Pro":  "&model=gemini-2.0-flash-thinking-exp",
-        "Grok":            "&model=grok-2",
-        "Deep Research":   "&copilot=true",
-    }
-    model_param = MODEL_PARAMS.get(ppl_model, "")
+MODEL_PARAMS = {
+    "預設（Sonar）":   "",
+    "GPT-5":           "&model=gpt-4o",
+    "Claude Sonnet":   "&model=claude-sonnet-4-5",
+    "Gemini 2.5 Pro":  "&model=gemini-2.0-flash-thinking-exp",
+    "Grok":            "&model=grok-2",
+    "Deep Research":   "&copilot=true",
+}
+model_param = MODEL_PARAMS.get(st.session_state.get("ppl_model", "預設（Sonar）"), "")
 
+st.markdown("#### 完整指標一覽表")
 st.markdown(render_table(results, model_param), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
