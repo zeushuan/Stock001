@@ -134,8 +134,8 @@ def get_tv_url(ticker: str, market: str) -> str:
         return base + f"{market}:{ticker}"
     return base + ticker
 
-def get_perplexity_url(ticker: str, name: str, d: dict,
-                       platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
+def get_ai_url(ticker: str, name: str, d: dict,
+               platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
     import urllib.parse
     close  = d.get("close")  or 0
     sma50  = d.get("sma50")  or 0
@@ -175,6 +175,26 @@ def get_perplexity_url(ticker: str, name: str, d: dict,
     prompt = "\n".join(lines)
     encoded = urllib.parse.quote(prompt)
     return platform_url_tpl.replace("{prompt}", encoded)
+
+def get_prompt_text(ticker: str, name: str, d: dict) -> str:
+    """回傳純文字提示詞（供複製用）"""
+    close  = d.get("close")  or 0
+    sma50  = d.get("sma50")  or 0
+    sma200 = d.get("sma200") or 0
+    bbu    = d.get("bbu")    or 0
+    bbl    = d.get("bbl")    or 0
+    bbm    = d.get("ema20")  or 0
+    display = f"{ticker}（{name}）" if name and name != ticker else ticker
+    lines = [
+        f"你是一位專業量化交易員，現在請你只針對 {display} 這檔標的，使用日線圖與布林通道為主的技術分析，幫我判斷短中期的買點與賣點。",
+        "",
+        f"現價約 {close:.2f}，50 日均線約 {sma50:.2f}，200 日均線約 {sma200:.2f}，布林上軌約 {bbu:.2f}，布林中軌約 {bbm:.2f}，布林下軌約 {bbl:.2f}。",
+        "",
+        "請分析：1) 趨勢與均線位置 2) 布林通道狀態（張口/收口）3) 買點條件 4) 賣點條件 5) 停損停利建議。",
+        "",
+        "請用繁體中文作答，條列清楚，所有的分析以表格呈現。",
+    ]
+    return "\n".join(lines)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -507,7 +527,8 @@ def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
-def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
+def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}",
+                 selected_platform: str = "Perplexity") -> str:
     rows = ""
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         name = d.get("name", ticker) if d else ticker
@@ -526,11 +547,23 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
         tv_url  = get_tv_url(ticker, market)
-        ppl_url = get_perplexity_url(ticker, name, d, platform_url_tpl)
+        is_perplexity = "{prompt}" in platform_url_tpl and "perplexity" in platform_url_tpl
+        ai_url    = get_ai_url(ticker, name, d, platform_url_tpl)
+        prompt_js = get_prompt_text(ticker, name, d).replace("\\n", "\\\\n").replace("'", "\\'")
+        if is_perplexity:
+            # Direct link - Perplexity executes immediately
+            ticker_link = f'<a href="{ai_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
+        else:
+            # Copy prompt + open platform homepage
+            homepage = platform_url_tpl.split("?")[0].split("{")[0]
+            ticker_link = (
+                f'<a href="#" onclick="navigator.clipboard.writeText(\'{prompt_js}\').then(()=>{{'
+                f'window.open(\'{homepage}\',\'_blank\');'
+                f'alert(\'提示詞已複製！請在新視窗中貼上(Ctrl+V / Cmd+V)\');}});return false;"'
+                f' title="複製提示詞並開啟{selected_platform}" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
+            )
         rows += (f'<tr>'
-                 f'<td class="ticker-cell">'
-                 f'<a href="{ppl_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
-                 f'</td>'
+                 f'<td class="ticker-cell">{ticker_link}</td>'
                  f'<td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#8ab8d8;text-decoration:none;">{name}</a>'
                  f'</td>'
@@ -639,15 +672,6 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div style="font-size:.75rem;color:#5a8ab0;margin-bottom:4px">🤖 AI 分析平台</div>', unsafe_allow_html=True)
-    st.selectbox(
-        "AI 分析平台",
-        options=["Perplexity","ChatGPT","Grok","Gemini","Claude","DeepSeek"],
-        index=0,
-        label_visibility="collapsed",
-        key="ai_platform",
-    )
-
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.68rem;color:#334455;line-height:1.8">
@@ -739,19 +763,11 @@ st.markdown(f"""
     <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
-AI_PLATFORMS = {
-    "Perplexity": "https://www.perplexity.ai/search?q={prompt}",
-    "ChatGPT":    "https://chatgpt.com/?q={prompt}&hints=search&temporary-chat=true",
-    "Grok":       "https://grok.com/?q={prompt}",
-    "Gemini":     "https://gemini.google.com/app?q={prompt}",
-    "Claude":     "https://claude.ai/new?q={prompt}",
-    "DeepSeek":   "https://chat.deepseek.com/?q={prompt}",
-}
-selected_platform = st.session_state.get("ai_platform", "Perplexity")
-platform_url_tpl  = AI_PLATFORMS[selected_platform]
+platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
+selected_platform = "Perplexity"
 
 st.markdown("#### 完整指標一覽表")
-st.markdown(render_table(results, platform_url_tpl), unsafe_allow_html=True)
+st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
