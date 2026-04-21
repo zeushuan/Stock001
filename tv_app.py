@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import re
 import io, warnings
 from datetime import datetime
 
@@ -84,11 +85,13 @@ def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
 def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
+
+def is_tw_stock(ticker: str) -> bool:
+    """台股：純數字 或 數字+單一英文字母結尾（如 00632R、006205L）"""
+    return bool(re.match(r"^\d+[A-Z]?$", ticker))
+
 def get_yf_symbol(ticker: str) -> str:
-    try:
-        int(ticker); return ticker + ".TW"
-    except ValueError:
-        return ticker
+    return ticker + ".TW" if is_tw_stock(ticker) else ticker
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str) -> dict | None:
@@ -209,12 +212,9 @@ def parse_input(text: str) -> list:
     stocks = []
     for raw in text.strip().splitlines():
         line = raw.strip()
-        if not line or line.startswith("#"): continue
-        parts = [p.strip() for p in line.split(",")]
-        ticker = parts[0].upper()
-        try:
-            int(ticker); stocks.append((ticker, "台股"))
-        except ValueError:
+        if is_tw_stock(ticker):
+            stocks.append((ticker, "台股"))
+        else:
             market = parts[1].upper() if len(parts) > 1 else "NASDAQ"
             stocks.append((ticker, market))
     return stocks
