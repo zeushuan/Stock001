@@ -202,6 +202,22 @@ def _get_stock_name(ticker: str, symbol: str) -> str:
     except Exception:
         return ticker
 
+def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
+    """Hull Moving Average"""
+    half = max(n // 2, 1)
+    w1 = series.rolling(half).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+    w2 = series.rolling(n).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+    diff = 2 * w1 - w2
+    sqn = max(int(np.sqrt(n)), 1)
+    return diff.rolling(sqn).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+
+def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
+    """Volume Weighted Moving Average"""
+    return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
+
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
