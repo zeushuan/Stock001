@@ -101,9 +101,16 @@ def get_yf_symbol(ticker: str) -> str:
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     try:
-        df = yf.Ticker(symbol).history(period="1y", interval="1d")
+        yf_obj = yf.Ticker(symbol)
+        df = yf_obj.history(period="1y", interval="1d")
         if df is None or len(df) < 60:
             return None
+        # 抓取股票名稱
+        try:
+            info = yf_obj.info
+            name = info.get("longName") or info.get("shortName") or ticker
+        except Exception:
+            name = ticker
         df.columns = [c.capitalize() for c in df.columns]
         c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
 
@@ -134,6 +141,7 @@ def fetch_indicators(ticker: str, market: str):
             return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
 
         return {
+            "name":         name,
             "close":        last(c),
             "rsi":          last(ta.momentum.RSIIndicator(c, 14).rsi()),
             "stoch_k":      last(stoch_k_s),
@@ -367,8 +375,10 @@ def jcell(val, judg):
 def render_table(results) -> str:
     rows = ""
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
+        name = d.get("name", ticker) if d else ticker
         if error or not d:
             rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
+                     f'<td style="color:#5a8ab0;font-size:.78rem">—</td>'
                      f'<td class="market-cell">{market}</td>'
                      f'<td class="j-na">— 無資料 —</td>'
                      f'<td class="j-na">— 無資料 —</td>'
@@ -378,10 +388,10 @@ def render_table(results) -> str:
         osc_cell = f'<td style="background:#0d1b2e;font-size:.82rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
-        rows += f'<tr><td class="ticker-cell">{ticker}</td><td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>'
+        rows += f'<tr><td class="ticker-cell">{ticker}</td><td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">{name}</td><td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>'
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
-            f'<th>代號</th><th>市場</th>'
+            f'<th>代號</th><th>名稱</th><th>市場</th>'
             f'<th style="background:#0d1b2e;min-width:220px">震盪小結</th>'
             f'<th style="background:#0d1b2e;min-width:220px">均線小結</th>'
             f'<th style="background:#060c18;min-width:220px">整體建議</th>'
