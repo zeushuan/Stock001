@@ -134,7 +134,7 @@ def get_tv_url(ticker: str, market: str) -> str:
         return base + f"{market}:{ticker}"
     return base + ticker
 
-def get_perplexity_url(ticker: str, name: str, d: dict) -> str:
+def get_perplexity_url(ticker: str, name: str, d: dict, model_param: str = "") -> str:
     import urllib.parse
     close  = d.get("close")  or 0
     sma50  = d.get("sma50")  or 0
@@ -169,9 +169,10 @@ def get_perplexity_url(ticker: str, name: str, d: dict) -> str:
         "每個條件用條列式說明「價格位置 + 布林通道狀態 + 風險說明」，並提醒這只是技術面機率，不是保證。",
         "",
         "請用繁體中文作答，條列清楚，避免空洞的形容詞，重點放在可執行的「條件式規則」。",
+        "所有的分析以表格呈現。",
     ]
     prompt = "\n".join(lines)
-    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt) + "&copilot=true"
+    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt) + model_param
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -504,7 +505,7 @@ def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
-def render_table(results) -> str:
+def render_table(results, model_param: str = "") -> str:
     rows = ""
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         name = d.get("name", ticker) if d else ticker
@@ -523,7 +524,7 @@ def render_table(results) -> str:
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
         tv_url  = get_tv_url(ticker, market)
-        ppl_url = get_perplexity_url(ticker, name, d)
+        ppl_url = get_perplexity_url(ticker, name, d, model_param)
         rows += (f'<tr>'
                  f'<td class="ticker-cell">'
                  f'<a href="{ppl_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
@@ -715,8 +716,34 @@ st.markdown(f"""
     <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
-st.markdown("#### 完整指標一覽表")
-st.markdown(render_table(results), unsafe_allow_html=True)
+col_title, col_model = st.columns([3, 1])
+with col_title:
+    st.markdown("#### 完整指標一覽表")
+with col_model:
+    ppl_model = st.selectbox(
+        "AI 分析模型",
+        options=[
+            "預設（Sonar）",
+            "GPT-5",
+            "Claude Sonnet",
+            "Gemini 2.5 Pro",
+            "Grok",
+            "Deep Research",
+        ],
+        index=0,
+        label_visibility="collapsed",
+    )
+    MODEL_PARAMS = {
+        "預設（Sonar）":   "",
+        "GPT-5":           "&model=gpt-4o",
+        "Claude Sonnet":   "&model=claude-sonnet-4-5",
+        "Gemini 2.5 Pro":  "&model=gemini-2.0-flash-thinking-exp",
+        "Grok":            "&model=grok-2",
+        "Deep Research":   "&copilot=true",
+    }
+    model_param = MODEL_PARAMS.get(ppl_model, "")
+
+st.markdown(render_table(results, model_param), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
