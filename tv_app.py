@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-TradingView-Style Indicator Scanner  — yfinance + pandas_ta edition
-"""
-
-import io, time, warnings
+import io, warnings
 from datetime import datetime
 
 warnings.filterwarnings("ignore")
 
+import numpy as np
 import pandas as pd
-import pandas_ta as ta
+import ta
 import yfinance as yf
 import streamlit as st
 from openpyxl import Workbook
@@ -18,172 +15,133 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 # ─────────────────────────────────────────────────────────────────
-# PAGE CONFIG
-# ─────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Indicator Scanner",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="Indicator Scanner", page_icon="📊",
+                   layout="wide", initial_sidebar_state="expanded")
 
-# ─────────────────────────────────────────────────────────────────
-# CUSTOM CSS
-# ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
-
-html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
-
-.tv-header {
-    background: linear-gradient(135deg, #0a0f1e 0%, #0d2137 60%, #0a1628 100%);
-    border-bottom: 1px solid #1e3a5f;
-    padding: 20px 28px 16px;
-    margin: -1rem -1rem 1.5rem -1rem;
-    display: flex; align-items: center; gap: 14px;
-}
-.tv-header h1 { font-family:'IBM Plex Mono',monospace; font-size:1.3rem; font-weight:600; color:#e8f4fd; margin:0; letter-spacing:.04em; }
-.tv-header .sub { font-size:.75rem; color:#5a8ab0; margin-top:2px; }
-
-.cards-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:1.4rem; }
-.card { flex:1; min-width:140px; background:#0d1b2e; border:1px solid #1e3a5f; border-radius:10px; padding:14px 16px; text-align:center; }
-.card .c-label { font-size:.7rem; color:#5a8ab0; letter-spacing:.08em; text-transform:uppercase; }
-.card .c-value { font-size:1.6rem; font-weight:700; margin-top:2px; }
-.card.buy .c-value { color:#3b9eff; }
-.card.sell .c-value { color:#ff4d4d; }
-.card.neu .c-value { color:#8899aa; }
-.card.total .c-value { color:#f0f4ff; }
-
-.res-table { width:100%; border-collapse:collapse; font-size:.82rem; }
-.res-table th { background:#0a1628; color:#5a8ab0; font-size:.68rem; font-weight:600; text-transform:uppercase; letter-spacing:.07em; padding:8px 10px; text-align:center; border-bottom:2px solid #1e3a5f; white-space:nowrap; }
-.res-table td { padding:7px 10px; text-align:center; border-bottom:1px solid #0f1f33; white-space:nowrap; font-family:'IBM Plex Mono',monospace; font-size:.78rem; }
-.res-table tr:hover td { background:rgba(30,58,95,.35); }
-
-.ticker-cell { font-weight:700; color:#e8f4fd !important; font-size:.9rem !important; }
-.market-cell { color:#5a8ab0 !important; font-size:.72rem !important; }
-.j-buy     { color:#3b9eff; font-weight:600; }
-.j-sell    { color:#ff5555; font-weight:600; }
-.j-neutral { color:#556677; }
-.j-na      { color:#334455; font-style:italic; }
-
-.badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:700; font-family:'IBM Plex Sans',sans-serif; letter-spacing:.03em; }
-.badge-strong-buy  { background:#0d3b6e; color:#3b9eff; border:1px solid #1a5fa8; }
-.badge-buy         { background:#0d2e50; color:#60b3ff; border:1px solid #154d84; }
-.badge-strong-sell { background:#4a0a0a; color:#ff6b6b; border:1px solid #8b1a1a; }
-.badge-sell        { background:#3b0d0d; color:#ff8080; border:1px solid #6b1515; }
-.badge-neutral     { background:#1a2030; color:#8899aa; border:1px solid #2a3545; }
-
-.ind-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(195px,1fr)); gap:8px; margin:10px 0; }
-.ind-item { background:#0d1b2e; border:1px solid #1a2f48; border-radius:8px; padding:9px 12px; display:flex; justify-content:space-between; align-items:center; }
-.ind-label { color:#5a8ab0; font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
-.ind-val   { font-family:'IBM Plex Mono',monospace; font-size:.8rem; }
-.ind-buy  .ind-val { color:#3b9eff; }
-.ind-sell .ind-val { color:#ff5555; }
-.ind-neu  .ind-val { color:#556677; }
-.section-title { font-size:.65rem; color:#3a5a7a; text-transform:uppercase; letter-spacing:.1em; font-weight:700; padding:6px 0 4px; margin-top:8px; border-top:1px solid #0f1f33; }
-
-section[data-testid="stSidebar"] { background:#080e1a; border-right:1px solid #1e3a5f; }
-section[data-testid="stSidebar"] .stTextArea textarea { background:#0d1b2e !important; color:#c8dff0 !important; border:1px solid #1e3a5f !important; font-family:'IBM Plex Mono',monospace !important; font-size:.82rem !important; }
-
-.stButton button { background:linear-gradient(135deg,#0d4a8a,#0a6dd4) !important; color:white !important; border:none !important; border-radius:8px !important; font-weight:600 !important; }
-.stDownloadButton button { background:linear-gradient(135deg,#0d5c30,#0a8040) !important; color:white !important; border:none !important; border-radius:8px !important; font-weight:600 !important; }
-.stProgress > div > div { background:#0a6dd4 !important; }
-.main { background:#060c18; }
-.stExpander { border:1px solid #1a2f48 !important; border-radius:10px !important; background:#080e1a !important; }
-</style>
-""", unsafe_allow_html=True)
+html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
+.tv-header{background:linear-gradient(135deg,#0a0f1e 0%,#0d2137 60%,#0a1628 100%);border-bottom:1px solid #1e3a5f;padding:20px 28px 16px;margin:-1rem -1rem 1.5rem -1rem;display:flex;align-items:center;gap:14px;}
+.tv-header h1{font-family:'IBM Plex Mono',monospace;font-size:1.3rem;font-weight:600;color:#e8f4fd;margin:0;letter-spacing:.04em;}
+.tv-header .sub{font-size:.75rem;color:#5a8ab0;margin-top:2px;}
+.cards-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1.4rem;}
+.card{flex:1;min-width:140px;background:#0d1b2e;border:1px solid #1e3a5f;border-radius:10px;padding:14px 16px;text-align:center;}
+.card .c-label{font-size:.7rem;color:#5a8ab0;letter-spacing:.08em;text-transform:uppercase;}
+.card .c-value{font-size:1.6rem;font-weight:700;margin-top:2px;}
+.card.buy .c-value{color:#3b9eff;}.card.sell .c-value{color:#ff4d4d;}.card.neu .c-value{color:#8899aa;}.card.total .c-value{color:#f0f4ff;}
+.res-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.res-table th{background:#0a1628;color:#5a8ab0;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;padding:8px 10px;text-align:center;border-bottom:2px solid #1e3a5f;white-space:nowrap;}
+.res-table td{padding:7px 10px;text-align:center;border-bottom:1px solid #0f1f33;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:.78rem;}
+.res-table tr:hover td{background:rgba(30,58,95,.35);}
+.ticker-cell{font-weight:700;color:#e8f4fd !important;font-size:.9rem !important;}
+.market-cell{color:#5a8ab0 !important;font-size:.72rem !important;}
+.j-buy{color:#3b9eff;font-weight:600;}.j-sell{color:#ff5555;font-weight:600;}.j-neutral{color:#556677;}.j-na{color:#334455;font-style:italic;}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;font-family:'IBM Plex Sans',sans-serif;letter-spacing:.03em;}
+.badge-strong-buy{background:#0d3b6e;color:#3b9eff;border:1px solid #1a5fa8;}
+.badge-buy{background:#0d2e50;color:#60b3ff;border:1px solid #154d84;}
+.badge-strong-sell{background:#4a0a0a;color:#ff6b6b;border:1px solid #8b1a1a;}
+.badge-sell{background:#3b0d0d;color:#ff8080;border:1px solid #6b1515;}
+.badge-neutral{background:#1a2030;color:#8899aa;border:1px solid #2a3545;}
+.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;margin:10px 0;}
+.ind-item{background:#0d1b2e;border:1px solid #1a2f48;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;}
+.ind-label{color:#5a8ab0;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+.ind-val{font-family:'IBM Plex Mono',monospace;font-size:.8rem;}
+.ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#556677;}
+.section-title{font-size:.65rem;color:#3a5a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 0 4px;margin-top:8px;border-top:1px solid #0f1f33;}
+section[data-testid="stSidebar"]{background:#080e1a;border-right:1px solid #1e3a5f;}
+section[data-testid="stSidebar"] .stTextArea textarea{background:#0d1b2e !important;color:#c8dff0 !important;border:1px solid #1e3a5f !important;font-family:'IBM Plex Mono',monospace !important;font-size:.82rem !important;}
+.stButton button{background:linear-gradient(135deg,#0d4a8a,#0a6dd4) !important;color:white !important;border:none !important;border-radius:8px !important;font-weight:600 !important;}
+.stDownloadButton button{background:linear-gradient(135deg,#0d5c30,#0a8040) !important;color:white !important;border:none !important;border-radius:8px !important;font-weight:600 !important;}
+.stProgress > div > div{background:#0a6dd4 !important;}
+.main{background:#060c18;}
+.stExpander{border:1px solid #1a2f48 !important;border-radius:10px !important;background:#080e1a !important;}
+</style>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────
-# CONSTANTS
+# LABELS
 # ─────────────────────────────────────────────────────────────────
-OSC_LABELS = ["RSI(14)","隨機%K","CCI(20)","ADX(14)","AO","動量(10)","MACD","StochRSI","威廉%R","牛熊力度","終極震盪","布林%B"]
+OSC_LABELS = ["RSI(14)","隨機%K","CCI(20)","ADX(14)","AO","動量(10)","MACD",
+              "StochRSI","威廉%R","牛熊力度","終極震盪","布林%B"]
 MA_LABELS  = ["EMA(10)","SMA(10)","EMA(20)","SMA(20)","EMA(30)","SMA(30)",
               "EMA(50)","SMA(50)","EMA(100)","SMA(100)","EMA(200)","SMA(200)",
               "一目均衡基準線","VWMA(20)","Hull MA(9)"]
 
 # ─────────────────────────────────────────────────────────────────
-# DATA FETCH + INDICATOR CALC
+# INDICATORS
 # ─────────────────────────────────────────────────────────────────
-def get_yf_symbol(ticker: str, market: str) -> str:
-    """Convert to yfinance symbol format."""
+def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
+    half = max(n // 2, 1)
+    w1 = series.rolling(half).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+    w2 = series.rolling(n).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+    diff = 2 * w1 - w2
+    sqn  = max(int(np.sqrt(n)), 1)
+    return diff.rolling(sqn).apply(
+        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+
+def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
+    return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
+
+def get_yf_symbol(ticker: str) -> str:
     try:
-        int(ticker)                       # pure digits = Taiwan stock
-        return ticker + ".TW"
+        int(ticker); return ticker + ".TW"
     except ValueError:
-        return ticker                     # US stock as-is
+        return ticker
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str) -> dict | None:
-    symbol = get_yf_symbol(ticker, market)
+    symbol = get_yf_symbol(ticker)
     try:
         df = yf.Ticker(symbol).history(period="1y", interval="1d")
-        if df is None or len(df) < 50:
+        if df is None or len(df) < 60:
             return None
         df.columns = [c.capitalize() for c in df.columns]
-        if "Close" not in df.columns:
-            return None
+        c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
 
-        # ── Oscillators ────────────────────────────────────────
-        df.ta.rsi(length=14, append=True)
-        df.ta.stoch(append=True)
-        df.ta.cci(length=20, append=True)
-        df.ta.adx(length=14, append=True)
-        df.ta.ao(append=True)
-        df.ta.mom(length=10, append=True)
-        df.ta.macd(append=True)
-        df.ta.stochrsi(append=True)
-        df.ta.willr(append=True)
-        df.ta.ema(length=13, append=True)
-        df['BBPower'] = df['Close'] - df['EMA_13']
-        df.ta.uo(append=True)
-        df.ta.bbands(length=20, append=True)
+        def last(s): return float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
 
-        # ── Moving Averages ─────────────────────────────────────
-        for p in [10, 20, 30, 50, 100, 200]:
-            df.ta.ema(length=p, append=True)
-            df.ta.sma(length=p, append=True)
-        df.ta.vwma(length=20, append=True)
-        df.ta.hma(length=9, append=True)
-
-        # ── Ichimoku ────────────────────────────────────────────
-        ichi_df, _ = df.ta.ichimoku()
-        ichi_last  = ichi_df.iloc[-1]
-        ichi_base  = ichi_last.get('IKS_26', None)   # Kijun-sen (Base Line)
-
-        last = df.iloc[-1]
-        g = lambda k: (float(last[k]) if k in df.columns and pd.notna(last[k]) else None)
+        bb  = ta.volatility.BollingerBands(c, 20, 2)
+        ema13 = ta.trend.EMAIndicator(c, 13).ema_indicator()
+        ichi  = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
 
         return {
-            "close":     g("Close"),
-            "rsi":       g("RSI_14"),
-            "stoch_k":   g("STOCHk_14_3_3"),
-            "cci":       g("CCI_20_0.015"),
-            "adx":       g("ADX_14"),
-            "ao":        g("AO_5_34"),
-            "mom":       g("MOM_10"),
-            "macd":      g("MACD_12_26_9"),
-            "stochrsi":  g("STOCHRSIk_14_14_3_3"),
-            "willr":     g("WILLR_14"),
-            "bbpower":   g("BBPower"),
-            "uo":        g("UO_7_14_28"),
-            "bbu":       g("BBU_20_2.0_2.0"),
-            "bbl":       g("BBL_20_2.0_2.0"),
-            "ema10":     g("EMA_10"),  "sma10":  g("SMA_10"),
-            "ema20":     g("EMA_20"),  "sma20":  g("SMA_20"),
-            "ema30":     g("EMA_30"),  "sma30":  g("SMA_30"),
-            "ema50":     g("EMA_50"),  "sma50":  g("SMA_50"),
-            "ema100":    g("EMA_100"), "sma100": g("SMA_100"),
-            "ema200":    g("EMA_200"), "sma200": g("SMA_200"),
-            "ichimoku":  float(ichi_base) if ichi_base is not None and pd.notna(ichi_base) else None,
-            "vwma":      g("VWMA_20"),
-            "hma":       g("HMA_9"),
+            "close":    last(c),
+            "rsi":      last(ta.momentum.RSIIndicator(c, 14).rsi()),
+            "stoch_k":  last(ta.momentum.StochasticOscillator(h,l,c,14,3).stoch()),
+            "cci":      last(ta.trend.CCIIndicator(h,l,c,20).cci()),
+            "adx":      last(ta.trend.ADXIndicator(h,l,c,14).adx()),
+            "ao":       last(ta.momentum.AwesomeOscillatorIndicator(h,l).awesome_oscillator()),
+            "mom":      last(ta.momentum.ROCIndicator(c,10).roc()),
+            "macd":     last(ta.trend.MACD(c).macd()),
+            "stochrsi": last(ta.momentum.StochRSIIndicator(c,14,3,3).stochrsi_k()),
+            "willr":    last(ta.momentum.WilliamsRIndicator(h,l,c,14).williams_r()),
+            "bbpower":  last(c - ema13),
+            "uo":       last(ta.momentum.UltimateOscillator(h,l,c,7,14,28).ultimate_oscillator()),
+            "bbu":      last(bb.bollinger_hband()),
+            "bbl":      last(bb.bollinger_lband()),
+            "ema10":    last(ta.trend.EMAIndicator(c,10).ema_indicator()),
+            "sma10":    last(ta.trend.SMAIndicator(c,10).sma_indicator()),
+            "ema20":    last(ta.trend.EMAIndicator(c,20).ema_indicator()),
+            "sma20":    last(ta.trend.SMAIndicator(c,20).sma_indicator()),
+            "ema30":    last(ta.trend.EMAIndicator(c,30).ema_indicator()),
+            "sma30":    last(ta.trend.SMAIndicator(c,30).sma_indicator()),
+            "ema50":    last(ta.trend.EMAIndicator(c,50).ema_indicator()),
+            "sma50":    last(ta.trend.SMAIndicator(c,50).sma_indicator()),
+            "ema100":   last(ta.trend.EMAIndicator(c,100).ema_indicator()),
+            "sma100":   last(ta.trend.SMAIndicator(c,100).sma_indicator()),
+            "ema200":   last(ta.trend.EMAIndicator(c,200).ema_indicator()),
+            "sma200":   last(ta.trend.SMAIndicator(c,200).sma_indicator()),
+            "ichimoku": last(ichi.ichimoku_base_line()),
+            "vwma":     last(vwma(c, v, 20)),
+            "hma":      last(hull_ma(c, 9)),
         }
     except Exception:
         return None
 
 # ─────────────────────────────────────────────────────────────────
-# JUDGMENT LOGIC
+# JUDGMENT
 # ─────────────────────────────────────────────────────────────────
 def _j(v, lo, hi):
     if v is None: return "中立"
@@ -200,8 +158,7 @@ def _rec(b, s):
     elif s > b:     return "賣出"
     else:           return "中立"
 
-def fmt(v, dec=2):
-    return f"{v:.{dec}f}" if v is not None else "N/A"
+def fmt(v, d=2): return f"{v:.{d}f}" if v is not None else "N/A"
 
 def judge_oscillators(d: dict) -> list:
     close, bbu, bbl = d["close"], d["bbu"], d["bbl"]
@@ -210,20 +167,22 @@ def judge_oscillators(d: dict) -> list:
         pct_b = (close - bbl) / (bbu - bbl) * 100
     bb_j = ("賣出" if pct_b and pct_b > 100 else
             "買入" if pct_b is not None and pct_b < 0 else "中立")
-    wr = d["willr"]
+    wr   = d["willr"]
     wr_j = ("買入" if wr and wr < -80 else "賣出" if wr and wr > -20 else "中立")
+    stochrsi = d["stochrsi"]
+    stochrsi_j = _j(stochrsi, 0.2, 0.8) if stochrsi is not None else "中立"
     return [
-        (fmt(d["rsi"]),          _j(d["rsi"],   30,  70)),
-        (fmt(d["stoch_k"]),      _j(d["stoch_k"], 20, 80)),
-        (fmt(d["cci"]),          _j(d["cci"],  -100, 100)),
-        (fmt(d["adx"]),          "中立"),
-        (fmt(d["ao"]),           _jz(d["ao"])),
-        (fmt(d["mom"]),          _jz(d["mom"])),
-        (fmt(d["macd"]),         _jz(d["macd"])),
-        (fmt(d["stochrsi"]),     _j(d["stochrsi"], 20, 80)),
-        (fmt(d["willr"]),        wr_j),
-        (fmt(d["bbpower"]),      _jz(d["bbpower"])),
-        (fmt(d["uo"]),           _j(d["uo"],   30,  70)),
+        (fmt(d["rsi"]),      _j(d["rsi"],   30,  70)),
+        (fmt(d["stoch_k"]),  _j(d["stoch_k"], 20, 80)),
+        (fmt(d["cci"]),      _j(d["cci"],  -100, 100)),
+        (fmt(d["adx"]),      "中立"),
+        (fmt(d["ao"]),       _jz(d["ao"])),
+        (fmt(d["mom"]),      _jz(d["mom"])),
+        (fmt(d["macd"]),     _jz(d["macd"])),
+        (fmt(stochrsi, 4),   stochrsi_j),
+        (fmt(d["willr"]),    wr_j),
+        (fmt(d["bbpower"]),  _jz(d["bbpower"])),
+        (fmt(d["uo"]),       _j(d["uo"],   30,  70)),
         (f"{pct_b:.1f}%" if pct_b is not None else "N/A", bb_j),
     ]
 
@@ -232,18 +191,15 @@ def judge_mas(d: dict) -> list:
     keys  = ["ema10","sma10","ema20","sma20","ema30","sma30",
              "ema50","sma50","ema100","sma100","ema200","sma200",
              "ichimoku","vwma","hma"]
-    result = []
-    for k in keys:
-        v = d[k]
-        j = ("買入" if v and close > v else
-             "賣出" if v and close < v else "中立")
-        result.append((fmt(v), j))
-    return result
+    return [(fmt(d[k]),
+             "買入" if d[k] and close > d[k] else
+             "賣出" if d[k] and close < d[k] else "中立")
+            for k in keys]
 
 def calc_summary(items):
-    b = sum(1 for _, j in items if j == "買入")
-    s = sum(1 for _, j in items if j == "賣出")
-    n = sum(1 for _, j in items if j == "中立")
+    b = sum(1 for _,j in items if j=="買入")
+    s = sum(1 for _,j in items if j=="賣出")
+    n = sum(1 for _,j in items if j=="中立")
     return b, s, n, _rec(b, s)
 
 # ─────────────────────────────────────────────────────────────────
@@ -253,13 +209,11 @@ def parse_input(text: str) -> list:
     stocks = []
     for raw in text.strip().splitlines():
         line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
+        if not line or line.startswith("#"): continue
         parts = [p.strip() for p in line.split(",")]
         ticker = parts[0].upper()
         try:
-            int(ticker)
-            stocks.append((ticker, "台股"))
+            int(ticker); stocks.append((ticker, "台股"))
         except ValueError:
             market = parts[1].upper() if len(parts) > 1 else "NASDAQ"
             stocks.append((ticker, market))
@@ -281,27 +235,24 @@ def render_table(results) -> str:
     osc_ths = "".join(f"<th>{h}</th>" for h in OSC_LABELS)
     ma_ths  = "".join(f"<th>{h}</th>" for h in MA_LABELS)
     rows = ""
-    for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
+    for ticker,market,d,error,osc,mas,osumm,msumm,tsumm in results:
         if error or not d:
             rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
                      f'<td class="market-cell">{market}</td>'
                      f'<td colspan="30" class="j-na">— 無資料 —</td></tr>')
             continue
         ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
-        osc_cells = "".join(jcell(v,j) for v,j in osc)
-        ma_cells  = "".join(jcell(v,j) for v,j in mas)
         rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
                  f'<td class="market-cell">{market}</td>'
-                 f'{osc_cells}'
-                 f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
-                 f'{ma_cells}'
-                 f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
-                 f'<td style="background:#060c18;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
-                 f'</tr>')
+                 + "".join(jcell(v,j) for v,j in osc)
+                 + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
+                 + "".join(jcell(v,j) for v,j in mas)
+                 + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
+                 + f'<td style="background:#060c18;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
+                 + '</tr>')
     return (f'<div style="overflow-x:auto;background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
-            f'<table class="res-table"><thead><tr>'
-            f'<th>代號</th><th>市場</th>{osc_ths}'
-            f'<th style="background:#0a1628">震盪小結</th>'
+            f'<table class="res-table"><thead><tr><th>代號</th><th>市場</th>'
+            f'{osc_ths}<th style="background:#0a1628">震盪小結</th>'
             f'{ma_ths}<th style="background:#0a1628">均線小結</th>'
             f'<th style="background:#060c18">整體建議</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
@@ -334,8 +285,7 @@ def build_excel(results) -> bytes:
     ws.sheet_view.showGridLines = False
     def fill(h): return PatternFill("solid", start_color=h, fgColor=h)
     def fnt(c="000000",sz=9,bd=False): return Font(name="Arial",size=sz,bold=bd,color=c)
-    mid = Side(style="medium")
-    ctr = Alignment(horizontal="center", vertical="center")
+    mid = Side(style="medium"); ctr = Alignment(horizontal="center", vertical="center")
     JCOL = {"買入":"0D47A1","賣出":"C0392B","中立":"888888","強力買入":"0D47A1","強力賣出":"C0392B"}
     col_defs = ([("代號",8,"1E3A5F"),("市場",7,"1E3A5F")]
                 + [(h,14,"1A3A6C") for h in OSC_LABELS]
@@ -364,28 +314,25 @@ def build_excel(results) -> bytes:
         ci=3
         for v,j in osc:
             cell(ci,f"{v} / {j}",rf["osc"],JCOL.get(j,"000000"),9,j!="中立"); ci+=1
-        cell(ci,f"買入:{ob}  賣出:{os_}  中立:{on_}  →  {or_}",rf["os"],JCOL.get(or_,"444444"),9,True); ci+=1
+        cell(ci,f"買入:{ob} 賣出:{os_} 中立:{on_} → {or_}",rf["os"],JCOL.get(or_,"444444"),9,True); ci+=1
         for v,j in mas:
             cell(ci,f"{v} / {j}",rf["ma"],JCOL.get(j,"000000"),9,j!="中立"); ci+=1
-        cell(ci,f"買入:{mb}  賣出:{ms_}  中立:{mn_}  →  {mr_}",rf["ms"],JCOL.get(mr_,"444444"),9,True); ci+=1
+        cell(ci,f"買入:{mb} 賣出:{ms_} 中立:{mn_} → {mr_}",rf["ms"],JCOL.get(mr_,"444444"),9,True); ci+=1
         tot_bg={"強力買入":"1A5276","買入":"2471A3","強力賣出":"922B21","賣出":"C0392B"}.get(tr_,"626567")
-        cell(ci,f"買入:{tb}  賣出:{ts_}  中立:{tn_}  →  {tr_}",tot_bg,"FFFFFF",10,True)
-    ws.cell(len(results)+3,1,f"產出時間：{datetime.now().strftime('%Y-%m-%d  %H:%M:%S')}").font=fnt("999999",8)
+        cell(ci,f"買入:{tb} 賣出:{ts_} 中立:{tn_} → {tr_}",tot_bg,"FFFFFF",10,True)
+    ws.cell(len(results)+3,1,f"產出時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}").font=fnt("999999",8)
     buf=io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 # ─────────────────────────────────────────────────────────────────
-# STREAMLIT UI
+# UI
 # ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="tv-header">
   <div style="font-size:1.8rem">📊</div>
-  <div>
-    <h1>Indicator Scanner</h1>
-    <div class="sub">12 震盪指標 · 15 移動均線 · 布林通道 %B · yfinance 數據 · Excel 匯出</div>
-  </div>
+  <div><h1>Indicator Scanner</h1>
+  <div class="sub">12 震盪指標 · 15 移動均線 · 布林通道 %B · Yahoo Finance 數據 · Excel 匯出</div></div>
 </div>""", unsafe_allow_html=True)
 
-# ── Sidebar ──────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 📋 股票清單")
     st.markdown("""
@@ -393,41 +340,33 @@ with st.sidebar:
   <b style="color:#8ab8d8">台股</b>：直接輸入代號（純數字）<br>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">2330</code>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00878</code><br>
-  <b style="color:#8ab8d8">美股</b>：代號 或 代號,交易所<br>
+  <b style="color:#8ab8d8">美股</b>：直接輸入代號<br>
   <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">BOTZ</code>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">AAPL,NASDAQ</code><br>
+  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">NVDA</code><br>
   <span style="color:#334455"># 開頭為註解行</span>
 </div>""", unsafe_allow_html=True)
 
-    stock_input = st.text_area(
-        "輸入股票清單", label_visibility="collapsed",
-        value="2330\n2317\n00878\nBOTZ\nNVDA\nAAPL",
-        height=220, placeholder="每行一個...")
-
+    stock_input = st.text_area("輸入股票清單", label_visibility="collapsed",
+        value="2330\n2317\n00878\nBOTZ\nNVDA\nAAPL", height=220)
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
-
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.68rem;color:#334455;line-height:1.8">
-  <b style="color:#3a5a7a">資料來源</b><br>
-  Yahoo Finance (yfinance)<br>
+  <b style="color:#3a5a7a">資料來源</b>：Yahoo Finance<br>
   台股代號自動加 .TW<br><br>
   <b style="color:#3a5a7a">震盪指標（12）</b><br>
-  RSI · 隨機%K · CCI · ADX · AO<br>動量 · MACD · StochRSI · 威廉%R<br>
-  牛熊力度 · 終極震盪 · 布林%B<br><br>
+  RSI · 隨機%K · CCI · ADX · AO<br>動量 · MACD · StochRSI · 威廉%R<br>牛熊力度 · 終極震盪 · 布林%B<br><br>
   <b style="color:#3a5a7a">移動均線（15）</b><br>
-  EMA/SMA 10/20/30/50/100/200<br>
-  一目均衡 · VWMA · Hull MA
+  EMA/SMA 10/20/30/50/100/200<br>一目均衡 · VWMA · Hull MA
 </div>""", unsafe_allow_html=True)
 
-# ── Main ─────────────────────────────────────────────────────────
 if not fetch_btn:
     st.markdown("""
-<div style="text-align:center;padding:60px 20px;color:#1e3a5f">
+<div style="text-align:center;padding:60px 20px">
   <div style="font-size:3rem;margin-bottom:16px">📈</div>
   <div style="font-size:1rem;color:#3a6a9a">在左側輸入股票代號，點擊「開始抓取資料」</div>
-  <div style="font-size:.78rem;color:#1e3a5f;margin-top:8px">支援台股（TWSE）· NASDAQ · NYSE · 任何 Yahoo Finance 支援的代號</div>
+  <div style="font-size:.78rem;color:#1e3a5f;margin-top:8px">支援台股 · NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
 </div>""", unsafe_allow_html=True)
     st.stop()
 
@@ -447,11 +386,9 @@ for i, (ticker, market) in enumerate(stocks):
         unsafe_allow_html=True)
     d = fetch_indicators(ticker, market)
     if d and d.get("close"):
-        osc   = judge_oscillators(d)
-        mas   = judge_mas(d)
-        osumm = calc_summary(osc)
-        msumm = calc_summary(mas)
-        ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
+        osc = judge_oscillators(d); mas = judge_mas(d)
+        osumm = calc_summary(osc);  msumm = calc_summary(mas)
+        ob,os_,on_,or_ = osumm;     mb,ms_,mn_,mr_ = msumm
         tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
         results.append((ticker,market,d,False,osc,mas,osumm,msumm,(tb,ts_,tn_,_rec(tb,ts_))))
     else:
@@ -461,12 +398,10 @@ for i, (ticker, market) in enumerate(stocks):
 progress_bar.progress(1.0, text="完成 ✓")
 status_ph.empty()
 
-# ── Stats cards ──────────────────────────────────────────────────
-total     = len(results)
-ok        = sum(1 for r in results if not r[3])
-buy_count = sum(1 for r in results if not r[3] and r[8][3] in ("買入","強力買入"))
-sell_count= sum(1 for r in results if not r[3] and r[8][3] in ("賣出","強力賣出"))
-neu_count = sum(1 for r in results if not r[3] and r[8][3] == "中立")
+total=len(results); ok=sum(1 for r in results if not r[3])
+buy_count =sum(1 for r in results if not r[3] and r[8][3] in ("買入","強力買入"))
+sell_count=sum(1 for r in results if not r[3] and r[8][3] in ("賣出","強力賣出"))
+neu_count =sum(1 for r in results if not r[3] and r[8][3]=="中立")
 
 st.markdown(f"""
 <div class="cards-row">
@@ -479,11 +414,9 @@ st.markdown(f"""
     <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
-# ── Table ─────────────────────────────────────────────────────────
 st.markdown("#### 完整指標一覽表")
 st.markdown(render_table(results), unsafe_allow_html=True)
 
-# ── Detail expanders ──────────────────────────────────────────────
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for ticker,market,d,error,osc,mas,osumm,msumm,tsumm in results:
     _,_,_,tr_ = tsumm
@@ -496,15 +429,13 @@ for ticker,market,d,error,osc,mas,osumm,msumm,tsumm in results:
             st.markdown(render_detail(ticker,d,osc,mas,osumm,msumm,tsumm),
                         unsafe_allow_html=True)
 
-# ── Download ──────────────────────────────────────────────────────
 st.markdown("---")
 _,col2,_ = st.columns([1,2,1])
 with col2:
     excel_bytes = build_excel(results)
     filename = f"Indicators_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-    st.download_button(
-        label="📥  下載 Excel 報告",
-        data=excel_bytes, file_name=filename,
+    st.download_button(label="📥  下載 Excel 報告", data=excel_bytes,
+        file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True)
     st.markdown(
