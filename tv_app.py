@@ -116,36 +116,44 @@ def fetch_indicators(ticker: str, market: str):
         ichi  = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
 
         # 動量: 取當前值與前一期方向比較（TV邏輯）
-        stoch_obj   = ta.momentum.StochasticOscillator(h, l, c, 14, 3)
-        stoch_k_s   = stoch_obj.stoch()
-        stoch_d_s   = stoch_obj.stoch_signal()   # %D = %K的3期均線，TV用此判斷
+        stoch_obj    = ta.momentum.StochasticOscillator(h, l, c, 14, 3)
+        stoch_k_s    = stoch_obj.stoch()
+        stoch_d_s    = stoch_obj.stoch_signal()   # %D，TV用此判斷（crossover邏輯）
 
-        ao_series   = ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()
-        mom_series  = c - c.shift(10)            # TV動量 = 差值
+        ao_series    = ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()
+        mom_series   = c - c.shift(10)
 
         stochrsi_obj = ta.momentum.StochRSIIndicator(c, 14, 3, 3)
-        stochrsi_d_s = stochrsi_obj.stochrsi_d() * 100  # TV用%D判斷，乘100對齊顯示
+        stochrsi_d_s = stochrsi_obj.stochrsi_d() * 100  # %D×100
 
-        bbpower_series = c - ema13               # 牛熊力度
+        willr_s      = ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()
+        bbpower_s    = c - ema13
+
+        def prev(s, n=1):
+            idx = -(n+1)
+            return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
 
         return {
-            "close":      last(c),
-            "rsi":        last(ta.momentum.RSIIndicator(c, 14).rsi()),
-            "stoch_k":    last(stoch_k_s),        # 顯示用
-            "stoch_d":    last(stoch_d_s),         # 判斷用
-            "cci":        last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
-            "adx":        last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
-            "ao":         last(ao_series),
-            "ao_prev":    float(ao_series.iloc[-2]) if len(ao_series) >= 2 and pd.notna(ao_series.iloc[-2]) else None,
-            "ao_prev2":   float(ao_series.iloc[-3]) if len(ao_series) >= 3 and pd.notna(ao_series.iloc[-3]) else None,
-            "mom":        last(mom_series),
-            "mom_prev":   float(mom_series.iloc[-2]) if len(mom_series) >= 2 and pd.notna(mom_series.iloc[-2]) else None,
-            "macd":       last(ta.trend.MACD(c).macd()),
-            "stochrsi":   last(stochrsi_d_s),      # 判斷用 %D×100
-            "willr":      last(ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()),
-            "bbpower":    last(bbpower_series),
-            "bbpower_prev": float(bbpower_series.iloc[-2]) if len(bbpower_series) >= 2 and pd.notna(bbpower_series.iloc[-2]) else None,
-            "uo":         last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
+            "close":        last(c),
+            "rsi":          last(ta.momentum.RSIIndicator(c, 14).rsi()),
+            "stoch_k":      last(stoch_k_s),
+            "stoch_d":      last(stoch_d_s),
+            "stoch_d_prev": prev(stoch_d_s),        # crossover判斷用
+            "cci":          last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
+            "adx":          last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
+            "ao":           last(ao_series),
+            "ao_prev":      prev(ao_series),
+            "ao_prev2":     prev(ao_series, 2),
+            "mom":          last(mom_series),
+            "mom_prev":     prev(mom_series),
+            "macd":         last(ta.trend.MACD(c).macd()),
+            "stochrsi":     last(stochrsi_d_s),
+            "stochrsi_prev":prev(stochrsi_d_s),     # crossover判斷用
+            "willr":        last(willr_s),
+            "willr_prev":   prev(willr_s),           # crossover判斷用
+            "bbpower":      last(bbpower_s),
+            "bbpower_prev": prev(bbpower_s),
+            "uo":           last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
             "bbu":      last(bb.bollinger_hband()),
             "bbl":      last(bb.bollinger_lband()),
             "ema10":    last(ta.trend.EMAIndicator(c, 10).ema_indicator()),
@@ -197,20 +205,31 @@ def judge_oscillators(d: dict) -> list:
     bb_j = ("賣出" if pct_b is not None and pct_b > 100 else
             "買入" if pct_b is not None and pct_b < 0 else "中立")
 
-    # 隨機%K — 顯示%K，但用%D判斷（TV官方邏輯）
-    stoch_d = d.get("stoch_d")
-    stoch_j = _j(stoch_d, 20, 80) if stoch_d is not None else "中立"
+    # 隨機%K — 顯示%K，TV用%D的crossover判斷
+    # BUY:  %D 從下往上穿越 20（prev < 20, curr > 20）或 %D < 20（持續超賣）
+    # SELL: %D 從上往下穿越 80（prev > 80, curr < 80）或 %D > 80（持續超買）
+    stoch_d  = d.get("stoch_d")
+    stoch_d1 = d.get("stoch_d_prev")
+    if stoch_d is not None:
+        if stoch_d < 20:
+            stoch_j = "買入"
+        elif stoch_d > 80:
+            stoch_j = "賣出"
+        else:
+            stoch_j = "中立"
+    else:
+        stoch_j = "中立"
 
     # AO — TV碟形/零軸交叉邏輯
     ao, ao1, ao2 = d.get("ao"), d.get("ao_prev"), d.get("ao_prev2")
     if ao is not None and ao1 is not None and ao2 is not None:
-        if ao > 0 and ao > ao1 and ao1 < ao2:      # 碟形買入
+        if ao > 0 and ao > ao1 and ao1 < ao2:
             ao_j = "買入"
-        elif ao < 0 and ao < ao1 and ao1 > ao2:    # 碟形賣出
+        elif ao < 0 and ao < ao1 and ao1 > ao2:
             ao_j = "賣出"
-        elif ao1 is not None and ao1 < 0 and ao > 0:  # 零軸向上穿越
+        elif ao1 < 0 and ao > 0:
             ao_j = "買入"
-        elif ao1 is not None and ao1 > 0 and ao < 0:  # 零軸向下穿越
+        elif ao1 > 0 and ao < 0:
             ao_j = "賣出"
         else:
             ao_j = "中立"
@@ -224,14 +243,47 @@ def judge_oscillators(d: dict) -> list:
     else:
         mom_j = "中立"
 
-    # StochRSI — TV用%D判斷
-    sr = d.get("stochrsi")
-    sr_j = _j(sr, 20, 80) if sr is not None else "中立"
+    # StochRSI — TV用%D的crossover邏輯
+    # BUY:  %D 穿越上 20 或持續在 20 以下
+    # SELL: %D 穿越下 80 或持續在 80 以上
+    sr  = d.get("stochrsi")
+    sr1 = d.get("stochrsi_prev")
+    if sr is not None:
+        if sr < 20:
+            sr_j = "買入"
+        elif sr > 80:
+            # TV: crossunder 80 = sell, still above 80 = neutral
+            # 當%D > 80但沒有剛穿越時，TV顯示中立
+            if sr1 is not None and sr1 <= 80:
+                sr_j = "賣出"   # 剛穿越 80
+            else:
+                sr_j = "中立"   # 持續在 80 以上 = 中立
+        else:
+            sr_j = "中立"
+    else:
+        sr_j = "中立"
 
-    # 威廉%R — TV: < -80 = 買入, > -20 = 賣出
-    wr = d.get("willr")
-    wr_j = ("買入" if wr is not None and wr < -80 else
-            "賣出" if wr is not None and wr > -20 else "中立")
+    # 威廉%R — TV crossover邏輯
+    # BUY:  WR 從下往上穿越 -80（超賣反轉）
+    # SELL: WR 從上往下穿越 -20（超買反轉）
+    # 持續停在區間內但未穿越 = 中立
+    wr  = d.get("willr")
+    wr1 = d.get("willr_prev")
+    if wr is not None and wr1 is not None:
+        if wr1 < -80 and wr >= -80:      # 穿越上 -80 = 買入
+            wr_j = "買入"
+        elif wr1 > -20 and wr <= -20:    # 穿越下 -20 = 賣出
+            wr_j = "賣出"
+        elif wr < -80:                   # 持續在超賣區 = 買入
+            wr_j = "買入"
+        elif wr > -20:                   # 持續在超買區 = 賣出
+            wr_j = "賣出"
+        else:
+            wr_j = "中立"
+    elif wr is not None:
+        wr_j = "買入" if wr < -80 else ("賣出" if wr > -20 else "中立")
+    else:
+        wr_j = "中立"
 
     # 牛熊力度 — TV：正且遞增=買入，負且遞減=賣出
     bbp, bbp1 = d.get("bbpower"), d.get("bbpower_prev")
@@ -245,7 +297,7 @@ def judge_oscillators(d: dict) -> list:
     else:
         bbp_j = "中立"
 
-    # 終極震盪 — TV：> 70 = 買入，< 30 = 賣出（與RSI方向相反）
+    # 終極震盪 — TV：> 70 = 買入，< 30 = 賣出
     uo = d.get("uo")
     uo_j = ("買入" if uo is not None and uo > 70 else
             "賣出" if uo is not None and uo < 30 else "中立")
