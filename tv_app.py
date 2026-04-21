@@ -365,29 +365,26 @@ def jcell(val, judg):
     return f'<td class="{cls}">{val}</td>'
 
 def render_table(results) -> str:
-    osc_ths = "".join(f"<th>{h}</th>" for h in OSC_LABELS)
-    ma_ths  = "".join(f"<th>{h}</th>" for h in MA_LABELS)
     rows = ""
     for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         if error or not d:
             rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
                      f'<td class="market-cell">{market}</td>'
-                     f'<td colspan="30" class="j-na">— 無資料 —</td></tr>')
+                     f'<td class="j-na">— 無資料 —</td>'
+                     f'<td class="j-na">— 無資料 —</td>'
+                     f'<td class="j-na">— 無資料 —</td></tr>')
             continue
         ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
-        rows += (f'<tr><td class="ticker-cell">{ticker}</td>'
-                 f'<td class="market-cell">{market}</td>'
-                 + "".join(jcell(v, j) for v, j in osc)
-                 + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
-                 + "".join(jcell(v, j) for v, j in mas)
-                 + f'<td style="background:#0a1628;color:#8899aa;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
-                 + f'<td style="background:#060c18;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
-                 + '</tr>')
-    return (f'<div style="overflow-x:auto;background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
-            f'<table class="res-table"><thead><tr><th>代號</th><th>市場</th>'
-            f'{osc_ths}<th style="background:#0a1628">震盪小結</th>'
-            f'{ma_ths}<th style="background:#0a1628">均線小結</th>'
-            f'<th style="background:#060c18">整體建議</th>'
+        osc_cell = f'<td style="background:#0d1b2e;font-size:.82rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
+        ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
+        tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
+        rows += f'<tr><td class="ticker-cell">{ticker}</td><td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>'
+    return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
+            f'<table class="res-table"><thead><tr>'
+            f'<th>代號</th><th>市場</th>'
+            f'<th style="background:#0d1b2e;min-width:220px">震盪小結</th>'
+            f'<th style="background:#0d1b2e;min-width:220px">均線小結</th>'
+            f'<th style="background:#060c18;min-width:220px">整體建議</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
