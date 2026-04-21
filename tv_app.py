@@ -93,6 +93,18 @@ INDEX_NAMES = {
     "JPY=X":"USD/JPY","EURUSD=X":"EUR/USD","TWD=X":"USD/TWD",
 }
 
+# ── 台股代號識別 ─────────────────────────────────────────────────
+def is_tw_stock(ticker: str) -> bool:
+    """台股：純數字 或 數字+單一英文字母結尾（00632R、006205L）"""
+    import re
+    return bool(re.match(r'^\d+[A-Z]?$', ticker))
+
+def get_yf_symbol(ticker: str) -> str:
+    """將使用者輸入代號轉換為 yfinance 查詢格式"""
+    if ticker in SYMBOL_ALIASES:
+        return SYMBOL_ALIASES[ticker]
+    return ticker + ".TW" if is_tw_stock(ticker) else ticker
+
 # ── TradingView 圖表連結對照（ticker → TV symbol） ───────────────
 TV_CHART_MAP = {
     "DJI":"DJ:DJI","DJIA":"DJ:DJI",
