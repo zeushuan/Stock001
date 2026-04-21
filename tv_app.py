@@ -57,6 +57,7 @@ section[data-testid="stSidebar"] .stTextArea textarea{background:#0d1b2e !import
 .stProgress > div > div{background:#0a6dd4 !important;}
 .main{background:#060c18;}
 .stExpander{border:1px solid #1a2f48 !important;border-radius:10px !important;background:#080e1a !important;}
+.res-table a:hover{text-decoration:underline !important;opacity:.85;}
 </style>""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────
@@ -68,36 +69,99 @@ MA_LABELS  = ["EMA(10)","SMA(10)","EMA(20)","SMA(20)","EMA(30)","SMA(30)",
               "EMA(50)","SMA(50)","EMA(100)","SMA(100)","EMA(200)","SMA(200)",
               "一目均衡基準線","VWMA(20)","Hull MA(9)"]
 
-# ─────────────────────────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────────────────────────
-def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
-    half = max(n // 2, 1)
-    w1 = series.rolling(half).apply(
-        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
-    w2 = series.rolling(n).apply(
-        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
-    diff = 2 * w1 - w2
-    sqn = max(int(np.sqrt(n)), 1)
-    return diff.rolling(sqn).apply(
-        lambda x: np.average(x, weights=range(1, len(x)+1)), raw=True)
+# ── 指數 / 特殊代號別名對照 ──────────────────────────────────────
+SYMBOL_ALIASES = {
+    "DJI":"^DJI","DJIA":"^DJI","SPX":"^GSPC","SP500":"^GSPC",
+    "NDX":"^NDX","NASDAQ":"^IXIC","COMP":"^IXIC",
+    "VIX":"^VIX","RUT":"^RUT",
+    "TWII":"^TWII","TWI":"^TWII",
+    "N225":"^N225","NIKKEI":"^N225",
+    "HSI":"^HSI","KOSPI":"^KS11",
+    "SSE":"000001.SS","SHCOMP":"000001.SS",
+    "DAX":"^GDAXI","FTSE":"^FTSE","CAC":"^FCHI",
+    "GOLD":"GC=F","OIL":"CL=F","WTI":"CL=F",
+    "USDJPY":"JPY=X","EURUSD":"EURUSD=X","USDTWD":"TWD=X",
+}
 
-def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
-    return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
+INDEX_NAMES = {
+    "^DJI":"道瓊工業指數","^GSPC":"S&P 500","^IXIC":"NASDAQ 綜合指數",
+    "^NDX":"NASDAQ 100","^VIX":"VIX 恐慌指數","^RUT":"羅素 2000",
+    "^TWII":"台灣加權指數","^N225":"日經 225","^HSI":"恒生指數",
+    "^KS11":"韓國 KOSPI","000001.SS":"上證指數",
+    "^GDAXI":"德國 DAX","^FTSE":"英國富時 100","^FCHI":"法國 CAC 40",
+    "GC=F":"黃金期貨","CL=F":"WTI 原油期貨",
+    "JPY=X":"USD/JPY","EURUSD=X":"EUR/USD","TWD=X":"USD/TWD",
+}
 
-# ─────────────────────────────────────────────────────────────────
-# TAIWAN STOCK DETECTION  ← FIX: 支援 00632R / 006205L 等含字母代號
-# ─────────────────────────────────────────────────────────────────
-def is_tw_stock(ticker: str) -> bool:
-    """台股：純數字 或 數字+單一英文字母結尾（00632R、006205L）"""
-    return bool(re.match(r'^\d+[A-Z]?$', ticker))
+# ── TradingView 圖表連結對照（ticker → TV symbol） ───────────────
+TV_CHART_MAP = {
+    "DJI":"DJ:DJI","DJIA":"DJ:DJI",
+    "SPX":"SP:SPX","SP500":"SP:SPX",
+    "NDX":"NASDAQ:NDX",
+    "NASDAQ":"NASDAQ:COMP","COMP":"NASDAQ:COMP",
+    "VIX":"CBOE:VIX",
+    "RUT":"TVC:RUT",
+    "TWII":"TWSE:TAIEX","TWI":"TWSE:TAIEX",
+    "N225":"INDEX:NKY","NIKKEI":"INDEX:NKY",
+    "HSI":"HSI:HSI",
+    "KOSPI":"KRX:KOSPI",
+    "SSE":"SSE:000001","SHCOMP":"SSE:000001",
+    "DAX":"XETR:DAX","FTSE":"LSE:UKX","CAC":"EURONEXT:PX1",
+    "GOLD":"TVC:GOLD","OIL":"TVC:USOIL","WTI":"TVC:USOIL",
+    "USDJPY":"FX:USDJPY","EURUSD":"FX:EURUSD","USDTWD":"FX:USDTWD",
+}
 
-def get_yf_symbol(ticker: str) -> str:
-    return ticker + ".TW" if is_tw_stock(ticker) else ticker
+def get_tv_url(ticker: str, market: str) -> str:
+    """產生 TradingView 圖表連結"""
+    base = "https://www.tradingview.com/chart/?symbol="
+    if ticker in TV_CHART_MAP:
+        return base + TV_CHART_MAP[ticker]
+    if market == "台股":
+        return base + f"TWSE:{ticker}"
+    if market in ("NASDAQ","NYSE","AMEX","OTC"):
+        return base + f"{market}:{ticker}"
+    return base + ticker
 
-# ─────────────────────────────────────────────────────────────────
-# DATA FETCH + INDICATORS
-# ─────────────────────────────────────────────────────────────────
+def get_perplexity_url(ticker: str, name: str, d: dict) -> str:
+    import urllib.parse
+    close  = d.get("close")  or 0
+    sma50  = d.get("sma50")  or 0
+    sma200 = d.get("sma200") or 0
+    bbu    = d.get("bbu")    or 0
+    bbl    = d.get("bbl")    or 0
+    bbm    = d.get("ema20")  or 0
+    display = f"{ticker}（{name}）" if name and name != ticker else ticker
+    lines = [
+        f"你是一位專業量化交易員，現在請你只針對 {display} 這檔標的，使用日線圖與布林通道為主的技術分析，幫我判斷短中期的買點與賣點。",
+        "",
+        "分析要求：",
+        f"先簡要描述目前 {ticker} 價格相對於 20 日均線（布林中軌）、50 日均線、200 日均線的位置，以及整體趨勢是偏多頭、盤整還是空頭。",
+        f"現價約 {close:.2f}，50 日均線約 {sma50:.2f}，200 日均線約 {sma200:.2f}，請一併納入考量。",
+        "",
+        "說明布林通道三條線的狀態：",
+        f"20MA 中軌（目前約 {bbm:.2f}）",
+        f"上軌 = 中軌 + 2 倍標準差（目前約 {bbu:.2f}）",
+        f"下軌 = 中軌 − 2 倍標準差（目前約 {bbl:.2f}）",
+        "並判斷通道目前是「張口擴大」（走趨勢）還是「收斂變窄」（盤整壓縮）。",
+        "",
+        "依照以下布林通道操作原則，具體列出：",
+        "可能的「低風險買點」條件：例如股價由下往上突破下軌、或由下往上突破中軌且帶量，代表跌勢鈍化或多頭啟動，可分批布局或加碼。",
+        "可能的「獲利了結／賣點」條件：例如股價接近或碰到上軌出現明顯壓回、或由上往下跌破中軌，代表多頭力道轉弱，可減碼或出場。",
+        "若價格在中軌與上軌之間且沿著上軌上行，視為強勢多頭，只調整移動停損，不急著賣出。",
+        "",
+        "如果布林通道出現「收口壓縮」的型態，請說明：這代表波動縮小、可能醞釀後續大的突破。價格向上突破上軌搭配帶寬擴大時，可以視為順勢做多訊號；價格向下跌破下軌搭配帶寬擴大時，可以視為順勢做空或觀望不買的訊號。",
+        "",
+        "最後請整理成：",
+        "1～2 個「建議買進區間與條件」",
+        "1～2 個「建議停利／停損的區間與條件」",
+        "每個條件用條列式說明「價格位置 + 布林通道狀態 + 風險說明」，並提醒這只是技術面機率，不是保證。",
+        "",
+        "請用繁體中文作答，條列清楚，避免空洞的形容詞，重點放在可執行的「條件式規則」。",
+    ]
+    prompt = "\n".join(lines)
+    return "https://www.perplexity.ai/search?q=" + urllib.parse.quote(prompt)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_tw_names() -> dict:
     """台股中文名稱字典，從 twstock 載入並快取"""
@@ -110,11 +174,13 @@ def _get_tw_names() -> dict:
 def _get_stock_name(ticker: str, symbol: str) -> str:
     """取得股票中文/英文名稱"""
     try:
+        # 指數/特殊代號先查靜態對照表
+        if symbol in INDEX_NAMES:
+            return INDEX_NAMES[symbol]
         if is_tw_stock(ticker):
             tw_names = _get_tw_names()
             return tw_names.get(ticker, ticker)
         else:
-            # 從 yfinance 抓英文名，改用 fast_info 或 get_info 避免 timeout
             t = yf.Ticker(symbol)
             try:
                 info = t.get_info()
@@ -378,6 +444,8 @@ def parse_input(text: str) -> list:
         ticker = parts[0].upper()
         if is_tw_stock(ticker):
             stocks.append((ticker, "台股"))
+        elif ticker in SYMBOL_ALIASES:
+            stocks.append((ticker, "指數"))
         else:
             market = parts[1].upper() if len(parts) > 1 else "NASDAQ"
             stocks.append((ticker, market))
@@ -411,7 +479,16 @@ def render_table(results) -> str:
         osc_cell = f'<td style="background:#0d1b2e;font-size:.82rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
-        rows += f'<tr><td class="ticker-cell">{ticker}</td><td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">{name}</td><td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>'
+        tv_url  = get_tv_url(ticker, market)
+        ppl_url = get_perplexity_url(ticker, name, d)
+        rows += (f'<tr>'
+                 f'<td class="ticker-cell">'
+                 f'<a href="{ppl_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
+                 f'</td>'
+                 f'<td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
+                 f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#8ab8d8;text-decoration:none;">{name}</a>'
+                 f'</td>'
+                 f'<td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>')
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>市場</th>'
