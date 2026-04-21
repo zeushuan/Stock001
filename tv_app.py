@@ -214,7 +214,11 @@ def judge_oscillators(d: dict) -> list:
         if stoch_d < 20:
             stoch_j = "買入"
         elif stoch_d > 80:
-            stoch_j = "賣出"
+            # crossunder邏輯：剛穿越80向下才算賣出，持續在80以上=中立
+            if stoch_d1 is not None and stoch_d1 <= 80:
+                stoch_j = "賣出"
+            else:
+                stoch_j = "中立"
         else:
             stoch_j = "中立"
     else:
@@ -274,26 +278,23 @@ def judge_oscillators(d: dict) -> list:
             wr_j = "買入"
         elif wr1 > -20 and wr <= -20:    # 穿越下 -20 = 賣出
             wr_j = "賣出"
-        elif wr < -80:                   # 持續在超賣區 = 買入
-            wr_j = "買入"
-        elif wr > -20:                   # 持續在超買區 = 賣出
-            wr_j = "賣出"
         else:
-            wr_j = "中立"
-    elif wr is not None:
-        wr_j = "買入" if wr < -80 else ("賣出" if wr > -20 else "中立")
+            wr_j = "中立"               # 未穿越閾值 = 中立
     else:
         wr_j = "中立"
 
-    # 牛熊力度 — TV：正且遞增=買入，負且遞減=賣出
+    # 牛熊力度 — TV：zero crossover邏輯
+    # BUY:  BBP 從負穿越到正（prev < 0, curr > 0）
+    # SELL: BBP 從正穿越到負（prev > 0, curr < 0）
+    # 持續正或負未穿越 = 中立
     bbp, bbp1 = d.get("bbpower"), d.get("bbpower_prev")
     if bbp is not None and bbp1 is not None:
-        if bbp > 0 and bbp > bbp1:
-            bbp_j = "買入"
-        elif bbp < 0 and bbp < bbp1:
-            bbp_j = "賣出"
+        if bbp1 <= 0 and bbp > 0:
+            bbp_j = "買入"   # 穿越零軸向上
+        elif bbp1 >= 0 and bbp < 0:
+            bbp_j = "賣出"   # 穿越零軸向下
         else:
-            bbp_j = "中立"
+            bbp_j = "中立"   # 持續同側 = 中立
     else:
         bbp_j = "中立"
 
