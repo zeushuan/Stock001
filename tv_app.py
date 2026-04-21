@@ -206,19 +206,22 @@ def _get_stock_name(ticker: str, symbol: str) -> str:
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
+    last_err = None
     for attempt in range(2):
         try:
             yf_obj = yf.Ticker(symbol)
             df = yf_obj.history(period="1y", interval="1d")
             if df is not None and len(df) >= 30:
                 break
+            last_err = f"rows={len(df) if df is not None else 0}"
             df = None
-        except Exception:
+        except Exception as e:
+            last_err = str(e)[:120]
             df = None
             if attempt == 0:
-                import time; time.sleep(1)
+                import time; time.sleep(1.5)
     if df is None or len(df) < 30:
-        return None
+        return {"_error": last_err or "no data"}
     try:
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
@@ -291,8 +294,8 @@ def fetch_indicators(ticker: str, market: str):
             "vwma":     last(vwma(c, v, 20)),
             "hma":      last(hull_ma(c, 9)),
         }
-    except Exception:
-        return None
+    except Exception as e:
+        return {"_error": str(e)[:120]}
 
 # ─────────────────────────────────────────────────────────────────
 # JUDGMENT LOGIC
@@ -643,6 +646,7 @@ if not stocks:
 progress_bar = st.progress(0, text="準備中...")
 status_ph    = st.empty()
 results = []
+debug_msgs = []
 
 for i, (ticker, market) in enumerate(stocks):
     progress_bar.progress(i / len(stocks), text=f"抓取 {ticker}  ({i+1}/{len(stocks)})")
@@ -651,6 +655,9 @@ for i, (ticker, market) in enumerate(stocks):
         f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
         unsafe_allow_html=True)
     d = fetch_indicators(ticker, market)
+    if d and d.get("_error"):
+        debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
+        d = None
     if d and d.get("close"):
         osc   = judge_oscillators(d)
         mas   = judge_mas(d)
@@ -660,11 +667,20 @@ for i, (ticker, market) in enumerate(stocks):
         tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
         results.append((ticker, market, d, False, osc, mas, osumm, msumm, (tb,ts_,tn_,_rec(tb,ts_))))
     else:
+        if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
+            debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
         results.append((ticker, market, None, True, [], [],
                         (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立")))
 
 progress_bar.progress(1.0, text="完成 ✓")
 status_ph.empty()
+if debug_msgs:
+    with st.expander(f"⚠️ {len(debug_msgs)} 筆無法取得資料（點擊展開查看原因）", expanded=True):
+        for msg in debug_msgs:
+            st.markdown(f"<div style='font-size:.8rem;color:#ff8080;font-family:monospace'>{msg}</div>",
+                        unsafe_allow_html=True)
+        st.markdown("<div style='font-size:.75rem;color:#556677;margin-top:8px'>可能原因：代號格式不正確、Yahoo Finance 暫時無法存取、或此標的在 Yahoo Finance 不存在</div>",
+                    unsafe_allow_html=True)
 
 total      = len(results)
 ok         = sum(1 for r in results if not r[3])
