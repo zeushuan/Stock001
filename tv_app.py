@@ -778,6 +778,13 @@ if fetch_btn:
             f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
             unsafe_allow_html=True)
         d = fetch_indicators(ticker, market)
+        # Debug: 顯示實際回傳內容
+        _dbg = f"type={type(d).__name__}"
+        if d is None:
+            _dbg += " | None"
+        elif isinstance(d, dict):
+            _dbg += f" | keys={list(d.keys())[:5]}"
+        debug_msgs.append(f"🔍 {ticker}: {_dbg}")
         if d and d.get("_error"):
             debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
             d = None
