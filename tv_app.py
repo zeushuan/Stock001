@@ -667,8 +667,21 @@ with st.sidebar:
   <span style="color:#334455"># 開頭為註解行</span>
 </div>""", unsafe_allow_html=True)
 
+    # 從 GitHub 讀取預設清單
+    GITHUB_LIST_URL = "https://raw.githubusercontent.com/zeushuan/stock001/main/stocks.txt"
+    @st.cache_data(ttl=300, show_spinner=False)
+    def load_default_stocks() -> str:
+        try:
+            r = requests.get(GITHUB_LIST_URL, timeout=6)
+            if r.status_code == 200 and r.text.strip():
+                return r.text.strip()
+        except Exception:
+            pass
+        return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
+
+    default_stocks = load_default_stocks()
     stock_input = st.text_area("輸入股票清單", label_visibility="collapsed",
-        value="2330\n2317\n00878\n00632R\nBOTZ\nNVDA\nAAPL", height=220)
+        value=default_stocks, height=220)
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
