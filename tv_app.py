@@ -251,12 +251,17 @@ def get_ai_analysis(ticker: str, name: str, close: float,
                     bbu: float, bbm: float, bbl: float,
                     osc_summary: str, ma_summary: str,
                     overall: str) -> str:
-    """呼叫 Gemini API 取得簡短操作建議"""
+    """呼叫 Gemini API 取得簡短操作建議（使用 REST API 直接呼叫）"""
+    import json
     try:
-        api_key = st.secrets.get("GEMINI_API_KEY", "")
-        if not api_key or google_genai is None:
-            return ""
-        client = google_genai.Client(api_key=api_key)
+        # 讀取 API Key
+        try:
+            api_key = st.secrets["GEMINI_API_KEY"]
+        except Exception:
+            return "⚠️ 請在 Streamlit Cloud Secrets 設定 GEMINI_API_KEY"
+        if not api_key:
+            return "⚠️ GEMINI_API_KEY 為空"
+
         display = f"{ticker}（{name}）" if name and name != ticker else ticker
         prompt = (
             f"你是專業量化交易員，請針對 {display} 給出極簡短的技術面操作建議（繁體中文，100字以內）。\n"
@@ -265,13 +270,16 @@ def get_ai_analysis(ticker: str, name: str, close: float,
             f"震盪指標：{osc_summary}，均線：{ma_summary}，整體建議：{overall}。\n"
             f"請直接給出1~2句可執行的操作建議，格式：【操作建議】xxx。不需解釋。"
         )
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
-        return response.text.strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        r = requests.post(url, json=payload, timeout=15)
+        if r.status_code != 200:
+            return f"⚠️ API 錯誤 {r.status_code}"
+        data = r.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return text.strip()
     except Exception as e:
-        return ""
+        return f"⚠️ {str(e)[:80]}"
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
