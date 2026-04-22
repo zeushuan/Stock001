@@ -9,6 +9,10 @@ import numpy as np
 import pandas as pd
 import ta
 import yfinance as yf
+try:
+    from google import genai as google_genai
+except ImportError:
+    google_genai = None
 # twstock loaded on demand via cached function
 import streamlit as st
 from openpyxl import Workbook
@@ -240,6 +244,34 @@ def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
 def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     """Volume Weighted Moving Average"""
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_ai_analysis(ticker: str, name: str, close: float,
+                    sma50: float, sma200: float,
+                    bbu: float, bbm: float, bbl: float,
+                    osc_summary: str, ma_summary: str,
+                    overall: str) -> str:
+    """呼叫 Gemini API 取得簡短操作建議"""
+    try:
+        api_key = st.secrets.get("GEMINI_API_KEY", "")
+        if not api_key or google_genai is None:
+            return ""
+        client = google_genai.Client(api_key=api_key)
+        display = f"{ticker}（{name}）" if name and name != ticker else ticker
+        prompt = (
+            f"你是專業量化交易員，請針對 {display} 給出極簡短的技術面操作建議（繁體中文，100字以內）。\n"
+            f"目前數據：現價 {close:.2f}，50MA {sma50:.2f}，200MA {sma200:.2f}，"
+            f"布林上軌 {bbu:.2f}，中軌 {bbm:.2f}，下軌 {bbl:.2f}。\n"
+            f"震盪指標：{osc_summary}，均線：{ma_summary}，整體建議：{overall}。\n"
+            f"請直接給出1~2句可執行的操作建議，格式：【操作建議】xxx。不需解釋。"
+        )
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
+        return response.text.strip()
+    except Exception as e:
+        return ""
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
@@ -530,7 +562,7 @@ def jcell(val, judg):
 def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}",
                  selected_platform: str = "Perplexity") -> str:
     rows = ""
-    for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
+    for ticker, market, d, error, osc, mas, osumm, msumm, tsumm, *_ in results:
         name = d.get("name", ticker) if d else ticker
         if error or not d:
             tv_url_err  = get_tv_url(ticker, market)
@@ -619,7 +651,8 @@ def build_excel(results) -> bytes:
     ws.row_dimensions[1].height = 22; ws.freeze_panes = "C2"
     rf_e = {"osc":"EBF0FA","os":"D6E4FF","ma":"EAFAF1","ms":"D5F5E3","base":"F0F4FF"}
     rf_o = {"osc":"F5F8FF","os":"E8F0FF","ma":"F5FFF8","ms":"E8FFF0","base":"FFFFFF"}
-    for ri, (ticker, market, d, error, osc, mas, osumm, msumm, tsumm) in enumerate(results, 2):
+    for ri, item in enumerate(results, 2):
+        ticker, market, d, error, osc, mas, osumm, msumm, tsumm = item[:9]
         ws.row_dimensions[ri].height = 18
         rf = rf_e if ri % 2 == 0 else rf_o
         def cell(col, val, bg, fc="000000", sz=9, bd=False):
@@ -724,12 +757,24 @@ if fetch_btn:
             msumm = calc_summary(mas)
             ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
             tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
-            results.append((ticker, market, d, False, osc, mas, osumm, msumm, (tb,ts_,tn_,_rec(tb,ts_))))
-        else:
+            # 呼叫 Gemini 取得操作建議
+        ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
+        ai_suggestion = get_ai_analysis(
+            ticker, d.get("name", ticker),
+            d.get("close") or 0,
+            d.get("sma50") or 0, d.get("sma200") or 0,
+            d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
+            f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
+            f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
+            _rec(tb, ts_),
+        )
+        results.append((ticker, market, d, False, osc, mas, osumm, msumm,
+                        (tb,ts_,tn_,_rec(tb,ts_)), ai_suggestion))
+    else:
             if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
                 debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
             results.append((ticker, market, None, True, [], [],
-                            (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立")))
+                            (0,0,0,"中立"), (0,0,0,"中立"), (0,0,0,"中立"), ""))
 
     progress_bar.progress(1.0, text="完成 ✓")
     status_ph.empty()
@@ -783,7 +828,9 @@ st.markdown("#### 完整指標一覽表")
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
-for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
+for item in results:
+    ticker, market, d, error, osc, mas, osumm, msumm, tsumm = item[:9]
+    ai_suggestion = item[9] if len(item) > 9 else ""
     _, _, _, tr_ = tsumm
     title = f"{ticker}  {market}  {tr_}" if not error else f"{ticker}  —  無資料"
     with st.expander(title, expanded=False):
@@ -793,6 +840,15 @@ for ticker, market, d, error, osc, mas, osumm, msumm, tsumm in results:
         else:
             st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
+            if ai_suggestion:
+                st.markdown(
+                    f'<div style="margin-top:12px;padding:12px 16px;background:#0d1b2e;'
+                    f'border-left:3px solid #3b9eff;border-radius:6px;">'
+                    f'<div style="font-size:.68rem;color:#5a8ab0;margin-bottom:4px;'
+                    f'letter-spacing:.08em;text-transform:uppercase">🤖 Gemini 操作建議</div>'
+                    f'<div style="font-size:.88rem;color:#c8dff0;line-height:1.6">{ai_suggestion}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True)
 
 st.markdown("---")
 _, col2, _ = st.columns([1, 2, 1])
