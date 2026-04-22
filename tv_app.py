@@ -792,7 +792,7 @@ for item in results:
     _, _, _, tr_ = tsumm
     name  = d.get("name", ticker) if d else ticker
     label = f"{ticker}  {name}" if name and name != ticker else ticker
-    title = f"{label}  {market}  {tr_}" if not error else f"{label}  —  無資料"
+    title = f"{label}  {tr_}" if not error else f"{label}  —  無資料"
     with st.expander(title, expanded=False):
         if error or not d:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
