@@ -783,7 +783,7 @@ if fetch_btn:
         if d is None:
             _dbg += " | None"
         elif isinstance(d, dict):
-            _dbg += f" | keys={list(d.keys())[:5]}"
+            _dbg += f" | keys={list(d.keys())[:5]} | close={d.get('close')!r}"
         debug_msgs.append(f"🔍 {ticker}: {_dbg}")
         if d and d.get("_error"):
             debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
