@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re, io, warnings, requests
+import re, io, warnings, requests, time
 from datetime import datetime
 
 warnings.filterwarnings("ignore")
@@ -273,6 +273,9 @@ def get_ai_analysis(ticker: str, name: str, close: float,
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
         r = requests.post(url, json=payload, timeout=15)
+        if r.status_code == 429:
+            time.sleep(10)
+            r = requests.post(url, json=payload, timeout=15)
         if r.status_code != 200:
             return f"⚠️ API 錯誤 {r.status_code}"
         data = r.json()
@@ -765,19 +768,8 @@ if fetch_btn:
             msumm = calc_summary(mas)
             ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
             tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
-            # 呼叫 Gemini 取得操作建議
-        ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
-        ai_suggestion = get_ai_analysis(
-            ticker, d.get("name", ticker),
-            d.get("close") or 0,
-            d.get("sma50") or 0, d.get("sma200") or 0,
-            d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
-            f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
-            f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
-            _rec(tb, ts_),
-        )
-        results.append((ticker, market, d, False, osc, mas, osumm, msumm,
-                        (tb,ts_,tn_,_rec(tb,ts_)), ai_suggestion))
+            results.append((ticker, market, d, False, osc, mas, osumm, msumm,
+                        (tb,ts_,tn_,_rec(tb,ts_)), ""))
     else:
             if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
                 debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
@@ -838,7 +830,6 @@ st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_a
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for item in results:
     ticker, market, d, error, osc, mas, osumm, msumm, tsumm = item[:9]
-    ai_suggestion = item[9] if len(item) > 9 else ""
     _, _, _, tr_ = tsumm
     title = f"{ticker}  {market}  {tr_}" if not error else f"{ticker}  —  無資料"
     with st.expander(title, expanded=False):
@@ -848,6 +839,26 @@ for item in results:
         else:
             st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
+            # 展開時才呼叫 Gemini（用 session_state 快取避免重複請求）
+            ai_key = f"ai_{ticker}"
+            if ai_key not in st.session_state:
+                st.session_state[ai_key] = None
+            if st.session_state[ai_key] is None:
+                with st.spinner("🤖 Gemini 分析中..."):
+                    ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
+                    tb2 = ob2+mb2; ts2 = os2+ms2
+                    name = d.get("name", ticker)
+                    suggestion = get_ai_analysis(
+                        ticker, name,
+                        d.get("close") or 0,
+                        d.get("sma50") or 0, d.get("sma200") or 0,
+                        d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
+                        f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
+                        f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
+                        _rec(tb2, ts2),
+                    )
+                    st.session_state[ai_key] = suggestion
+            ai_suggestion = st.session_state[ai_key]
             if ai_suggestion:
                 st.markdown(
                     f'<div style="margin-top:12px;padding:12px 16px;background:#0d1b2e;'
