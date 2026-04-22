@@ -245,23 +245,24 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     """Volume Weighted Moving Average"""
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_ai_analysis(ticker: str, name: str, close: float,
-                    sma50: float, sma200: float,
-                    bbu: float, bbm: float, bbl: float,
+def get_ai_analysis(ticker: str, name: str, d: dict,
                     osc_summary: str, ma_summary: str,
                     overall: str) -> str:
-    """呼叫 Gemini API 取得簡短操作建議（使用 REST API 直接呼叫）"""
-    import json
+    """呼叫 Gemini API 取得簡短操作建議"""
     try:
-        # 讀取 API Key
         try:
             api_key = st.secrets["GEMINI_API_KEY"]
         except Exception:
-            return "⚠️ 請在 Streamlit Cloud Secrets 設定 GEMINI_API_KEY"
+            return "⚠️ 請在 Streamlit Secrets 設定 GEMINI_API_KEY"
         if not api_key:
             return "⚠️ GEMINI_API_KEY 為空"
 
+        close  = d.get("close")  or 0
+        sma50  = d.get("sma50")  or 0
+        sma200 = d.get("sma200") or 0
+        bbu    = d.get("bbu")    or 0
+        bbm    = d.get("ema20")  or 0
+        bbl    = d.get("bbl")    or 0
         display = f"{ticker}（{name}）" if name and name != ticker else ticker
         prompt = (
             f"你是專業量化交易員，請針對 {display} 給出極簡短的技術面操作建議（繁體中文，100字以內）。\n"
@@ -270,19 +271,18 @@ def get_ai_analysis(ticker: str, name: str, close: float,
             f"震盪指標：{osc_summary}，均線：{ma_summary}，整體建議：{overall}。\n"
             f"請直接給出1~2句可執行的操作建議，格式：【操作建議】xxx。不需解釋。"
         )
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"gemini-2.0-flash:generateContent?key={api_key}")
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        r = requests.post(url, json=payload, timeout=15)
+        r = requests.post(url, json=payload, timeout=20)
         if r.status_code == 429:
-            time.sleep(10)
-            r = requests.post(url, json=payload, timeout=15)
+            return "⚠️ 請求過於頻繁（429），請稍後再試"
         if r.status_code != 200:
-            return f"⚠️ API 錯誤 {r.status_code}"
+            return f"⚠️ API 錯誤 {r.status_code}: {r.text[:100]}"
         data = r.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return text.strip()
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
-        return f"⚠️ {str(e)[:80]}"
+        return f"⚠️ {str(e)[:100]}"
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
@@ -857,10 +857,7 @@ for item in results:
                         ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
                         tb2 = ob2+mb2; ts2 = os2+ms2
                         suggestion = get_ai_analysis(
-                            ticker, d.get("name", ticker),
-                            d.get("close") or 0,
-                            d.get("sma50") or 0, d.get("sma200") or 0,
-                            d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
+                            ticker, d.get("name", ticker), d,
                             f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
                             f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
                             _rec(tb2, ts2),
