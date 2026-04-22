@@ -681,7 +681,9 @@ with st.sidebar:
         try:
             r = requests.get(GITHUB_LIST_URL, timeout=6)
             if r.status_code == 200 and r.text.strip():
-                return r.text.strip()
+                # 清除空行及多餘空白
+                lines = [l.strip() for l in r.text.splitlines() if l.strip()]
+                return "\n".join(lines)
         except Exception:
             pass
         return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
@@ -705,6 +707,10 @@ with st.sidebar:
 
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
 if fetch_btn:
+    # 清除舊的 AI 快取與結果
+    for k in list(st.session_state.keys()):
+        if k.startswith("ai_") or k == "results" or k == "debug_msgs":
+            del st.session_state[k]
     stocks = parse_input(stock_input)
     if not stocks:
         st.error("股票清單為空，請重新輸入"); st.stop()
