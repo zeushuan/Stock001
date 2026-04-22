@@ -207,22 +207,43 @@ def _get_tw_names() -> dict:
     except Exception:
         return {}
 
+# 常用美股/ETF 靜態名稱對照（避免 get_info() 在雲端失敗）
+US_NAMES = {
+    "BOTZ": "Global X Robotics & AI ETF",
+    "NVDA": "NVIDIA Corporation",
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corporation",
+    "TSLA": "Tesla Inc.",
+    "AMZN": "Amazon.com Inc.",
+    "GOOGL": "Alphabet Inc.",
+    "META": "Meta Platforms Inc.",
+    "SPY": "SPDR S&P 500 ETF",
+    "QQQ": "Invesco QQQ Trust",
+    "ARKK": "ARK Innovation ETF",
+    "GLD": "SPDR Gold Shares",
+    "TLT": "iShares 20+ Year Treasury Bond ETF",
+}
+
 def _get_stock_name(ticker: str, symbol: str) -> str:
     """取得股票中文/英文名稱"""
     try:
-        # 指數/特殊代號先查靜態對照表
+        # 1. 指數/特殊代號靜態對照
         if symbol in INDEX_NAMES:
             return INDEX_NAMES[symbol]
+        # 2. 台股 twstock
         if is_tw_stock(ticker):
             tw_names = _get_tw_names()
             return tw_names.get(ticker, ticker)
-        else:
+        # 3. 常用美股靜態對照
+        if ticker in US_NAMES:
+            return US_NAMES[ticker]
+        # 4. yfinance 動態查詢（fallback）
+        try:
             t = yf.Ticker(symbol)
-            try:
-                info = t.get_info()
-                return info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                return ticker
+            info = t.get_info()
+            return info.get("longName") or info.get("shortName") or ticker
+        except Exception:
+            return ticker
     except Exception:
         return ticker
 
@@ -248,7 +269,7 @@ def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
     last_err = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             yf_obj = yf.Ticker(symbol)
             df = yf_obj.history(period="1y", interval="1d")
@@ -259,8 +280,8 @@ def fetch_indicators(ticker: str, market: str):
         except Exception as e:
             last_err = str(e)[:120]
             df = None
-            if attempt == 0:
-                import time; time.sleep(1.5)
+        if df is None and attempt < 2:
+            time.sleep(2 + attempt * 2)   # 2s, 4s
     if df is None or len(df) < 30:
         return {"_error": last_err or "no data"}
     try:
