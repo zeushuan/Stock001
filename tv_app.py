@@ -502,12 +502,16 @@ def calc_summary(items):
 # ─────────────────────────────────────────────────────────────────
 def parse_input(text: str) -> list:
     stocks = []
+    seen   = set()
     for raw in text.strip().splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         parts  = [p.strip() for p in line.split(",")]
         ticker = parts[0].upper()
+        if ticker in seen:
+            continue
+        seen.add(ticker)
         if is_tw_stock(ticker):
             stocks.append((ticker, "台股"))
         elif ticker in SYMBOL_ALIASES:
