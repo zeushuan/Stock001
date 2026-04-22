@@ -9,10 +9,7 @@ import numpy as np
 import pandas as pd
 import ta
 import yfinance as yf
-try:
-    from google import genai as google_genai
-except ImportError:
-    google_genai = None
+
 # twstock loaded on demand via cached function
 import streamlit as st
 from openpyxl import Workbook
@@ -245,44 +242,6 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     """Volume Weighted Moving Average"""
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
-def get_ai_analysis(ticker: str, name: str, d: dict,
-                    osc_summary: str, ma_summary: str,
-                    overall: str) -> str:
-    """呼叫 Gemini API 取得簡短操作建議"""
-    try:
-        try:
-            api_key = st.secrets["GEMINI_API_KEY"]
-        except Exception:
-            return "⚠️ 請在 Streamlit Secrets 設定 GEMINI_API_KEY"
-        if not api_key:
-            return "⚠️ GEMINI_API_KEY 為空"
-
-        close  = d.get("close")  or 0
-        sma50  = d.get("sma50")  or 0
-        sma200 = d.get("sma200") or 0
-        bbu    = d.get("bbu")    or 0
-        bbm    = d.get("ema20")  or 0
-        bbl    = d.get("bbl")    or 0
-        display = f"{ticker}（{name}）" if name and name != ticker else ticker
-        prompt = (
-            f"你是專業量化交易員，請針對 {display} 給出極簡短的技術面操作建議（繁體中文，100字以內）。\n"
-            f"目前數據：現價 {close:.2f}，50MA {sma50:.2f}，200MA {sma200:.2f}，"
-            f"布林上軌 {bbu:.2f}，中軌 {bbm:.2f}，下軌 {bbl:.2f}。\n"
-            f"震盪指標：{osc_summary}，均線：{ma_summary}，整體建議：{overall}。\n"
-            f"請直接給出1~2句可執行的操作建議，格式：【操作建議】xxx。不需解釋。"
-        )
-        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"gemini-2.0-flash:generateContent?key={api_key}")
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        r = requests.post(url, json=payload, timeout=20)
-        if r.status_code == 429:
-            return "⚠️ 請求過於頻繁（429），請稍後再試"
-        if r.status_code != 200:
-            return f"⚠️ API 錯誤 {r.status_code}: {r.text[:100]}"
-        data = r.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        return f"⚠️ {str(e)[:100]}"
 
 @st.cache_data(ttl=300, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
@@ -839,31 +798,7 @@ for item in results:
         else:
             st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
-            # AI 建議：用按鈕手動觸發，避免自動呼叫造成 429
-            ai_key  = f"ai_{ticker}"
-            ai_suggestion = st.session_state.get(ai_key, "")
-            if ai_suggestion:
-                st.markdown(
-                    f'<div style="margin-top:12px;padding:12px 16px;background:#0d1b2e;'
-                    f'border-left:3px solid #3b9eff;border-radius:6px;">'
-                    f'<div style="font-size:.68rem;color:#5a8ab0;margin-bottom:4px;'
-                    f'letter-spacing:.08em;text-transform:uppercase">🤖 Gemini 操作建議</div>'
-                    f'<div style="font-size:.88rem;color:#c8dff0;line-height:1.6">{ai_suggestion}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True)
-            else:
-                if st.button(f"🤖 取得 Gemini 操作建議", key=f"btn_{ticker}"):
-                    with st.spinner("Gemini 分析中..."):
-                        ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
-                        tb2 = ob2+mb2; ts2 = os2+ms2
-                        suggestion = get_ai_analysis(
-                            ticker, d.get("name", ticker), d,
-                            f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
-                            f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
-                            _rec(tb2, ts2),
-                        )
-                        st.session_state[ai_key] = suggestion
-                        st.rerun()
+
 
 st.markdown("---")
 _, col2, _ = st.columns([1, 2, 1])
