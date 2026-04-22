@@ -278,7 +278,6 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
 
-@st.cache_data(ttl=None, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
