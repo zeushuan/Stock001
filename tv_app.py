@@ -790,7 +790,9 @@ st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for item in results:
     ticker, market, d, error, osc, mas, osumm, msumm, tsumm = item[:9]
     _, _, _, tr_ = tsumm
-    title = f"{ticker}  {market}  {tr_}" if not error else f"{ticker}  —  無資料"
+    name  = d.get("name", ticker) if d else ticker
+    label = f"{ticker}  {name}" if name and name != ticker else ticker
+    title = f"{label}  {market}  {tr_}" if not error else f"{label}  —  無資料"
     with st.expander(title, expanded=False):
         if error or not d:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
