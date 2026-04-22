@@ -332,7 +332,7 @@ def fetch_indicators(ticker: str, market: str):
         l = get_col("low")
         v = get_col("volume")
         if c.dropna().empty:
-            return {"_error": f"close all NaN | cols={list(df.columns)}"}
+            return {"_error": f"close all NaN | cols={list(df.columns)} | shape={df.shape} | head={df.head(2).to_dict()}"}
 
         def last(s):
             val = s.iloc[-1]
