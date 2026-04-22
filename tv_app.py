@@ -10,6 +10,20 @@ import pandas as pd
 import ta
 import yfinance as yf
 
+# 設定 yfinance 請求 headers，避免被 Yahoo Finance 封鎖
+try:
+    import requests as _req
+    _session = _req.Session()
+    _session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+    })
+    yf.set_config(session=_session)
+except Exception:
+    pass
+
 # twstock loaded on demand via cached function
 import streamlit as st
 from openpyxl import Workbook
