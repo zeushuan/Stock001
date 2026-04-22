@@ -310,7 +310,8 @@ def fetch_indicators(ticker: str, market: str):
         if df is None and attempt < 2:
             time.sleep(3 + attempt * 3)
     if df is None or len(df) < 30:
-        return {"_error": last_err or "no data"}
+        rows = len(df) if df is not None else 0
+        return {"_error": f"rows={rows} | {last_err or 'no data'}"}
     try:
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
