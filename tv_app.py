@@ -283,10 +283,23 @@ def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
     last_err = None
+    is_tw = symbol.endswith(".TW")
+
     for attempt in range(3):
         try:
-            yf_obj = yf.Ticker(symbol)
-            df = yf_obj.history(period="1y", interval="1d")
+            if is_tw:
+                # 台股改用 yf.download() 並關閉進度條
+                raw = yf.download(
+                    symbol, period="1y", interval="1d",
+                    progress=False, auto_adjust=True,
+                    multi_level_index=False,
+                )
+                df = raw if raw is not None and len(raw) >= 30 else None
+            else:
+                yf_obj = yf.Ticker(symbol)
+                df = yf_obj.history(period="1y", interval="1d")
+                if df is not None and len(df) < 30:
+                    df = None
             if df is not None and len(df) >= 30:
                 break
             last_err = f"rows={len(df) if df is not None else 0}"
@@ -295,13 +308,16 @@ def fetch_indicators(ticker: str, market: str):
             last_err = str(e)[:120]
             df = None
         if df is None and attempt < 2:
-            time.sleep(2 + attempt * 2)   # 2s, 4s
+            time.sleep(3 + attempt * 3)
     if df is None or len(df) < 30:
         return {"_error": last_err or "no data"}
     try:
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
-        df.columns = [c.capitalize() for c in df.columns]
+        # 統一欄位名稱 (Ticker.history 和 yf.download 格式不同)
+        df.columns = [str(col).split(",")[0].strip().capitalize() for col in df.columns]
+        if "Close" not in df.columns:
+            df.columns = [c.capitalize() for c in df.columns]
         c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
 
         def last(s):
