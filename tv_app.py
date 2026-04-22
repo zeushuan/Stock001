@@ -315,10 +315,24 @@ def fetch_indicators(ticker: str, market: str):
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
         # 統一欄位名稱 (Ticker.history 和 yf.download 格式不同)
-        df.columns = [str(col).split(",")[0].strip().capitalize() for col in df.columns]
-        if "Close" not in df.columns:
-            df.columns = [c.capitalize() for c in df.columns]
-        c, h, l, v = df["Close"], df["High"], df["Low"], df["Volume"]
+        # yf.download 可能有 MultiIndex (Price, Ticker) 或 (Price,) 格式
+        if hasattr(df.columns, 'levels'):
+            # MultiIndex - 取第一層
+            df.columns = [str(col[0]).strip().capitalize()
+                          if isinstance(col, tuple) else str(col).strip().capitalize()
+                          for col in df.columns]
+        else:
+            df.columns = [str(col).strip().capitalize() for col in df.columns]
+        # 確認必要欄位存在
+        col_map = {c.lower(): c for c in df.columns}
+        def get_col(name):
+            return df[col_map[name]] if name in col_map else pd.Series(dtype=float)
+        c = get_col("close")
+        h = get_col("high")
+        l = get_col("low")
+        v = get_col("volume")
+        if c.dropna().empty:
+            return {"_error": f"close all NaN | cols={list(df.columns)}"}
 
         def last(s):
             val = s.iloc[-1]
