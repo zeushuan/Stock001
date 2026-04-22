@@ -738,8 +738,8 @@ if fetch_btn:
             ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
             tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
             results.append((ticker, market, d, False, osc, mas, osumm, msumm,
-                        (tb,ts_,tn_,_rec(tb,ts_)), ""))
-    else:
+                            (tb,ts_,tn_,_rec(tb,ts_)), ""))
+        else:
             if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
                 debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
             results.append((ticker, market, None, True, [], [],
