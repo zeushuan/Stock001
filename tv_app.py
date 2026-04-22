@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re, io, warnings
+import re, io, warnings, requests
 from datetime import datetime
 
 warnings.filterwarnings("ignore")
