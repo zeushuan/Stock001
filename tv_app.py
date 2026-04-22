@@ -839,26 +839,9 @@ for item in results:
         else:
             st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
-            # 展開時才呼叫 Gemini（用 session_state 快取避免重複請求）
-            ai_key = f"ai_{ticker}"
-            if ai_key not in st.session_state:
-                st.session_state[ai_key] = None
-            if st.session_state[ai_key] is None:
-                with st.spinner("🤖 Gemini 分析中..."):
-                    ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
-                    tb2 = ob2+mb2; ts2 = os2+ms2
-                    name = d.get("name", ticker)
-                    suggestion = get_ai_analysis(
-                        ticker, name,
-                        d.get("close") or 0,
-                        d.get("sma50") or 0, d.get("sma200") or 0,
-                        d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
-                        f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
-                        f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
-                        _rec(tb2, ts2),
-                    )
-                    st.session_state[ai_key] = suggestion
-            ai_suggestion = st.session_state[ai_key]
+            # AI 建議：用按鈕手動觸發，避免自動呼叫造成 429
+            ai_key  = f"ai_{ticker}"
+            ai_suggestion = st.session_state.get(ai_key, "")
             if ai_suggestion:
                 st.markdown(
                     f'<div style="margin-top:12px;padding:12px 16px;background:#0d1b2e;'
@@ -868,6 +851,22 @@ for item in results:
                     f'<div style="font-size:.88rem;color:#c8dff0;line-height:1.6">{ai_suggestion}</div>'
                     f'</div>',
                     unsafe_allow_html=True)
+            else:
+                if st.button(f"🤖 取得 Gemini 操作建議", key=f"btn_{ticker}"):
+                    with st.spinner("Gemini 分析中..."):
+                        ob2,os2,on2,or2 = osumm; mb2,ms2,mn2,mr2 = msumm
+                        tb2 = ob2+mb2; ts2 = os2+ms2
+                        suggestion = get_ai_analysis(
+                            ticker, d.get("name", ticker),
+                            d.get("close") or 0,
+                            d.get("sma50") or 0, d.get("sma200") or 0,
+                            d.get("bbu") or 0, d.get("ema20") or 0, d.get("bbl") or 0,
+                            f"買:{ob2} 賣:{os2} 中:{on2} → {or2}",
+                            f"買:{mb2} 賣:{ms2} 中:{mn2} → {mr2}",
+                            _rec(tb2, ts2),
+                        )
+                        st.session_state[ai_key] = suggestion
+                        st.rerun()
 
 st.markdown("---")
 _, col2, _ = st.columns([1, 2, 1])
