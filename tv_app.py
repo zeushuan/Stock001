@@ -264,7 +264,7 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=None, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
@@ -697,7 +697,7 @@ with st.sidebar:
 
     # 從 GitHub 讀取預設清單
     GITHUB_LIST_URL = "https://raw.githubusercontent.com/zeushuan/stock001/main/stocks.txt"
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=None, show_spinner=False)
     def load_default_stocks() -> str:
         try:
             r = requests.get(GITHUB_LIST_URL, timeout=6)
