@@ -773,9 +773,24 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("""
-<div style="font-size:.68rem;color:#334455;line-height:1.8">
+<div style="font-size:.75rem;color:#8ab8d8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">
+  📖 使用說明
+</div>
+<div style="font-size:.72rem;color:#5a8ab0;line-height:2;background:#0a1220;border-radius:8px;padding:10px 12px;border:1px solid #1a2f48">
+  <span style="color:#3b9eff;font-weight:700">①</span> 在上方輸入欲掃描的股票代號<br>
+  <span style="color:#3b9eff;font-weight:700">②</span> 點擊「開始抓取資料」按鈕<br>
+  <span style="color:#3b9eff;font-weight:700">③</span> 查看右側指標總表與個股詳情<br>
+  <span style="color:#3b9eff;font-weight:700">④</span> 點擊代號連結 → AI 技術分析<br>
+  <span style="color:#3b9eff;font-weight:700">⑤</span> 點擊名稱連結 → TradingView 圖表<br>
+  <span style="color:#3b9eff;font-weight:700">⑥</span> 底部可下載 Excel 完整報告
+</div>
+<div style="font-size:.68rem;color:#334455;line-height:1.8;margin-top:10px">
+  <b style="color:#3a5a7a">判斷說明</b><br>
+  <span style="color:#3b9eff">■</span> 買入 / 強力買入：多頭訊號<br>
+  <span style="color:#ff5555">■</span> 賣出 / 強力賣出：空頭訊號<br>
+  <span style="color:#556677">■</span> 中立：無明確方向<br><br>
   <b style="color:#3a5a7a">資料來源</b>：Yahoo Finance<br>
-  台股自動加 .TW（含 00632R 等反/槓桿 ETF）<br><br>
+  台股自動加 .TW（含反/槓桿 ETF）<br><br>
   <b style="color:#3a5a7a">震盪指標（12）</b><br>
   RSI · 隨機%K · CCI · ADX · AO<br>動量 · MACD · StochRSI · 威廉%R<br>牛熊力度 · 終極震盪 · 布林%B<br><br>
   <b style="color:#3a5a7a">移動均線（15）</b><br>
