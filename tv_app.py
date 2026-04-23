@@ -1172,6 +1172,13 @@ with st.sidebar:
   EMA/SMA 10/20/30/50/100/200<br>一目均衡 · VWMA · Hull MA
 </div>""", unsafe_allow_html=True)
 
+# ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
+_RESULTS_VERSION = 2   # 每次 tuple 格式變更時 +1
+if st.session_state.get("results_version") != _RESULTS_VERSION:
+    for _k in ["results", "debug_msgs"]:
+        st.session_state.pop(_k, None)
+    st.session_state["results_version"] = _RESULTS_VERSION
+
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
 if fetch_btn:
     # 清除舊的 AI 快取與結果
@@ -1230,8 +1237,9 @@ if fetch_btn:
     status_ph.empty()
 
     # 儲存到 session_state
-    st.session_state["results"]    = results
-    st.session_state["debug_msgs"] = debug_msgs
+    st.session_state["results"]         = results
+    st.session_state["debug_msgs"]      = debug_msgs
+    st.session_state["results_version"] = _RESULTS_VERSION
 
 # 從 session_state 讀取（保持結果在模型切換時不消失）
 if "results" not in st.session_state:
