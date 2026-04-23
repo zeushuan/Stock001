@@ -288,14 +288,14 @@ def fetch_indicators(ticker: str, market: str):
         try:
             if is_tw:
                 # 台股用 yf.download()，ETF 不做價格調整
-                for _adj in [False, True]:
+                # 先嘗試 2y（新ETF資料可能不足1y），再試 1y
+                for _period, _adj in [("2y", False), ("1y", False), ("2y", True), ("1y", True)]:
                     raw = yf.download(
-                        symbol, period="1y", interval="1d",
+                        symbol, period=_period, interval="1d",
                         progress=False, auto_adjust=_adj,
                         multi_level_index=False,
                     )
-                    if raw is not None and len(raw) >= 30:
-                        # 確認 Close 欄有實際數值
+                    if raw is not None and len(raw) >= 20:
                         _c = raw.get("Close", raw.get("close", pd.Series()))
                         if not _c.dropna().empty:
                             df = raw
@@ -316,7 +316,7 @@ def fetch_indicators(ticker: str, market: str):
             df = None
         if df is None and attempt < 2:
             time.sleep(3 + attempt * 3)
-    if df is None or len(df) < 30:
+    if df is None or len(df) < 20:
         rows = len(df) if df is not None else 0
         return {"_error": f"rows={rows} | {last_err or 'no data'}"}
     try:
@@ -343,8 +343,11 @@ def fetch_indicators(ticker: str, market: str):
             return {"_error": f"close all NaN | cols={list(df.columns)} | shape={df.shape} | head={df.head(2).to_dict()}"}
 
         def last(s):
-            val = s.iloc[-1]
-            return float(val) if pd.notna(val) else None
+            # 取最後一個非 NaN 值（避免最新行有 NaN 的問題）
+            s_clean = s.dropna()
+            if s_clean.empty:
+                return None
+            return float(s_clean.iloc[-1])
 
         bb   = ta.volatility.BollingerBands(c, 20, 2)
         ema13 = ta.trend.EMAIndicator(c, 13).ema_indicator()
