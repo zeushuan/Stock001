@@ -815,26 +815,47 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
     ma_medium_summ = calc_summary([mas[i] for i in MA_MEDIUM], [MA_WEIGHTS[i] for i in MA_MEDIUM])
     ma_long_summ   = calc_summary([mas[i] for i in MA_LONG],   [MA_WEIGHTS[i] for i in MA_LONG])
 
-    def group_title(label, summ):
+    def summ_bar(label, b, s, n, r, color):
+        return (f'<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;'
+                f'padding:7px 12px;display:flex;align-items:center;gap:8px;white-space:nowrap">'
+                f'<span style="color:{color};font-size:.68rem;font-weight:700">{label}</span>'
+                f'{badge(r)}'
+                f'<span style="color:#7a9ab0;font-size:.68rem">買:<b style="color:#3b9eff">{b}</b>'
+                f' 賣:<b style="color:#ff5555">{s}</b> 中:<b style="color:#7a8899">{n}</b></span>'
+                f'</div>')
+
+    def group_title(label, summ, color="#7ab0d0"):
         b,s,n,r = summ
-        return (f'<div class="section-title" style="margin-top:10px">{label} '
-                f'<span style="color:#3a5a7a;font-weight:400;font-size:.62rem">買:{b} 賣:{s} 中:{n}</span>'
-                f'&nbsp;{badge(r)}</div>')
+        return (f'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px;'
+                f'border-top:1px solid #0f1f33;padding-top:8px">'
+                f'<span style="color:{color};font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">{label}</span>'
+                f'{badge(r)}'
+                f'<span style="color:#7a9ab0;font-size:.66rem">買:<b style="color:#3b9eff">{b}</b>'
+                f' 賣:<b style="color:#ff5555">{s}</b> 中:<b style="color:#7a8899">{n}</b></span>'
+                f'</div>')
+
+    summary_row = (
+        f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+        f'<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;padding:7px 12px">'
+        f'<span style="color:#7ab0d0;font-size:.68rem">收盤價 </span>'
+        f'<b style="color:#e8f4fd;font-family:\'IBM Plex Mono\',monospace">{fmt(d["close"])}</b></div>'
+        f'{summ_bar("震盪 ×2", ob, os_, on_, or_, "#3b9eff")}'
+        f'{summ_bar("均線(加權)", mb, ms_, mn_, mr_, "#60c8a0")}'
+        f'{summ_bar("整體加權", tb, ts_, tn_, tr_, "#e8f4fd")}'
+        f'</div>'
+    )
 
     return (f'<div style="padding:4px 8px">'
-            f'<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
-            f'<span style="color:#5a8ab0;font-size:.75rem">收盤價 <b style="color:#e8f4fd">{fmt(d["close"])}</b></span>'
-            f'<span>震盪(×2)：{badge(or_)} <span style="color:#6a8899;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_}</span></span>'
-            f'<span>均線(加權)：{badge(mr_)} <span style="color:#6a8899;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_}</span></span>'
-            f'<span>整體加權：{badge(tr_)} <span style="color:#6a8899;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_}</span></span>'
-            f'</div>'
-            f'<div class="section-title">震盪指標 <span style="color:#3b9eff;font-weight:400;font-size:.62rem">× 2（短期動能，反應最快）</span></div>'
+            f'{summary_row}'
+            f'<div style="color:#3b9eff;font-size:.67rem;font-weight:700;text-transform:uppercase;'
+            f'letter-spacing:.06em;margin-bottom:6px">震盪指標 '
+            f'<span style="color:#3b7acc;font-weight:400">× 2 — 短期動能，反應最快</span></div>'
             f'<div class="ind-grid">{osc_items}</div>'
-            f'{group_title("短均線 EMA/SMA 10/20/30", ma_short_summ)}'
+            f'{group_title("短均線 EMA/SMA 10 / 20 / 30  ×1.5", ma_short_summ, "#60c8a0")}'
             f'<div class="ind-grid">{ma_group(MA_SHORT)}</div>'
-            f'{group_title("中均線 EMA/SMA 50/100", ma_medium_summ)}'
+            f'{group_title("中均線 EMA/SMA 50 / 100  ×1.2", ma_medium_summ, "#a0b8c8")}'
             f'<div class="ind-grid">{ma_group(MA_MEDIUM)}</div>'
-            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull MA", ma_long_summ)}'
+            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull  ×1.0", ma_long_summ, "#556677")}'
             f'<div class="ind-grid">{ma_group(MA_LONG)}</div>'
             f'</div>')
 
@@ -1048,14 +1069,14 @@ platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
 
 st.markdown("#### 完整指標一覽表")
-st.markdown("""
-<div style="font-size:.72rem;color:#6a8899;background:#080e1a;border:1px solid #1a2f48;
-            border-radius:8px;padding:9px 14px;margin-bottom:10px;line-height:2">
-  <b style="color:#a8cce8">加權說明</b>：分數非等票，依指標反應速度加權，避免長期均線過度稀釋短期訊號<br>
-  <span style="color:#3b9eff;font-weight:700">× 2</span>&nbsp; 震盪指標（RSI、MACD、CCI … 共 12 項）— 反應最快，最能捕捉短期動能<br>
-  <span style="color:#60c8a0;font-weight:700">× 1.5</span>&nbsp; 短均線 EMA/SMA 10/20/30 — 近期趨勢方向<br>
-  <span style="color:#a0b8c8;font-weight:700">× 1.2</span>&nbsp; 中均線 EMA/SMA 50/100 — 中期趨勢確認<br>
-  <span style="color:#556677;font-weight:700">× 1.0</span>&nbsp; 長均線 EMA/SMA 200、一目均衡、VWMA、Hull MA — 長期背景，僅作參考
+with st.expander("⚖️ 加權說明（點擊展開）", expanded=False):
+    st.markdown("""
+<div style="font-size:.73rem;color:#8ab8d0;line-height:2.1">
+分數非等票，依指標<b style="color:#a8cce8">反應速度</b>加權，避免長期均線過度稀釋短期動能訊號。<br>
+<span style="color:#3b9eff;font-weight:700">× 2</span>&nbsp;&nbsp;震盪指標（RSI、MACD、CCI … 共 12 項）— 反應最快，最能捕捉短期動能<br>
+<span style="color:#60c8a0;font-weight:700">× 1.5</span>&nbsp;&nbsp;短均線 EMA/SMA 10 / 20 / 30 — 近期趨勢方向<br>
+<span style="color:#a0b8c8;font-weight:700">× 1.2</span>&nbsp;&nbsp;中均線 EMA/SMA 50 / 100 — 中期趨勢確認<br>
+<span style="color:#667788;font-weight:700">× 1.0</span>&nbsp;&nbsp;長均線 EMA/SMA 200、一目均衡、VWMA、Hull MA — 長期背景，僅作參考
 </div>""", unsafe_allow_html=True)
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
