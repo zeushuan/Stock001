@@ -59,6 +59,9 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .badge-strong-sell{background:#4a0a0a;color:#ff6b6b;border:1px solid #8b1a1a;}
 .badge-sell{background:#3b0d0d;color:#ff8080;border:1px solid #6b1515;}
 .badge-neutral{background:#1a2030;color:#8899aa;border:1px solid #2a3545;}
+.badge-buy-limit{background:#3a2a00;color:#f0c030;border:1px solid #8a6000;}
+.badge-overheat{background:#3a1800;color:#ff8830;border:1px solid #8a3800;}
+.badge-bearish{background:#3a0808;color:#ff5555;border:1px solid #7a1010;}
 .ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:10px 0;}
 .ind-item{background:#0d1b2e;border:1px solid #1e3550;border-radius:8px;padding:10px 13px;display:flex;flex-direction:column;gap:5px;}
 .ind-label{color:#7aaac8;font-size:.72rem;font-weight:600;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -430,13 +433,17 @@ def fetch_indicators(ticker: str, market: str):
                 return None
             return float(s_clean.iloc[-1])
 
-        bb   = ta.volatility.BollingerBands(c, 20, 2)
-        ema13 = ta.trend.EMAIndicator(c, 13).ema_indicator()
-        ichi  = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
+        bb      = ta.volatility.BollingerBands(c, 20, 2)
+        ema13   = ta.trend.EMAIndicator(c, 13).ema_indicator()
+        ichi    = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
         ema20_s = ta.trend.EMAIndicator(c, 20).ema_indicator()
         ema60_s = ta.trend.EMAIndicator(c, 60).ema_indicator()
+        sma200_s= ta.trend.SMAIndicator(c, 200).sma_indicator()
         adx_obj = ta.trend.ADXIndicator(h, l, c, 14)
         adx_s   = adx_obj.adx()
+        macd_obj    = ta.trend.MACD(c)
+        macd_hist_s = macd_obj.macd_diff()
+        vol_ma20_s  = ta.trend.SMAIndicator(v, 20).sma_indicator() if not v.dropna().empty else pd.Series(dtype=float)
 
         # 動量: 取當前值與前一期方向比較（TV邏輯）
         stoch_obj    = ta.momentum.StochasticOscillator(h, l, c, 14, 3)
@@ -506,12 +513,16 @@ def fetch_indicators(ticker: str, market: str):
             "adx_prev":     prev(adx_s),
             "adx_pos":      last(adx_obj.adx_pos()),
             "adx_neg":      last(adx_obj.adx_neg()),
+            "macd_hist":      last(macd_hist_s),
+            "macd_hist_prev": prev(macd_hist_s),
+            "volume":       last(v),
+            "vol_ma20":     last(vol_ma20_s) if not vol_ma20_s.empty else None,
             "ao":           last(ao_series),
             "ao_prev":      prev(ao_series),
             "ao_prev2":     prev(ao_series, 2),
             "mom":          last(mom_series),
             "mom_prev":     prev(mom_series),
-            "macd":         last(ta.trend.MACD(c).macd()),
+            "macd":         last(macd_obj.macd()),
             "stochrsi":     last(stochrsi_d_s),
             "stochrsi_prev":prev(stochrsi_d_s),     # crossover判斷用
             "willr":        last(willr_s),
@@ -523,22 +534,27 @@ def fetch_indicators(ticker: str, market: str):
             "bbl":      last(bb.bollinger_lband()),
             "ema10":    last(ta.trend.EMAIndicator(c, 10).ema_indicator()),
             "sma10":    last(ta.trend.SMAIndicator(c, 10).sma_indicator()),
-            "ema20":    last(ema20_s),
+            "ema20":      last(ema20_s),
+            "ema20_prev": prev(ema20_s),
             "sma20":    last(ta.trend.SMAIndicator(c, 20).sma_indicator()),
             "ema30":    last(ta.trend.EMAIndicator(c, 30).ema_indicator()),
             "sma30":    last(ta.trend.SMAIndicator(c, 30).sma_indicator()),
             "ema50":    last(ta.trend.EMAIndicator(c, 50).ema_indicator()),
             "sma50":    last(ta.trend.SMAIndicator(c, 50).sma_indicator()),
-            "ema60":    last(ema60_s),
+            "ema60":      last(ema60_s),
+            "ema60_prev": prev(ema60_s),
             "ema20_cross_days": ema20_cross_days,
             "w_close":  w_close_v,
             "w_ma10":   w_ma10_v,
             "w_ma20":   w_ma20_v,
+            "w_dev":    ((w_close_v - w_ma10_v) / w_ma10_v * 100
+                         if w_close_v and w_ma10_v and w_ma10_v != 0 else None),
             "sma60":    last(ta.trend.SMAIndicator(c, 60).sma_indicator()),
             "ema100":   last(ta.trend.EMAIndicator(c, 100).ema_indicator()),
             "sma100":   last(ta.trend.SMAIndicator(c, 100).sma_indicator()),
-            "ema200":   last(ta.trend.EMAIndicator(c, 200).ema_indicator()),
-            "sma200":   last(ta.trend.SMAIndicator(c, 200).sma_indicator()),
+            "ema200":      last(ta.trend.EMAIndicator(c, 200).ema_indicator()),
+            "sma200":      last(sma200_s),
+            "sma200_prev": prev(sma200_s),
             "ichimoku": last(ichi.ichimoku_base_line()),
             "vwma":     last(vwma(c, v, 20)),
             "hma":      last(hull_ma(c, 9)),
@@ -728,64 +744,75 @@ def judge_trend(d: dict) -> list:
     adx, adx_pos, adx_neg = d.get("adx"), d.get("adx_pos"), d.get("adx_neg")
     adx_prev = d.get("adx_prev")
 
-    # ── 1. 趨勢方向：EMA20/60 + SMA200 位置 ──────────────────────
+    ema20_prev = d.get("ema20_prev")
+    ema60_prev = d.get("ema60_prev")
+    sma200_prev = d.get("sma200_prev")
+
+    # ── 1. 趨勢方向：EMA20/60 交叉 + 斜率 + SMA200 ───────────────
     if ema20 is not None and ema60 is not None:
-        above200 = (sma200 is None or close > sma200)
-        if ema20 > ema60 and above200:
+        e20_rising = (ema20_prev is not None and ema20 > ema20_prev)
+        e60_rising = (ema60_prev is not None and ema60 > ema60_prev)
+        above200   = (sma200 is None or close > sma200)
+        both_up    = e20_rising and e60_rising
+        if ema20 > ema60 and both_up and above200:
+            dir_val, dir_j = "多頭 (雙線↑)", "買入"
+        elif ema20 > ema60 and above200:
             dir_val, dir_j = "多頭", "買入"
         elif ema20 > ema60:
-            dir_val, dir_j = "偏多(MA分歧)", "中立"
+            dir_val, dir_j = "偏多 (MA分歧)", "中立"
         elif ema20 < ema60 and not above200:
             dir_val, dir_j = "空頭", "賣出"
         else:
             dir_val, dir_j = "盤整", "中立"
+        s200 = " · 站SMA200" if sma200 and close > sma200 else (" · 跌SMA200" if sma200 else "")
+        dir_disp = f"{dir_val}{s200}"
     else:
-        dir_val, dir_j = "N/A", "中立"
-    # 簡短描述：方向結論 + MA關係
-    if ema20 and ema60:
-        ma_rel = "EMA20>60" if ema20 > ema60 else "EMA20<60"
-        s200   = " · 站上SMA200" if sma200 and close > sma200 else (" · 跌破SMA200" if sma200 else "")
-        dir_disp = f"{dir_val} ({ma_rel}{s200})"
-    else:
-        dir_disp = dir_val
+        dir_val, dir_j, dir_disp = "N/A", "中立", "N/A"
 
-    # ── 2. 趨勢強度：ADX 等級 + +DI/-DI 方向 ────────────────────
+    # ── 2. 趨勢強度：ADX>25 門檻 + +DI/-DI 方向 ─────────────────
     if adx is not None:
         adx_rising = (adx_prev is not None and adx > adx_prev)
+        di_bull = (adx_pos and adx_neg and adx_pos > adx_neg)
         if adx < 20:
-            str_val, str_j = f"弱·盤整 (ADX {adx:.1f})", "中立"
+            str_val, str_j = f"弱 (ADX {adx:.1f})", "中立"
+        elif adx < 25:
+            str_val, str_j = f"偏弱 (ADX {adx:.1f}{'↑' if adx_rising else ''})", "中立"
         elif adx < 40:
             str_val = f"中 (ADX {adx:.1f}{'↑' if adx_rising else ''})"
-            str_j   = "買入" if (adx_pos and adx_neg and adx_pos > adx_neg) else "賣出"
-        elif adx < 60:
+            str_j   = "買入" if di_bull else "賣出"
+        elif adx < 55:
             str_val = f"強 (ADX {adx:.1f}{'↑' if adx_rising else ''})"
-            str_j   = "買入" if (adx_pos and adx_neg and adx_pos > adx_neg) else "賣出"
+            str_j   = "買入" if di_bull else "賣出"
         else:
             str_val, str_j = f"過熱 (ADX {adx:.1f})", "中立"
     else:
         str_val, str_j = "N/A", "中立"
 
-    # ── 3. 多頭階段：EMA20/60 交叉時間 + ADX 斜率 ────────────────
+    # ── 3. 多頭階段：依乖離+ADX決定 Phase1/2/3 ──────────────────
     cross = d.get("ema20_cross_days")
     adx_rising = (adx is not None and adx_prev is not None and adx > adx_prev)
+    bbu2, bbl2 = d.get("bbu"), d.get("bbl")
+    dev_for_phase = None
+    if ema20 and close:
+        dev_for_phase = (close - ema20) / ema20 * 100
+    is_phase3 = (dev_for_phase is not None and dev_for_phase > 10) or (adx is not None and adx > 50)
+
     if cross is not None and cross > 0:
-        if cross <= 20:
-            phase_val = f"啟動期 (+{cross}日)"
+        if cross <= 30:
+            phase_val = f"Phase1 啟動 (+{cross}日)"
             phase_j   = "買入"
-        elif cross <= 60 and adx_rising:
-            phase_val = f"主升段 (+{cross}日, ADX↑)"
-            phase_j   = "買入"
-        elif cross > 60 and adx is not None and adx > 40:
-            phase_val = f"加速段 (+{cross}日)"
-            phase_j   = "買入"
-        else:
-            phase_val = f"多頭中 (+{cross}日)"
+        elif is_phase3:
+            phase_val = f"Phase3 加速 (+{cross}日) ⚠禁加碼"
             phase_j   = "中立"
+        else:
+            phase_val = f"Phase2 主升 (+{cross}日)"
+            phase_j   = "買入"
     elif cross is not None and cross < 0:
         phase_val = f"死叉 ({-cross}日前)"
         phase_j   = "賣出"
     else:
-        phase_val, phase_j = "無交叉訊號", "中立"
+        phase_val = "Phase3 加速" if is_phase3 else "無明確交叉"
+        phase_j   = "中立"
 
     # ── 4. 乖離風險：EMA20 乖離 % + 布林 %B ──────────────────────
     bbu, bbl = d.get("bbu"), d.get("bbl")
@@ -793,10 +820,13 @@ def judge_trend(d: dict) -> list:
              if bbu and bbl and (bbu - bbl) != 0 else None)
     if ema20:
         dev = (close - ema20) / ema20 * 100
-        if abs(dev) < 3 and (pct_b is None or pct_b < 70):
+        if dev < 8 and (pct_b is None or pct_b < 65):
             dev_val = f"低 ({dev:+.1f}%)"
             dev_j   = "買入"
-        elif abs(dev) >= 8 or (pct_b is not None and pct_b > 85):
+        elif dev > 15 or (pct_b is not None and pct_b > 90):
+            dev_val = f"過熱 ({dev:+.1f}%) 禁新倉"
+            dev_j   = "賣出"
+        elif dev > 10 or (pct_b is not None and pct_b > 80):
             dev_val = f"高 ({dev:+.1f}%) 禁加碼"
             dev_j   = "賣出"
         else:
@@ -834,23 +864,42 @@ def judge_trend(d: dict) -> list:
 TREND_W = [5.0, 4.0, 3.0, 3.0, 2.0]   # 合計 17 → 代表 40%
 
 def judge_position(d: dict) -> list:
-    """位置風險 (30%)：RSI區間評分、布林%B"""
+    """位置風險 (30%)：EMA20 乖離 + RSI(14) + 布林 %B"""
     close = d["close"]
     rsi   = d.get("rsi")
+    ema20 = d.get("ema20")
     bbu, bbl = d.get("bbu"), d.get("bbl")
 
+    # EMA20 乖離 %
+    dev_pct = ((close - ema20) / ema20 * 100) if ema20 else None
+    if dev_pct is not None:
+        if dev_pct > 15:
+            dev_j, dev_desc = "賣出", f"乖離 {dev_pct:+.1f}% 過熱"
+        elif dev_pct > 8:
+            dev_j, dev_desc = "賣出", f"乖離 {dev_pct:+.1f}% 高"
+        elif dev_pct < -8:
+            dev_j, dev_desc = "買入", f"乖離 {dev_pct:+.1f}% 超跌"
+        elif abs(dev_pct) < 3:
+            dev_j, dev_desc = "買入", f"乖離 {dev_pct:+.1f}% 低"
+        else:
+            dev_j, dev_desc = "中立", f"乖離 {dev_pct:+.1f}%"
+    else:
+        dev_j, dev_desc = "中立", "EMA20 乖離"
+
+    # RSI 區間
     if rsi is not None:
         if rsi < 30:
             rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 超賣"
-        elif rsi <= 55:
-            rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 低位"
-        elif rsi <= 70:
-            rsi_j, rsi_desc = "中立", f"RSI {rsi:.1f} 中位"
+        elif rsi < 65:
+            rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 健康"
+        elif rsi < 78:
+            rsi_j, rsi_desc = "中立", f"RSI {rsi:.1f} 偏高"
         else:
-            rsi_j, rsi_desc = "賣出", f"RSI {rsi:.1f} 超買"
+            rsi_j, rsi_desc = "賣出", f"RSI {rsi:.1f} 過熱"
     else:
         rsi_j, rsi_desc = "中立", "RSI"
 
+    # 布林 %B
     pct_b = None
     if bbu and bbl and (bbu - bbl) != 0:
         pct_b = (close - bbl) / (bbu - bbl) * 100
@@ -865,42 +914,117 @@ def judge_position(d: dict) -> list:
         bb_j, bb_desc = "中立", "布林%B"
 
     return [
-        (rsi_desc, fmt(rsi) if rsi is not None else "N/A", rsi_j),
-        (bb_desc,  f"{pct_b:.1f}%" if pct_b is not None else "N/A", bb_j),
+        (dev_desc,  f"{dev_pct:+.1f}%" if dev_pct is not None else "N/A", dev_j),
+        (rsi_desc,  fmt(rsi) if rsi is not None else "N/A",  rsi_j),
+        (bb_desc,   f"{pct_b:.1f}%" if pct_b is not None else "N/A", bb_j),
     ]
 
-POSITION_W = [4.0, 3.5]   # 合計 7.5 → 代表 30%
+POSITION_W = [4.0, 3.5, 2.5]   # 合計 10 → 代表 30%
 
 def judge_momentum(d: dict) -> list:
-    """動能確認 (20%)：MACD零軸位置、動量方向、AO"""
-    macd = d.get("macd")
+    """動能確認 (20%)：MACD零軸+柱體、動量(10)、量能比率、MA10位置"""
+    close = d["close"]
+    macd       = d.get("macd")
+    macd_hist  = d.get("macd_hist")
+    macd_hist_prev = d.get("macd_hist_prev")
+    mom        = d.get("mom")
+    volume     = d.get("volume")
+    vol_ma     = d.get("vol_ma20")
+    ema10      = d.get("ema10")
+
+    # MACD 零軸
     macd_j = ("買入" if macd and macd > 0 else "賣出" if macd and macd < 0 else "中立")
 
-    mom, mom1 = d.get("mom"), d.get("mom_prev")
-    mom_j = ("買入" if mom is not None and mom1 is not None and mom > mom1 else
-             "賣出" if mom is not None and mom1 is not None and mom < mom1 else "中立")
-
-    ao, ao1, ao2 = d.get("ao"), d.get("ao_prev"), d.get("ao_prev2")
-    if ao is not None and ao1 is not None and ao2 is not None:
-        if (ao > 0 and ao > ao1 and ao1 < ao2) or (ao1 < 0 and ao > 0):
-            ao_j = "買入"
-        elif (ao < 0 and ao < ao1 and ao1 > ao2) or (ao1 > 0 and ao < 0):
-            ao_j = "賣出"
+    # MACD 柱體方向：>0 且放大=買入，>0 但縮小=中立，<0=賣出
+    if macd_hist is not None and macd_hist_prev is not None:
+        if macd_hist > 0 and macd_hist > macd_hist_prev:
+            hist_j, hist_disp = "買入", f"{fmt(macd_hist)} ↑放大"
+        elif macd_hist > 0:
+            hist_j, hist_disp = "中立", f"{fmt(macd_hist)} ↓縮小"
+        elif macd_hist < 0:
+            hist_j, hist_disp = "賣出", f"{fmt(macd_hist)} 負值"
         else:
-            ao_j = "中立"
+            hist_j, hist_disp = "中立", "0附近"
+    elif macd_hist is not None:
+        hist_j = "買入" if macd_hist > 0 else "賣出" if macd_hist < 0 else "中立"
+        hist_disp = fmt(macd_hist)
     else:
-        ao_j = "中立"
+        hist_j, hist_disp = "中立", "N/A"
+
+    # 動量(10)：>0=買入，<0=賣出
+    if mom is not None:
+        mom_j = "買入" if mom > 0 else "賣出" if mom < 0 else "中立"
+    else:
+        mom_j = "中立"
+
+    # 量能比率
+    if volume is not None and vol_ma is not None and vol_ma > 0:
+        vol_ratio = volume / vol_ma
+        if vol_ratio > 1.5:
+            vol_j, vol_disp = "買入", f"×{vol_ratio:.1f} 放量"
+        elif vol_ratio < 0.7:
+            vol_j, vol_disp = "賣出", f"×{vol_ratio:.1f} 縮量"
+        else:
+            vol_j, vol_disp = "中立", f"×{vol_ratio:.1f}"
+    else:
+        vol_j, vol_disp = "中立", "N/A"
+
+    # MA10 位置
+    ma10_j = ("買入" if ema10 and close > ema10 else
+              "賣出" if ema10 and close < ema10 else "中立")
 
     return [
-        ("MACD 零軸", fmt(macd), macd_j),
-        ("動量(10)",  fmt(mom),  mom_j),
-        ("AO",        fmt(ao),   ao_j),
+        ("MACD 零軸",  fmt(macd),   macd_j),
+        ("MACD 柱體",  hist_disp,   hist_j),
+        ("動量(10)",   fmt(mom),    mom_j),
+        ("量能比率",   vol_disp,    vol_j),
+        ("MA10 位置",  fmt(ema10),  ma10_j),
     ]
 
-MOMENTUM_W = [3.5, 2.5, 2.0]  # 合計 8 → 代表 20%
+MOMENTUM_W = [3.5, 2.5, 2.0, 1.5, 1.5]  # 合計 11 → 代表 20%
+
+def compute_momentum_grade(d: dict) -> str:
+    """直接計算動能評等（A→強力買入 / B→買入 / C→中立 / D→賣出）"""
+    close = d["close"]
+    macd       = d.get("macd")
+    macd_hist  = d.get("macd_hist")
+    macd_hist_prev = d.get("macd_hist_prev")
+    mom        = d.get("mom")
+    volume     = d.get("volume")
+    vol_ma     = d.get("vol_ma20")
+    ema10      = d.get("ema10")
+    ema20      = d.get("ema20")
+
+    macd_pos       = macd is not None and macd > 0
+    hist_expanding = (macd_hist is not None and macd_hist_prev is not None
+                      and macd_hist > 0 and macd_hist > macd_hist_prev)
+    hist_ok        = not (macd_hist is not None and macd_hist_prev is not None
+                          and macd_hist > 0 and macd_hist < macd_hist_prev
+                          # shrinking for at least 1 bar
+                          )
+    mom_pos    = mom is not None and mom > 0
+    vol_strong = (volume is not None and vol_ma is not None and vol_ma > 0
+                  and volume > vol_ma * 1.5)
+    vol_expand = (volume is not None and vol_ma is not None and vol_ma > 0
+                  and volume > vol_ma * 1.2)
+    above_ma10 = ema10 is not None and close > ema10
+    below_ma20 = ema20 is not None and close < ema20
+
+    # Condition A: 強力買入（所有確認）
+    if macd_pos and hist_expanding and mom_pos and vol_strong and above_ma10:
+        return "強力買入"
+    # Condition B: 買入（核心三項確認）
+    if macd_pos and hist_ok and mom_pos:
+        return "買入"
+    # Condition D: 賣出
+    if (macd is not None and macd < 0 and below_ma20) or \
+       (mom is not None and mom < 0 and vol_expand):
+        return "賣出"
+    # Condition C: 中立
+    return "中立"
 
 def judge_aux(d: dict) -> list:
-    """輔助指標 (10%)：KD、CCI、StochRSI、Williams%R、牛熊力度、UO + 主要均線"""
+    """輔助指標 (10%)：震盪指標6項 + 核心均線 EMA10/EMA60/SMA200 + Hull MA(出場提醒)"""
     close = d["close"]
 
     stoch_d, stoch_d1 = d.get("stoch_d"), d.get("stoch_d_prev")
@@ -911,98 +1035,89 @@ def judge_aux(d: dict) -> list:
         stoch_j = "中立"
 
     sr, sr1 = d.get("stochrsi"), d.get("stochrsi_prev")
-    if sr is not None:
-        sr_j = ("買入" if sr < 20 else
-                "賣出" if sr > 80 and sr1 is not None and sr1 <= 80 else "中立")
-    else:
-        sr_j = "中立"
+    sr_j = ("買入" if sr is not None and sr < 20 else
+            "賣出" if sr is not None and sr > 80 and sr1 is not None and sr1 <= 80 else "中立")
 
     wr, wr1 = d.get("willr"), d.get("willr_prev")
-    if wr is not None and wr1 is not None:
-        wr_j = ("買入" if wr1 < -80 and wr >= -80 else
-                "賣出" if wr1 > -20 and wr <= -20 else "中立")
-    else:
-        wr_j = "中立"
+    wr_j = ("買入" if wr is not None and wr1 is not None and wr1 < -80 and wr >= -80 else
+            "賣出" if wr is not None and wr1 is not None and wr1 > -20 and wr <= -20 else "中立")
 
     bbp, bbp1 = d.get("bbpower"), d.get("bbpower_prev")
-    if bbp is not None and bbp1 is not None:
-        bbp_j = ("買入" if bbp1 <= 0 and bbp > 0 else
-                 "賣出" if bbp1 >= 0 and bbp < 0 else "中立")
-    else:
-        bbp_j = "中立"
+    bbp_j = ("買入" if bbp is not None and bbp1 is not None and bbp1 <= 0 and bbp > 0 else
+             "賣出" if bbp is not None and bbp1 is not None and bbp1 >= 0 and bbp < 0 else "中立")
 
     uo = d.get("uo")
     uo_j = "買入" if uo and uo > 70 else "賣出" if uo and uo < 30 else "中立"
 
-    def mj(k): v=d.get(k); return ("買入" if v and close>v else "賣出" if v and close<v else "中立")
+    def mj(k):
+        v = d.get(k)
+        return ("買入" if v and close > v else "賣出" if v and close < v else "中立")
+
+    # Hull MA：短線出場提醒（close < hma = 出場警示，顯示為賣出）
+    hma_j = mj("hma")
 
     return [
-        ("隨機%K",      fmt(d.get("stoch_k")), stoch_j),
-        ("CCI(20)",     fmt(d.get("cci")),      _j(d.get("cci"), -100, 100)),
-        ("StochRSI",    fmt(d.get("stochrsi")), sr_j),
-        ("威廉%R",      fmt(d.get("willr")),    wr_j),
-        ("牛熊力度",    fmt(d.get("bbpower")),  bbp_j),
-        ("終極震盪",    fmt(uo),                uo_j),
-        ("EMA(10)",     fmt(d.get("ema10")),    mj("ema10")),
-        ("SMA(10)",     fmt(d.get("sma10")),    mj("sma10")),
-        ("EMA(20)",     fmt(d.get("ema20")),    mj("ema20")),
-        ("SMA(20)",     fmt(d.get("sma20")),    mj("sma20")),
-        ("EMA(30)",     fmt(d.get("ema30")),    mj("ema30")),
-        ("SMA(30)",     fmt(d.get("sma30")),    mj("sma30")),
-        ("EMA(50)",     fmt(d.get("ema50")),    mj("ema50")),
-        ("SMA(50)",     fmt(d.get("sma50")),    mj("sma50")),
-        ("VWMA(20)",    fmt(d.get("vwma")),     mj("vwma")),
-        ("Hull MA(9)",  fmt(d.get("hma")),      mj("hma")),
+        ("隨機%K",   fmt(d.get("stoch_k")),  stoch_j),
+        ("CCI(20)",  fmt(d.get("cci")),       _j(d.get("cci"), -100, 100)),
+        ("StochRSI", fmt(d.get("stochrsi")),  sr_j),
+        ("威廉%R",   fmt(d.get("willr")),     wr_j),
+        ("牛熊力度", fmt(d.get("bbpower")),   bbp_j),
+        ("終極震盪", fmt(uo),                 uo_j),
+        ("EMA(10)",  fmt(d.get("ema10")),     mj("ema10")),
+        ("EMA(60)",  fmt(d.get("ema60")),     mj("ema60")),
+        ("SMA(200)", fmt(d.get("sma200")),    mj("sma200")),
+        ("Hull MA",  fmt(d.get("hma")),       hma_j),
     ]
 
-AUX_W = [1.0, 1.0, 1.0, 0.8, 0.7, 0.7,
-          1.5, 1.5, 1.5, 1.5, 1.0, 1.0, 1.0, 1.0, 0.8, 0.8]
+AUX_W = [1.0, 1.0, 1.0, 0.8, 0.7, 0.7,  # 震盪6項
+          1.2, 1.5, 1.5, 0.5]             # EMA10/EMA60/SMA200/Hull
 
-def apply_cap(verdict: str, d: dict) -> tuple:
-    """矩陣式上限機制：趨勢+強度+乖離三條件同時成立才允許強力買入"""
+def _calc_aux_summary(items, weights):
+    """輔助群組：需 ≥4 個同向才計分，否則整群中立"""
+    buy_w  = sum(w for (_,_,j), w in zip(items, weights) if j == "買入")
+    sell_w = sum(w for (_,_,j), w in zip(items, weights) if j == "賣出")
+    neu_w  = sum(w for (_,_,j), w in zip(items, weights) if j == "中立")
+    buy_n  = sum(1 for (_,_,j) in items if j == "買入")
+    sell_n = sum(1 for (_,_,j) in items if j == "賣出")
+    if buy_n >= 4 or sell_n >= 4:
+        return round(buy_w,1), round(sell_w,1), round(neu_w,1), _rec(buy_w, sell_w)
+    total_w = sum(weights)
+    return 0.0, 0.0, round(total_w, 1), "中立"
+
+def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
+    """Hard Limits（寫死，不可被加權覆蓋）"""
     ema20, ema60 = d.get("ema20"), d.get("ema60")
     sma200 = d.get("sma200")
-    adx, adx_pos, adx_neg = d.get("adx"), d.get("adx_pos"), d.get("adx_neg")
+    adx    = d.get("adx")
     close, bbu, bbl = d.get("close"), d.get("bbu"), d.get("bbl")
-    pct_b = ((close - bbl) / (bbu - bbl) * 100
-             if bbu and bbl and (bbu - bbl) != 0 else None)
-    dev_pct = (abs(close - ema20) / ema20 * 100 if ema20 and close else None)
+    rsi    = d.get("rsi")
+    w_dev  = d.get("w_dev")
+    dev_pct = ((close - ema20) / ema20 * 100) if ema20 and close else None
 
-    # ── 條件一：趨勢必須為多頭 ───────────────────────────────────
-    is_bull = (ema20 and ema60 and ema20 > ema60 and
-               (sma200 is None or close > sma200))
-    # ── 條件二：強度必須為中~強（ADX ≥ 20，且 +DI > -DI）────────
-    is_trending = (adx is not None and adx >= 20 and
-                   (adx_pos is None or adx_neg is None or adx_pos > adx_neg))
-    # ── 條件三：乖離必須為低（EMA20 乖離 < 8%，%B < 85%）──────
-    is_low_dev = ((dev_pct is None or dev_pct < 8) and
-                  (pct_b is None or pct_b < 85))
+    # ① EMA20 < EMA60：空頭封頂（最高優先）
+    if ema20 and ema60 and ema20 < ema60:
+        return "空頭，不買", "⚠️ EMA20 < EMA60（空頭趨勢）"
 
-    if verdict != "強力買入":
-        return verdict, None
+    # ② 乖離 > 15% 或 RSI > 78：過熱禁新倉
+    if (dev_pct is not None and dev_pct > 15) or (rsi is not None and rsi > 78):
+        note = f"乖離{dev_pct:.1f}%" if dev_pct and dev_pct > 15 else f"RSI{rsi:.1f}"
+        return "過熱觀望｜禁止新倉", f"⚠️ {note} 過熱"
 
-    reasons = []
-    if not is_bull:
-        if ema20 and ema60 and ema20 < ema60:
-            reasons.append("EMA20 < EMA60（空頭趨勢）")
-        elif sma200 and close < sma200:
-            reasons.append("價格低於 SMA200（長期空頭）")
-        else:
-            reasons.append("趨勢未確認多頭")
-    if not is_trending:
-        if adx is not None and adx < 20:
-            reasons.append("ADX < 20（盤整）")
-        elif adx_pos and adx_neg and adx_neg > adx_pos:
-            reasons.append("-DI > +DI（方向偏空）")
-    if not is_low_dev:
-        if dev_pct and dev_pct >= 8:
-            reasons.append(f"EMA20 乖離 {dev_pct:.1f}%（高）")
-        elif pct_b and pct_b >= 85:
-            reasons.append(f"布林 %B {pct_b:.1f}%（高）")
+    # ③ 週線過熱（週乖離 > 20%）：日線最高「買入」
+    if w_dev is not None and w_dev > 20 and verdict == "強力買入":
+        return "買入", f"⚠️ 週線乖離{w_dev:.1f}%（過熱，日線降級）"
 
-    if reasons:
-        hint = "持有/短線" if (is_bull and is_trending) else "觀察"
-        return "買入", f"⚠️ 上限買入 [{hint}]｜" + "、".join(reasons)
+    # ④ 動能中立/賣出：整體不超過中立
+    if mom_grade in ("中立", "賣出") and verdict in ("強力買入", "買入"):
+        return "中立", f"⚠️ 動能{mom_grade}（壓制整體評等）"
+
+    # ⑤ 乖離 > 10%：強力買入 → 上限買入
+    if dev_pct is not None and dev_pct > 10 and verdict == "強力買入":
+        return "上限買入｜持有/短線", f"⚠️ EMA20 乖離{dev_pct:.1f}%（Phase3 禁加碼）"
+
+    # ⑥ ADX < 25：強力買入 → 買入
+    if adx is not None and adx < 25 and verdict == "強力買入":
+        return "買入", f"⚠️ ADX {adx:.1f} < 25（趨勢偏弱）"
 
     return verdict, None
 
@@ -1034,8 +1149,16 @@ def parse_input(text: str) -> list:
 # HTML HELPERS
 # ─────────────────────────────────────────────────────────────────
 def badge(rec: str) -> str:
-    cls = {"強力買入":"badge-strong-buy","買入":"badge-buy",
-           "強力賣出":"badge-strong-sell","賣出":"badge-sell"}.get(rec, "badge-neutral")
+    cls_map = {
+        "強力買入":        "badge-strong-buy",
+        "買入":            "badge-buy",
+        "上限買入｜持有/短線": "badge-buy-limit",
+        "強力賣出":        "badge-strong-sell",
+        "賣出":            "badge-sell",
+        "過熱觀望｜禁止新倉": "badge-overheat",
+        "空頭，不買":      "badge-bearish",
+    }
+    cls = cls_map.get(rec, "badge-neutral")
     return f'<span class="badge {cls}">{rec}</span>'
 
 def jcell(val, judg):
@@ -1326,7 +1449,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 3   # 每次 tuple 格式變更時 +1
+_RESULTS_VERSION = 4   # 每次 tuple 格式變更時 +1
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -1366,13 +1489,15 @@ if fetch_btn:
             g_aux      = judge_aux(d)
             ts = calc_summary(g_trend,    TREND_W)
             ps = calc_summary(g_position, POSITION_W)
-            ms = calc_summary(g_momentum, MOMENTUM_W)
-            xs = calc_summary(g_aux,      AUX_W)
+            mom_grade  = compute_momentum_grade(d)
+            ms_b, ms_s, ms_n, _ = calc_summary(g_momentum, MOMENTUM_W)
+            ms = (ms_b, ms_s, ms_n, mom_grade)   # direct verdict overrides sum
+            xs = _calc_aux_summary(g_aux, AUX_W)
             tb = round(ts[0]+ps[0]+ms[0]+xs[0], 1)
             ts_= round(ts[1]+ps[1]+ms[1]+xs[1], 1)
             tn_= round(ts[2]+ps[2]+ms[2]+xs[2], 1)
             raw_verdict = _rec(tb, ts_)
-            verdict, cap = apply_cap(raw_verdict, d)
+            verdict, cap = apply_cap(raw_verdict, d, mom_grade)
             # 保留舊格式供 Excel 相容
             osc = judge_oscillators(d)
             mas = judge_mas(d)
