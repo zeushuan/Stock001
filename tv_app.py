@@ -356,14 +356,36 @@ def _fetch_news_google(ticker: str, market: str) -> list:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_indicators(ticker: str, market: str):
+def fetch_indicators(ticker: str, market: str, end_date: str = ""):
+    """end_date: 'YYYY-MM-DD' 指定截止日期（空字串=最新）；歷史日期快取永久有效"""
     symbol = get_yf_symbol(ticker)
     df = None
     last_err = None
     is_tw = symbol.endswith(".TW") or symbol.endswith(".TWO")
 
+    # 計算 end 參數（yfinance 的 end 是「不包含」那天，所以要加 1 天）
+    import datetime as _dt
+    if end_date:
+        _end_dt   = _dt.date.fromisoformat(end_date) + _dt.timedelta(days=1)
+        _end_str  = _end_dt.isoformat()
+        _start_dt = _dt.date.fromisoformat(end_date) - _dt.timedelta(days=730)
+        _start_str = _start_dt.isoformat()
+    else:
+        _end_str = _start_str = None   # 使用 period 模式
+
     def _try_tw_download(sym):
         """嘗試下載台股資料，回傳 DataFrame 或 None"""
+        if _start_str:
+            # 指定日期模式
+            raw = yf.download(
+                sym, start=_start_str, end=_end_str, interval="1d",
+                progress=False, auto_adjust=False, multi_level_index=False,
+            )
+            if raw is not None and len(raw) >= 20:
+                _c = raw.get("Close", raw.get("close", pd.Series()))
+                if not _c.dropna().empty:
+                    return raw
+            return None
         for _period, _adj in [("2y", False), ("1y", False), ("2y", True), ("1y", True)]:
             raw = yf.download(
                 sym, period=_period, interval="1d",
@@ -387,8 +409,10 @@ def fetch_indicators(ticker: str, market: str):
                     if df is not None:
                         symbol = alt  # 更新為正確代號
             else:
-                yf_obj = yf.Ticker(symbol)
-                df = yf_obj.history(period="1y", interval="1d")
+                if _start_str:
+                    df = yf.Ticker(symbol).history(start=_start_str, end=_end_str, interval="1d")
+                else:
+                    df = yf.Ticker(symbol).history(period="1y", interval="1d")
                 if df is not None and len(df) < 30:
                     df = None
             if df is not None and len(df) >= 30:
@@ -1554,6 +1578,34 @@ with st.sidebar:
     default_stocks = load_default_stocks()
     stock_input = st.text_area("輸入股票清單", label_visibility="collapsed",
         value=default_stocks, height=220)
+
+    # ── 日期選擇 ──────────────────────────────────────────────────
+    import datetime as _dt
+    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-top:6px;margin-bottom:2px'>📅 資料截止日期</div>",
+                unsafe_allow_html=True)
+    use_hist = st.checkbox("指定歷史日期", value=False, key="use_hist_date")
+    if use_hist:
+        hist_date = st.date_input(
+            "選擇日期",
+            value=_dt.date.today() - _dt.timedelta(days=1),
+            min_value=_dt.date(2010, 1, 1),
+            max_value=_dt.date.today() - _dt.timedelta(days=1),
+            label_visibility="collapsed",
+        )
+        selected_end_date = hist_date.isoformat()
+        st.markdown(
+            f'<div style="font-size:.68rem;color:#f0a030;background:#1a1200;'
+            f'border:1px solid #6a4a00;border-radius:6px;padding:5px 8px;margin-top:4px">'
+            f'⏱ 歷史模式：{hist_date.strftime("%Y-%m-%d")} 當日收盤</div>',
+            unsafe_allow_html=True)
+    else:
+        selected_end_date = ""
+        st.markdown(
+            '<div style="font-size:.68rem;color:#3a6a3a;background:#0a1a0a;'
+            'border:1px solid #2a5a2a;border-radius:6px;padding:5px 8px;margin-top:4px">'
+            '✓ 即時模式：最新收盤資料</div>',
+            unsafe_allow_html=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1592,12 +1644,14 @@ if st.session_state.get("results_version") != _RESULTS_VERSION:
 
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
 if fetch_btn:
-    # 清除舊快取，確保重新抓取最新資料
-    fetch_indicators.clear()
-    fetch_news.clear()
+    # 歷史模式快取永不過期（數據不變）；即時模式才清快取
+    if not selected_end_date:
+        fetch_indicators.clear()
+        fetch_news.clear()
     for k in list(st.session_state.keys()):
         if k.startswith("ai_") or k == "results" or k == "debug_msgs":
             del st.session_state[k]
+    st.session_state["fetch_end_date"] = selected_end_date
     stocks = parse_input(stock_input)
     if not stocks:
         st.error("股票清單為空，請重新輸入"); st.stop()
@@ -1613,7 +1667,8 @@ if fetch_btn:
             f'<div style="font-size:.78rem;color:#5a8ab0;text-align:center">'
             f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
             unsafe_allow_html=True)
-        d = fetch_indicators(ticker, market)
+        _end = st.session_state.get("fetch_end_date", "")
+        d = fetch_indicators(ticker, market, _end)
         if d and d.get("_error"):
             debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
             d = None
@@ -1691,8 +1746,8 @@ st.markdown(f"""
   <div class="card buy"><div class="c-label">整體偏買入</div><div class="c-value">{buy_count}</div></div>
   <div class="card sell"><div class="c-label">整體偏賣出</div><div class="c-value">{sell_count}</div></div>
   <div class="card neu"><div class="c-label">中立</div><div class="c-value">{neu_count}</div></div>
-  <div class="card total"><div class="c-label">更新時間</div>
-    <div class="c-value" style="font-size:.95rem">{datetime.now().strftime("%H:%M")}</div></div>
+  <div class="card total"><div class="c-label">{'歷史日期' if st.session_state.get('fetch_end_date') else '更新時間'}</div>
+    <div class="c-value" style="font-size:{'0.78rem' if st.session_state.get('fetch_end_date') else '.95rem'};color:{'#f0a030' if st.session_state.get('fetch_end_date') else '#f0f4ff'}">{st.session_state.get('fetch_end_date') or datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
 platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
