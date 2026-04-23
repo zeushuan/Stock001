@@ -287,13 +287,21 @@ def fetch_indicators(ticker: str, market: str):
     for attempt in range(3):
         try:
             if is_tw:
-                # 台股改用 yf.download() 並關閉進度條
-                raw = yf.download(
-                    symbol, period="1y", interval="1d",
-                    progress=False, auto_adjust=True,
-                    multi_level_index=False,
-                )
-                df = raw if raw is not None and len(raw) >= 30 else None
+                # 台股用 yf.download()，ETF 不做價格調整
+                for _adj in [False, True]:
+                    raw = yf.download(
+                        symbol, period="1y", interval="1d",
+                        progress=False, auto_adjust=_adj,
+                        multi_level_index=False,
+                    )
+                    if raw is not None and len(raw) >= 30:
+                        # 確認 Close 欄有實際數值
+                        _c = raw.get("Close", raw.get("close", pd.Series()))
+                        if not _c.dropna().empty:
+                            df = raw
+                            break
+                else:
+                    df = None
             else:
                 yf_obj = yf.Ticker(symbol)
                 df = yf_obj.history(period="1y", interval="1d")
