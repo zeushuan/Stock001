@@ -1314,7 +1314,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 2   # 每次 tuple 格式變更時 +1
+_RESULTS_VERSION = 3   # 每次 tuple 格式變更時 +1
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
