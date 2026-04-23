@@ -640,7 +640,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         change_pct = d.get("change_pct")
         price_str  = fmt(close_val) if close_val is not None else "N/A"
         if change_pct is not None:
-            chg_color = "#3b9eff" if change_pct >= 0 else "#ff5555"
+            chg_color = "#ff4444" if change_pct >= 0 else "#22cc88"
             chg_sign  = "▲" if change_pct >= 0 else "▼"
             chg_str   = f'{chg_sign}{abs(change_pct):.2f}%'
         else:
