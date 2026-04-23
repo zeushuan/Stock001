@@ -278,6 +278,31 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
 
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_news(ticker: str, market: str) -> list:
+    """取得最新 3 條新聞（yfinance）"""
+    try:
+        symbol = get_yf_symbol(ticker)
+        news = yf.Ticker(symbol).news or []
+        result = []
+        for item in news[:3]:
+            content = item.get("content", {})
+            title   = content.get("title") or item.get("title", "")
+            link    = (content.get("canonicalUrl", {}).get("url")
+                       or content.get("clickThroughUrl", {}).get("url")
+                       or item.get("link", ""))
+            pub     = (content.get("provider", {}).get("displayName")
+                       or item.get("publisher", ""))
+            ts      = (content.get("pubDate")
+                       or item.get("providerPublishTime"))
+            if title and link:
+                result.append({"title": title, "link": link,
+                                "publisher": pub, "time": ts})
+        return result
+    except Exception:
+        return []
+
+
 @st.cache_data(ttl=None, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
@@ -927,6 +952,22 @@ for item in results:
         else:
             st.markdown(render_detail(ticker, d, osc, mas, osumm, msumm, tsumm),
                         unsafe_allow_html=True)
+            news = fetch_news(ticker, market)
+            if news:
+                news_html = '<div class="section-title" style="margin-top:12px">最新新聞</div>'
+                for i, n in enumerate(news):
+                    pub  = f'<span style="color:#3a5a7a;font-size:.68rem">{n["publisher"]}</span>' if n.get("publisher") else ""
+                    news_html += (
+                        f'<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;'
+                        f'border-bottom:1px solid #0f1f33">'
+                        f'<span style="color:#3b9eff;font-size:.72rem;font-weight:700;flex-shrink:0">{i+1}</span>'
+                        f'<a href="{n["link"]}" target="_blank" '
+                        f'style="color:#c8dff0;font-size:.78rem;text-decoration:none;line-height:1.5;'
+                        f'flex:1" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#c8dff0\'">'
+                        f'{n["title"]}</a>{pub}</div>'
+                    )
+                st.markdown(f'<div style="padding:4px 8px 8px">{news_html}</div>',
+                            unsafe_allow_html=True)
 
 
 st.markdown("---")
