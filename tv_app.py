@@ -352,7 +352,7 @@ def _fetch_news_google(ticker: str, market: str) -> list:
         return []
 
 
-@st.cache_data(ttl=None, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
@@ -1181,7 +1181,9 @@ if st.session_state.get("results_version") != _RESULTS_VERSION:
 
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
 if fetch_btn:
-    # 清除舊的 AI 快取與結果
+    # 清除舊快取，確保重新抓取最新資料
+    fetch_indicators.clear()
+    fetch_news.clear()
     for k in list(st.session_state.keys()):
         if k.startswith("ai_") or k == "results" or k == "debug_msgs":
             del st.session_state[k]
