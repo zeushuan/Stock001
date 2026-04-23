@@ -1327,55 +1327,190 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
     return f'<div style="padding:4px 8px">{cap_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
-# EXCEL EXPORT
+# EXCEL EXPORT  （四群組版）
 # ─────────────────────────────────────────────────────────────────
 def build_excel(results) -> bytes:
     wb = Workbook(); ws = wb.active; ws.title = "指標報告"
     ws.sheet_view.showGridLines = False
+
     def fill(h): return PatternFill("solid", start_color=h, fgColor=h)
     def fnt(c="000000", sz=9, bd=False): return Font(name="Arial", size=sz, bold=bd, color=c)
-    mid = Side(style="medium"); ctr = Alignment(horizontal="center", vertical="center")
-    JCOL = {"買入":"0D47A1","賣出":"C0392B","中立":"888888","強力買入":"0D47A1","強力賣出":"C0392B"}
-    col_defs = ([("代號",8,"1E3A5F"),("市場",7,"1E3A5F")]
-                + [(h,14,"1A3A6C") for h in OSC_LABELS]
-                + [("震盪小結",28,"0D2244")]
-                + [(h,14,"1A4A2C") for h in MA_LABELS]
-                + [("均線小結",28,"0D3320"),("整體建議",30,"2C1654")])
-    for ci, (label, width, bg) in enumerate(col_defs, 1):
+    ctr  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    left = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+    mid  = Side(style="medium")
+    thin = Side(style="thin")
+
+    # ── 判斷顏色對照 ──────────────────────────────────────────────
+    JUDG_FC = {"買入":"1565C0","強力買入":"0D47A1",
+               "賣出":"B71C1C","強力賣出":"7B1616",
+               "中立":"555555"}
+    VERDICT_BG = {
+        "強力買入":          "0D3B6E",
+        "買入":              "0D2E50",
+        "上限買入｜持有/短線": "3A2A00",
+        "中立":              "1A2030",
+        "賣出":              "3B0D0D",
+        "強力賣出":          "4A0A0A",
+        "過熱觀望｜禁止新倉": "3A1800",
+        "空頭，不買":        "3A0808",
+    }
+    VERDICT_FC = {
+        "強力買入":          "60CFFF",
+        "買入":              "60B3FF",
+        "上限買入｜持有/短線": "F0C030",
+        "中立":              "9AAABB",
+        "賣出":              "FF8080",
+        "強力賣出":          "FF6B6B",
+        "過熱觀望｜禁止新倉": "FF8830",
+        "空頭，不買":        "FF5555",
+    }
+
+    # ── 欄位定義：(標題, 寬度, 背景hex, 群組key) ─────────────────
+    # 群組 key: T=趨勢, P=位置, M=動能, X=輔助, O=總覽, Z=基本
+    G_HDR = {"Z":"1E3A5F","T":"0D2040","P":"2D1A00","M":"1A0D30","X":"1A1A28","O":"2C1654"}
+    G_DAT = {"Z":("F0F4FF","F8FAFF"),
+             "T":("E8F0FB","F3F7FE"), "P":("FFF3E0","FFFBF0"),
+             "M":("F3E8FF","FAF3FF"), "X":("ECEFF4","F5F7FA"),
+             "O":("EDE7F6","F5F0FF")}
+
+    col_defs = [
+        # 基本
+        ("代號",    9, "Z"), ("名稱",    18, "Z"),
+        ("現價",    10, "Z"), ("漲跌%",  10, "Z"),
+        # 趨勢結構 (5項 + 小結)
+        ("趨勢方向", 22, "T"), ("趨勢強度", 20, "T"),
+        ("多頭階段", 22, "T"), ("乖離風險", 18, "T"), ("週線結構", 20, "T"),
+        ("趨勢小結(40%)", 26, "T"),
+        # 位置風險 (3項 + 小結)
+        ("EMA20乖離", 16, "P"), ("RSI(14)", 14, "P"), ("布林%B", 14, "P"),
+        ("位置小結(30%)", 26, "P"),
+        # 動能確認 (5項 + 小結)
+        ("MACD零軸", 14, "M"), ("MACD柱體", 16, "M"),
+        ("動量(10)", 14, "M"), ("量能比率", 14, "M"), ("MA10位置", 14, "M"),
+        ("動能小結(20%)", 26, "M"),
+        # 輔助指標 (10項 + 小結)
+        ("隨機%K",  12, "X"), ("CCI(20)",  12, "X"), ("StochRSI", 12, "X"),
+        ("威廉%R",  12, "X"), ("牛熊力度", 12, "X"), ("終極震盪", 12, "X"),
+        ("EMA(10)", 12, "X"), ("EMA(60)",  12, "X"), ("SMA(200)", 12, "X"),
+        ("Hull MA", 12, "X"),
+        ("輔助小結(10%)", 26, "X"),
+        # 整體
+        ("整體建議", 28, "O"), ("Cap說明",  36, "O"),
+    ]
+
+    # ── 寫標題行 ──────────────────────────────────────────────────
+    for ci, (label, width, gkey) in enumerate(col_defs, 1):
         c = ws.cell(1, ci, label)
-        c.font=fnt("FFFFFF",9,True); c.fill=fill(bg); c.alignment=ctr
-        c.border=Border(bottom=mid)
+        c.font = fnt("FFFFFF", 9, True)
+        c.fill = fill(G_HDR[gkey])
+        c.alignment = ctr
+        c.border = Border(bottom=mid, right=thin)
         ws.column_dimensions[get_column_letter(ci)].width = width
-    ws.row_dimensions[1].height = 22; ws.freeze_panes = "C2"
-    rf_e = {"osc":"EBF0FA","os":"D6E4FF","ma":"EAFAF1","ms":"D5F5E3","base":"F0F4FF"}
-    rf_o = {"osc":"F5F8FF","os":"E8F0FF","ma":"F5FFF8","ms":"E8FFF0","base":"FFFFFF"}
+    ws.row_dimensions[1].height = 28
+    ws.freeze_panes = "E2"
+
+    def summ_str(b, s, n, v): return f"買:{b} 賣:{s} 中:{n} → {v}"
+
+    def ind_val(item):
+        """從 (label, val, judg) 或 (val, judg) 中取出 val 和 judg"""
+        if len(item) == 3:
+            return item[1], item[2]
+        return item[0], item[1]
+
     for ri, item in enumerate(results, 2):
         ticker, market, d, error = item[0], item[1], item[2], item[3]
-        osc, mas = item[8], item[9]
-        tsumm = item[6]
-        ws.row_dimensions[ri].height = 18
-        rf = rf_e if ri % 2 == 0 else rf_o
-        def cell(col, val, bg, fc="000000", sz=9, bd=False):
-            c = ws.cell(ri, col, val); c.font=fnt(fc,sz,bd); c.fill=fill(bg); c.alignment=ctr; return c
-        cell(1, ticker, rf["base"], "1E3A5F", 10, True)
-        cell(2, market, rf["base"], "555555", 9)
+        groups      = item[4]   # (g_trend, g_position, g_momentum, g_aux)
+        group_summs = item[5]   # (ts, ps, ms, xs)
+        tsumm       = item[6]   # (tb, ts_, tn_, verdict)
+        cap         = item[7]
+
+        ws.row_dimensions[ri].height = 20
+        is_even = (ri % 2 == 0)
+
+        def cell(col, val, gkey, fc="000000", sz=9, bd=False, align=ctr):
+            bg = G_DAT[gkey][0] if is_even else G_DAT[gkey][1]
+            c = ws.cell(ri, col, val)
+            c.font = fnt(fc, sz, bd)
+            c.fill = fill(bg)
+            c.alignment = align
+            c.border = Border(right=thin)
+            return c
+
+        def verdict_cell(col, verdict, gkey):
+            bg  = VERDICT_BG.get(verdict, "626567")
+            fc  = VERDICT_FC.get(verdict, "FFFFFF")
+            c = ws.cell(ri, col, verdict)
+            c.font = fnt(fc, 9, True)
+            c.fill = fill(bg)
+            c.alignment = ctr
+            c.border = Border(right=Side(style="medium"))
+            return c
+
+        # 基本資訊
+        name = d.get("name", ticker) if d else ticker
+        cell(1, ticker, "Z", "1565C0", 10, True)
+        cell(2, name,   "Z", "333333", 9, False, left)
+
         if error or not d:
-            for ci in range(3, len(col_defs)+1): cell(ci, "無資料", rf["base"], "AAAAAA", 9)
+            for ci in range(3, len(col_defs)+1):
+                cell(ci, "無資料", "Z", "AAAAAA", 9)
             continue
-        osumm = calc_summary(osc, OSC_WEIGHTS)
-        msumm = calc_summary(mas, MA_WEIGHTS)
-        ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
-        ci = 3
-        for v, j in osc:
-            cell(ci, f"{v} / {j}", rf["osc"], JCOL.get(j,"000000"), 9, j!="中立"); ci += 1
-        cell(ci, f"買入:{ob} 賣出:{os_} 中立:{on_} → {or_}", rf["os"], JCOL.get(or_,"444444"), 9, True); ci += 1
-        for v, j in mas:
-            cell(ci, f"{v} / {j}", rf["ma"], JCOL.get(j,"000000"), 9, j!="中立"); ci += 1
-        cell(ci, f"買入:{mb} 賣出:{ms_} 中立:{mn_} → {mr_}", rf["ms"], JCOL.get(mr_,"444444"), 9, True); ci += 1
-        tot_bg = {"強力買入":"1A5276","買入":"2471A3","強力賣出":"922B21","賣出":"C0392B"}.get(tr_,"626567")
-        cell(ci, f"買入:{tb} 賣出:{ts_} 中立:{tn_} → {tr_}", tot_bg, "FFFFFF", 10, True)
-    ws.cell(len(results)+3, 1,
+
+        close_val  = d.get("close")
+        change_pct = d.get("change_pct")
+        cell(3, f"{close_val:.2f}" if close_val else "N/A", "Z", "222222", 9)
+        if change_pct is not None:
+            chg_fc = "B71C1C" if change_pct >= 0 else "1B5E20"
+            cell(4, f"{'▲' if change_pct>=0 else '▼'}{abs(change_pct):.2f}%", "Z", chg_fc, 9, True)
+        else:
+            cell(4, "N/A", "Z", "888888", 9)
+
+        g_trend, g_position, g_momentum, g_aux = groups
+        ts_s, ps_s, ms_s, xs_s = group_summs
+        tb, ts_, tn_, tr_ = tsumm
+
+        # ── 趨勢結構 (5項 + 小結) ──────────────────────────────
+        ci = 5
+        for it in g_trend[:5]:
+            v, j = ind_val(it)
+            cell(ci, f"{v} / {j}", "T", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci += 1
+        verdict_cell(ci, ts_s[3], "T")
+        ws.cell(ri, ci).value = summ_str(*ts_s); ci += 1
+
+        # ── 位置風險 (3項 + 小結) ──────────────────────────────
+        for it in g_position[:3]:
+            v, j = ind_val(it)
+            cell(ci, f"{v} / {j}", "P", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci += 1
+        verdict_cell(ci, ps_s[3], "P")
+        ws.cell(ri, ci).value = summ_str(*ps_s); ci += 1
+
+        # ── 動能確認 (5項 + 小結) ──────────────────────────────
+        for it in g_momentum[:5]:
+            v, j = ind_val(it)
+            cell(ci, f"{v} / {j}", "M", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci += 1
+        verdict_cell(ci, ms_s[3], "M")
+        ws.cell(ri, ci).value = summ_str(*ms_s); ci += 1
+
+        # ── 輔助指標 (10項 + 小結) ─────────────────────────────
+        for it in g_aux[:10]:
+            v, j = ind_val(it)
+            cell(ci, f"{v} / {j}", "X", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci += 1
+        # pad if fewer than 10 items
+        while ci <= 31:
+            cell(ci, "", "X"); ci += 1
+        verdict_cell(ci, xs_s[3], "X")
+        ws.cell(ri, ci).value = summ_str(*xs_s); ci += 1
+
+        # ── 整體建議 + Cap ──────────────────────────────────────
+        verdict_cell(ci, tr_, "O")
+        ws.cell(ri, ci).value = tr_; ci += 1
+        cap_txt = cap if cap else "—"
+        cell(ci, cap_txt, "O", "884400" if cap else "888888", 9, False, left)
+
+    # 時間戳記
+    ws.cell(len(results) + 3, 1,
             f"產出時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}").font = fnt("999999", 8)
+
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 # ─────────────────────────────────────────────────────────────────
@@ -1385,7 +1520,7 @@ st.markdown("""
 <div class="tv-header">
   <div style="font-size:1.8rem">📊</div>
   <div><h1>Indicator Scanner</h1>
-  <div class="sub">12 震盪指標 · 15 移動均線 · 布林通道 %B · Yahoo Finance 數據 · Excel 匯出</div></div>
+  <div class="sub">四群組加權評分 · 趨勢40% / 位置30% / 動能20% / 輔助10% · Hard Limits · Excel 匯出</div></div>
 </div>""", unsafe_allow_html=True)
 
 with st.sidebar:
