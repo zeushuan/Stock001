@@ -84,6 +84,21 @@ MA_LABELS  = ["EMA(10)","SMA(10)","EMA(20)","SMA(20)","EMA(30)","SMA(30)",
               "EMA(50)","SMA(50)","EMA(100)","SMA(100)","EMA(200)","SMA(200)",
               "一目均衡基準線","VWMA(20)","Hull MA(9)"]
 
+# ── 加權設定 ─────────────────────────────────────────────────────
+# 震盪指標反應快，權重 ×2；短均線 ×1.5；中均線 ×1.2；長均線 ×1.0
+OSC_WEIGHTS = [2.0] * 12
+MA_WEIGHTS  = [1.5, 1.5,   # EMA/SMA(10)
+               1.5, 1.5,   # EMA/SMA(20)
+               1.5, 1.5,   # EMA/SMA(30)
+               1.2, 1.2,   # EMA/SMA(50)
+               1.0, 1.0,   # EMA/SMA(100)
+               1.0, 1.0,   # EMA/SMA(200)
+               1.0, 1.0, 1.0]  # 一目均衡、VWMA、Hull MA
+# MA 短中長分組索引
+MA_SHORT  = list(range(0, 6))   # EMA/SMA 10/20/30
+MA_MEDIUM = list(range(6, 10))  # EMA/SMA 50/100
+MA_LONG   = list(range(10, 15)) # EMA/SMA 200、一目均衡、VWMA、Hull
+
 # ── 指數 / 特殊代號別名對照 ──────────────────────────────────────
 SYMBOL_ALIASES = {
     "DJI":"^DJI","DJIA":"^DJI","SPX":"^GSPC","SP500":"^GSPC",
@@ -462,6 +477,8 @@ def fetch_indicators(ticker: str, market: str):
             "stoch_d_prev": prev(stoch_d_s),        # crossover判斷用
             "cci":          last(ta.trend.CCIIndicator(h, l, c, 20).cci()),
             "adx":          last(ta.trend.ADXIndicator(h, l, c, 14).adx()),
+            "adx_pos":      last(ta.trend.ADXIndicator(h, l, c, 14).adx_pos()),
+            "adx_neg":      last(ta.trend.ADXIndicator(h, l, c, 14).adx_neg()),
             "ao":           last(ao_series),
             "ao_prev":      prev(ao_series),
             "ao_prev2":     prev(ao_series, 2),
@@ -515,6 +532,14 @@ def _rec(b, s):
     else:           return "中立"
 
 def fmt(v, d=2): return f"{v:.{d}f}" if v is not None else "N/A"
+
+def _jadx(adx, pos, neg):
+    """ADX 方向判斷：> 25 且 +DI > -DI = 買入；> 25 且 -DI > +DI = 賣出；其餘中立"""
+    if adx is None or pos is None or neg is None:
+        return "中立"
+    if adx > 25:
+        return "買入" if pos > neg else "賣出"
+    return "中立"
 
 def judge_oscillators(d: dict) -> list:
     close, bbu, bbl = d["close"], d["bbu"], d["bbl"]
@@ -628,7 +653,7 @@ def judge_oscillators(d: dict) -> list:
         (fmt(d["rsi"]),       _j(d["rsi"],   30,  70)),
         (fmt(d["stoch_k"]),   stoch_j),          # 顯示%K，判斷用%D
         (fmt(d["cci"]),       _j(d["cci"],  -100, 100)),
-        (fmt(d["adx"]),       "中立"),
+        (fmt(d["adx"]),       _jadx(d.get("adx"), d.get("adx_pos"), d.get("adx_neg"))),
         (fmt(ao),             ao_j),              # 碟形/零軸交叉
         (fmt(mom),            mom_j),             # 方向比較
         (fmt(d["macd"]),      _jz(d["macd"])),
@@ -649,11 +674,13 @@ def judge_mas(d: dict) -> list:
              "賣出" if d[k] is not None and close < d[k] else "中立")
             for k in keys]
 
-def calc_summary(items):
-    b = sum(1 for _, j in items if j == "買入")
-    s = sum(1 for _, j in items if j == "賣出")
-    n = sum(1 for _, j in items if j == "中立")
-    return b, s, n, _rec(b, s)
+def calc_summary(items, weights=None):
+    if weights is None:
+        weights = [1.0] * len(items)
+    b = sum(w for (_, j), w in zip(items, weights) if j == "買入")
+    s = sum(w for (_, j), w in zip(items, weights) if j == "賣出")
+    n = sum(w for (_, j), w in zip(items, weights) if j == "中立")
+    return round(b, 1), round(s, 1), round(n, 1), _rec(b, s)
 
 # ─────────────────────────────────────────────────────────────────
 # INPUT PARSING  ← FIX: 修正 NameError（ticker 未定義的問題）
@@ -765,22 +792,50 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
 
 def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
     ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
-    def ind(label, val, judg):
+
+    def wtag(w):
+        if w >= 2.0:   return '<span style="font-size:.6rem;color:#3b9eff;margin-left:3px">×2</span>'
+        if w >= 1.5:   return '<span style="font-size:.6rem;color:#60c8a0;margin-left:3px">×1.5</span>'
+        if w >= 1.2:   return '<span style="font-size:.6rem;color:#a0b8c8;margin-left:3px">×1.2</span>'
+        return '<span style="font-size:.6rem;color:#556677;margin-left:3px">×1</span>'
+
+    def ind(label, val, judg, w=1.0):
         cls = {"買入":"ind-buy","賣出":"ind-sell"}.get(judg, "ind-neu")
         return (f'<div class="ind-item {cls}">'
-                f'<span class="ind-label">{label}</span>'
+                f'<span class="ind-label">{label}{wtag(w)}</span>'
                 f'<span class="ind-val">{val} / {judg}</span></div>')
-    osc_items = "".join(ind(OSC_LABELS[i], v, j) for i, (v, j) in enumerate(osc))
-    ma_items  = "".join(ind(MA_LABELS[i],  v, j) for i, (v, j) in enumerate(mas))
+
+    osc_items = "".join(ind(OSC_LABELS[i], v, j, OSC_WEIGHTS[i]) for i, (v, j) in enumerate(osc))
+
+    # MA 分短/中/長三組
+    def ma_group(indices):
+        return "".join(ind(MA_LABELS[i], mas[i][0], mas[i][1], MA_WEIGHTS[i]) for i in indices)
+
+    ma_short_summ  = calc_summary([mas[i] for i in MA_SHORT],  [MA_WEIGHTS[i] for i in MA_SHORT])
+    ma_medium_summ = calc_summary([mas[i] for i in MA_MEDIUM], [MA_WEIGHTS[i] for i in MA_MEDIUM])
+    ma_long_summ   = calc_summary([mas[i] for i in MA_LONG],   [MA_WEIGHTS[i] for i in MA_LONG])
+
+    def group_title(label, summ):
+        b,s,n,r = summ
+        return (f'<div class="section-title" style="margin-top:10px">{label} '
+                f'<span style="color:#3a5a7a;font-weight:400;font-size:.62rem">買:{b} 賣:{s} 中:{n}</span>'
+                f'&nbsp;{badge(r)}</div>')
+
     return (f'<div style="padding:4px 8px">'
             f'<div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">'
             f'<span style="color:#5a8ab0;font-size:.75rem">收盤價 <b style="color:#e8f4fd">{fmt(d["close"])}</b></span>'
-            f'<span>震盪：{badge(or_)} <span style="color:#445566;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_}</span></span>'
-            f'<span>均線：{badge(mr_)} <span style="color:#445566;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_}</span></span>'
-            f'<span>整體：{badge(tr_)} <span style="color:#445566;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_}</span></span>'
+            f'<span>震盪(×2)：{badge(or_)} <span style="color:#6a8899;font-size:.72rem">買:{ob} 賣:{os_} 中:{on_}</span></span>'
+            f'<span>均線(加權)：{badge(mr_)} <span style="color:#6a8899;font-size:.72rem">買:{mb} 賣:{ms_} 中:{mn_}</span></span>'
+            f'<span>整體加權：{badge(tr_)} <span style="color:#6a8899;font-size:.72rem">買:{tb} 賣:{ts_} 中:{tn_}</span></span>'
             f'</div>'
-            f'<div class="section-title">震盪指標</div><div class="ind-grid">{osc_items}</div>'
-            f'<div class="section-title">移動均線</div><div class="ind-grid">{ma_items}</div>'
+            f'<div class="section-title">震盪指標 <span style="color:#3b9eff;font-weight:400;font-size:.62rem">× 2（短期動能，反應最快）</span></div>'
+            f'<div class="ind-grid">{osc_items}</div>'
+            f'{group_title("短均線 EMA/SMA 10/20/30", ma_short_summ)}'
+            f'<div class="ind-grid">{ma_group(MA_SHORT)}</div>'
+            f'{group_title("中均線 EMA/SMA 50/100", ma_medium_summ)}'
+            f'<div class="ind-grid">{ma_group(MA_MEDIUM)}</div>'
+            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull MA", ma_long_summ)}'
+            f'<div class="ind-grid">{ma_group(MA_LONG)}</div>'
             f'</div>')
 
 # ─────────────────────────────────────────────────────────────────
@@ -929,12 +984,14 @@ if fetch_btn:
         if d and d.get("close"):
             osc   = judge_oscillators(d)
             mas   = judge_mas(d)
-            osumm = calc_summary(osc)
-            msumm = calc_summary(mas)
+            osumm = calc_summary(osc, OSC_WEIGHTS)
+            msumm = calc_summary(mas, MA_WEIGHTS)
             ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm
-            tb,ts_,tn_ = ob+mb, os_+ms_, on_+mn_
+            tb = round(ob + mb, 1)
+            ts_ = round(os_ + ms_, 1)
+            tn_ = round(on_ + mn_, 1)
             results.append((ticker, market, d, False, osc, mas, osumm, msumm,
-                            (tb,ts_,tn_,_rec(tb,ts_)), ""))
+                            (tb, ts_, tn_, _rec(tb, ts_)), ""))
         else:
             if not any(m.startswith(f"❌ {ticker}") for m in debug_msgs):
                 debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): 無資料或資料不足")
@@ -991,6 +1048,15 @@ platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
 
 st.markdown("#### 完整指標一覽表")
+st.markdown("""
+<div style="font-size:.72rem;color:#6a8899;background:#080e1a;border:1px solid #1a2f48;
+            border-radius:8px;padding:9px 14px;margin-bottom:10px;line-height:2">
+  <b style="color:#a8cce8">加權說明</b>：分數非等票，依指標反應速度加權，避免長期均線過度稀釋短期訊號<br>
+  <span style="color:#3b9eff;font-weight:700">× 2</span>&nbsp; 震盪指標（RSI、MACD、CCI … 共 12 項）— 反應最快，最能捕捉短期動能<br>
+  <span style="color:#60c8a0;font-weight:700">× 1.5</span>&nbsp; 短均線 EMA/SMA 10/20/30 — 近期趨勢方向<br>
+  <span style="color:#a0b8c8;font-weight:700">× 1.2</span>&nbsp; 中均線 EMA/SMA 50/100 — 中期趨勢確認<br>
+  <span style="color:#556677;font-weight:700">× 1.0</span>&nbsp; 長均線 EMA/SMA 200、一目均衡、VWMA、Hull MA — 長期背景，僅作參考
+</div>""", unsafe_allow_html=True)
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
