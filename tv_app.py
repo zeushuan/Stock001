@@ -586,6 +586,244 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
     except Exception as e:
         return {"_error": str(e)[:120]}
 
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: str):
+    """下載一次資料，計算全部 TA 序列後，回傳 [start_date, end_date] 內每個交易日的指標字典。
+    返回：list of (date_str, d_dict)，依日期升冪排列。
+    """
+    import datetime as _dt
+    symbol = get_yf_symbol(ticker)
+    is_tw  = symbol.endswith(".TW") or symbol.endswith(".TWO")
+
+    # 往前多拉 400 天讓 SMA200 等長周期指標穩定
+    _end_dt   = _dt.date.fromisoformat(end_date)   + _dt.timedelta(days=1)
+    _start_dt = _dt.date.fromisoformat(start_date) - _dt.timedelta(days=400)
+    _end_str, _start_str = _end_dt.isoformat(), _start_dt.isoformat()
+
+    df = None
+    for attempt in range(3):
+        try:
+            if is_tw:
+                raw = yf.download(symbol, start=_start_str, end=_end_str,
+                                  interval="1d", progress=False,
+                                  auto_adjust=False, multi_level_index=False)
+                if raw is None or len(raw) < 30:
+                    alt  = ticker + ".TWO"
+                    raw2 = yf.download(alt, start=_start_str, end=_end_str,
+                                       interval="1d", progress=False,
+                                       auto_adjust=False, multi_level_index=False)
+                    if raw2 is not None and len(raw2) > (len(raw) if raw is not None else 0):
+                        raw, symbol = raw2, alt
+                df = raw if raw is not None and len(raw) >= 30 else None
+            else:
+                df = yf.Ticker(symbol).history(start=_start_str, end=_end_str, interval="1d")
+                if df is not None and len(df) < 30:
+                    df = None
+            if df is not None and len(df) >= 30:
+                break
+        except Exception:
+            df = None
+        if df is None and attempt < 2:
+            time.sleep(3 + attempt * 3)
+
+    if df is None or len(df) < 30:
+        return []
+
+    try:
+        if hasattr(df.columns, 'levels'):
+            df.columns = [str(col[0]).strip().capitalize()
+                          if isinstance(col, tuple) else str(col).strip().capitalize()
+                          for col in df.columns]
+        else:
+            df.columns = [str(col).strip().capitalize() for col in df.columns]
+        col_map = {cn.lower(): cn for cn in df.columns}
+        def _gc(n):
+            return df[col_map[n]] if n in col_map else pd.Series(dtype=float, index=df.index)
+        c  = _gc("close"); h = _gc("high"); l = _gc("low"); v = _gc("volume")
+        if c.dropna().empty:
+            return []
+
+        stock_name = _get_stock_name(ticker, symbol)
+
+        # ── 計算所有 TA 序列（一次性） ──────────────────────────────
+        bb       = ta.volatility.BollingerBands(c, 20, 2)
+        ema13_s  = ta.trend.EMAIndicator(c, 13).ema_indicator()
+        ema10_s  = ta.trend.EMAIndicator(c, 10).ema_indicator()
+        sma10_s  = ta.trend.SMAIndicator(c, 10).sma_indicator()
+        ema20_s  = ta.trend.EMAIndicator(c, 20).ema_indicator()
+        sma20_s  = ta.trend.SMAIndicator(c, 20).sma_indicator()
+        ema30_s  = ta.trend.EMAIndicator(c, 30).ema_indicator()
+        sma30_s  = ta.trend.SMAIndicator(c, 30).sma_indicator()
+        ema50_s  = ta.trend.EMAIndicator(c, 50).ema_indicator()
+        sma50_s  = ta.trend.SMAIndicator(c, 50).sma_indicator()
+        ema60_s  = ta.trend.EMAIndicator(c, 60).ema_indicator()
+        sma60_s  = ta.trend.SMAIndicator(c, 60).sma_indicator()
+        ema100_s = ta.trend.EMAIndicator(c, 100).ema_indicator()
+        sma100_s = ta.trend.SMAIndicator(c, 100).sma_indicator()
+        ema200_s = ta.trend.EMAIndicator(c, 200).ema_indicator()
+        sma200_s = ta.trend.SMAIndicator(c, 200).sma_indicator()
+        adx_obj  = ta.trend.ADXIndicator(h, l, c, 14)
+        adx_s    = adx_obj.adx()
+        adxp_s   = adx_obj.adx_pos()
+        adxn_s   = adx_obj.adx_neg()
+        macd_obj     = ta.trend.MACD(c)
+        macd_s       = macd_obj.macd()
+        macd_hist_s  = macd_obj.macd_diff()
+        rsi_s    = ta.momentum.RSIIndicator(c, 14).rsi()
+        stoch_obj= ta.momentum.StochasticOscillator(h, l, c, 14, 3)
+        stochk_s = stoch_obj.stoch()
+        stochd_s = stoch_obj.stoch_signal()
+        ao_s     = ta.momentum.AwesomeOscillatorIndicator(h, l).awesome_oscillator()
+        mom_s    = c - c.shift(10)
+        srsi_s   = ta.momentum.StochRSIIndicator(c, 14, 3, 3).stochrsi_d() * 100
+        willr_s  = ta.momentum.WilliamsRIndicator(h, l, c, 14).williams_r()
+        bbp_s    = c - ema13_s
+        uo_s     = ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()
+        cci_s    = ta.trend.CCIIndicator(h, l, c, 20).cci()
+        ichi_s   = ta.trend.IchimokuIndicator(h, l, 9, 26, 52).ichimoku_base_line()
+        bbu_s    = bb.bollinger_hband()
+        bbl_s    = bb.bollinger_lband()
+        vol_ma20_s = (ta.trend.SMAIndicator(v, 20).sma_indicator()
+                      if not v.dropna().empty else pd.Series(dtype=float, index=c.index))
+        vwma_s   = (vwma(c, v, 20) if not v.dropna().empty
+                    else pd.Series(dtype=float, index=c.index))
+        hma_s    = hull_ma(c, 9)
+        diff_s   = ema20_s - ema60_s     # EMA20/60 差值，用於交叉偵測
+
+        # 週線序列（日線 resample）
+        wc_ser = wm10_ser = wm20_ser = None
+        try:
+            c_tz = c.copy()
+            if hasattr(c_tz.index, 'tz') and c_tz.index.tz is not None:
+                c_tz.index = c_tz.index.tz_localize(None)
+            wc_raw = c_tz.resample('W').last().dropna()
+            if len(wc_raw) >= 20:
+                wc_ser   = wc_raw
+                wm10_ser = ta.trend.SMAIndicator(wc_raw, 10).sma_indicator()
+                wm20_ser = ta.trend.SMAIndicator(wc_raw, 20).sma_indicator()
+        except Exception:
+            pass
+
+        # 取第 i 行純量
+        def at(s, i):
+            if s is None or i < 0 or i >= len(s): return None
+            val = s.iloc[i]
+            return float(val) if pd.notna(val) else None
+
+        start_dt = _dt.date.fromisoformat(start_date)
+        end_dt_  = _dt.date.fromisoformat(end_date)
+
+        out = []
+        for idx in range(len(c)):
+            ts_idx = c.index[idx]
+            row_date = ts_idx.date() if hasattr(ts_idx, 'date') else pd.Timestamp(ts_idx).date()
+            if row_date < start_dt or row_date > end_dt_:
+                continue
+            if idx < 2:      # ao_prev2 需要 idx-2
+                continue
+            close_v = at(c, idx)
+            if close_v is None:
+                continue
+
+            prev_close = at(c, idx-1)
+            change_pct = ((close_v - prev_close) / prev_close * 100
+                          if close_v and prev_close and prev_close != 0 else None)
+            change_amt = (close_v - prev_close
+                          if close_v is not None and prev_close is not None else None)
+
+            # EMA20/60 交叉距今天數
+            cross_days = None
+            for _k in range(1, min(idx, 120)):
+                d1 = at(diff_s, idx - _k + 1)
+                d0 = at(diff_s, idx - _k)
+                if d1 is not None and d0 is not None:
+                    if d0 < 0 and d1 >= 0:
+                        cross_days = _k;  break
+                    elif d0 > 0 and d1 <= 0:
+                        cross_days = -_k; break
+
+            # 週線對應值
+            w_close_v = w_ma10_v = w_ma20_v = None
+            if wc_ser is not None and wm10_ser is not None:
+                try:
+                    row_ts_naive = pd.Timestamp(row_date)
+                    widx = int(wc_ser.index.searchsorted(row_ts_naive, side='right')) - 1
+                    if widx >= 0:
+                        w_close_v = float(wc_ser.iloc[widx]) if pd.notna(wc_ser.iloc[widx]) else None
+                        w_ma10_v  = at(wm10_ser, widx)
+                        w_ma20_v  = at(wm20_ser, widx)
+                except Exception:
+                    pass
+
+            d_dict = {
+                "name":         stock_name,
+                "close":        close_v,
+                "prev_close":   prev_close,
+                "change_pct":   change_pct,
+                "change_amt":   change_amt,
+                "rsi":          at(rsi_s, idx),
+                "stoch_k":      at(stochk_s, idx),
+                "stoch_d":      at(stochd_s, idx),
+                "stoch_d_prev": at(stochd_s, idx-1),
+                "cci":          at(cci_s, idx),
+                "adx":          at(adx_s, idx),
+                "adx_prev":     at(adx_s, idx-1),
+                "adx_pos":      at(adxp_s, idx),
+                "adx_neg":      at(adxn_s, idx),
+                "macd_hist":    at(macd_hist_s, idx),
+                "macd_hist_prev": at(macd_hist_s, idx-1),
+                "volume":       at(v, idx),
+                "vol_ma20":     at(vol_ma20_s, idx),
+                "ao":           at(ao_s, idx),
+                "ao_prev":      at(ao_s, idx-1),
+                "ao_prev2":     at(ao_s, idx-2),
+                "mom":          at(mom_s, idx),
+                "mom_prev":     at(mom_s, idx-1),
+                "macd":         at(macd_s, idx),
+                "stochrsi":     at(srsi_s, idx),
+                "stochrsi_prev": at(srsi_s, idx-1),
+                "willr":        at(willr_s, idx),
+                "willr_prev":   at(willr_s, idx-1),
+                "bbpower":      at(bbp_s, idx),
+                "bbpower_prev": at(bbp_s, idx-1),
+                "uo":           at(uo_s, idx),
+                "bbu":          at(bbu_s, idx),
+                "bbl":          at(bbl_s, idx),
+                "ema10":        at(ema10_s, idx),
+                "sma10":        at(sma10_s, idx),
+                "ema20":        at(ema20_s, idx),
+                "ema20_prev":   at(ema20_s, idx-1),
+                "sma20":        at(sma20_s, idx),
+                "ema30":        at(ema30_s, idx),
+                "sma30":        at(sma30_s, idx),
+                "ema50":        at(ema50_s, idx),
+                "sma50":        at(sma50_s, idx),
+                "ema60":        at(ema60_s, idx),
+                "ema60_prev":   at(ema60_s, idx-1),
+                "ema20_cross_days": cross_days,
+                "w_close":      w_close_v,
+                "w_ma10":       w_ma10_v,
+                "w_ma20":       w_ma20_v,
+                "w_dev":        ((w_close_v - w_ma10_v) / w_ma10_v * 100
+                                 if w_close_v and w_ma10_v and w_ma10_v != 0 else None),
+                "sma60":        at(sma60_s, idx),
+                "ema100":       at(ema100_s, idx),
+                "sma100":       at(sma100_s, idx),
+                "ema200":       at(ema200_s, idx),
+                "sma200":       at(sma200_s, idx),
+                "sma200_prev":  at(sma200_s, idx-1),
+                "ichimoku":     at(ichi_s, idx),
+                "vwma":         at(vwma_s, idx),
+                "hma":          at(hma_s, idx),
+            }
+            out.append((row_date.isoformat(), d_dict))
+
+        return out
+    except Exception:
+        return []
+
+
 # ─────────────────────────────────────────────────────────────────
 # JUDGMENT LOGIC
 # ─────────────────────────────────────────────────────────────────
@@ -1537,6 +1775,175 @@ def build_excel(results) -> bytes:
 
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
+
+def build_stock_range_excel(ticker: str, market: str,
+                             start_date: str, end_date: str) -> bytes:
+    """產生單一股票指定時間範圍的 Excel 報告（每個交易日一列）"""
+    date_rows = fetch_indicators_range(ticker, market, start_date, end_date)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = (ticker[:20] + " 歷史")
+    ws.sheet_view.showGridLines = False
+
+    def _fl(hx): return PatternFill("solid", start_color=hx, fgColor=hx)
+    def _fn(fc="000000", sz=9, bd=False): return Font(name="Arial", size=sz, bold=bd, color=fc)
+    _ctr  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    _left = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+    _mid  = Side(style="medium")
+    _thn  = Side(style="thin")
+
+    JUDG_FC = {"買入":"1565C0","強力買入":"0D47A1",
+               "賣出":"B71C1C","強力賣出":"7B1616","中立":"555555"}
+    VERDICT_BG = {
+        "強力買入":"0D3B6E","買入":"0D2E50",
+        "上限買入｜持有/短線":"3A2A00","中立":"1A2030",
+        "賣出":"3B0D0D","強力賣出":"4A0A0A",
+        "過熱觀望｜禁止新倉":"3A1800","空頭，不買":"3A0808",
+    }
+    VERDICT_FC = {
+        "強力買入":"60CFFF","買入":"60B3FF",
+        "上限買入｜持有/短線":"F0C030","中立":"9AAABB",
+        "賣出":"FF8080","強力賣出":"FF6B6B",
+        "過熱觀望｜禁止新倉":"FF8830","空頭，不買":"FF5555",
+    }
+    G_HDR = {"Z":"1E3A5F","T":"0D2040","P":"2D1A00","M":"1A0D30","X":"1A1A28","O":"2C1654"}
+    G_DAT = {"Z":("F0F4FF","F8FAFF"),
+             "T":("E8F0FB","F3F7FE"),"P":("FFF3E0","FFFBF0"),
+             "M":("F3E8FF","FAF3FF"),"X":("ECEFF4","F5F7FA"),
+             "O":("EDE7F6","F5F0FF")}
+
+    # 欄位定義：日期 / 現價 / 漲跌% / 趨勢(5+小結) / 位置(3+小結) / 動能(5+小結) / 輔助(10+小結) / 整體+Cap
+    col_defs = [
+        ("日期",    12, "Z"), ("現價",   10, "Z"), ("漲跌%",  10, "Z"),
+        # 趨勢
+        ("趨勢方向", 22, "T"), ("趨勢強度", 20, "T"), ("多頭階段", 22, "T"),
+        ("乖離風險", 18, "T"), ("週線結構", 20, "T"), ("趨勢小結(40%)", 26, "T"),
+        # 位置
+        ("EMA20乖離", 16, "P"), ("RSI(14)", 14, "P"), ("布林%B", 14, "P"),
+        ("位置小結(30%)", 26, "P"),
+        # 動能
+        ("MACD零軸", 14, "M"), ("MACD柱體", 16, "M"), ("動量(10)", 14, "M"),
+        ("量能比率", 14, "M"), ("MA10位置", 14, "M"), ("動能小結(20%)", 26, "M"),
+        # 輔助
+        ("隨機%K",  12, "X"), ("CCI(20)",  12, "X"), ("StochRSI", 12, "X"),
+        ("威廉%R",  12, "X"), ("牛熊力度", 12, "X"), ("終極震盪", 12, "X"),
+        ("EMA(10)", 12, "X"), ("EMA(60)",  12, "X"), ("SMA(200)", 12, "X"),
+        ("Hull MA", 12, "X"), ("輔助小結(10%)", 26, "X"),
+        # 整體
+        ("整體建議", 28, "O"), ("Cap說明",  36, "O"),
+    ]   # 共 32 欄
+
+    for ci, (label, width, gkey) in enumerate(col_defs, 1):
+        cl = ws.cell(1, ci, label)
+        cl.font      = _fn("FFFFFF", 9, True)
+        cl.fill      = _fl(G_HDR[gkey])
+        cl.alignment = _ctr
+        cl.border    = Border(bottom=_mid, right=_thn)
+        ws.column_dimensions[get_column_letter(ci)].width = width
+    ws.row_dimensions[1].height = 28
+    ws.freeze_panes = "D2"   # 凍結前三欄（日期/現價/漲跌%）
+
+    if not date_rows:
+        cl = ws.cell(2, 1, "無資料：請確認代號或日期範圍")
+        cl.font = _fn("CC4400", 10, True)
+        buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+    def _summ(b, s, n, v): return f"買:{b} 賣:{s} 中:{n} → {v}"
+    def _ival(item): return (item[1], item[2]) if len(item) == 3 else (item[0], item[1])
+
+    for ri, (date_str, d_dict) in enumerate(date_rows, 2):
+        ws.row_dimensions[ri].height = 18
+        is_even = (ri % 2 == 0)
+
+        def mk(col, val, gkey, fc="000000", sz=9, bd=False, al=_ctr):
+            bg = G_DAT[gkey][0] if is_even else G_DAT[gkey][1]
+            cl = ws.cell(ri, col, val)
+            cl.font = _fn(fc, sz, bd); cl.fill = _fl(bg)
+            cl.alignment = al; cl.border = Border(right=_thn)
+            return cl
+
+        def mv(col, verdict, gkey):
+            cl = ws.cell(ri, col, verdict)
+            cl.font  = _fn(VERDICT_FC.get(verdict, "FFFFFF"), 9, True)
+            cl.fill  = _fl(VERDICT_BG.get(verdict, "626567"))
+            cl.alignment = _ctr
+            cl.border = Border(right=Side(style="medium"))
+            return cl
+
+        if not d_dict or not d_dict.get("close"):
+            mk(1, date_str, "Z", "444444", 9)
+            for col in range(2, len(col_defs)+1):
+                mk(col, "無資料", "Z", "AAAAAA", 9)
+            continue
+
+        # ── 計算指標 ─────────────────────────────────────────────
+        g_trend    = judge_trend(d_dict)
+        g_position = judge_position(d_dict)
+        g_momentum = judge_momentum(d_dict)
+        g_aux      = judge_aux(d_dict)
+        ts = calc_summary(g_trend,    TREND_W)
+        ps = calc_summary(g_position, POSITION_W)
+        mom_grade  = compute_momentum_grade(d_dict)
+        ms_b, ms_s, ms_n, _ = calc_summary(g_momentum, MOMENTUM_W)
+        ms  = (ms_b, ms_s, ms_n, mom_grade)
+        xs  = _calc_aux_summary(g_aux, AUX_W)
+        tb  = round(ts[0]+ps[0]+ms[0]+xs[0], 1)
+        ts_ = round(ts[1]+ps[1]+ms[1]+xs[1], 1)
+        tn_ = round(ts[2]+ps[2]+ms[2]+xs[2], 1)
+        verdict, cap = apply_cap(_rec(tb, ts_), d_dict, mom_grade)
+
+        close_v    = d_dict.get("close")
+        change_pct = d_dict.get("change_pct")
+        mk(1, date_str, "Z", "1565C0", 9, True)
+        mk(2, f"{close_v:.2f}" if close_v else "N/A", "Z", "222222", 9)
+        if change_pct is not None:
+            mk(3, f"{'▲' if change_pct>=0 else '▼'}{abs(change_pct):.2f}%",
+               "Z", "B71C1C" if change_pct >= 0 else "1B5E20", 9, True)
+        else:
+            mk(3, "N/A", "Z", "888888", 9)
+
+        ci = 4
+        # ── 趨勢 5+小結 ────────────────────────────────────────
+        for it in g_trend[:5]:
+            v2, j = _ival(it)
+            mk(ci, f"{v2} / {j}", "T", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci+=1
+        mv(ci, ts[3], "T"); ws.cell(ri, ci).value = _summ(*ts); ci+=1
+
+        # ── 位置 3+小結 ────────────────────────────────────────
+        for it in g_position[:3]:
+            v2, j = _ival(it)
+            mk(ci, f"{v2} / {j}", "P", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci+=1
+        mv(ci, ps[3], "P"); ws.cell(ri, ci).value = _summ(*ps); ci+=1
+
+        # ── 動能 5+小結 ────────────────────────────────────────
+        for it in g_momentum[:5]:
+            v2, j = _ival(it)
+            mk(ci, f"{v2} / {j}", "M", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci+=1
+        mv(ci, ms[3], "M"); ws.cell(ri, ci).value = _summ(*ms); ci+=1
+
+        # ── 輔助 10+小結 ───────────────────────────────────────
+        aux_start = ci
+        for it in g_aux[:10]:
+            v2, j = _ival(it)
+            mk(ci, f"{v2} / {j}", "X", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci+=1
+        while ci < aux_start + 10:     # 補空格（項目不足 10 時）
+            mk(ci, "", "X"); ci+=1
+        mv(ci, xs[3], "X"); ws.cell(ri, ci).value = _summ(*xs); ci+=1
+
+        # ── 整體 ───────────────────────────────────────────────
+        mv(ci, verdict, "O"); ws.cell(ri, ci).value = verdict; ci+=1
+        mk(ci, cap if cap else "—", "O", "884400" if cap else "888888", 9, False, _left)
+
+    # 時間戳記
+    ws.cell(len(date_rows)+3, 1,
+            f"產出：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
+            f"{ticker} | {start_date}～{end_date}"
+            ).font = _fn("999999", 8)
+
+    buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+
 # ─────────────────────────────────────────────────────────────────
 # STREAMLIT UI
 # ─────────────────────────────────────────────────────────────────
@@ -1803,6 +2210,66 @@ for item in results:
                     )
                 st.markdown(f'<div style="padding:4px 8px 8px">{news_html}</div>',
                             unsafe_allow_html=True)
+
+            # ── 歷史區間 Excel ────────────────────────────────────────
+            st.markdown(
+                '<div style="border-top:1px solid #1a2f48;margin:14px 0 10px;padding-top:10px">'
+                '<span style="font-size:.75rem;color:#5a8ab0;font-weight:700;letter-spacing:.05em">'
+                '📊 歷史區間 Excel</span>'
+                '<span style="font-size:.68rem;color:#334455;margin-left:8px">'
+                '選擇起訖日後點「產生」，完成後出現下載按鈕</span></div>',
+                unsafe_allow_html=True)
+            _col_s, _col_e, _col_btn = st.columns([2, 2, 1])
+            import datetime as _dt   # 確保已載入（sidebar 已 import，此行為保險）
+            _today = _dt.date.today()
+            with _col_s:
+                _r_start = st.date_input(
+                    "起始日",
+                    value=_today - _dt.timedelta(days=90),
+                    min_value=_dt.date(2010, 1, 1),
+                    max_value=_today - _dt.timedelta(days=2),
+                    key=f"rng_s_{ticker}",
+                )
+            with _col_e:
+                _r_end = st.date_input(
+                    "結束日",
+                    value=_today - _dt.timedelta(days=1),
+                    min_value=_dt.date(2010, 1, 2),
+                    max_value=_today - _dt.timedelta(days=1),
+                    key=f"rng_e_{ticker}",
+                )
+            with _col_btn:
+                st.markdown("<div style='margin-top:26px'>", unsafe_allow_html=True)
+                _gen_btn = st.button("🔄 產生", key=f"gen_rng_{ticker}",
+                                     use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            if _gen_btn:
+                if _r_start >= _r_end:
+                    st.error("起始日必須早於結束日")
+                else:
+                    with st.spinner(
+                        f"正在計算 {ticker} {_r_start}～{_r_end} 歷史資料，請稍候…"
+                    ):
+                        _xl = build_stock_range_excel(
+                            ticker, market,
+                            _r_start.isoformat(), _r_end.isoformat()
+                        )
+                    st.session_state[f"rng_xl_{ticker}"]       = _xl
+                    st.session_state[f"rng_xl_dates_{ticker}"] = (
+                        _r_start.isoformat(), _r_end.isoformat())
+                    st.success("✅ 產生完成，點擊下方按鈕下載")
+
+            if f"rng_xl_{ticker}" in st.session_state:
+                _sd, _ed = st.session_state.get(f"rng_xl_dates_{ticker}", ("", ""))
+                st.download_button(
+                    label=f"📥 下載 {ticker}  {_sd} ～ {_ed}",
+                    data=st.session_state[f"rng_xl_{ticker}"],
+                    file_name=f"{ticker}_{_sd}_{_ed}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"dl_rng_{ticker}",
+                    use_container_width=True,
+                )
 
 
 st.markdown("---")
