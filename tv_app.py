@@ -59,11 +59,11 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .badge-strong-sell{background:#4a0a0a;color:#ff6b6b;border:1px solid #8b1a1a;}
 .badge-sell{background:#3b0d0d;color:#ff8080;border:1px solid #6b1515;}
 .badge-neutral{background:#1a2030;color:#8899aa;border:1px solid #2a3545;}
-.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;margin:10px 0;}
-.ind-item{background:#0d1b2e;border:1px solid #1a2f48;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;}
-.ind-label{color:#5a8ab0;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
-.ind-val{font-family:'IBM Plex Mono',monospace;font-size:.8rem;}
-.ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#8899aa;}
+.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:10px 0;}
+.ind-item{background:#0d1b2e;border:1px solid #1e3550;border-radius:8px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;}
+.ind-label{color:#90bcd8;font-size:.76rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.ind-val{font-family:'IBM Plex Mono',monospace;font-size:.85rem;font-weight:600;}
+.ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#9aaabb;}
 .section-title{font-size:.65rem;color:#3a5a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 0 4px;margin-top:8px;border-top:1px solid #0f1f33;}
 section[data-testid="stSidebar"]{background:#080e1a;border-right:1px solid #1e3a5f;}
 section[data-testid="stSidebar"] .stTextArea textarea{background:#0d1b2e !important;color:#c8dff0 !important;border:1px solid #1e3a5f !important;font-family:'IBM Plex Mono',monospace !important;font-size:.82rem !important;}
@@ -794,10 +794,10 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
     ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
 
     def wtag(w):
-        if w >= 2.0:   return '<span style="font-size:.6rem;color:#3b9eff;margin-left:3px">×2</span>'
-        if w >= 1.5:   return '<span style="font-size:.6rem;color:#60c8a0;margin-left:3px">×1.5</span>'
-        if w >= 1.2:   return '<span style="font-size:.6rem;color:#a0b8c8;margin-left:3px">×1.2</span>'
-        return '<span style="font-size:.6rem;color:#556677;margin-left:3px">×1</span>'
+        if w >= 2.0:   return '<span style="font-size:.65rem;color:#5aacff;margin-left:4px;font-weight:400">×2</span>'
+        if w >= 1.5:   return '<span style="font-size:.65rem;color:#5adba8;margin-left:4px;font-weight:400">×1.5</span>'
+        if w >= 1.2:   return '<span style="font-size:.65rem;color:#90b8c8;margin-left:4px;font-weight:400">×1.2</span>'
+        return '<span style="font-size:.65rem;color:#7a8899;margin-left:4px;font-weight:400">×1</span>'
 
     def ind(label, val, judg, w=1.0):
         cls = {"買入":"ind-buy","賣出":"ind-sell"}.get(judg, "ind-neu")
@@ -826,12 +826,12 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
 
     def group_title(label, summ, color="#7ab0d0"):
         b,s,n,r = summ
-        return (f'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px;'
-                f'border-top:1px solid #0f1f33;padding-top:8px">'
-                f'<span style="color:{color};font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em">{label}</span>'
+        return (f'<div style="display:flex;align-items:center;gap:10px;margin:16px 0 8px;'
+                f'border-top:2px solid #1a2f48;padding-top:10px;flex-wrap:wrap">'
+                f'<span style="color:{color};font-size:.85rem;font-weight:700">{label}</span>'
                 f'{badge(r)}'
-                f'<span style="color:#7a9ab0;font-size:.66rem">買:<b style="color:#3b9eff">{b}</b>'
-                f' 賣:<b style="color:#ff5555">{s}</b> 中:<b style="color:#7a8899">{n}</b></span>'
+                f'<span style="color:#8ab0c8;font-size:.78rem">買:<b style="color:#3b9eff">{b}</b>'
+                f'&nbsp;賣:<b style="color:#ff5555">{s}</b>&nbsp;中:<b style="color:#9aaabb">{n}</b></span>'
                 f'</div>')
 
     summary_row = (
@@ -847,9 +847,8 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
 
     return (f'<div style="padding:4px 8px">'
             f'{summary_row}'
-            f'<div style="color:#3b9eff;font-size:.67rem;font-weight:700;text-transform:uppercase;'
-            f'letter-spacing:.06em;margin-bottom:6px">震盪指標 '
-            f'<span style="color:#3b7acc;font-weight:400">× 2 — 短期動能，反應最快</span></div>'
+            f'<div style="color:#3b9eff;font-size:.85rem;font-weight:700;margin-bottom:8px">'
+            f'震盪指標 <span style="color:#5a9acc;font-size:.75rem;font-weight:400">× 2 — 短期動能，反應最快</span></div>'
             f'<div class="ind-grid">{osc_items}</div>'
             f'{group_title("短均線 EMA/SMA 10 / 20 / 30  ×1.5", ma_short_summ, "#60c8a0")}'
             f'<div class="ind-grid">{ma_group(MA_SHORT)}</div>'
