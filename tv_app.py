@@ -701,7 +701,6 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             rows += (f'<tr>'
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#5a8ab0;font-size:.78rem">—</td>'
-                     f'<td class="market-cell">{market}</td>'
                      f'<td class="j-na">—</td>'
                      f'<td class="j-na">—</td>'
                      f'<td class="j-na">— 無資料 —</td>'
@@ -717,16 +716,15 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         if change_pct is not None:
             chg_color = "#ff4444" if change_pct >= 0 else "#22cc88"
             chg_sign  = "▲" if change_pct >= 0 else "▼"
-            amt_str   = f'{chg_sign}{abs(change_amt):.2f}' if change_amt is not None else ""
-            pct_str   = f'{abs(change_pct):.2f}%'
-            chg_str   = f'{amt_str}<br><span style="font-size:.72rem;opacity:.85">{chg_sign}{pct_str}</span>'
+            amt_str   = f'{abs(change_amt):.2f}' if change_amt is not None else ""
+            chg_str   = f'{amt_str}{chg_sign}{abs(change_pct):.2f}%'
         else:
             chg_color = "#8899aa"
             chg_str   = "N/A"
         price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">'
                       f'{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
-                      f'color:{chg_color};font-weight:600;line-height:1.4">{chg_str}</td>')
+                      f'color:{chg_color};font-weight:600">{chg_str}</td>')
         osc_cell = (f'<td style="background:#0d1b2e;font-size:.82rem;line-height:1.6">'
                     f'<span style="font-family:\'IBM Plex Mono\',monospace">{ob} : {os_} : {on_}</span>'
                     f'&nbsp;&nbsp;{badge(or_)}</td>')
@@ -755,11 +753,10 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#a8cce8;text-decoration:none;">{name}</a>'
                  f'</td>'
-                 f'<td class="market-cell">{market}</td>'
                  f'{price_cell}{chg_cell}{osc_cell}{ma_cell}{tot_cell}</tr>')
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
-            f'<th>代號</th><th>名稱</th><th>市場</th>'
+            f'<th>代號</th><th>名稱</th>'
             f'<th>現價</th><th>漲跌幅</th>'
             f'<th style="background:#0d1b2e;min-width:200px">震盪小結<br><span style="color:#6a8faa;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
             f'<th style="background:#0d1b2e;min-width:200px">均線小結<br><span style="color:#6a8faa;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
