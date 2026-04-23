@@ -278,6 +278,7 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
     return (close * volume).rolling(n).sum() / volume.rolling(n).sum()
 
 
+@st.cache_data(ttl=None, show_spinner=False)
 def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
@@ -318,7 +319,7 @@ def fetch_indicators(ticker: str, market: str):
             time.sleep(3 + attempt * 3)
     if df is None or len(df) < 20:
         rows = len(df) if df is not None else 0
-        return {"_error": f"rows={rows} | {last_err or 'no data'}"}
+        return {"_error": f"rows={rows}"}
     try:
         # 抓取股票名稱
         name = _get_stock_name(ticker, symbol)
@@ -340,7 +341,7 @@ def fetch_indicators(ticker: str, market: str):
         l = get_col("low")
         v = get_col("volume")
         if c.dropna().empty:
-            return {"_error": f"close all NaN | cols={list(df.columns)} | shape={df.shape} | head={df.head(2).to_dict()}"}
+            return {"_error": "close all NaN"}
 
         def last(s):
             # 取最後一個非 NaN 值（避免最新行有 NaN 的問題）
@@ -803,13 +804,6 @@ if fetch_btn:
             f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
             unsafe_allow_html=True)
         d = fetch_indicators(ticker, market)
-        # Debug: 顯示實際回傳內容
-        _dbg = f"type={type(d).__name__}"
-        if d is None:
-            _dbg += " | None"
-        elif isinstance(d, dict):
-            _dbg += f" | keys={list(d.keys())[:5]} | close={d.get('close')!r}"
-        debug_msgs.append(f"🔍 {ticker}: {_dbg}")
         if d and d.get("_error"):
             debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
             d = None
@@ -848,9 +842,10 @@ if "results" not in st.session_state:
 results    = st.session_state["results"]
 debug_msgs = st.session_state.get("debug_msgs", [])
 
-if debug_msgs:
-    with st.expander(f"⚠️ {len(debug_msgs)} 筆無法取得資料（點擊展開查看原因）", expanded=False):
-        for msg in debug_msgs:
+error_msgs = [m for m in debug_msgs if m.startswith("❌")]
+if error_msgs:
+    with st.expander(f"⚠️ {len(error_msgs)} 筆無法取得資料（點擊展開查看原因）", expanded=False):
+        for msg in error_msgs:
             st.markdown(f"<div style='font-size:.8rem;color:#ff8080;font-family:monospace'>{msg}</div>",
                         unsafe_allow_html=True)
         st.markdown("<div style='font-size:.75rem;color:#556677;margin-top:8px'>可能原因：代號格式不正確、Yahoo Finance 暫時無法存取、或此標的在 Yahoo Finance 不存在</div>",
