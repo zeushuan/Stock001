@@ -59,10 +59,10 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .badge-strong-sell{background:#4a0a0a;color:#ff6b6b;border:1px solid #8b1a1a;}
 .badge-sell{background:#3b0d0d;color:#ff8080;border:1px solid #6b1515;}
 .badge-neutral{background:#1a2030;color:#8899aa;border:1px solid #2a3545;}
-.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:10px 0;}
-.ind-item{background:#0d1b2e;border:1px solid #1e3550;border-radius:8px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;}
-.ind-label{color:#90bcd8;font-size:.76rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
-.ind-val{font-family:'IBM Plex Mono',monospace;font-size:.85rem;font-weight:600;}
+.ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:10px 0;}
+.ind-item{background:#0d1b2e;border:1px solid #1e3550;border-radius:8px;padding:10px 13px;display:flex;flex-direction:column;gap:5px;}
+.ind-label{color:#7aaac8;font-size:.72rem;font-weight:600;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ind-val{font-family:'IBM Plex Sans',sans-serif;font-size:.82rem;font-weight:600;word-break:break-word;line-height:1.35;}
 .ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#9aaabb;}
 .section-title{font-size:.65rem;color:#3a5a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 0 4px;margin-top:8px;border-top:1px solid #0f1f33;}
 section[data-testid="stSidebar"]{background:#080e1a;border-right:1px solid #1e3a5f;}
@@ -741,8 +741,13 @@ def judge_trend(d: dict) -> list:
             dir_val, dir_j = "盤整", "中立"
     else:
         dir_val, dir_j = "N/A", "中立"
-    sma200_note = f" SMA200:{fmt(sma200)}" if sma200 else ""
-    dir_disp = f"EMA20:{fmt(ema20)}/{fmt(ema60)}{sma200_note}"
+    # 簡短描述：方向結論 + MA關係
+    if ema20 and ema60:
+        ma_rel = "EMA20>60" if ema20 > ema60 else "EMA20<60"
+        s200   = " · 站上SMA200" if sma200 and close > sma200 else (" · 跌破SMA200" if sma200 else "")
+        dir_disp = f"{dir_val} ({ma_rel}{s200})"
+    else:
+        dir_disp = dir_val
 
     # ── 2. 趨勢強度：ADX 等級 + +DI/-DI 方向 ────────────────────
     if adx is not None:
@@ -765,22 +770,22 @@ def judge_trend(d: dict) -> list:
     adx_rising = (adx is not None and adx_prev is not None and adx > adx_prev)
     if cross is not None and cross > 0:
         if cross <= 20:
-            phase_val = f"啟動期 ({cross}日前黃金交叉)"
+            phase_val = f"啟動期 (+{cross}日)"
             phase_j   = "買入"
         elif cross <= 60 and adx_rising:
-            phase_val = f"主升段 ({cross}日前交叉, ADX↑)"
+            phase_val = f"主升段 (+{cross}日, ADX↑)"
             phase_j   = "買入"
         elif cross > 60 and adx is not None and adx > 40:
-            phase_val = f"加速段 ({cross}日, ADX強)"
+            phase_val = f"加速段 (+{cross}日)"
             phase_j   = "買入"
         else:
-            phase_val = f"多頭持續 ({cross}日)"
+            phase_val = f"多頭中 (+{cross}日)"
             phase_j   = "中立"
     elif cross is not None and cross < 0:
-        phase_val = f"死亡交叉 ({-cross}日前)"
+        phase_val = f"死叉 ({-cross}日前)"
         phase_j   = "賣出"
     else:
-        phase_val, phase_j = "無明確交叉訊號", "中立"
+        phase_val, phase_j = "無交叉訊號", "中立"
 
     # ── 4. 乖離風險：EMA20 乖離 % + 布林 %B ──────────────────────
     bbu, bbl = d.get("bbu"), d.get("bbl")
@@ -789,13 +794,13 @@ def judge_trend(d: dict) -> list:
     if ema20:
         dev = (close - ema20) / ema20 * 100
         if abs(dev) < 3 and (pct_b is None or pct_b < 70):
-            dev_val = f"低 (乖離{dev:+.1f}%)"
+            dev_val = f"低 ({dev:+.1f}%)"
             dev_j   = "買入"
         elif abs(dev) >= 8 or (pct_b is not None and pct_b > 85):
-            dev_val = f"高 (乖離{dev:+.1f}%, 禁加碼)"
+            dev_val = f"高 ({dev:+.1f}%) 禁加碼"
             dev_j   = "賣出"
         else:
-            dev_val = f"中 (乖離{dev:+.1f}%)"
+            dev_val = f"中 ({dev:+.1f}%)"
             dev_j   = "中立"
     else:
         dev_val, dev_j = "N/A", "中立"
@@ -804,13 +809,16 @@ def judge_trend(d: dict) -> list:
     wc, wm10, wm20 = d.get("w_close"), d.get("w_ma10"), d.get("w_ma20")
     if wc and wm10 and wm20:
         if wc > wm10 > wm20:
-            week_val = f"多頭排列 (週MA10>{fmt(wm20)})"
+            week_val = "多頭排列 (週MA10>MA20)"
             week_j   = "買入"
         elif wc < wm10 < wm20:
-            week_val = f"空頭排列 (週MA10<{fmt(wm20)})"
+            week_val = "空頭排列 (週MA10<MA20)"
             week_j   = "賣出"
+        elif wm10 > wm20:
+            week_val = "週MA10>MA20 整理中"
+            week_j   = "中立"
         else:
-            week_val = f"週線整理 (MA10:{fmt(wm10)}/MA20:{fmt(wm20)})"
+            week_val = "週MA10<MA20 整理中"
             week_j   = "中立"
     else:
         week_val, week_j = "週線資料不足", "中立"
@@ -1125,9 +1133,13 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
 
     def ind(label, val, judg):
         cls = {"買入": "ind-buy", "賣出": "ind-sell"}.get(judg, "ind-neu")
+        jcls = {"買入": "color:#3b9eff", "賣出": "color:#ff5555"}.get(judg, "color:#7a8899")
         return (f'<div class="ind-item {cls}">'
                 f'<span class="ind-label">{label}</span>'
-                f'<span class="ind-val">{val} / {judg}</span></div>')
+                f'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px">'
+                f'<span class="ind-val">{val}</span>'
+                f'<span style="font-size:.72rem;font-weight:700;{jcls};flex-shrink:0">{judg}</span>'
+                f'</div></div>')
 
     def group_section(title, color, items, summ):
         b, s, n, r = summ
