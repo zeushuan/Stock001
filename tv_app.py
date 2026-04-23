@@ -280,7 +280,9 @@ def vwma(close: pd.Series, volume: pd.Series, n: int = 20) -> pd.Series:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_news(ticker: str, market: str) -> list:
-    """取得最新 3 條新聞（yfinance）"""
+    """取得最新 3 條新聞：台股用 Google News RSS，美股用 yfinance"""
+    if is_tw_stock(ticker):
+        return _fetch_news_google(ticker, market)
     try:
         symbol = get_yf_symbol(ticker)
         news = yf.Ticker(symbol).news or []
@@ -293,11 +295,39 @@ def fetch_news(ticker: str, market: str) -> list:
                        or item.get("link", ""))
             pub     = (content.get("provider", {}).get("displayName")
                        or item.get("publisher", ""))
-            ts      = (content.get("pubDate")
-                       or item.get("providerPublishTime"))
             if title and link:
-                result.append({"title": title, "link": link,
-                                "publisher": pub, "time": ts})
+                result.append({"title": title, "link": link, "publisher": pub})
+        return result if result else _fetch_news_google(ticker, market)
+    except Exception:
+        return _fetch_news_google(ticker, market)
+
+
+def _fetch_news_google(ticker: str, market: str) -> list:
+    """Google News RSS 備援（支援台股）"""
+    try:
+        import xml.etree.ElementTree as ET
+        # 台股加上公司名稱一起搜尋，命中率更高
+        name = ""
+        if is_tw_stock(ticker):
+            tw_names = _get_tw_names()
+            name = tw_names.get(ticker, "")
+        query = f"{ticker} {name}".strip() if name else ticker
+        import urllib.parse
+        url = (f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}"
+               f"&hl=zh-TW&gl=TW&ceid=TW:zh-Hant")
+        resp = requests.get(url, timeout=6,
+                            headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code != 200:
+            return []
+        root = ET.fromstring(resp.content)
+        items = root.findall(".//item")
+        result = []
+        for item in items[:3]:
+            title = (item.findtext("title") or "").strip()
+            link  = (item.findtext("link") or "").strip()
+            pub   = (item.findtext("source") or "").strip()
+            if title and link:
+                result.append({"title": title, "link": link, "publisher": pub})
         return result
     except Exception:
         return []
