@@ -447,12 +447,15 @@ def fetch_indicators(ticker: str, market: str):
         prev_close_val = prev(c)
         change_pct = ((close_val - prev_close_val) / prev_close_val * 100
                       if close_val and prev_close_val and prev_close_val != 0 else None)
+        change_amt = (close_val - prev_close_val
+                      if close_val is not None and prev_close_val is not None else None)
 
         return {
             "name":         name,
             "close":        close_val,
             "prev_close":   prev_close_val,
             "change_pct":   change_pct,
+            "change_amt":   change_amt,
             "rsi":          last(ta.momentum.RSIIndicator(c, 14).rsi()),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
@@ -709,18 +712,21 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         # 現價與漲跌幅
         close_val  = d.get("close")
         change_pct = d.get("change_pct")
+        change_amt = d.get("change_amt")
         price_str  = fmt(close_val) if close_val is not None else "N/A"
         if change_pct is not None:
             chg_color = "#ff4444" if change_pct >= 0 else "#22cc88"
             chg_sign  = "▲" if change_pct >= 0 else "▼"
-            chg_str   = f'{chg_sign}{abs(change_pct):.2f}%'
+            amt_str   = f'{chg_sign}{abs(change_amt):.2f}' if change_amt is not None else ""
+            pct_str   = f'{abs(change_pct):.2f}%'
+            chg_str   = f'{amt_str}<br><span style="font-size:.72rem;opacity:.85">{chg_sign}{pct_str}</span>'
         else:
-            chg_color = "#556677"
+            chg_color = "#8899aa"
             chg_str   = "N/A"
         price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">'
                       f'{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
-                      f'color:{chg_color};font-weight:600">{chg_str}</td>')
+                      f'color:{chg_color};font-weight:600;line-height:1.4">{chg_str}</td>')
         osc_cell = (f'<td style="background:#0d1b2e;font-size:.82rem;line-height:1.6">'
                     f'<span style="font-family:\'IBM Plex Mono\',monospace">{ob} : {os_} : {on_}</span>'
                     f'&nbsp;&nbsp;{badge(or_)}</td>')
