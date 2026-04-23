@@ -705,9 +705,15 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                       f'{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
                       f'color:{chg_color};font-weight:600">{chg_str}</td>')
-        osc_cell = f'<td style="background:#0d1b2e;font-size:.82rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
-        ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
-        tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
+        osc_cell = (f'<td style="background:#0d1b2e;font-size:.82rem;line-height:1.6">'
+                    f'<span style="font-family:\'IBM Plex Mono\',monospace">{ob} : {os_} : {on_}</span>'
+                    f'&nbsp;&nbsp;{badge(or_)}</td>')
+        ma_cell  = (f'<td style="background:#0d1b2e;font-size:.82rem;line-height:1.6">'
+                    f'<span style="font-family:\'IBM Plex Mono\',monospace">{mb} : {ms_} : {mn_}</span>'
+                    f'&nbsp;&nbsp;{badge(mr_)}</td>')
+        tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
+                    f'<span style="font-family:\'IBM Plex Mono\',monospace">{tb} : {ts_} : {tn_}</span>'
+                    f'&nbsp;&nbsp;{badge(tr_)}</td>')
         tv_url  = get_tv_url(ticker, market)
         is_perplexity = "{prompt}" in platform_url_tpl and "perplexity" in platform_url_tpl
         ai_url    = get_ai_url(ticker, name, d, platform_url_tpl)
@@ -733,9 +739,9 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>市場</th>'
             f'<th>現價</th><th>漲跌幅</th>'
-            f'<th style="background:#0d1b2e;min-width:220px">震盪小結</th>'
-            f'<th style="background:#0d1b2e;min-width:220px">均線小結</th>'
-            f'<th style="background:#060c18;min-width:220px">整體建議</th>'
+            f'<th style="background:#0d1b2e;min-width:200px">震盪小結<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
+            f'<th style="background:#0d1b2e;min-width:200px">均線小結<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
+            f'<th style="background:#060c18;min-width:200px">整體建議<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
