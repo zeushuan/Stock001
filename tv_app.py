@@ -794,10 +794,10 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
     ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
 
     def wtag(w):
-        if w >= 2.0:   return '<span style="font-size:.65rem;color:#5aacff;margin-left:4px;font-weight:400">×2</span>'
-        if w >= 1.5:   return '<span style="font-size:.65rem;color:#5adba8;margin-left:4px;font-weight:400">×1.5</span>'
-        if w >= 1.2:   return '<span style="font-size:.65rem;color:#90b8c8;margin-left:4px;font-weight:400">×1.2</span>'
-        return '<span style="font-size:.65rem;color:#7a8899;margin-left:4px;font-weight:400">×1</span>'
+        if w >= 2.0:   return '<span style="font-size:.65rem;color:#5aacff;margin-left:4px;font-weight:400" title="短期動能 ×2">×2</span>'
+        if w >= 1.5:   return '<span style="font-size:.65rem;color:#5adba8;margin-left:4px;font-weight:400" title="短均線 ×1.5">×1.5</span>'
+        if w >= 1.2:   return '<span style="font-size:.65rem;color:#90b8c8;margin-left:4px;font-weight:400" title="中均線 ×1.2">×1.2</span>'
+        return '<span style="font-size:.65rem;color:#8899aa;margin-left:4px;font-weight:400" title="長均線 ×1.0">×1</span>'
 
     def ind(label, val, judg, w=1.0):
         cls = {"買入":"ind-buy","賣出":"ind-sell"}.get(judg, "ind-neu")
@@ -807,13 +807,7 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
 
     osc_items = "".join(ind(OSC_LABELS[i], v, j, OSC_WEIGHTS[i]) for i, (v, j) in enumerate(osc))
 
-    # MA 分短/中/長三組
-    def ma_group(indices):
-        return "".join(ind(MA_LABELS[i], mas[i][0], mas[i][1], MA_WEIGHTS[i]) for i in indices)
-
-    ma_short_summ  = calc_summary([mas[i] for i in MA_SHORT],  [MA_WEIGHTS[i] for i in MA_SHORT])
-    ma_medium_summ = calc_summary([mas[i] for i in MA_MEDIUM], [MA_WEIGHTS[i] for i in MA_MEDIUM])
-    ma_long_summ   = calc_summary([mas[i] for i in MA_LONG],   [MA_WEIGHTS[i] for i in MA_LONG])
+    ma_items = "".join(ind(MA_LABELS[i], mas[i][0], mas[i][1], MA_WEIGHTS[i]) for i in range(len(mas)))
 
     def summ_bar(label, b, s, n, r, color):
         return (f'<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;'
@@ -824,15 +818,19 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
                 f' 賣:<b style="color:#ff5555">{s}</b> 中:<b style="color:#7a8899">{n}</b></span>'
                 f'</div>')
 
-    def group_title(label, summ, color="#7ab0d0"):
-        b,s,n,r = summ
+    def ma_section_title():
+        b,s,n,r = msumm
         return (f'<div style="display:flex;align-items:center;gap:10px;margin:16px 0 8px;'
                 f'border-top:2px solid #1a2f48;padding-top:10px;flex-wrap:wrap">'
-                f'<span style="color:{color};font-size:.85rem;font-weight:700">{label}</span>'
+                f'<span style="color:#7ab0d0;font-size:.85rem;font-weight:700">移動均線</span>'
                 f'{badge(r)}'
                 f'<span style="color:#8ab0c8;font-size:.78rem">買:<b style="color:#3b9eff">{b}</b>'
                 f'&nbsp;賣:<b style="color:#ff5555">{s}</b>&nbsp;中:<b style="color:#9aaabb">{n}</b></span>'
-                f'</div>')
+                f'<span style="font-size:.72rem;margin-left:4px">'
+                f'<span style="color:#5adba8">●</span><span style="color:#8ab0c8"> ×1.5 短</span>'
+                f'&nbsp;&nbsp;<span style="color:#90b8c8">●</span><span style="color:#8ab0c8"> ×1.2 中</span>'
+                f'&nbsp;&nbsp;<span style="color:#8899aa">●</span><span style="color:#8ab0c8"> ×1.0 長</span>'
+                f'</span></div>')
 
     summary_row = (
         f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
@@ -850,12 +848,8 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
             f'<div style="color:#3b9eff;font-size:.85rem;font-weight:700;margin-bottom:8px">'
             f'震盪指標 <span style="color:#5a9acc;font-size:.75rem;font-weight:400">× 2 — 短期動能，反應最快</span></div>'
             f'<div class="ind-grid">{osc_items}</div>'
-            f'{group_title("短均線 EMA/SMA 10 / 20 / 30  ×1.5", ma_short_summ, "#60c8a0")}'
-            f'<div class="ind-grid">{ma_group(MA_SHORT)}</div>'
-            f'{group_title("中均線 EMA/SMA 50 / 100  ×1.2", ma_medium_summ, "#a0b8c8")}'
-            f'<div class="ind-grid">{ma_group(MA_MEDIUM)}</div>'
-            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull  ×1.0", ma_long_summ, "#8899aa")}'
-            f'<div class="ind-grid">{ma_group(MA_LONG)}</div>'
+            f'{ma_section_title()}'
+            f'<div class="ind-grid">{ma_items}</div>'
             f'</div>')
 
 # ─────────────────────────────────────────────────────────────────
