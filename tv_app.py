@@ -51,8 +51,8 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .res-table td{padding:7px 10px;text-align:center;border-bottom:1px solid #0f1f33;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:.78rem;}
 .res-table tr:hover td{background:rgba(30,58,95,.35);}
 .ticker-cell{font-weight:700;color:#e8f4fd !important;font-size:.9rem !important;}
-.market-cell{color:#5a8ab0 !important;font-size:.72rem !important;}
-.j-buy{color:#3b9eff;font-weight:600;}.j-sell{color:#ff5555;font-weight:600;}.j-neutral{color:#556677;}.j-na{color:#334455;font-style:italic;}
+.market-cell{color:#7ab0d0 !important;font-size:.72rem !important;}
+.j-buy{color:#3b9eff;font-weight:600;}.j-sell{color:#ff5555;font-weight:600;}.j-neutral{color:#8899aa;}.j-na{color:#4a6070;font-style:italic;}
 .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;font-family:'IBM Plex Sans',sans-serif;letter-spacing:.03em;}
 .badge-strong-buy{background:#0d3b6e;color:#3b9eff;border:1px solid #1a5fa8;}
 .badge-buy{background:#0d2e50;color:#60b3ff;border:1px solid #154d84;}
@@ -63,7 +63,7 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .ind-item{background:#0d1b2e;border:1px solid #1a2f48;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;}
 .ind-label{color:#5a8ab0;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
 .ind-val{font-family:'IBM Plex Mono',monospace;font-size:.8rem;}
-.ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#556677;}
+.ind-buy .ind-val{color:#3b9eff;}.ind-sell .ind-val{color:#ff5555;}.ind-neu .ind-val{color:#8899aa;}
 .section-title{font-size:.65rem;color:#3a5a7a;text-transform:uppercase;letter-spacing:.1em;font-weight:700;padding:6px 0 4px;margin-top:8px;border-top:1px solid #0f1f33;}
 section[data-testid="stSidebar"]{background:#080e1a;border-right:1px solid #1e3a5f;}
 section[data-testid="stSidebar"] .stTextArea textarea{background:#0d1b2e !important;color:#c8dff0 !important;border:1px solid #1e3a5f !important;font-family:'IBM Plex Mono',monospace !important;font-size:.82rem !important;}
@@ -746,8 +746,8 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             )
         rows += (f'<tr>'
                  f'<td class="ticker-cell">{ticker_link}</td>'
-                 f'<td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
-                 f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#8ab8d8;text-decoration:none;">{name}</a>'
+                 f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
+                 f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#a8cce8;text-decoration:none;">{name}</a>'
                  f'</td>'
                  f'<td class="market-cell">{market}</td>'
                  f'{price_cell}{chg_cell}{osc_cell}{ma_cell}{tot_cell}</tr>')
@@ -755,9 +755,9 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>市場</th>'
             f'<th>現價</th><th>漲跌幅</th>'
-            f'<th style="background:#0d1b2e;min-width:200px">震盪小結<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
-            f'<th style="background:#0d1b2e;min-width:200px">均線小結<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
-            f'<th style="background:#060c18;min-width:200px">整體建議<br><span style="color:#334455;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
+            f'<th style="background:#0d1b2e;min-width:200px">震盪小結<br><span style="color:#6a8faa;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
+            f'<th style="background:#0d1b2e;min-width:200px">均線小結<br><span style="color:#6a8faa;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
+            f'<th style="background:#060c18;min-width:200px">整體建議<br><span style="color:#6a8faa;font-weight:400;font-size:.65rem">買 : 賣 : 中</span></th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
