@@ -372,9 +372,16 @@ def fetch_indicators(ticker: str, market: str):
             idx = -(n+1)
             return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
 
+        close_val = last(c)
+        prev_close_val = prev(c)
+        change_pct = ((close_val - prev_close_val) / prev_close_val * 100
+                      if close_val and prev_close_val and prev_close_val != 0 else None)
+
         return {
             "name":         name,
-            "close":        last(c),
+            "close":        close_val,
+            "prev_close":   prev_close_val,
+            "change_pct":   change_pct,
             "rsi":          last(ta.momentum.RSIIndicator(c, 14).rsi()),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
@@ -621,11 +628,28 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#5a8ab0;font-size:.78rem">—</td>'
                      f'<td class="market-cell">{market}</td>'
+                     f'<td class="j-na">—</td>'
+                     f'<td class="j-na">—</td>'
                      f'<td class="j-na">— 無資料 —</td>'
                      f'<td class="j-na">— 無資料 —</td>'
                      f'<td class="j-na">— 無資料 —</td></tr>')
             continue
         ob,os_,on_,or_ = osumm; mb,ms_,mn_,mr_ = msumm; tb,ts_,tn_,tr_ = tsumm
+        # 現價與漲跌幅
+        close_val  = d.get("close")
+        change_pct = d.get("change_pct")
+        price_str  = fmt(close_val) if close_val is not None else "N/A"
+        if change_pct is not None:
+            chg_color = "#3b9eff" if change_pct >= 0 else "#ff5555"
+            chg_sign  = "▲" if change_pct >= 0 else "▼"
+            chg_str   = f'{chg_sign}{abs(change_pct):.2f}%'
+        else:
+            chg_color = "#556677"
+            chg_str   = "N/A"
+        price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">'
+                      f'{price_str}</td>')
+        chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
+                      f'color:{chg_color};font-weight:600">{chg_str}</td>')
         osc_cell = f'<td style="background:#0d1b2e;font-size:.82rem">買:{ob} 賣:{os_} 中:{on_} {badge(or_)}</td>'
         ma_cell  = f'<td style="background:#0d1b2e;font-size:.82rem">買:{mb} 賣:{ms_} 中:{mn_} {badge(mr_)}</td>'
         tot_cell = f'<td style="background:#060c18;font-size:.82rem;font-weight:700">買:{tb} 賣:{ts_} 中:{tn_} {badge(tr_)}</td>'
@@ -634,10 +658,8 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         ai_url    = get_ai_url(ticker, name, d, platform_url_tpl)
         prompt_js = get_prompt_text(ticker, name, d).replace("\\n", "\\\\n").replace("'", "\\'")
         if is_perplexity:
-            # Direct link - Perplexity executes immediately
             ticker_link = f'<a href="{ai_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
         else:
-            # Copy prompt + open platform homepage
             homepage = platform_url_tpl.split("?")[0].split("{")[0]
             ticker_link = (
                 f'<a href="#" onclick="navigator.clipboard.writeText(\'{prompt_js}\').then(()=>{{'
@@ -650,10 +672,12 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td style="color:#8ab8d8;font-size:.78rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" title="TradingView 圖表" style="color:#8ab8d8;text-decoration:none;">{name}</a>'
                  f'</td>'
-                 f'<td class="market-cell">{market}</td>{osc_cell}{ma_cell}{tot_cell}</tr>')
+                 f'<td class="market-cell">{market}</td>'
+                 f'{price_cell}{chg_cell}{osc_cell}{ma_cell}{tot_cell}</tr>')
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>市場</th>'
+            f'<th>現價</th><th>漲跌幅</th>'
             f'<th style="background:#0d1b2e;min-width:220px">震盪小結</th>'
             f'<th style="background:#0d1b2e;min-width:220px">均線小結</th>'
             f'<th style="background:#060c18;min-width:220px">整體建議</th>'
