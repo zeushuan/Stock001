@@ -144,6 +144,16 @@ def get_tv_url(ticker: str, market: str) -> str:
     if ticker in TV_CHART_MAP:
         return base + TV_CHART_MAP[ticker]
     if market == "台股":
+        # 上櫃(.TWO)用 TPEX，上市(.TW)用 TWSE
+        tw_names = _get_tw_names()
+        # twstock codes 包含市場資訊
+        try:
+            import twstock
+            info = twstock.codes.get(ticker)
+            if info and getattr(info, 'market', '') in ('上櫃', 'OTC'):
+                return base + f"TPEX:{ticker}"
+        except Exception:
+            pass
         return base + f"TWSE:{ticker}"
     if market in ("NASDAQ","NYSE","AMEX","OTC"):
         return base + f"{market}:{ticker}"
@@ -338,26 +348,32 @@ def fetch_indicators(ticker: str, market: str):
     symbol = get_yf_symbol(ticker)
     df = None
     last_err = None
-    is_tw = symbol.endswith(".TW")
+    is_tw = symbol.endswith(".TW") or symbol.endswith(".TWO")
+
+    def _try_tw_download(sym):
+        """嘗試下載台股資料，回傳 DataFrame 或 None"""
+        for _period, _adj in [("2y", False), ("1y", False), ("2y", True), ("1y", True)]:
+            raw = yf.download(
+                sym, period=_period, interval="1d",
+                progress=False, auto_adjust=_adj,
+                multi_level_index=False,
+            )
+            if raw is not None and len(raw) >= 20:
+                _c = raw.get("Close", raw.get("close", pd.Series()))
+                if not _c.dropna().empty:
+                    return raw
+        return None
 
     for attempt in range(3):
         try:
             if is_tw:
-                # 台股用 yf.download()，ETF 不做價格調整
-                # 先嘗試 2y（新ETF資料可能不足1y），再試 1y
-                for _period, _adj in [("2y", False), ("1y", False), ("2y", True), ("1y", True)]:
-                    raw = yf.download(
-                        symbol, period=_period, interval="1d",
-                        progress=False, auto_adjust=_adj,
-                        multi_level_index=False,
-                    )
-                    if raw is not None and len(raw) >= 20:
-                        _c = raw.get("Close", raw.get("close", pd.Series()))
-                        if not _c.dropna().empty:
-                            df = raw
-                            break
-                else:
-                    df = None
+                # 先試 .TW（上市），失敗再試 .TWO（上櫃）
+                df = _try_tw_download(symbol)
+                if df is None and symbol.endswith(".TW"):
+                    alt = ticker + ".TWO"
+                    df = _try_tw_download(alt)
+                    if df is not None:
+                        symbol = alt  # 更新為正確代號
             else:
                 yf_obj = yf.Ticker(symbol)
                 df = yf_obj.history(period="1y", interval="1d")
