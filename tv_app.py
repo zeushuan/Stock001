@@ -854,7 +854,7 @@ def render_detail(ticker, d, osc, mas, osumm, msumm, tsumm) -> str:
             f'<div class="ind-grid">{ma_group(MA_SHORT)}</div>'
             f'{group_title("中均線 EMA/SMA 50 / 100  ×1.2", ma_medium_summ, "#a0b8c8")}'
             f'<div class="ind-grid">{ma_group(MA_MEDIUM)}</div>'
-            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull  ×1.0", ma_long_summ, "#556677")}'
+            f'{group_title("長均線 EMA/SMA 200 · 一目均衡 · VWMA · Hull  ×1.0", ma_long_summ, "#8899aa")}'
             f'<div class="ind-grid">{ma_group(MA_LONG)}</div>'
             f'</div>')
 
