@@ -1420,14 +1420,202 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
 # 停損：ATR×2.5 動態計算
 # ─────────────────────────────────────────────────────────────────
 
-# 特殊標的：反向/槓桿 ETF，不適合 ⑦策略多頭操作
+# 反向ETF：使用 ⑦反向ETF策略（T1/T2/T3 based on own chart，無T4，ATR×1.5，RSI>65快速出場）
+# 核心邏輯：反向ETF的EMA黃金交叉 = 大盤開始下跌 → 此時正是進場時機
+_INVERSE_ETF_TICKERS = {"00632R", "00633L", "00648U", "00675L", "00676L"}
+
+def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
+                             rsi_prev2, atr14, close, cross_days) -> str:
+    """
+    反向ETF專屬操作建議卡片。
+    邏輯：對此標的自身K線套用 ⑦T1/T2/T3，但：
+      - 無T4（空頭=大盤多頭，不抓反彈）
+      - ATR×1.5（更緊停損）
+      - ADX<25時RSI>65即出場（更快出場）
+    EMA黃金交叉在反向ETF上 = 大盤進入空頭，是持有反向ETF的最佳時機。
+    """
+    is_bull  = ema20 > ema60
+    adx_ok   = (adx is not None and adx >= 22)
+    rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
+    adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
+
+    # 反向ETF 名稱對照
+    _inv_names = {
+        "00632R": "台灣50反1", "00633L": "台灣50正2",
+        "00648U": "標普500正2", "00675L": "中國A50正2", "00676L": "中國A50反1",
+    }
+    inv_name = _inv_names.get(tk, "反向/槓桿ETF")
+
+    # ── 頂部說明橫幅 ─────────────────────────────────────────────
+    inv_banner = (
+        f'<div style="background:#0a1a0a;border:1px solid #1a6030;border-radius:6px;'
+        f'padding:8px 12px;margin-bottom:10px;font-size:.76rem">'
+        f'<span style="color:#40c070;font-weight:700">🔄 反向ETF策略模式｜{tk}（{inv_name}）</span><br>'
+        f'<span style="color:#90d0a0">'
+        f'此標的與大盤<b>反向</b>連動。當大盤出現死亡交叉，此標的出現<b>黃金交叉</b>，才是進場時機。<br>'
+        f'策略調整：<b>無T4空頭反彈</b>（空頭=大盤多頭，不宜持有反向ETF）｜'
+        f'<b>ATR×1.5嚴格停損</b>｜<b>ADX&lt;25時RSI&gt;65快速出場</b>'
+        f'</span>'
+        f'</div>'
+    )
+
+    # ── ① 環境判斷 ──────────────────────────────────────────────
+    if cross_days is not None and cross_days > 0:
+        cross_txt = f"，黃金交叉 {cross_days} 天前（= 大盤死亡交叉 {cross_days} 天前）"
+    elif cross_days is not None and cross_days < 0:
+        cross_txt = f"，死亡交叉 {abs(cross_days)} 天前（= 大盤黃金交叉，反向ETF趨勢結束）"
+    else:
+        cross_txt = ""
+
+    if is_bull and adx_ok:
+        env_color, env_icon = "#40c070", "✅"
+        env_tag  = "反向ETF多頭（大盤空頭期）"
+        env_desc = (f"EMA20 &gt; EMA60{cross_txt}｜ADX {adx_str} ≥ 22（趨勢有效）<br>"
+                    f'<span style="color:#90d0a0;font-size:.73rem">'
+                    f'⚡ 此為操作反向ETF的黃金時機：大盤正在下跌，持有此標的可獲利</span>')
+    elif is_bull and not adx_ok:
+        env_color, env_icon = "#e8c030", "⚠️"
+        env_tag  = "反向ETF多頭但趨勢弱"
+        env_desc = (f"EMA20 &gt; EMA60{cross_txt}，但 ADX {adx_str} &lt; 22，趨勢強度不足。"
+                    f"可能是大盤短暫回檔而非真正空頭，等待 ADX ≥ 22 確認後再進場")
+    else:
+        env_color, env_icon = "#ff5555", "🚫"
+        env_tag  = "反向ETF空頭（大盤多頭期）"
+        env_desc = (f"EMA20 &lt; EMA60{cross_txt}，此時大盤處於多頭，<b>反向ETF持續下跌</b>。"
+                    f"⑦策略不進場，等待反向ETF出現黃金交叉（= 大盤空頭確立）")
+
+    # ── ② 進場判斷 ──────────────────────────────────────────────
+    entry_rows = []
+    t1_ok = t3_ok = False
+    if is_bull and adx_ok:
+        t1_ok = (cross_days is not None and 0 < cross_days <= 10)
+        t1c   = "#40c070" if t1_ok else "#4a6070"
+        t1d   = f"{cross_days} 天前" if (cross_days and cross_days > 0) else "尚未發生"
+        entry_rows.append(
+            f'<div style="display:flex;gap:6px;align-items:baseline">'
+            f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
+            f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T1 黃金交叉</span>'
+            f'<span style="color:{t1c}">{"✅" if t1_ok else "⬜"} {t1d}'
+            f'{"　← 積極進場（大盤剛進入空頭）" if t1_ok else ""}</span></div>'
+        )
+        t3_ok = (rsi is not None and rsi < 50)
+        t3c   = "#40c070" if t3_ok else "#4a6070"
+        t3_gap = f"（還差 {50 - rsi:.1f} 點）" if (rsi is not None and not t3_ok) else ""
+        entry_rows.append(
+            f'<div style="display:flex;gap:6px;align-items:baseline">'
+            f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
+            f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T3 回調進場</span>'
+            f'<span style="color:{t3c}">{"✅" if t3_ok else "⬜"} RSI {rsi_str}'
+            f' {"< 50 回調到位" if t3_ok else f"≥ 50，等待回調{t3_gap}"}'
+            f'{"　← 可進場" if t3_ok else ""}</span></div>'
+        )
+        entry_rows.append(
+            f'<div style="color:#7a8899;font-size:.73rem">🚫 T4空頭反彈：<b>停用</b>'
+            f'（反向ETF在EMA空頭期 = 大盤多頭，不宜進場）</div>'
+        )
+    elif is_bull and not adx_ok:
+        entry_rows.append(
+            f'<div style="color:#e8c030">ADX {adx_str} &lt; 22，趨勢強度不足，等待 ADX ≥ 22 後進場</div>'
+        )
+    else:
+        entry_rows.append(
+            f'<div style="color:#7a8899">反向ETF處於下跌趨勢（= 大盤多頭），不進場。'
+            f'等待 EMA 黃金交叉出現（= 大盤開始反轉下跌）</div>'
+        )
+
+    # 動作標籤
+    if is_bull and adx_ok and (t1_ok or t3_ok):
+        action_label, action_bg, action_fg = "進場條件達成 ✅", "#0d2a10", "#40c070"
+    elif is_bull and adx_ok:
+        action_label, action_bg, action_fg = "等待回調進場",    "#0a1628", "#7a9ab0"
+    elif is_bull:
+        action_label, action_bg, action_fg = "ADX不足，觀望",   "#1a1a05", "#e8c030"
+    else:
+        action_label, action_bg, action_fg = "大盤多頭，不操作", "#1a0505", "#ff5555"
+
+    # ── ③ 出場/停損 ─────────────────────────────────────────────
+    risk_rows = []
+    # 停損：ATR×1.5（比一般更緊）
+    if atr14 is not None and close is not None and close > 0:
+        stop_dist  = atr14 * 1.5
+        stop_price = close - stop_dist
+        stop_pct   = stop_dist / close * 100
+        risk_rows.append(
+            f'<div>🛡️ <b>停損價 <span style="color:#ff7a7a">{stop_price:.2f}</span></b>'
+            f'&nbsp;<span style="color:#7a8899">（收盤 {close:.2f} − ATR×1.5 {stop_dist:.2f}'
+            f' = -{stop_pct:.1f}%）反向ETF衰減特性，停損比一般更緊</span></div>'
+        )
+    else:
+        risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
+
+    if is_bull:
+        ema_gap_pct = (ema20 - ema60) / ema60 * 100 if ema60 else None
+        if ema_gap_pct is not None and ema_gap_pct < 1.0:
+            risk_rows.append(
+                f'<div>⚠️ <span style="color:#ff9944"><b>出場警示</b>：EMA20/60 差距僅'
+                f' {ema_gap_pct:.2f}%，接近死亡交叉（= 大盤即將反彈），隨時準備出場！</span></div>'
+            )
+        else:
+            gap_s = f"{ema_gap_pct:.1f}%" if ema_gap_pct is not None else "N/A"
+            risk_rows.append(
+                f'<div>📌 <span style="color:#7abadd">出場條件①：EMA 死亡交叉時出場（目前差距 {gap_s}）</span></div>'
+            )
+        # ADX<25 快速出場
+        if adx is not None and adx < 25:
+            risk_rows.append(
+                f'<div>📌 <span style="color:#e8c030">出場條件②：ADX {adx_str} &lt; 25 且 RSI &gt; 65 即出場'
+                f'（弱趨勢快速獲利了結）</span></div>'
+            )
+        else:
+            risk_rows.append(
+                f'<div><span style="color:#7a8899;font-size:.73rem">'
+                f'備用出場：ADX &lt; 25 時若 RSI &gt; 65 提前出場</span></div>'
+            )
+    else:
+        risk_rows.append(
+            '<div><span style="color:#7abadd">📌 轉多條件：等待 EMA 黃金交叉（此標的）= 大盤開始下跌</span></div>'
+        )
+
+    # ── 組合 HTML ────────────────────────────────────────────────
+    label_tag = (
+        f'<span style="background:{action_bg};color:{action_fg};'
+        f'border:1px solid {action_fg}44;border-radius:4px;'
+        f'padding:2px 9px;font-size:.72rem;font-weight:700;margin-left:8px">'
+        f'{action_label}</span>'
+    )
+    sec_style = "display:flex;gap:8px;align-items:flex-start;margin-bottom:6px"
+    tag_style = ("background:#0a1e30;border-radius:4px;padding:1px 7px;"
+                 "font-size:.68rem;font-weight:700;color:#5a9acf;"
+                 "white-space:nowrap;margin-top:2px")
+    val_style = "font-size:.78rem;line-height:1.8;color:#c8dff0"
+
+    return (
+        f'<div style="background:#050e1a;border:1px solid #1a4030;border-radius:8px;'
+        f'padding:10px 14px;margin-bottom:12px">'
+        f'{inv_banner}'
+        f'<div style="font-size:.82rem;font-weight:700;color:#40c070;margin-bottom:8px">'
+        f'🔄 ⑦ 反向ETF專屬策略{label_tag}</div>'
+        f'<div style="{sec_style}">'
+        f'<span style="{tag_style}">①市場環境</span>'
+        f'<div style="{val_style}">'
+        f'<span style="color:{env_color};font-weight:700">{env_icon} {env_tag}</span>'
+        f'&nbsp;<span style="color:#8ab0c8">{env_desc}</span>'
+        f'</div></div>'
+        f'<div style="{sec_style}">'
+        f'<span style="{tag_style}">②進場判斷</span>'
+        f'<div style="{val_style}">{"".join(entry_rows)}</div>'
+        f'</div>'
+        f'<div style="{sec_style.replace("margin-bottom:6px","")}">'
+        f'<span style="{tag_style}">③出場停損</span>'
+        f'<div style="{val_style}">{"".join(risk_rows)}</div>'
+        f'</div>'
+        f'</div>'
+    )
+
+# 一般特殊標的警告（非反向ETF，但操作需特別注意）
 _SPECIAL_TICKER_WARN = {
-    "00632R": ("反向ETF（台灣50反1）",
-               "此標的與大盤反向，長期多頭市況下持續下跌。"
-               "⑦策略多頭框架不適用；T4空頭反彈回測仍虧損 -33%。<br>"
-               "建議：<b>僅在確認系統性空頭來臨時考慮持有，一般不建議用多頭策略操作。</b>"),
-    "00633L": ("槓桿ETF（台灣50正2）",
-               "2倍正向槓桿，波動劇烈。⑦策略 ATR 停損易被震出，建議縮小部位或改用 ②趨勢EMA 策略。"),
+    "00633L": ("2倍槓桿ETF（台灣50正2）",
+               "2倍正向槓桿，波動劇烈且有衰減成本。適用⑦反向ETF版策略規則：ATR×1.5嚴格停損，ADX<25時RSI>65即出場。"),
     "00648U": ("原油正2ETF",
                "商品槓桿ETF，受期貨轉倉成本侵蝕，不適合長期持有。建議以短線波段操作為主。"),
 }
@@ -1451,9 +1639,16 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if ema20 is None or ema60 is None:
         return ""
 
-    # ── ⓪ 特殊標的警告（反向/槓桿ETF）────────────────────────────
+    # ── ⓪ 標的分類（反向ETF 走專屬邏輯）────────────────────────────
     special_banner = ""
     _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
+    _is_inverse = _tk_upper in _INVERSE_ETF_TICKERS
+
+    # 反向ETF → 直接轉入專屬建議，不走一般 ⑦ 邏輯
+    if _is_inverse:
+        return _get_inverse_etf_advice(d, _tk_upper, ema20, ema60, adx, rsi, rsi_prev,
+                                       rsi_prev2, atr14, close, cross_days)
+
     if _tk_upper in _SPECIAL_TICKER_WARN:
         _kind, _warn_msg = _SPECIAL_TICKER_WARN[_tk_upper]
         special_banner = (

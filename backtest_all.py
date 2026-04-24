@@ -33,6 +33,9 @@ STOCK_LIST = [
     "1711","8021","3167","8064",
 ]
 
+# 反向ETF：使用專屬策略（無T4、ATR×1.5、快速出場）
+INVERSE_ETF = {"00632R", "00633L", "00648U"}
+
 # ─────────────────────────────────────────────────────────────
 def is_tw(t):
     import re
@@ -130,6 +133,8 @@ def run_bt_atr(dates, prices, atr_arr, entry_fn, exit_fn, atr_mult=2.5):
     return trades
 
 def pbar(pnl, scale=500):
+    if pnl is None or (isinstance(pnl, float) and np.isnan(pnl)):
+        return "N/A"
     n = min(int(abs(pnl)/scale), 16)
     return ("+" + "█"*n) if pnl >= 0 else ("-" + "▒"*n)
 
@@ -142,6 +147,8 @@ def analyze(ticker):
 
     mask  = (df.index >= START) & (df.index <= END)
     sub   = df[mask].copy()
+    # 移除收盤價為 NaN 的列（可能是最新未完成交易日）
+    sub   = sub[sub["Close"].notna()]
     if len(sub) < 10:
         return None
 
@@ -277,6 +284,26 @@ def analyze(ticker):
     # 合計（多頭主策略 + 空頭反彈補充，兩者不重疊）
     t7_all = t7 + t7b
 
+    # ── ⑦反向ETF專屬策略（反向ETF才執行）──────────────────────────
+    # 核心洞察：
+    #   反向ETF（如00632R）的EMA黃金交叉 = 大盤開始下跌，此時正確進場
+    #   策略與正常股票相同（T1/T2/T3 based on own chart），但：
+    #   1. 無T4（不在EMA空頭時抓反彈，空頭=大盤多頭，不宜持有反向ETF）
+    #   2. ATR×1.5（更緊停損，因反向ETF波動大且有衰減）
+    #   3. 弱趨勢出場：ADX<25時RSI>65即出（比一般的70更快出場）
+    t7_inv = []
+    if ticker in INVERSE_ETF:
+        def e7inv_ex(i):
+            """反向ETF出場：死亡交叉 + ADX<25時RSI>65（更快出場）"""
+            if i < 1: return False
+            if any(np.isnan([e20[i], e60[i]])): return False
+            if e20[i] < e60[i]: return True
+            if not np.isnan(adx_v[i]) and adx_v[i] < 25:
+                if not np.isnan(rsi[i]) and rsi[i] > 65:
+                    return True
+            return False
+        t7_inv = run_bt_atr(dates, pr, atr_v, e7_en, e7inv_ex, atr_mult=1.5)
+
     def tot(tt): return sum(t["pnl"] for t in tt)
     def days(tt): return sum(t["days"] for t in tt)
 
@@ -285,7 +312,9 @@ def analyze(ticker):
         n=n, p0=pr[0], p1=pr[-1],
         bh_pnl=bh_pnl, bh_ret=bh_ret,
         t2=t2, t3=t3, t4=t4, t5=t5, t6=t6, t7=t7_all, t7b=t7b,
+        t7_inv=t7_inv,
         pnl2=tot(t2), pnl3=tot(t3), pnl4=tot(t4), pnl5=tot(t5), pnl6=tot(t6), pnl7=tot(t7_all),
+        pnl7_inv=tot(t7_inv),
         days2=days(t2), days3=days(t3), days4=days(t4), days5=days(t5), days6=days(t6), days7=days(t7_all),
         rsi_arr=rsi, e10=e10, e20=e20, e60=e60, dates=dates,
         rsi_min=float(pd.Series(rsi).dropna().min()) if not pd.Series(rsi).dropna().empty else np.nan,
@@ -312,6 +341,9 @@ def print_detail(r):
           f"EMA多頭:{r['bull_days']}天/空頭:{n-r['bull_days']}天")
     print(f"{'='*W}")
 
+    t7_inv = r.get("t7_inv", [])
+    is_inv = len(t7_inv) > 0  # 反向ETF標誌
+
     strats = [
         ("① 買入持有",       1,      n,          r["bh_pnl"],  r["bh_ret"]*100,  []),
         ("② 趨勢EMA20/60",   len(r["t2"]), r["days2"], r["pnl2"], r["pnl2"]/INVEST*100, r["t2"]),
@@ -321,16 +353,26 @@ def print_detail(r):
         ("⑥ 組合確認",       len(r["t6"]), r["days6"], r["pnl6"], r["pnl6"]/INVEST*100, r["t6"]),
         ("⑦ 自適應趨勢[新]", len(r["t7"]), r["days7"], r["pnl7"], r["pnl7"]/INVEST*100, r["t7"]),
     ]
+    if is_inv:
+        inv_days = sum(t["days"] for t in t7_inv)
+        strats.append(
+            ("⑦反向ETF專屬", len(t7_inv), inv_days,
+             r["pnl7_inv"], r["pnl7_inv"]/INVEST*100, t7_inv)
+        )
 
     best_pnl = max(s[3] for s in strats)
-    print(f"  {'策略':<18} {'筆':>3} {'在市天':>6} {'損益':>10} {'報酬%':>8}")
-    print(f"  {'-'*50}")
+    print(f"  {'策略':<20} {'筆':>3} {'在市天':>6} {'損益':>10} {'報酬%':>8}")
+    print(f"  {'-'*52}")
     for name, cnt, dy, pnl, ret, _ in strats:
         mark = " ◀最佳" if pnl == best_pnl else ""
-        print(f"  {name:<18} {cnt:>3} {dy:>6} {pnl:>+10.0f} {ret:>+7.2f}%{mark}")
+        flag = " ★" if "反向ETF" in name else ""
+        print(f"  {name:<20} {cnt:>3} {dy:>6} {pnl:>+10.0f} {ret:>+7.2f}%{mark}{flag}")
 
-    # 逐筆明細：只印 ⑦ 自適應趨勢（標示 T4 空頭反彈筆）
-    for name, cnt, dy, pnl, ret, trades in strats[6:]:
+    # 逐筆明細：只印 ⑦ 自適應趨勢（標示 T4 空頭反彈筆）+ 反向ETF策略
+    detail_strats = strats[6:]
+    if is_inv:
+        detail_strats = strats[6:]  # 含最後一個 ⑦反向ETF
+    for name, cnt, dy, pnl, ret, trades in detail_strats:
         if not trades: continue
         print(f"\n  [{name}]")
         t7b_set = set(id(t) for t in r.get("t7b", []))
