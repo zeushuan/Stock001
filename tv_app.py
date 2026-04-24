@@ -2089,6 +2089,76 @@ def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
+def get_rec_label(d: dict, ticker: str = "") -> tuple:
+    """
+    ④推薦策略 輕量版：回傳 (rec_name, badge_inline_style) 供表格「操作建議」欄使用。
+    與 get_operation_advice() 使用完全相同的決策樹邏輯，確保兩者一致。
+    """
+    ema20      = d.get("ema20")
+    ema60      = d.get("ema60")
+    adx        = d.get("adx")
+    rsi        = d.get("rsi")
+    rsi_prev   = d.get("rsi_prev")
+    rsi_prev2  = d.get("rsi_prev2")
+    cross_days = d.get("ema20_cross_days")
+
+    if ema20 is None or ema60 is None:
+        return ("—", "background:#0a1020;color:#7a8899")
+
+    _tk_upper  = ticker.upper().replace(".TW", "").replace(".TWO", "")
+    _is_inverse = _tk_upper in _INVERSE_ETF_TICKERS
+    is_bull    = ema20 > ema60
+    adx_ok     = (adx is not None and adx >= 22)
+
+    if _is_inverse:
+        # 反向ETF：自身趨勢判斷，只用T1/T2/T3
+        if is_bull and adx_ok:
+            t1_ok = (cross_days is not None and 0 < cross_days <= 10)
+            t3_ok = (rsi is not None and rsi < 50)
+            if t1_ok:
+                return ("⑦反向ETF T1進場", "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            elif t3_ok:
+                return ("⑦反向ETF T3拉回", "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            else:
+                return ("⑦反向ETF 觀察",   "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
+        elif is_bull and not adx_ok:
+            return ("反向ETF 假多頭",       "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
+        else:
+            return ("空頭，不買",           "background:#1a0010;color:#ff5555;border:1px solid #ff555544")
+
+    _t4_rising = (rsi is not None and rsi < 32 and
+                  rsi_prev is not None and rsi > rsi_prev and
+                  rsi_prev2 is not None and rsi_prev > rsi_prev2)
+
+    if not is_bull:
+        if _t4_rising:
+            return ("T4 空頭反彈",          "background:#2a1500;color:#ff9944;border:1px solid #ff994455")
+        else:
+            return ("不操作 — 等待訊號",    "background:#0a1020;color:#7a8899;border:1px solid #7a889944")
+    elif not adx_ok:
+        return ("不操作 — 假多頭",          "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
+    else:
+        _is_strong   = (adx is not None and adx >= 30)
+        _is_fresh    = (cross_days is not None and 0 < cross_days <= 10)
+        _is_pullback = (rsi is not None and rsi < 50)
+        _is_hot      = (rsi is not None and rsi >= 70)
+
+        if _is_strong and _is_fresh:
+            return ("② 趨勢EMA（飆股）",    "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
+        elif _is_strong and _is_pullback:
+            return ("⑦T3 強趨勢拉回",       "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+        elif _is_strong and not _is_pullback and not _is_hot:
+            return ("⑦T3 等待拉回",         "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
+        elif not _is_strong and _is_fresh:
+            return ("⑦T1 穩健進場",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+        elif not _is_strong and _is_pullback:
+            return ("⑦T3 拉回進場",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+        elif _is_hot:
+            return ("等待回調 — 不追高",     "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
+        else:
+            return ("⑦T2 可觀察",           "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
+
+
 def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}",
                  selected_platform: str = "Perplexity") -> str:
     rows = ""
@@ -2134,8 +2204,10 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                     f'&nbsp;{badge(r_)}</td>')
 
         cap_icon = '<span title="' + cap.replace('"',"'") + '" style="color:#f0a030;margin-left:4px;cursor:help">⚠</span>' if cap else ""
+        _rlabel, _rbadge = get_rec_label(d, ticker) if d else ("—", "background:#0a1020;color:#7a8899")
         tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
-                    f'{badge(tr_)}{cap_icon}</td>')
+                    f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
+                    f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span>{cap_icon}</td>')
 
         tv_url = get_tv_url(ticker, market)
         is_perplexity = "{prompt}" in platform_url_tpl and "perplexity" in platform_url_tpl
@@ -2851,7 +2923,8 @@ for item in results:
     _, _, _, tr_ = tsumm
     name  = d.get("name", ticker) if d else ticker
     label = f"{ticker}  {name}" if name and name != ticker else ticker
-    title = f"{label}  {tr_}" if not error else f"{label}  —  無資料"
+    _rlabel_exp, _ = get_rec_label(d, ticker) if (d and not error) else ("無資料", "")
+    title = f"{label}  {_rlabel_exp}" if not error else f"{label}  —  無資料"
     with st.expander(title, expanded=False):
         if error or not d:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
