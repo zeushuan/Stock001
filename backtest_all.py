@@ -16,7 +16,7 @@ from ta.volatility import AverageTrueRange
 from datetime import timedelta
 
 # ─────────────────────────────────────────────────────────────
-START  = "2023-01-01"
+START  = "2025-01-02"
 END    = "2026-04-24"
 INVEST = 100_000
 

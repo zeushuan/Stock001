@@ -1843,6 +1843,158 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             '<div><span style="color:#7abadd">📌 轉多條件：等待 EMA 黃金交叉（EMA20 穿越 EMA60）</span></div>'
         )
 
+    # ── ④ 推薦策略 ────────────────────────────────────────────
+    # 根據 ADX、EMA、RSI、黃金交叉時間，自動選出最大化獲利的策略
+    rec_rows = []
+
+    if not is_bull:
+        if _t4_rising:
+            _rec_name   = "T4 空頭反彈"
+            _rec_color  = "#ff9944"
+            _rec_badge  = "background:#2a1500;color:#ff9944;border:1px solid #ff994455"
+            _rec_reason = "空頭市場中 RSI 連2日回升，短線逆勢反彈機會"
+            _rec_entry  = "立即可進，部位縮小至 1/2"
+            _rec_exit   = "RSI 回升至 55 或 EMA 黃金交叉出場"
+            _rec_stop   = "ATR × 2.0（比多頭更緊）"
+            _rec_warn   = "⚠️ 逆趨勢操作，嚴格停損，不加碼"
+        else:
+            _rec_name   = "不操作 — 等待訊號"
+            _rec_color  = "#7a8899"
+            _rec_badge  = "background:#0a1020;color:#7a8899;border:1px solid #7a889944"
+            _rec_reason = "空頭市場，無論哪種主動策略勝率均低"
+            _rec_entry  = "等待 EMA 黃金交叉（EMA20 穿越 EMA60）後重新評估"
+            _rec_exit   = "—"
+            _rec_stop   = "—"
+            _rec_warn   = ""
+    elif not adx_ok:
+        _rec_name   = "不操作 — 假多頭"
+        _rec_color  = "#e8a020"
+        _rec_badge  = "background:#1a1200;color:#e8a020;border:1px solid #e8a02044"
+        _rec_reason = f"ADX {adx_str} < 22，趨勢強度不足，回測顯示此類市況進場均虧損"
+        _rec_entry  = "等待 ADX 回升至 22+ 後重新評估"
+        _rec_exit   = "—"
+        _rec_stop   = "—"
+        _rec_warn   = ""
+    else:
+        # 多頭 + ADX ≥ 22，根據強度與時機選策略
+        _is_strong   = (adx is not None and adx >= 30)
+        _is_fresh    = (cross_days is not None and 0 < cross_days <= 10)
+        _is_pullback = (rsi is not None and rsi < 50)
+        _is_hot      = (rsi is not None and rsi >= 70)
+        _adx_rising  = (d.get("adx_prev") is not None and adx is not None
+                        and adx > d.get("adx_prev", adx))
+
+        if _is_strong and _is_fresh:
+            # ADX ≥ 30 + 剛黃金交叉 → 飆股模式，②趨勢最大化
+            _rec_name   = "② 趨勢EMA（飆股模式）"
+            _rec_color  = "#f0c030"
+            _rec_badge  = "background:#1a1400;color:#f0c030;border:1px solid #f0c03055"
+            _rec_reason = (f"ADX {adx_str} ≥ 30 且黃金交叉剛發生（{cross_days} 天前），"
+                           f"強趨勢啟動初期，②趨勢EMA回測勝率最高")
+            _rec_entry  = "立即進場（T1 黃金交叉），不等拉回"
+            _rec_exit   = "持到 EMA 死亡交叉才出場（不設百分比停損）"
+            _rec_stop   = "ATR × 2.5 作底線停損，獲利 ≥ 30% 後改用死叉出場"
+            _rec_warn   = "🚀 強趨勢股：提前停損可能錯失最大漲幅（8021 +1431% 教訓）"
+        elif _is_strong and _is_pullback:
+            # ADX ≥ 30 + 已在多頭 + RSI 拉回 → ⑦T3 最佳買點
+            _rec_name   = "⑦ 自適應T3（強趨勢拉回買點）"
+            _rec_color  = "#3dbb6a"
+            _rec_badge  = "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55"
+            _rec_reason = (f"ADX {adx_str} ≥ 30 強趨勢，RSI {rsi_str} < 50 回調到位，"
+                           f"這是強勢股最佳加碼點")
+            _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
+            _rec_exit   = "EMA 死亡交叉出場（強趨勢持住，不提前出）"
+            _rec_stop   = "ATR × 2.5"
+            _rec_warn   = ""
+        elif _is_strong and not _is_pullback and not _is_hot:
+            # ADX ≥ 30 但 RSI 在中間帶（50~70）
+            _rec_name   = "⑦ 自適應T3（等待拉回）"
+            _rec_color  = "#7abadd"
+            _rec_badge  = "background:#0a1628;color:#7abadd;border:1px solid #7abadd44"
+            _rec_reason = (f"ADX {adx_str} 強，但 RSI {rsi_str} 偏高，"
+                           f"等待回調至 RSI < 50 再進場獲得更佳風報比")
+            _rec_entry  = "等待 RSI 回落至 50 以下（T3）再進場"
+            _rec_exit   = "EMA 死亡交叉出場"
+            _rec_stop   = "ATR × 2.5"
+            _rec_warn   = ""
+        elif not _is_strong and _is_fresh:
+            # ADX 22~30 + 剛黃金交叉 → ⑦T1 穩健進場
+            _rec_name   = "⑦ 自適應T1（穩健進場）"
+            _rec_color  = "#3dbb6a"
+            _rec_badge  = "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55"
+            _rec_reason = (f"黃金交叉 {cross_days} 天前，ADX {adx_str}（22~30 穩健趨勢），"
+                           f"⑦T1 進場配合 ATR 停損，風報比合理")
+            _rec_entry  = f"立即進場（黃金交叉 {cross_days} 天前，T1）"
+            _rec_exit   = "ADX < 25 時 RSI > 65 提前出場；ADX ≥ 25 持到死叉"
+            _rec_stop   = "ATR × 2.5"
+            _rec_warn   = "⚠️ 趨勢強度中等，需更嚴守停損"
+        elif not _is_strong and _is_pullback:
+            # ADX 22~30 + RSI 拉回 → ⑦T3
+            _rec_name   = "⑦ 自適應T3（拉回進場）"
+            _rec_color  = "#3dbb6a"
+            _rec_badge  = "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55"
+            _rec_reason = (f"多頭中段，RSI {rsi_str} < 50 拉回，ADX {adx_str} 趨勢確認中，"
+                           f"⑦T3 是此情境下勝率最高的進場方式")
+            _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
+            _rec_exit   = "ADX < 25 時 RSI > 65 出場；ADX ≥ 25 持到死叉"
+            _rec_stop   = "ATR × 2.5"
+            _rec_warn   = ""
+        elif _is_hot:
+            # RSI ≥ 70
+            _rec_name   = "等待回調 — 不追高"
+            _rec_color  = "#c8b87a"
+            _rec_badge  = "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44"
+            _adx_note   = "（弱趨勢，過熱後易反轉）" if not _is_strong else "（強趨勢，但短期過熱）"
+            _rec_reason = (f"RSI {rsi_str} ≥ 70 多頭過熱{_adx_note}，"
+                           f"追高進場勝率低，等待 RSI 回落至 50 以下再進")
+            _rec_entry  = "等待 RSI 回落至 50（T3）再進場"
+            _rec_exit   = "—"
+            _rec_stop   = "—"
+            _rec_warn   = ""
+        else:
+            # RSI 50~70，ADX 22~30，無交叉
+            _rec_name   = "⑦ 自適應T2（可觀察）"
+            _rec_color  = "#c8b87a"
+            _rec_badge  = "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44"
+            _rec_reason = (f"多頭市場中段，RSI {rsi_str} 偏高，"
+                           f"T2 背景條件達成但 T3（RSI<50）更優，可小量試探")
+            _rec_entry  = "酌量小部位試探（T2），等待 RSI < 50 加碼（T3）"
+            _rec_exit   = "ADX < 25 時 RSI > 65 出場；ADX ≥ 25 持到死叉"
+            _rec_stop   = "ATR × 2.5"
+            _rec_warn   = ""
+
+    # 推薦策略 HTML 組裝
+    rec_badge_html = (
+        f'<span style="{_rec_badge};border-radius:4px;padding:2px 8px;'
+        f'font-size:.72rem;font-weight:700">{_rec_name}</span>'
+    )
+    rec_rows.append(
+        f'<div style="margin-bottom:4px">{rec_badge_html}'
+        f'&nbsp;<span style="color:#8ab0c8;font-size:.75rem">{_rec_reason}</span></div>'
+    )
+    if _rec_entry != "—":
+        rec_rows.append(
+            f'<div style="display:flex;gap:6px">'
+            f'<span style="color:#5a9acf;font-size:.7rem;white-space:nowrap">📥 進場</span>'
+            f'<span style="color:#c8dff0;font-size:.75rem">{_rec_entry}</span></div>'
+        )
+    if _rec_exit != "—":
+        rec_rows.append(
+            f'<div style="display:flex;gap:6px">'
+            f'<span style="color:#5a9acf;font-size:.7rem;white-space:nowrap">📤 出場</span>'
+            f'<span style="color:#c8dff0;font-size:.75rem">{_rec_exit}</span></div>'
+        )
+    if _rec_stop != "—":
+        rec_rows.append(
+            f'<div style="display:flex;gap:6px">'
+            f'<span style="color:#5a9acf;font-size:.7rem;white-space:nowrap">🛡️ 停損</span>'
+            f'<span style="color:#c8dff0;font-size:.75rem">{_rec_stop}</span></div>'
+        )
+    if _rec_warn:
+        rec_rows.append(
+            f'<div style="color:#f0c030;font-size:.73rem;margin-top:3px">{_rec_warn}</div>'
+        )
+
     # ── 組合 HTML ────────────────────────────────────────────
     label_tag = (
         f'<span style="background:{action_bg};color:{action_fg};'
@@ -1878,10 +2030,16 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<div style="{val_style}">{"".join(entry_rows)}</div>'
         f'</div>'
         # ③
-        f'<div style="{sec_style.replace("margin-bottom:6px","")}">'
+        f'<div style="{sec_style}">'
         f'<span style="{tag_style}">③出場停損</span>'
         f'<div style="{val_style}">{"".join(risk_rows)}</div>'
         f'</div>'
+        # ④ 推薦策略（新增）
+        f'<div style="border-top:1px solid #0f2035;margin-top:8px;padding-top:8px">'
+        f'<div style="{sec_style.replace("margin-bottom:6px","")}">'
+        f'<span style="{tag_style};background:#0f2040;color:#f0c030">④推薦策略</span>'
+        f'<div style="{val_style}">{"".join(rec_rows)}</div>'
+        f'</div></div>'
         f'</div>'
     )
     return html
