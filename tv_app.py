@@ -1777,11 +1777,12 @@ def build_excel(results) -> bytes:
         ws.cell(ri, ci).value = summ_str(*ms_s); ci += 1
 
         # ── 輔助指標 (10項 + 小結) ─────────────────────────────
+        aux_start = ci
         for it in g_aux[:10]:
             v, j = ind_val(it)
             cell(ci, f"{v} / {j}", "X", JUDG_FC.get(j,"444444"), 9, j!="中立"); ci += 1
-        # pad if fewer than 10 items
-        while ci <= 31:
+        # pad if fewer than 10 items（與 build_stock_range_excel 保持一致）
+        while ci < aux_start + 10:
             cell(ci, "", "X"); ci += 1
         verdict_cell(ci, xs_s[3], "X")
         ws.cell(ri, ci).value = summ_str(*xs_s); ci += 1
