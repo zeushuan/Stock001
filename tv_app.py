@@ -532,6 +532,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "change_amt":   change_amt,
             "rsi":          last(rsi_s),
             "rsi_prev":     prev(rsi_s),
+            "rsi_prev2":    prev(rsi_s, 2),             # T4連續2天上升判斷用
             "atr14":        last(atr_s),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
@@ -1418,16 +1419,31 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
 # 出場：EMA 死亡交叉（不用 RSI 出場，讓趨勢跑完）
 # 停損：ATR×2.5 動態計算
 # ─────────────────────────────────────────────────────────────────
-def get_operation_advice(d: dict) -> str:
+
+# 特殊標的：反向/槓桿 ETF，不適合 ⑦策略多頭操作
+_SPECIAL_TICKER_WARN = {
+    "00632R": ("反向ETF（台灣50反1）",
+               "此標的與大盤反向，長期多頭市況下持續下跌。"
+               "⑦策略多頭框架不適用；T4空頭反彈回測仍虧損 -33%。<br>"
+               "建議：<b>僅在確認系統性空頭來臨時考慮持有，一般不建議用多頭策略操作。</b>"),
+    "00633L": ("槓桿ETF（台灣50正2）",
+               "2倍正向槓桿，波動劇烈。⑦策略 ATR 停損易被震出，建議縮小部位或改用 ②趨勢EMA 策略。"),
+    "00648U": ("原油正2ETF",
+               "商品槓桿ETF，受期貨轉倉成本侵蝕，不適合長期持有。建議以短線波段操作為主。"),
+}
+
+def get_operation_advice(d: dict, ticker: str = "") -> str:
     """
     依 ⑦自適應趨勢 框架輸出 HTML 操作建議卡片。
     回傳空字串表示無資料可顯示。
+    ticker 用於特殊標的警告。
     """
     ema20      = d.get("ema20")
     ema60      = d.get("ema60")
     adx        = d.get("adx")
     rsi        = d.get("rsi")
     rsi_prev   = d.get("rsi_prev")
+    rsi_prev2  = d.get("rsi_prev2")          # T4：連續2天上升確認用
     atr14      = d.get("atr14")
     close      = d.get("close")
     cross_days = d.get("ema20_cross_days")   # +N=黃金交叉N天前, -N=死亡交叉N天前
@@ -1435,8 +1451,21 @@ def get_operation_advice(d: dict) -> str:
     if ema20 is None or ema60 is None:
         return ""
 
+    # ── ⓪ 特殊標的警告（反向/槓桿ETF）────────────────────────────
+    special_banner = ""
+    _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
+    if _tk_upper in _SPECIAL_TICKER_WARN:
+        _kind, _warn_msg = _SPECIAL_TICKER_WARN[_tk_upper]
+        special_banner = (
+            f'<div style="background:#1a0a00;border:1px solid #c05000;border-radius:6px;'
+            f'padding:8px 12px;margin-bottom:10px;font-size:.76rem">'
+            f'<span style="color:#ff8040;font-weight:700">⚠️ 特殊標的警告｜{_kind}</span><br>'
+            f'<span style="color:#f0c090">{_warn_msg}</span>'
+            f'</div>'
+        )
+
     is_bull  = ema20 > ema60
-    adx_ok   = (adx is not None and adx >= 18)
+    adx_ok   = (adx is not None and adx >= 22)   # v3改良④：18→22 防假多頭
     rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
 
@@ -1447,11 +1476,15 @@ def get_operation_advice(d: dict) -> str:
             cross_txt = f"，死亡交叉 {abs(cross_days)} 天前"
         else:
             cross_txt = ""
-        if rsi is not None and rsi < 32 and rsi_prev is not None and rsi > rsi_prev:
+        # T4 條件：RSI<32 且連續2天上升（v3改良③）
+        _t4_rising = (rsi is not None and rsi < 32 and
+                      rsi_prev is not None and rsi > rsi_prev and
+                      rsi_prev2 is not None and rsi_prev > rsi_prev2)
+        if _t4_rising:
             env_color, env_icon = "#ff9944", "🟡"
-            env_tag   = "空頭 — 超賣反彈觀察"
-            env_desc  = (f"EMA20 &lt; EMA60{cross_txt}｜RSI {rsi_str} &lt; 32 且止跌回升"
-                         f"（{rsi_prev:.1f}→{rsi_str}），可觀察反彈機會（嚴格停損）")
+            env_tag   = "空頭 — 超賣反彈觀察（T4）"
+            env_desc  = (f"EMA20 &lt; EMA60{cross_txt}｜RSI {rsi_str} &lt; 32 且<b>連續2天止跌回升</b>"
+                         f"（{rsi_prev2:.1f}→{rsi_prev:.1f}→{rsi_str}），T4反彈條件達成（ATR×2.0嚴格停損）")
         elif rsi is not None and rsi < 32:
             env_color, env_icon = "#ff9944", "🔴"
             env_tag   = "空頭 — 極度超賣"
@@ -1465,8 +1498,8 @@ def get_operation_advice(d: dict) -> str:
     elif not adx_ok:
         env_color, env_icon = "#e8a020", "⚠️"
         env_tag   = "假多頭警告"
-        env_desc  = (f"EMA20 &gt; EMA60，但 ADX {adx_str} &lt; 18，趨勢強度不足。"
-                     f"回測驗證：00737 型假多頭進場虧損 -7%，⑦策略設 ADX≥18 前提")
+        env_desc  = (f"EMA20 &gt; EMA60，但 ADX {adx_str} &lt; 22，趨勢強度不足。"
+                     f"回測驗證：00737 型假多頭進場虧損 -7%，⑦策略設 ADX≥22 前提（v3改良）")
     else:
         if cross_days is not None and 0 < cross_days <= 10:
             cross_info = f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>｜"
@@ -1476,9 +1509,9 @@ def get_operation_advice(d: dict) -> str:
             cross_info = ""
         env_color, env_icon = "#3b9eff", "✅"
         env_tag   = "多頭市場"
-        env_desc  = f"{cross_info}EMA20 &gt; EMA60｜ADX {adx_str} ≥ 18（趨勢有效）"
+        env_desc  = f"{cross_info}EMA20 &gt; EMA60｜ADX {adx_str} ≥ 22（趨勢有效）"
 
-    # ── ② 進場判斷（三觸發，僅多頭+ADX≥18 有效）────────────────
+    # ── ② 進場判斷（三觸發，僅多頭+ADX≥22 有效）────────────────
     entry_rows  = []
     t1_ok = t3_ok = t2_ok = False
 
@@ -1531,14 +1564,20 @@ def get_operation_advice(d: dict) -> str:
 
     elif is_bull and not adx_ok:
         entry_rows.append(
-            f'<div style="color:#e8a020">ADX {adx_str} &lt; 18，趨勢強度不足，'
-            f'等待 ADX ≥ 18 後進場</div>'
+            f'<div style="color:#e8a020">ADX {adx_str} &lt; 22，趨勢強度不足，'
+            f'等待 ADX ≥ 22 後進場</div>'
         )
     else:  # 空頭
-        if rsi is not None and rsi < 32 and rsi_prev is not None and rsi > rsi_prev:
+        if _t4_rising:
             entry_rows.append(
-                f'<div style="color:#ff9944">RSI {rsi_str} 空頭超賣止跌，'
-                f'若要操作需嚴格設定 ATR×2.5 停損</div>'
+                f'<div style="color:#ff9944">T4反彈條件達成：RSI {rsi_str} &lt; 32 且<b>連續2天止跌回升</b>，'
+                f'可短線觀察反彈（ATR×<b>2.0</b> 嚴格停損，非多頭策略）</div>'
+            )
+        elif rsi is not None and rsi < 32:
+            _need = "（僅差1天，再觀察1日）" if (rsi_prev is not None and rsi > rsi_prev) else "（RSI尚未止跌）"
+            entry_rows.append(
+                f'<div style="color:#7a8899">RSI {rsi_str} 超賣但T4條件未達{_need}，'
+                f'等待連續2天RSI回升後再評估</div>'
             )
         else:
             entry_rows.append(
@@ -1548,10 +1587,10 @@ def get_operation_advice(d: dict) -> str:
 
     # 進場動作標籤
     if not is_bull:
-        if rsi is not None and rsi < 32 and rsi_prev is not None and rsi > rsi_prev:
-            action_label, action_bg, action_fg = "空頭反彈觀察", "#2a1500", "#ff9944"
+        if _t4_rising:
+            action_label, action_bg, action_fg = "T4反彈條件達成 🟡", "#2a1500", "#ff9944"
         else:
-            action_label, action_bg, action_fg = "空頭不交易",   "#1a0505", "#ff5555"
+            action_label, action_bg, action_fg = "空頭不交易",         "#1a0505", "#ff5555"
     elif not adx_ok:
         action_label, action_bg, action_fg = "假多頭暫不操作", "#1a1200", "#e8a020"
     elif t1_ok or t3_ok:
@@ -1564,20 +1603,22 @@ def get_operation_advice(d: dict) -> str:
     # ── ③ 出場 / 停損 ──────────────────────────────────────────
     risk_rows = []
 
-    # 停損：ATR × 2.5
+    # 停損：多頭 ATR×2.5 / T4空頭反彈 ATR×2.0（v3改良）
+    _atr_mult   = 2.0 if (not is_bull and _t4_rising) else 2.5
+    _atr_mult_s = "2.0（T4反彈嚴格停損）" if _atr_mult == 2.0 else "2.5"
     if atr14 is not None and close is not None and close > 0:
-        stop_dist  = atr14 * 2.5
+        stop_dist  = atr14 * _atr_mult
         stop_price = close - stop_dist
         stop_pct   = stop_dist / close * 100
         risk_rows.append(
             f'<div>🛡️ <b>停損價 <span style="color:#ff7a7a">{stop_price:.2f}</span></b>'
-            f'&nbsp;<span style="color:#7a8899">（收盤 {close:.2f} − ATR×2.5 {stop_dist:.2f}'
+            f'&nbsp;<span style="color:#7a8899">（收盤 {close:.2f} − ATR×{_atr_mult_s} {stop_dist:.2f}'
             f' = -{stop_pct:.1f}%）</span></div>'
         )
     else:
         risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
 
-    # 出場：EMA 死亡交叉（⑦ 核心：不用 RSI 出場）
+    # 出場：EMA 死亡交叉（⑦ 核心：不用 RSI 出場）/ T4：RSI>55 或黃金交叉出場
     if is_bull:
         ema_gap_pct = (ema20 - ema60) / ema60 * 100 if ema60 else None
         if ema_gap_pct is not None and ema_gap_pct < 1.0:
@@ -1599,6 +1640,10 @@ def get_operation_advice(d: dict) -> str:
             '停損改用 EMA 死亡交叉出場（回測：固定停損會在 +21% 砍掉最終 +308% 的票）</span></div>'
         )
     else:
+        if _t4_rising:
+            risk_rows.append(
+                '<div><span style="color:#ff9944">📌 T4出場條件：RSI 回升至 &gt; 55 或 EMA 黃金交叉時出場</span></div>'
+            )
         risk_rows.append(
             '<div><span style="color:#7abadd">📌 轉多條件：等待 EMA 黃金交叉（EMA20 穿越 EMA60）</span></div>'
         )
@@ -1620,6 +1665,8 @@ def get_operation_advice(d: dict) -> str:
     html = (
         f'<div style="background:#050e1a;border:1px solid #1a3050;border-radius:8px;'
         f'padding:10px 14px;margin-bottom:12px">'
+        # ⓪ 特殊標的警告（若有）
+        f'{special_banner}'
         # 標題
         f'<div style="font-size:.82rem;font-weight:700;color:#4a8cbf;margin-bottom:8px">'
         f'📊 ⑦ 自適應趨勢 操作建議{label_tag}</div>'
@@ -1848,7 +1895,7 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
         group_section("輔助指標", gc[3], g_aux,       xs_s)
     )
 
-    advice_html = get_operation_advice(d)
+    advice_html = get_operation_advice(d, ticker=ticker)
 
     return f'<div style="padding:4px 8px">{cap_html}{advice_html}{summary_row}{sections}</div>'
 
@@ -2308,7 +2355,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 8   # 每次 tuple 格式或評分邏輯變更時 +1（⑦自適應趨勢建議卡片 2026-04-24）
+_RESULTS_VERSION = 9   # 每次 tuple 格式或評分邏輯變更時 +1（v3：ADX≥22、T4連續2天RSI、rsi_prev2 2026-04-25）
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
