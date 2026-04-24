@@ -2169,7 +2169,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             f'<span style="color:#6a8faa;font-weight:400;font-size:.63rem">買:賣:中 (30%)</span></th>'
             f'<th style="background:#0a1628;min-width:160px"><span style="color:{gc[2]}">動能確認</span><br>'
             f'<span style="color:#6a8faa;font-weight:400;font-size:.63rem">買:賣:中 (20%)</span></th>'
-            f'<th style="background:#060c18;min-width:120px">整體建議</th>'
+            f'<th style="background:#060c18;min-width:120px">操作建議</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
@@ -2321,7 +2321,7 @@ def build_excel(results) -> bytes:
         ("Hull MA", 12, "X"),
         ("輔助小結(10%)", 26, "X"),
         # 整體
-        ("整體建議", 28, "O"), ("Cap說明",  36, "O"),
+        ("操作建議", 28, "O"), ("Cap說明",  36, "O"),
     ]
 
     # ── 寫標題行 ──────────────────────────────────────────────────
@@ -2428,7 +2428,7 @@ def build_excel(results) -> bytes:
         verdict_cell(ci, xs_s[3], "X")
         ws.cell(ri, ci).value = summ_str(*xs_s); ci += 1
 
-        # ── 整體建議 + Cap ──────────────────────────────────────
+        # ── 操作建議 + Cap ──────────────────────────────────────
         verdict_cell(ci, tr_, "O")
         ws.cell(ri, ci).value = tr_; ci += 1
         cap_txt = cap if cap else "—"
@@ -2496,7 +2496,7 @@ def build_stock_range_excel(ticker: str, market: str,
         ("EMA(10)", 12, "X"), ("EMA(60)",  12, "X"), ("SMA(200)", 12, "X"),
         ("Hull MA", 12, "X"), ("輔助小結(10%)", 26, "X"),
         # 整體
-        ("整體建議", 28, "O"), ("Cap說明",  36, "O"),
+        ("操作建議", 28, "O"), ("Cap說明",  36, "O"),
     ]   # 共 32 欄
 
     for ci, (label, width, gkey) in enumerate(col_defs, 1):
