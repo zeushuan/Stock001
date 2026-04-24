@@ -2276,12 +2276,7 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
         items_html = "".join(ind(lbl, val, judg) for lbl, val, judg in items)
         return header + f'<div class="ind-grid">{items_html}</div>'
 
-    cap_html = ""
-    if cap:
-        cap_html = (
-            f'<div style="background:#1a1200;border:1px solid #6a4a00;border-radius:8px;'
-            f'padding:8px 12px;margin-bottom:12px;color:#f0a030;font-size:.78rem">{cap}</div>'
-        )
+    # cap_html 已移除：操作建議改用④推薦策略決策樹，舊加權系統的 cap 警告不再顯示
 
     summary_row = (
         f'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">'
@@ -2322,7 +2317,7 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
 
     advice_html = get_operation_advice(d, ticker=ticker)
 
-    return f'<div style="padding:4px 8px">{cap_html}{advice_html}{summary_row}{sections}</div>'
+    return f'<div style="padding:4px 8px">{advice_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
