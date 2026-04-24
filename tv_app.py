@@ -1369,17 +1369,17 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
     dev_pct = ((close - ema20) / ema20 * 100) if ema20 and close else None
 
     # ① EMA20 < EMA60：空頭封頂（最高優先）
+    # 三層框架：RSI<30 極度超賣可留意 / RSI<32 接近進場區 / 其餘一般空頭不提超賣
     if ema20 and ema60 and ema20 < ema60:
-        # 回測修訂：空頭期 RSI 極低時補充反轉觀察提示
         if rsi is not None and rsi < 30:
             return "空頭，不買", (
                 f"⚠️ EMA20<EMA60（空頭）｜RSI {rsi:.1f} 極度超賣"
                 "，可留意反轉訊號，但未確認前勿進場"
             )
-        if rsi is not None and rsi < 40:
+        if rsi is not None and rsi < 32:
             return "空頭，不買", (
-                f"⚠️ EMA20<EMA60（空頭）｜RSI {rsi:.1f} 接近超賣"
-                "，觀察 RSI 止跌回升後再評估"
+                f"⚠️ EMA20<EMA60（空頭）｜RSI {rsi:.1f} 接近進場區(RSI<32)"
+                "，觀察 RSI 止跌確認後評估"
             )
         return "空頭，不買", "⚠️ EMA20 < EMA60（空頭趨勢）"
 
@@ -2067,7 +2067,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 5   # 每次 tuple 格式或評分邏輯變更時 +1（RSI區間細分 2026-04-24）
+_RESULTS_VERSION = 6   # 每次 tuple 格式或評分邏輯變更時 +1（Cap RSI閾值三層框架 2026-04-24）
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
