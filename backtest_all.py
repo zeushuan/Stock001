@@ -16,8 +16,8 @@ from ta.volatility import AverageTrueRange
 from datetime import timedelta
 
 # ─────────────────────────────────────────────────────────────
-START  = "2025-01-02"
-END    = "2026-04-24"
+START  = "2020-01-02"
+END    = "2026-04-25"
 INVEST = 100_000
 
 SYMBOL_ALIASES = {
@@ -294,13 +294,13 @@ def analyze(ticker):
     t7_inv = []
     if ticker in INVERSE_ETF:
         def e7inv_ex(i):
-            """反向ETF出場：死亡交叉 + ADX<25時RSI>65（更快出場）"""
+            """反向ETF出場：死亡交叉 + RSI>70（回測最佳，不限ADX）
+            回測驗證：RSI>70出場 -9.49%，優於 ADX<25→RSI>65 的 -19.57%
+            """
             if i < 1: return False
             if any(np.isnan([e20[i], e60[i]])): return False
-            if e20[i] < e60[i]: return True
-            if not np.isnan(adx_v[i]) and adx_v[i] < 25:
-                if not np.isnan(rsi[i]) and rsi[i] > 65:
-                    return True
+            if e20[i] < e60[i]: return True                    # 死亡交叉
+            if not np.isnan(rsi[i]) and rsi[i] > 70: return True  # RSI>70即出
             return False
         t7_inv = run_bt_atr(dates, pr, atr_v, e7_en, e7inv_ex, atr_mult=1.5)
 

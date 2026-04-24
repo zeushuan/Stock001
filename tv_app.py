@@ -1420,8 +1420,9 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
 # 停損：ATR×2.5 動態計算
 # ─────────────────────────────────────────────────────────────────
 
-# 反向ETF：使用 ⑦反向ETF策略（T1/T2/T3 based on own chart，無T4，ATR×1.5，RSI>65快速出場）
+# 反向ETF：使用 ⑦反向ETF策略（T1/T2/T3 based on own chart，無T4，ATR×1.5，RSI>70出場）
 # 核心邏輯：反向ETF的EMA黃金交叉 = 大盤開始下跌 → 此時正是進場時機
+# 回測驗證（2020~2026）：RSI>70出場（-9.49%）優於ADX<25→RSI>65（-19.57%）
 _INVERSE_ETF_TICKERS = {"00632R", "00633L", "00648U", "00675L", "00676L"}
 
 def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
@@ -1431,7 +1432,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
     邏輯：對此標的自身K線套用 ⑦T1/T2/T3，但：
       - 無T4（空頭=大盤多頭，不抓反彈）
       - ATR×1.5（更緊停損）
-      - ADX<25時RSI>65即出場（更快出場）
+      - RSI>70 即出場（回測最佳：不限ADX，RSI>70就走）
     EMA黃金交叉在反向ETF上 = 大盤進入空頭，是持有反向ETF的最佳時機。
     """
     is_bull  = ema20 > ema60
@@ -1454,7 +1455,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
         f'<span style="color:#90d0a0">'
         f'此標的與大盤<b>反向</b>連動。當大盤出現死亡交叉，此標的出現<b>黃金交叉</b>，才是進場時機。<br>'
         f'策略調整：<b>無T4空頭反彈</b>（空頭=大盤多頭，不宜持有反向ETF）｜'
-        f'<b>ATR×1.5嚴格停損</b>｜<b>ADX&lt;25時RSI&gt;65快速出場</b>'
+        f'<b>ATR×1.5嚴格停損</b>｜<b>RSI&gt;70即出場</b>（回測：此條件最小虧損）'
         f'</span>'
         f'</div>'
     )
@@ -1560,17 +1561,12 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
             risk_rows.append(
                 f'<div>📌 <span style="color:#7abadd">出場條件①：EMA 死亡交叉時出場（目前差距 {gap_s}）</span></div>'
             )
-        # ADX<25 快速出場
-        if adx is not None and adx < 25:
-            risk_rows.append(
-                f'<div>📌 <span style="color:#e8c030">出場條件②：ADX {adx_str} &lt; 25 且 RSI &gt; 65 即出場'
-                f'（弱趨勢快速獲利了結）</span></div>'
-            )
-        else:
-            risk_rows.append(
-                f'<div><span style="color:#7a8899;font-size:.73rem">'
-                f'備用出場：ADX &lt; 25 時若 RSI &gt; 65 提前出場</span></div>'
-            )
+        # RSI>70 出場（回測結論：不限ADX，RSI>70就出場最佳，-9.49% vs ADX<25→RSI>65的-19.57%）
+        rsi_exit_color = "#e8c030" if (rsi is not None and rsi >= 65) else "#7a8899"
+        risk_rows.append(
+            f'<div>📌 <span style="color:{rsi_exit_color}">出場條件②：RSI &gt; 70 即出場'
+            f'（回測驗證最佳，不限ADX；目前 RSI {rsi_str}）</span></div>'
+        )
     else:
         risk_rows.append(
             '<div><span style="color:#7abadd">📌 轉多條件：等待 EMA 黃金交叉（此標的）= 大盤開始下跌</span></div>'
@@ -1615,7 +1611,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
 # 一般特殊標的警告（非反向ETF，但操作需特別注意）
 _SPECIAL_TICKER_WARN = {
     "00633L": ("2倍槓桿ETF（台灣50正2）",
-               "2倍正向槓桿，波動劇烈且有衰減成本。適用⑦反向ETF版策略規則：ATR×1.5嚴格停損，ADX<25時RSI>65即出場。"),
+               "2倍正向槓桿，波動劇烈且有衰減成本。適用⑦反向ETF版策略規則：ATR×1.5嚴格停損，RSI>70即出場（回測最佳）。"),
     "00648U": ("原油正2ETF",
                "商品槓桿ETF，受期貨轉倉成本侵蝕，不適合長期持有。建議以短線波段操作為主。"),
 }
@@ -1892,9 +1888,9 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"ADX {adx_str} ≥ 30 且黃金交叉剛發生（{cross_days} 天前），"
                            f"強趨勢啟動初期，②趨勢EMA回測勝率最高")
             _rec_entry  = "立即進場（T1 黃金交叉），不等拉回"
-            _rec_exit   = "持到 EMA 死亡交叉才出場（不設百分比停損）"
-            _rec_stop   = "ATR × 2.5 作底線停損，獲利 ≥ 30% 後改用死叉出場"
-            _rec_warn   = "🚀 強趨勢股：提前停損可能錯失最大漲幅（8021 +1431% 教訓）"
+            _rec_exit   = "持到 EMA 死亡交叉才出場（回測：RSI出場會砍掉飆股主升段）"
+            _rec_stop   = "ATR × 2.5 作底線停損，獲利 ≥ 30% 後改用死叉追蹤"
+            _rec_warn   = "🚀 強趨勢股不設獲利目標，回測 8021 +1410%、3167 +440%"
         elif _is_strong and _is_pullback:
             # ADX ≥ 30 + 已在多頭 + RSI 拉回 → ⑦T3 最佳買點
             _rec_name   = "⑦ 自適應T3（強趨勢拉回買點）"
@@ -1903,9 +1899,9 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"ADX {adx_str} ≥ 30 強趨勢，RSI {rsi_str} < 50 回調到位，"
                            f"這是強勢股最佳加碼點")
             _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
-            _rec_exit   = "EMA 死亡交叉出場（強趨勢持住，不提前出）"
+            _rec_exit   = "EMA 死亡交叉出場（ADX≥30強趨，不設RSI出場目標）"
             _rec_stop   = "ATR × 2.5"
-            _rec_warn   = ""
+            _rec_warn   = "🚀 強趨勢拉回是加碼點，RSI出場會提早離場"
         elif _is_strong and not _is_pullback and not _is_hot:
             # ADX ≥ 30 但 RSI 在中間帶（50~70）
             _rec_name   = "⑦ 自適應T3（等待拉回）"
@@ -1914,7 +1910,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"ADX {adx_str} 強，但 RSI {rsi_str} 偏高，"
                            f"等待回調至 RSI < 50 再進場獲得更佳風報比")
             _rec_entry  = "等待 RSI 回落至 50 以下（T3）再進場"
-            _rec_exit   = "EMA 死亡交叉出場"
+            _rec_exit   = "EMA 死亡交叉出場（強趨勢不提前出，等趨勢結束）"
             _rec_stop   = "ATR × 2.5"
             _rec_warn   = ""
         elif not _is_strong and _is_fresh:
@@ -1925,7 +1921,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"黃金交叉 {cross_days} 天前，ADX {adx_str}（22~30 穩健趨勢），"
                            f"⑦T1 進場配合 ATR 停損，風報比合理")
             _rec_entry  = f"立即進場（黃金交叉 {cross_days} 天前，T1）"
-            _rec_exit   = "ADX < 25 時 RSI > 65 提前出場；ADX ≥ 25 持到死叉"
+            _rec_exit   = "ADX < 25 時 RSI > 70 提前出場；ADX ≥ 25 持到死叉"
             _rec_stop   = "ATR × 2.5"
             _rec_warn   = "⚠️ 趨勢強度中等，需更嚴守停損"
         elif not _is_strong and _is_pullback:
@@ -1936,7 +1932,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"多頭中段，RSI {rsi_str} < 50 拉回，ADX {adx_str} 趨勢確認中，"
                            f"⑦T3 是此情境下勝率最高的進場方式")
             _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
-            _rec_exit   = "ADX < 25 時 RSI > 65 出場；ADX ≥ 25 持到死叉"
+            _rec_exit   = "ADX < 25 時 RSI > 70 出場；ADX ≥ 25 持到死叉"
             _rec_stop   = "ATR × 2.5"
             _rec_warn   = ""
         elif _is_hot:
@@ -1959,7 +1955,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_reason = (f"多頭市場中段，RSI {rsi_str} 偏高，"
                            f"T2 背景條件達成但 T3（RSI<50）更優，可小量試探")
             _rec_entry  = "酌量小部位試探（T2），等待 RSI < 50 加碼（T3）"
-            _rec_exit   = "ADX < 25 時 RSI > 65 出場；ADX ≥ 25 持到死叉"
+            _rec_exit   = "ADX < 25 時 RSI > 70 出場；ADX ≥ 25 持到死叉"
             _rec_stop   = "ATR × 2.5"
             _rec_warn   = ""
 
@@ -2755,7 +2751,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 9   # 每次 tuple 格式或評分邏輯變更時 +1（v3：ADX≥22、T4連續2天RSI、rsi_prev2 2026-04-25）
+_RESULTS_VERSION = 10  # v4：反向ETF出場RSI>65→RSI>70、飆股出場文案更新、穩健趨勢RSI>65→RSI>70 2026-04-25
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
