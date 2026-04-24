@@ -1791,10 +1791,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     else:
         action_label, action_bg, action_fg = "等待拉回",       "#0a1628", "#7a9ab0"
 
-    # ── ③ 出場 / 停損 ──────────────────────────────────────────
+    # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
-
-    # 停損：多頭 ATR×2.5 / T4空頭反彈 ATR×2.0（v3改良）
     _atr_mult   = 2.0 if (not is_bull and _t4_rising) else 2.5
     _atr_mult_s = "2.0（T4反彈嚴格停損）" if _atr_mult == 2.0 else "2.5"
     if atr14 is not None and close is not None and close > 0:
@@ -1809,35 +1807,69 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     else:
         risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
 
-    # 出場：EMA 死亡交叉（⑦ 核心：不用 RSI 出場）/ T4：RSI>55 或黃金交叉出場
+    # ── ④ 出場獲利（趨勢出場條件即時狀態）─────────────────────────
+    exit_rows = []
+
     if is_bull:
         ema_gap_pct = (ema20 - ema60) / ema60 * 100 if ema60 else None
-        if ema_gap_pct is not None and ema_gap_pct < 1.0:
-            risk_rows.append(
-                f'<div>⚠️ <span style="color:#ff9944"><b>出場警示</b>：EMA20/60 差距僅'
-                f' {ema_gap_pct:.2f}%，接近死亡交叉，隨時準備出場！</span></div>'
+        # EMA 差距 → 死亡交叉遠近
+        if ema_gap_pct is not None:
+            if ema_gap_pct < 1.0:
+                gap_color = "#ff5555"; gap_icon = "🚨"; gap_note = "即將死叉！準備出場"
+            elif ema_gap_pct < 3.0:
+                gap_color = "#e8a020"; gap_icon = "⚠️"; gap_note = "接近死叉，密切關注"
+            else:
+                gap_color = "#3dbb6a"; gap_icon = "✅"; gap_note = "趨勢持續"
+            exit_rows.append(
+                f'<div>📤 <span style="color:#8ab0c8">EMA死亡交叉：</span>'
+                f'<span style="color:{gap_color}">{gap_icon} 差距 {ema_gap_pct:.1f}%（{gap_note}）</span></div>'
             )
-        elif ema_gap_pct is not None:
-            risk_rows.append(
-                f'<div>📌 <span style="color:#7abadd">出場條件：EMA 死亡交叉時出場'
-                f'（目前差距 {ema_gap_pct:.1f}%，趨勢持續）</span></div>'
+        # RSI 提前出場（ADX < 25 時）
+        if adx is not None and adx < 25:
+            rsi_gap = (70 - rsi) if rsi is not None else None
+            if rsi is not None and rsi > 70:
+                rsi_color = "#ff5555"
+                rsi_note  = f"🚨 RSI {rsi_str} > 70，出場條件已觸發！"
+            elif rsi_gap is not None and rsi_gap < 5:
+                rsi_color = "#e8a020"
+                rsi_note  = f"⚠️ RSI {rsi_str}，接近門檻 70（還差 {rsi_gap:.1f} 點）"
+            else:
+                rsi_color = "#c8b87a"
+                rsi_note  = f"RSI {rsi_str}，距出場門檻 70 還差 {rsi_gap:.1f if rsi_gap is not None else 'N/A'} 點"
+            exit_rows.append(
+                f'<div>📤 <span style="color:#8ab0c8">ADX {adx_str} &lt; 25 → RSI出場：</span>'
+                f'<span style="color:{rsi_color}">{rsi_note}</span></div>'
             )
         else:
-            risk_rows.append(
-                '<div><span style="color:#7abadd">📌 出場條件：EMA 死亡交叉時出場</span></div>'
+            exit_rows.append(
+                f'<div>📤 <span style="color:#7a8899">ADX {adx_str} ≥ 25 → 強趨勢，持到死叉；不設RSI出場目標'
+                f'（回測：RSI出場砍掉飆股主升段）</span></div>'
             )
-        risk_rows.append(
-            '<div><span style="color:#c8b87a">🚀 飆股模式：持倉獲利 ≥ +30% 時，'
-            '停損改用 EMA 死亡交叉出場（回測：固定停損會在 +21% 砍掉最終 +308% 的票）</span></div>'
+        exit_rows.append(
+            '<div><span style="color:#c8b87a;font-size:.72rem">🚀 獲利 ≥ +30% 後停損改追蹤死叉'
+            '（回測：固定停損在 +21% 砍掉最終 +1410% 的飆股）</span></div>'
         )
+        # 整體出場狀態 badge
+        _rsi_triggered = adx is not None and adx < 25 and rsi is not None and rsi > 70
+        _ema_danger    = ema_gap_pct is not None and ema_gap_pct < 1.0
+        _rsi_warning   = adx is not None and adx < 25 and rsi is not None and rsi >= 65
+        _ema_warning   = ema_gap_pct is not None and 1.0 <= ema_gap_pct < 3.0
+        if _rsi_triggered or _ema_danger:
+            _exit_label = "⚠️ 出場訊號"; _exit_bg = "#2a0808"; _exit_fg = "#ff5555"
+        elif _rsi_warning or _ema_warning:
+            _exit_label = "注意觀察";    _exit_bg = "#1a1200"; _exit_fg = "#e8a020"
+        else:
+            _exit_label = "安全持倉";    _exit_bg = "#0a1e10"; _exit_fg = "#3dbb6a"
+    elif _t4_rising:
+        exit_rows.append(
+            '<div>📤 <span style="color:#ff9944">T4反彈出場：RSI 回升至 &gt; 55 或 EMA 黃金交叉時出場</span></div>'
+        )
+        _exit_label = "T4 出場條件"; _exit_bg = "#2a1500"; _exit_fg = "#ff9944"
     else:
-        if _t4_rising:
-            risk_rows.append(
-                '<div><span style="color:#ff9944">📌 T4出場條件：RSI 回升至 &gt; 55 或 EMA 黃金交叉時出場</span></div>'
-            )
-        risk_rows.append(
-            '<div><span style="color:#7abadd">📌 轉多條件：等待 EMA 黃金交叉（EMA20 穿越 EMA60）</span></div>'
+        exit_rows.append(
+            '<div style="color:#7a8899">空頭期間無持倉，不需出場訊號。等待 EMA 黃金交叉後重新評估。</div>'
         )
+        _exit_label = "空頭 — 不持倉"; _exit_bg = "#0a1020"; _exit_fg = "#555e6a"
 
     # ── ④ 推薦策略 ────────────────────────────────────────────
     # 根據 ADX、EMA、RSI、黃金交叉時間，自動選出最大化獲利的策略
@@ -2025,15 +2057,24 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<span style="{tag_style}">②進場判斷</span>'
         f'<div style="{val_style}">{"".join(entry_rows)}</div>'
         f'</div>'
-        # ③
+        # ③ 出場停損
         f'<div style="{sec_style}">'
         f'<span style="{tag_style}">③出場停損</span>'
         f'<div style="{val_style}">{"".join(risk_rows)}</div>'
         f'</div>'
-        # ④ 推薦策略（新增）
+        # ④ 出場獲利（新）
+        f'<div style="{sec_style}">'
+        f'<span style="{tag_style}">④出場獲利</span>'
+        f'<div style="{val_style}">'
+        f'<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:.7rem;font-weight:700;'
+        f'background:{_exit_bg};color:{_exit_fg};border:1px solid {_exit_fg}44;margin-bottom:4px">'
+        f'{_exit_label}</span>'
+        f'{"".join(exit_rows)}</div>'
+        f'</div>'
+        # ⑤ 推薦策略
         f'<div style="border-top:1px solid #0f2035;margin-top:8px;padding-top:8px">'
         f'<div style="{sec_style.replace("margin-bottom:6px","")}">'
-        f'<span style="{tag_style};background:#0f2040;color:#f0c030">④推薦策略</span>'
+        f'<span style="{tag_style};background:#0f2040;color:#f0c030">⑤推薦策略</span>'
         f'<div style="{val_style}">{"".join(rec_rows)}</div>'
         f'</div></div>'
         f'</div>'
@@ -2084,6 +2125,43 @@ def badge(rec: str) -> str:
 def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
+
+def get_exit_signal(d: dict) -> tuple:
+    """
+    ④出場獲利 輕量版：回傳 (status_label, badge_inline_style) 供表格使用。
+    """
+    ema20     = d.get("ema20")
+    ema60     = d.get("ema60")
+    adx       = d.get("adx")
+    rsi       = d.get("rsi")
+    rsi_prev  = d.get("rsi_prev")
+    rsi_prev2 = d.get("rsi_prev2")
+
+    if ema20 is None or ema60 is None:
+        return ("—", "background:#0a1020;color:#555e6a")
+
+    is_bull = ema20 > ema60
+
+    if not is_bull:
+        _t4 = (rsi is not None and rsi < 32 and
+               rsi_prev is not None and rsi > rsi_prev and
+               rsi_prev2 is not None and rsi_prev > rsi_prev2)
+        if _t4:
+            return ("T4 RSI>55出場", "background:#2a1500;color:#ff9944;border:1px solid #ff994455")
+        return ("空頭 — 不持倉", "background:#0a1020;color:#555e6a;border:1px solid #2a334455")
+
+    ema_gap = (ema20 - ema60) / ema60 * 100 if ema60 else None
+    rsi_triggered = (adx is not None and adx < 25 and rsi is not None and rsi > 70)
+    ema_danger    = ema_gap is not None and ema_gap < 1.0
+    rsi_warning   = (adx is not None and adx < 25 and rsi is not None and rsi >= 65)
+    ema_warning   = ema_gap is not None and 1.0 <= ema_gap < 3.0
+
+    if rsi_triggered or ema_danger:
+        return ("⚠️ 出場訊號", "background:#2a0808;color:#ff5555;border:1px solid #ff555555")
+    if rsi_warning or ema_warning:
+        return ("注意觀察",   "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
+    return ("安全持倉",       "background:#0a1e10;color:#3dbb6a;border:1px solid #3dbb6a44")
+
 
 def get_rec_label(d: dict, ticker: str = "") -> tuple:
     """
@@ -2171,7 +2249,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#a8cce8;font-size:.78rem">—</td>'
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
-                     f'<td class="j-na">— 無資料 —</td></tr>')
+                     f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td></tr>')
             continue
 
         close_val  = d.get("close")
@@ -2190,9 +2268,13 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:{chg_color};font-weight:600">{chg_str}</td>')
 
         _rlabel, _rbadge = get_rec_label(d, ticker)
+        _xlabel, _xbadge = get_exit_signal(d)
         tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
                     f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
                     f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span></td>')
+        exit_cell = (f'<td style="background:#060c18;font-size:.82rem;line-height:1.6">'
+                     f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
+                     f'font-size:.76rem;white-space:nowrap;{_xbadge}">{_xlabel}</span></td>')
 
         tv_url = get_tv_url(ticker, market)
         is_perplexity = "{prompt}" in platform_url_tpl and "perplexity" in platform_url_tpl
@@ -2212,12 +2294,13 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td class="ticker-cell">{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}{tot_cell}</tr>')
+                 f'{price_cell}{chg_cell}{tot_cell}{exit_cell}</tr>')
 
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
             f'<th style="background:#060c18;min-width:140px">操作建議</th>'
+            f'<th style="background:#060c18;min-width:120px">④出場獲利</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
