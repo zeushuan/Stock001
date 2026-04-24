@@ -1835,7 +1835,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 rsi_note  = f"⚠️ RSI {rsi_str}，接近門檻 70（還差 {rsi_gap:.1f} 點）"
             else:
                 rsi_color = "#c8b87a"
-                rsi_note  = f"RSI {rsi_str}，距出場門檻 70 還差 {rsi_gap:.1f if rsi_gap is not None else 'N/A'} 點"
+                _gap_s    = f"{rsi_gap:.1f}" if rsi_gap is not None else "N/A"
+                rsi_note  = f"RSI {rsi_str}，距出場門檻 70 還差 {_gap_s} 點"
             exit_rows.append(
                 f'<div>📤 <span style="color:#8ab0c8">ADX {adx_str} &lt; 25 → RSI出場：</span>'
                 f'<span style="color:{rsi_color}">{rsi_note}</span></div>'
