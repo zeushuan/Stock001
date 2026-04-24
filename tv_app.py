@@ -1027,7 +1027,15 @@ def judge_trend(d: dict) -> list:
         else:
             dir_val, dir_j = "盤整", "中立"
         s200 = " · 站SMA200" if sma200 and close > sma200 else (" · 跌SMA200" if sma200 else "")
-        dir_disp = f"{dir_val}{s200}"
+        # 接近死叉 / 黃金交叉預警（EMA20/60 差距 < 2%）
+        ema_gap_pct = abs(ema20 - ema60) / ema60 * 100 if ema60 else 999
+        if ema20 > ema60 and ema_gap_pct < 2.0:
+            cross_warn = " ⚠近死叉"
+        elif ema20 < ema60 and ema_gap_pct < 2.0:
+            cross_warn = " 📈近黃金交叉"
+        else:
+            cross_warn = ""
+        dir_disp = f"{dir_val}{s200}{cross_warn}"
     else:
         dir_val, dir_j, dir_disp = "N/A", "中立", "N/A"
 
@@ -1148,14 +1156,18 @@ def judge_position(d: dict) -> list:
     else:
         dev_j, dev_desc = "中立", "EMA20 乖離"
 
-    # RSI 區間
+    # RSI 區間（回測修訂：細分 30-40 近超賣；55-65 偏高轉中立作為潛在出場警示）
     if rsi is not None:
         if rsi < 30:
             rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 超賣"
-        elif rsi < 65:
+        elif rsi < 40:
+            rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 近超賣"
+        elif rsi < 55:
             rsi_j, rsi_desc = "買入", f"RSI {rsi:.1f} 健康"
+        elif rsi < 65:
+            rsi_j, rsi_desc = "中立", f"RSI {rsi:.1f} 偏高"   # 空頭反彈出場訊號區
         elif rsi < 78:
-            rsi_j, rsi_desc = "中立", f"RSI {rsi:.1f} 偏高"
+            rsi_j, rsi_desc = "中立", f"RSI {rsi:.1f} 高位"
         else:
             rsi_j, rsi_desc = "賣出", f"RSI {rsi:.1f} 過熱"
     else:
@@ -1358,6 +1370,17 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
 
     # ① EMA20 < EMA60：空頭封頂（最高優先）
     if ema20 and ema60 and ema20 < ema60:
+        # 回測修訂：空頭期 RSI 極低時補充反轉觀察提示
+        if rsi is not None and rsi < 30:
+            return "空頭，不買", (
+                f"⚠️ EMA20<EMA60（空頭）｜RSI {rsi:.1f} 極度超賣"
+                "，可留意反轉訊號，但未確認前勿進場"
+            )
+        if rsi is not None and rsi < 40:
+            return "空頭，不買", (
+                f"⚠️ EMA20<EMA60（空頭）｜RSI {rsi:.1f} 接近超賣"
+                "，觀察 RSI 止跌回升後再評估"
+            )
         return "空頭，不買", "⚠️ EMA20 < EMA60（空頭趨勢）"
 
     # ② 乖離 > 15% 或 RSI > 78：過熱禁新倉
