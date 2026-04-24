@@ -467,6 +467,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         adx_s   = adx_obj.adx()
         macd_obj    = ta.trend.MACD(c)
         macd_hist_s = macd_obj.macd_diff()
+        atr_s   = ta.volatility.AverageTrueRange(h, l, c, 14).average_true_range()
+        rsi_s   = ta.momentum.RSIIndicator(c, 14).rsi()
         vol_ma20_s  = ta.trend.SMAIndicator(v, 20).sma_indicator() if not v.dropna().empty else pd.Series(dtype=float)
 
         # 動量: 取當前值與前一期方向比較（TV邏輯）
@@ -528,7 +530,9 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "prev_close":   prev_close_val,
             "change_pct":   change_pct,
             "change_amt":   change_amt,
-            "rsi":          last(ta.momentum.RSIIndicator(c, 14).rsi()),
+            "rsi":          last(rsi_s),
+            "rsi_prev":     prev(rsi_s),
+            "atr14":        last(atr_s),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
             "stoch_d_prev": prev(stoch_d_s),        # crossover判斷用
@@ -1407,6 +1411,180 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
     return verdict, None
 
 # ─────────────────────────────────────────────────────────────────
+# 三步驟操作建議  (基於回測結果導出的策略框架)
+# ─────────────────────────────────────────────────────────────────
+def get_operation_advice(d: dict) -> str:
+    """
+    依三步驟框架輸出 HTML 操作建議卡片。
+    步驟① 市場環境 → 步驟② 進場條件 → 步驟③ 風險管理
+    回傳空字串表示無資料可顯示。
+    """
+    ema20   = d.get("ema20")
+    ema60   = d.get("ema60")
+    rsi     = d.get("rsi")
+    rsi_prev= d.get("rsi_prev")
+    macd_h  = d.get("macd_hist")
+    macd_hp = d.get("macd_hist_prev")
+    atr14   = d.get("atr14")
+    close   = d.get("close")
+    adx     = d.get("adx")
+
+    if ema20 is None or ema60 is None:
+        return ""
+
+    is_bull = ema20 > ema60
+
+    # ── 步驟① 市場環境 ───────────────────────────────────────
+    if is_bull:
+        # 假多頭預警：EMA多頭但ADX<20（趨勢偏弱）
+        if adx is not None and adx < 20:
+            env_color  = "#e8a020"
+            env_icon   = "⚠️"
+            env_label  = "多頭（弱趨勢）"
+            env_detail = f"EMA20 > EMA60，但 ADX {adx:.1f} &lt; 20，趨勢強度不足，可能為假多頭，謹慎操作"
+        else:
+            env_color  = "#3b9eff"
+            env_icon   = "✅"
+            env_label  = "多頭市場"
+            env_detail = "EMA20 > EMA60，趨勢向上，可考慮逢低進場"
+    else:
+        if rsi is not None and rsi < 30:
+            env_color  = "#ff9944"
+            env_icon   = "🔴"
+            env_label  = "空頭（極度超賣）"
+            env_detail = f"EMA20 &lt; EMA60（空頭）｜RSI {rsi:.1f} 極度超賣，可留意反彈訊號，未確認前勿輕易進場"
+        elif rsi is not None and rsi < 32:
+            env_color  = "#ff9944"
+            env_icon   = "🟡"
+            env_label  = "空頭（接近反彈區）"
+            env_detail = f"EMA20 &lt; EMA60（空頭）｜RSI {rsi:.1f} 接近進場區(RSI&lt;32)，等待 RSI 止跌回升確認"
+        else:
+            env_color  = "#ff5555"
+            env_icon   = "🚫"
+            env_label  = "空頭市場"
+            env_detail = "EMA20 &lt; EMA60（空頭），回測顯示空頭不進場保本率最高，建議觀望"
+
+    # ── 步驟② 進場條件 ───────────────────────────────────────
+    entry_items = []
+    entry_ok    = False
+
+    if is_bull:
+        # 多頭進場：RSI < 45（等待拉回）
+        if rsi is not None:
+            rsi_ok = rsi < 45
+            rsi_color = "#3b9eff" if rsi_ok else "#7a8899"
+            entry_items.append(
+                f'<span style="color:{rsi_color}">{"✅" if rsi_ok else "⏳"} RSI '
+                f'{rsi:.1f} {"< 45 拉回區" if rsi_ok else "≥ 45，尚未拉回"}</span>'
+            )
+        # MACD 柱改善確認
+        if macd_h is not None and macd_hp is not None:
+            macd_ok = macd_h > macd_hp  # 柱狀體向上（動能改善）
+            macd_color = "#3b9eff" if macd_ok else "#7a8899"
+            entry_items.append(
+                f'<span style="color:{macd_color}">{"✅" if macd_ok else "⏳"} MACD柱 '
+                f'{"改善中（動能轉強）" if macd_ok else "持續減弱，待確認"}</span>'
+            )
+        entry_ok = (rsi is not None and rsi < 45) and (macd_h is not None and macd_hp is not None and macd_h > macd_hp)
+    else:
+        # 空頭反彈進場：RSI < 32 且 今日 > 昨日
+        if rsi is not None and rsi_prev is not None:
+            rsi_ok    = rsi < 32
+            rising_ok = rsi > rsi_prev
+            rsi_color = "#3b9eff" if (rsi_ok and rising_ok) else "#7a8899"
+            entry_items.append(
+                f'<span style="color:{rsi_color}">{"✅" if rsi_ok else "⏳"} RSI '
+                f'{rsi:.1f} {"< 32 超賣" if rsi_ok else "≥ 32，未達超賣"}</span>'
+            )
+            entry_items.append(
+                f'<span style="color:{rsi_color}">{"✅" if rising_ok else "⏳"} RSI '
+                f'{"止跌回升（" + f"{rsi_prev:.1f}" + "→" + f"{rsi:.1f}" + "）" if rising_ok else "尚未止跌確認"}</span>'
+            )
+            entry_ok = rsi_ok and rising_ok
+        elif rsi is not None:
+            rsi_ok = rsi < 32
+            entry_items.append(
+                f'<span style="color:#7a8899">⏳ RSI {rsi:.1f} {"< 32 超賣" if rsi_ok else "≥ 32"}</span>'
+            )
+
+    if not entry_items:
+        entry_html = '<span style="color:#7a8899">資料不足</span>'
+    else:
+        entry_html = " &nbsp;│&nbsp; ".join(entry_items)
+
+    if entry_ok:
+        entry_badge = '<span style="background:#0d3a1a;color:#3dbb6a;border:1px solid #1a6a30;border-radius:4px;padding:1px 7px;font-size:.72rem;font-weight:700">條件達成</span>'
+    elif not is_bull and rsi is not None and rsi >= 32:
+        entry_badge = '<span style="background:#2a1a0a;color:#ff9944;border:1px solid #6a3a0a;border-radius:4px;padding:1px 7px;font-size:.72rem;font-weight:700">空頭觀望</span>'
+    else:
+        entry_badge = '<span style="background:#0a1628;color:#7a9ab0;border:1px solid #1a2f48;border-radius:4px;padding:1px 7px;font-size:.72rem;font-weight:700">條件未達</span>'
+
+    # ── 步驟③ 風險管理 ───────────────────────────────────────
+    risk_items = []
+    if atr14 is not None and close is not None and close > 0:
+        stop_dist  = atr14 * 2.5
+        stop_price = close - stop_dist
+        stop_pct   = stop_dist / close * 100
+        risk_items.append(
+            f'停損價：<b style="color:#ff7a7a">{stop_price:.2f}</b>'
+            f' <span style="color:#7a8899">（-{stop_pct:.1f}%，ATR×2.5 = {stop_dist:.2f}）</span>'
+        )
+    else:
+        risk_items.append('<span style="color:#7a8899">ATR 資料不足，無法計算動態停損</span>')
+
+    if is_bull:
+        risk_items.append(
+            '<span style="color:#7abadd">出場目標：RSI &gt; 72（多頭趨勢出場）</span>'
+        )
+        risk_items.append(
+            '<span style="color:#c8b87a">飆股提示：持倉獲利 ≥ +30% 時，移除固定停損，改用 RSI &gt; 75 出場（避免追蹤停損砍飛）</span>'
+        )
+    else:
+        risk_items.append(
+            '<span style="color:#7abadd">出場目標：RSI &gt; 55（空頭反彈出場）</span>'
+        )
+
+    risk_html = " &nbsp;│&nbsp; ".join(risk_items)
+
+    # ── 組合 HTML ────────────────────────────────────────────
+    step_style = "font-size:.72rem;font-weight:700;color:#8ab0c8;margin-bottom:3px"
+    val_style  = "font-size:.78rem;line-height:1.6;color:#c8dff0"
+
+    html = (
+        f'<div style="background:#07111e;border:1px solid #1a3050;border-radius:8px;'
+        f'padding:10px 14px;margin-bottom:12px">'
+        f'<div style="font-size:.82rem;font-weight:700;color:#5a9acf;margin-bottom:8px">'
+        f'📋 三步驟操作建議</div>'
+
+        # 步驟①
+        f'<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px">'
+        f'<span style="background:#0a1e30;border-radius:4px;padding:1px 7px;'
+        f'font-size:.68rem;font-weight:700;color:#5a9acf;white-space:nowrap;margin-top:2px">①市場環境</span>'
+        f'<div>'
+        f'<span style="color:{env_color};font-size:.8rem;font-weight:700">{env_icon} {env_label}</span>&nbsp;'
+        f'<span style="color:#8ab0c8;font-size:.75rem">{env_detail}</span>'
+        f'</div></div>'
+
+        # 步驟②
+        f'<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px">'
+        f'<span style="background:#0a1e30;border-radius:4px;padding:1px 7px;'
+        f'font-size:.68rem;font-weight:700;color:#5a9acf;white-space:nowrap;margin-top:2px">②進場條件</span>'
+        f'<div style="{val_style}">{entry_badge}&nbsp; {entry_html}</div>'
+        f'</div>'
+
+        # 步驟③
+        f'<div style="display:flex;gap:8px;align-items:flex-start">'
+        f'<span style="background:#0a1e30;border-radius:4px;padding:1px 7px;'
+        f'font-size:.68rem;font-weight:700;color:#5a9acf;white-space:nowrap;margin-top:2px">③風險管理</span>'
+        f'<div style="{val_style}">{risk_html}</div>'
+        f'</div>'
+
+        f'</div>'
+    )
+    return html
+
+
+# ─────────────────────────────────────────────────────────────────
 # INPUT PARSING  ← FIX: 修正 NameError（ticker 未定義的問題）
 # ─────────────────────────────────────────────────────────────────
 def parse_input(text: str) -> list:
@@ -1609,7 +1787,9 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
         group_section("輔助指標", gc[3], g_aux,       xs_s)
     )
 
-    return f'<div style="padding:4px 8px">{cap_html}{summary_row}{sections}</div>'
+    advice_html = get_operation_advice(d)
+
+    return f'<div style="padding:4px 8px">{cap_html}{advice_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
@@ -2067,7 +2247,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 6   # 每次 tuple 格式或評分邏輯變更時 +1（Cap RSI閾值三層框架 2026-04-24）
+_RESULTS_VERSION = 7   # 每次 tuple 格式或評分邏輯變更時 +1（三步驟操作建議卡片 + ATR14/rsi_prev 2026-04-24）
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
