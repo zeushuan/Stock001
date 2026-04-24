@@ -2175,12 +2175,8 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#a8cce8;font-size:.78rem">—</td>'
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
-                     f'<td class="j-na">—</td><td class="j-na">—</td>'
-                     f'<td class="j-na">—</td><td class="j-na">— 無資料 —</td></tr>')
+                     f'<td class="j-na">— 無資料 —</td></tr>')
             continue
-
-        tb, ts_, tn_, tr_ = tsumm
-        ts_s, ps_s, ms_s, xs_s = group_summs
 
         close_val  = d.get("close")
         change_pct = d.get("change_pct")
@@ -2197,17 +2193,10 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:{chg_color};font-weight:600">{chg_str}</td>')
 
-        def gcell(summ, bg="#0d1b2e"):
-            b,s,n,r_ = summ
-            return (f'<td style="background:{bg};font-size:.82rem;line-height:1.6">'
-                    f'<span style="font-family:\'IBM Plex Mono\',monospace;color:#8ab0c8">{b}:{s}:{n}</span>'
-                    f'&nbsp;{badge(r_)}</td>')
-
-        cap_icon = '<span title="' + cap.replace('"',"'") + '" style="color:#f0a030;margin-left:4px;cursor:help">⚠</span>' if cap else ""
-        _rlabel, _rbadge = get_rec_label(d, ticker) if d else ("—", "background:#0a1020;color:#7a8899")
+        _rlabel, _rbadge = get_rec_label(d, ticker)
         tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
                     f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
-                    f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span>{cap_icon}</td>')
+                    f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span></td>')
 
         tv_url = get_tv_url(ticker, market)
         is_perplexity = "{prompt}" in platform_url_tpl and "perplexity" in platform_url_tpl
@@ -2227,21 +2216,12 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td class="ticker-cell">{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}'
-                 f'{gcell(ts_s, "#0a1628")}{gcell(ps_s, "#0a1628")}{gcell(ms_s, "#0a1628")}'
-                 f'{tot_cell}</tr>')
+                 f'{price_cell}{chg_cell}{tot_cell}</tr>')
 
-    gc = GROUP_COLORS
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
-            f'<th style="background:#0a1628;min-width:160px"><span style="color:{gc[0]}">趨勢結構</span><br>'
-            f'<span style="color:#6a8faa;font-weight:400;font-size:.63rem">買:賣:中 (40%)</span></th>'
-            f'<th style="background:#0a1628;min-width:160px"><span style="color:{gc[1]}">位置風險</span><br>'
-            f'<span style="color:#6a8faa;font-weight:400;font-size:.63rem">買:賣:中 (30%)</span></th>'
-            f'<th style="background:#0a1628;min-width:160px"><span style="color:{gc[2]}">動能確認</span><br>'
-            f'<span style="color:#6a8faa;font-weight:400;font-size:.63rem">買:賣:中 (20%)</span></th>'
-            f'<th style="background:#060c18;min-width:120px">操作建議</th>'
+            f'<th style="background:#060c18;min-width:140px">操作建議</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
