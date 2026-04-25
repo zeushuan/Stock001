@@ -1807,12 +1807,24 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     else:
         risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
 
-    # ── ④ 出場獲利（趨勢出場條件即時狀態）─────────────────────────
+    # ── ④ 出場獲利（v3：ATR/Price 自動分類出場規則）──────────────
     exit_rows = []
 
     if is_bull:
         ema_gap_pct = (ema20 - ema60) / ema60 * 100 if ema60 else None
-        # EMA 差距 → 死亡交叉遠近
+        # 計算 ATR/Price 判斷股性
+        _rel_atr    = (atr14 / close * 100) if (atr14 and close and close > 0) else 0
+        _is_hv      = _rel_atr > 3.5   # 高波動飆股
+
+        # 顯示股性分類標籤
+        if _rel_atr > 0:
+            _hv_label = (f'🚀 高波動飆股模式（ATR/P {_rel_atr:.1f}% &gt; 3.5%）'
+                         if _is_hv else
+                         f'🛡️ 穩健股模式（ATR/P {_rel_atr:.1f}% ≤ 3.5%）')
+            _hv_color = "#e8c050" if _is_hv else "#8ab0c8"
+            exit_rows.append(f'<div style="margin-bottom:3px"><span style="color:{_hv_color};font-size:.78rem">{_hv_label}</span></div>')
+
+        # EMA 差距 → 死亡交叉遠近（所有股票共用）
         if ema_gap_pct is not None:
             if ema_gap_pct < 1.0:
                 gap_color = "#ff5555"; gap_icon = "🚨"; gap_note = "即將死叉！準備出場"
@@ -1824,43 +1836,63 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div>📤 <span style="color:#8ab0c8">EMA死亡交叉：</span>'
                 f'<span style="color:{gap_color}">{gap_icon} 差距 {ema_gap_pct:.1f}%（{gap_note}）</span></div>'
             )
-        # RSI 提前出場（ADX < 25 時）
-        if adx is not None and adx < 25:
-            rsi_gap = (70 - rsi) if rsi is not None else None
-            if rsi is not None and rsi > 70:
-                rsi_color = "#ff5555"
-                rsi_note  = f"🚨 RSI {rsi_str} > 70，出場條件已觸發！"
-            elif rsi_gap is not None and rsi_gap < 5:
-                rsi_color = "#e8a020"
-                rsi_note  = f"⚠️ RSI {rsi_str}，接近門檻 70（還差 {rsi_gap:.1f} 點）"
+
+        if _is_hv:
+            # ── 高波動飆股：只守EMA死叉，不設RSI出場 ──
+            exit_rows.append(
+                f'<div>📤 <span style="color:#c8b87a">RSI出場：</span>'
+                f'<span style="color:#7a8899">停用（飆股模式：RSI出場砍掉主升段，回測損失 +400%）</span></div>'
+            )
+            exit_rows.append(
+                '<div><span style="color:#c8b87a;font-size:.72rem">'
+                '🚀 持倉到EMA死叉為止，不提前出場</span></div>'
+            )
+            # badge
+            _ema_danger  = ema_gap_pct is not None and ema_gap_pct < 1.0
+            _ema_warning = ema_gap_pct is not None and 1.0 <= ema_gap_pct < 3.0
+            if _ema_danger:
+                _exit_label = "⚠️ 出場訊號"; _exit_bg = "#2a0808"; _exit_fg = "#ff5555"
+            elif _ema_warning:
+                _exit_label = "注意觀察";    _exit_bg = "#1a1200"; _exit_fg = "#e8a020"
             else:
-                rsi_color = "#c8b87a"
-                _gap_s    = f"{rsi_gap:.1f}" if rsi_gap is not None else "N/A"
-                rsi_note  = f"RSI {rsi_str}，距出場門檻 70 還差 {_gap_s} 點"
-            exit_rows.append(
-                f'<div>📤 <span style="color:#8ab0c8">ADX {adx_str} &lt; 25 → RSI出場：</span>'
-                f'<span style="color:{rsi_color}">{rsi_note}</span></div>'
-            )
+                _exit_label = "安全持倉";    _exit_bg = "#0a1e10"; _exit_fg = "#3dbb6a"
         else:
+            # ── 穩健股：EMA死叉 + ADX<25時RSI>75 ──
+            if adx is not None and adx < 25:
+                rsi_gap = (75 - rsi) if rsi is not None else None
+                if rsi is not None and rsi > 75:
+                    rsi_color = "#ff5555"
+                    rsi_note  = f"🚨 RSI {rsi_str} > 75，出場條件已觸發！"
+                elif rsi_gap is not None and rsi_gap < 5:
+                    rsi_color = "#e8a020"
+                    rsi_note  = f"⚠️ RSI {rsi_str}，接近門檻 75（還差 {rsi_gap:.1f} 點）"
+                else:
+                    _gap_s    = f"{rsi_gap:.1f}" if rsi_gap is not None else "N/A"
+                    rsi_color = "#c8b87a"
+                    rsi_note  = f"RSI {rsi_str}，距出場門檻 75 還差 {_gap_s} 點"
+                exit_rows.append(
+                    f'<div>📤 <span style="color:#8ab0c8">ADX {adx_str} &lt; 25 → RSI出場（門檻75）：</span>'
+                    f'<span style="color:{rsi_color}">{rsi_note}</span></div>'
+                )
+            else:
+                exit_rows.append(
+                    f'<div>📤 <span style="color:#7a8899">ADX {adx_str} ≥ 25 → 強趨勢，持到死叉</span></div>'
+                )
             exit_rows.append(
-                f'<div>📤 <span style="color:#7a8899">ADX {adx_str} ≥ 25 → 強趨勢，持到死叉；不設RSI出場目標'
-                f'（回測：RSI出場砍掉飆股主升段）</span></div>'
+                '<div><span style="color:#c8b87a;font-size:.72rem">'
+                '🛡️ 穩健股：停損 ATR×2.5（ADX≥30 用 ×3.0）</span></div>'
             )
-        exit_rows.append(
-            '<div><span style="color:#c8b87a;font-size:.72rem">🚀 獲利 ≥ +30% 後停損改追蹤死叉'
-            '（回測：固定停損在 +21% 砍掉最終 +1410% 的飆股）</span></div>'
-        )
-        # 整體出場狀態 badge
-        _rsi_triggered = adx is not None and adx < 25 and rsi is not None and rsi > 70
-        _ema_danger    = ema_gap_pct is not None and ema_gap_pct < 1.0
-        _rsi_warning   = adx is not None and adx < 25 and rsi is not None and rsi >= 65
-        _ema_warning   = ema_gap_pct is not None and 1.0 <= ema_gap_pct < 3.0
-        if _rsi_triggered or _ema_danger:
-            _exit_label = "⚠️ 出場訊號"; _exit_bg = "#2a0808"; _exit_fg = "#ff5555"
-        elif _rsi_warning or _ema_warning:
-            _exit_label = "注意觀察";    _exit_bg = "#1a1200"; _exit_fg = "#e8a020"
-        else:
-            _exit_label = "安全持倉";    _exit_bg = "#0a1e10"; _exit_fg = "#3dbb6a"
+            # badge
+            _rsi_triggered = adx is not None and adx < 25 and rsi is not None and rsi > 75
+            _ema_danger    = ema_gap_pct is not None and ema_gap_pct < 1.0
+            _rsi_warning   = adx is not None and adx < 25 and rsi is not None and rsi >= 70
+            _ema_warning   = ema_gap_pct is not None and 1.0 <= ema_gap_pct < 3.0
+            if _rsi_triggered or _ema_danger:
+                _exit_label = "⚠️ 出場訊號"; _exit_bg = "#2a0808"; _exit_fg = "#ff5555"
+            elif _rsi_warning or _ema_warning:
+                _exit_label = "注意觀察";    _exit_bg = "#1a1200"; _exit_fg = "#e8a020"
+            else:
+                _exit_label = "安全持倉";    _exit_bg = "#0a1e10"; _exit_fg = "#3dbb6a"
     elif _t4_rising:
         exit_rows.append(
             '<div>📤 <span style="color:#ff9944">T4反彈出場：RSI 回升至 &gt; 55 或 EMA 黃金交叉時出場</span></div>'
@@ -2130,6 +2162,9 @@ def jcell(val, judg):
 def get_exit_signal(d: dict) -> tuple:
     """
     ④出場獲利 輕量版：回傳 (status_label, badge_inline_style) 供表格使用。
+    v3：依 ATR/Price 自動分類出場規則
+      高波動（ATR/P > 3.5%）→ 只看EMA死叉，不設RSI出場門檻
+      穩健（ATR/P ≤ 3.5%）  → EMA死叉 + ADX<25時RSI>75
     """
     ema20     = d.get("ema20")
     ema60     = d.get("ema60")
@@ -2137,6 +2172,8 @@ def get_exit_signal(d: dict) -> tuple:
     rsi       = d.get("rsi")
     rsi_prev  = d.get("rsi_prev")
     rsi_prev2 = d.get("rsi_prev2")
+    atr14     = d.get("atr14")
+    close_v   = d.get("close")
 
     if ema20 is None or ema60 is None:
         return ("—", "background:#0a1020;color:#555e6a")
@@ -2151,17 +2188,30 @@ def get_exit_signal(d: dict) -> tuple:
             return ("T4 RSI>55出場", "background:#2a1500;color:#ff9944;border:1px solid #ff994455")
         return ("空頭 — 不持倉", "background:#0a1020;color:#555e6a;border:1px solid #2a334455")
 
-    ema_gap = (ema20 - ema60) / ema60 * 100 if ema60 else None
-    rsi_triggered = (adx is not None and adx < 25 and rsi is not None and rsi > 70)
-    ema_danger    = ema_gap is not None and ema_gap < 1.0
-    rsi_warning   = (adx is not None and adx < 25 and rsi is not None and rsi >= 65)
-    ema_warning   = ema_gap is not None and 1.0 <= ema_gap < 3.0
+    # 計算 ATR/Price 判斷股性
+    rel_atr = (atr14 / close_v * 100) if (atr14 and close_v and close_v > 0) else 0
+    is_high_vol = rel_atr > 3.5   # 高波動飆股：只守EMA死叉
 
-    if rsi_triggered or ema_danger:
-        return ("⚠️ 出場訊號", "background:#2a0808;color:#ff5555;border:1px solid #ff555555")
-    if rsi_warning or ema_warning:
-        return ("注意觀察",   "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
-    return ("安全持倉",       "background:#0a1e10;color:#3dbb6a;border:1px solid #3dbb6a44")
+    ema_gap   = (ema20 - ema60) / ema60 * 100 if ema60 else None
+    ema_danger  = ema_gap is not None and ema_gap < 1.0
+    ema_warning = ema_gap is not None and 1.0 <= ema_gap < 3.0
+
+    if is_high_vol:
+        # 飆股模式：只看EMA距離，不設RSI出場
+        if ema_danger:
+            return ("⚠️ 出場訊號", "background:#2a0808;color:#ff5555;border:1px solid #ff555555")
+        if ema_warning:
+            return ("注意觀察",   "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
+        return ("安全持倉",       "background:#0a1e10;color:#3dbb6a;border:1px solid #3dbb6a44")
+    else:
+        # 穩健股模式：EMA死叉 + ADX<25時RSI>75
+        rsi_triggered = (adx is not None and adx < 25 and rsi is not None and rsi > 75)
+        rsi_warning   = (adx is not None and adx < 25 and rsi is not None and rsi >= 70)
+        if rsi_triggered or ema_danger:
+            return ("⚠️ 出場訊號", "background:#2a0808;color:#ff5555;border:1px solid #ff555555")
+        if rsi_warning or ema_warning:
+            return ("注意觀察",   "background:#1a1200;color:#e8a020;border:1px solid #e8a02044")
+        return ("安全持倉",       "background:#0a1e10;color:#3dbb6a;border:1px solid #3dbb6a44")
 
 
 def get_rec_label(d: dict, ticker: str = "") -> tuple:
@@ -2835,7 +2885,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 10  # v4：反向ETF出場RSI>65→RSI>70、飆股出場文案更新、穩健趨勢RSI>65→RSI>70 2026-04-25
+_RESULTS_VERSION = 11  # v5：⑦自適應v3 ATR/P自動分類整合、④出場獲利飆股/穩健雙軌 2026-04-25
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

@@ -1,6 +1,11 @@
 """
-多股票六策略回測腳本  2025-10-24 ~ 2026-04-23
+多股票六策略回測腳本
 自動辨別台股 / 美股 / 指數，輸出逐筆明細 + 最終排行榜
+
+⑦ 自適應趨勢 v3（2026-04-25）：
+  進場時依 ATR/Price 自動分類出場規則
+  ATR/P > 3.5% → 高波動股：只守EMA死叉，無停損（保留飆股主升段）
+  ATR/P ≤ 3.5% → 穩健股：EMA死叉 + ADX<25時RSI>75 + 動態ATR停損
 """
 
 import sys, io
@@ -225,63 +230,105 @@ def analyze(ticker):
 
     t6 = run_bt(dates, pr, e6_en, e6_ex, stop_pct=0.05)
 
-    # ── ⑦ 自適應趨勢（完整版 v2）────────────────────────────────
-    # 多頭主策略（T1/T2/T3）
-    #   共同前提：EMA20 > EMA60 + ADX ≥ 18（過濾假多頭）
+    # ── ⑦ 自適應趨勢 v3（V7b 自動分類）────────────────────────────
+    # 多頭主策略（T1/T2/T3）：EMA20>EMA60 + ADX≥22
     #   T1 黃金交叉 | T2 期初多頭RSI<65 | T3 多頭拉回RSI<50
-    # 【改良①】出場：EMA死亡交叉 + ADX<25時RSI>70出場（防震盪損耗）
-    #   → 強趨勢(ADX≥25)持到死叉，弱趨勢(ADX<25)RSI超買即出
-    # 停損：ATR×2.5
     #
-    # 空頭反彈補充策略（T4）—— 與多頭主策略互補，不重疊
-    # 【改良②】空頭 + RSI<35 且止跌回升 → 進場，RSI>55 或黃金交叉出場
-    #   → 讓 00632R/BOTZ 在空頭期間也能捕到反彈
-    # 停損：ATR×2.0（空頭更緊）
+    # 【v3 核心改良：進場時依 ATR/Price 自動分類出場規則】
+    #   高波動（ATR/Price > 3.5%）→ 只守EMA死叉，無ATR停損，無RSI出場
+    #     → 避免停損/過早出場砍掉飆股主升段（NVDA/TSLA/PLTR 實證）
+    #   穩健（ATR/Price ≤ 3.5%）  → EMA死叉 + ADX<25時RSI>75 + 動態ATR停損
+    #     → ADX≥30 用 ATR×3.0 給強趨勢更多空間；其餘 ATR×2.5
+    #
+    # 空頭反彈補充（T4）：RSI<35 連續2天上升，RSI>55 或黃金交叉出場，ATR×2.0
+    # 反向ETF：專屬策略（另行處理）
 
+    # ── 進場（T1/T2/T3，多頭主策略）──
     def e7_en(i):
-        if any(np.isnan([e20[i], e60[i], adx_v[i]])): return False
-        if not (e20[i] > e60[i] and adx_v[i] >= 22):  return False  # 18→22 防假多頭
         if i < 1: return False
+        if any(np.isnan([e20[i], e60[i], adx_v[i]])): return False
+        if not (e20[i] > e60[i] and adx_v[i] >= 22): return False
         if not any(np.isnan([e20[i-1], e60[i-1]])):
             if e20[i-1] <= e60[i-1] and e20[i] > e60[i]:
-                return True
+                return True                                       # T1 黃金交叉
         if i == 1 and not np.isnan(rsi[i]) and rsi[i] < 65:
-            return True
+            return True                                           # T2 期初多頭
         if not np.isnan(rsi[i]) and rsi[i] < 50:
-            return True
+            return True                                           # T3 拉回
         return False
 
-    def e7_ex(i):
-        """改良①：死亡交叉 + ADX<25時RSI>70 自適應出場"""
+    # ── 出場函式（依進場時股性決定）──
+    def _ex_highvol(i):
+        """高波動股：只守EMA死叉"""
         if i < 1: return False
         if any(np.isnan([e20[i], e60[i]])): return False
-        if e20[i] < e60[i]: return True                          # 死亡交叉
-        if not np.isnan(adx_v[i]) and adx_v[i] < 25:            # 弱趨勢
-            if not np.isnan(rsi[i]) and rsi[i] > 70:
-                return True                                       # RSI超買出場
+        return e20[i] < e60[i]
+
+    def _ex_stable(i):
+        """穩健股：EMA死叉 + ADX<25時RSI>75"""
+        if i < 1: return False
+        if any(np.isnan([e20[i], e60[i]])): return False
+        if e20[i] < e60[i]: return True
+        if not np.isnan(adx_v[i]) and adx_v[i] < 25:
+            if not np.isnan(rsi[i]) and rsi[i] > 75:
+                return True
         return False
 
-    t7 = run_bt_atr(dates, pr, atr_v, e7_en, e7_ex, atr_mult=2.5)
+    # ── 主策略回測（含 ATR/Price 自動分類）──
+    def _run_v7b_main():
+        trades = []
+        in_mkt, ep, ed, stop_p, ex_fn = False, None, None, None, None
+        for i in range(1, n):
+            if not in_mkt:
+                if e7_en(i):
+                    in_mkt, ep, ed = True, pr[i], dates[i]
+                    _atr_raw = atr_v[i] if not np.isnan(atr_v[i]) else pr[i] * 0.03
+                    rel_atr  = _atr_raw / pr[i] * 100 if pr[i] > 0 else 0
+                    if rel_atr > 3.5:                            # 高波動：無停損
+                        stop_p = None
+                        ex_fn  = _ex_highvol
+                    else:                                        # 穩健：動態ATR停損
+                        _adx  = adx_v[i] if not np.isnan(adx_v[i]) else 22.0
+                        _mult = 3.0 if _adx >= 30 else 2.5
+                        stop_p = pr[i] - _atr_raw * _mult
+                        ex_fn  = _ex_stable
+            else:
+                hit_stop = (stop_p is not None) and (pr[i] < stop_p)
+                if hit_stop or ex_fn(i):
+                    r = (pr[i] - ep) / ep
+                    trades.append(dict(ed=ed, xd=dates[i], ep=ep, xp=pr[i],
+                                       ret=r, pnl=INVEST*r,
+                                       days=(dates[i]-ed).days,
+                                       stop=bool(hit_stop), open=False))
+                    in_mkt = False
+        if in_mkt:
+            r = (pr[-1] - ep) / ep
+            trades.append(dict(ed=ed, xd=dates[-1], ep=ep, xp=pr[-1],
+                               ret=r, pnl=INVEST*r,
+                               days=(dates[-1]-ed).days,
+                               stop=False, open=True))
+        return trades
 
-    # 空頭反彈補充（T4）— 改良② + 改良③（連續2天RSI上升確認止跌）
+    t7 = _run_v7b_main()
+
+    # ── 空頭反彈補充（T4）：RSI<35 連續2天上升 ──────────────────
     def e7b_en(i):
         if i < 2: return False
         if any(np.isnan([e20[i], e60[i], rsi[i], rsi[i-1], rsi[i-2]])): return False
-        if e20[i] > e60[i]: return False                         # 只在空頭
-        # RSI<35 且連續2天上升（改良③：更嚴格止跌確認，避免抓刀）
+        if e20[i] > e60[i]: return False
         return rsi[i] < 35 and rsi[i] > rsi[i-1] and rsi[i-1] > rsi[i-2]
 
     def e7b_ex(i):
         if any(np.isnan([rsi[i], e20[i], e60[i]])): return False
-        if rsi[i] > 55: return True                              # 反彈目標達成
+        if rsi[i] > 55: return True
         if i > 0 and not any(np.isnan([e20[i-1], e60[i-1]])):
             if e20[i-1] < e60[i-1] and e20[i] >= e60[i]:
-                return True                                       # EMA黃金交叉
+                return True
         return False
 
     t7b = run_bt_atr(dates, pr, atr_v, e7b_en, e7b_ex, atr_mult=2.0)
 
-    # 合計（多頭主策略 + 空頭反彈補充，兩者不重疊）
+    # 合計（多頭主策略 + 空頭反彈補充）
     t7_all = t7 + t7b
 
     # ── ⑦反向ETF專屬策略（反向ETF才執行）──────────────────────────
