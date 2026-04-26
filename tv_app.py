@@ -3471,11 +3471,58 @@ with st.sidebar:
             st.success(f"✓ 已刪除「{_selected_wl}」")
             st.rerun()
 
-    # 雲端 localStorage 儲存提示
+    # ── 🆕 匯出 / 匯入 JSON 永久備份 ────────────────────────────
+    with st.expander("💾 備份 / 還原 自選股清單", expanded=False):
+        st.caption(
+            "瀏覽器 localStorage 可能因清快取/隱私模式/閒置等原因消失。"
+            "建議定期匯出 JSON 永久保存。"
+        )
+        # 匯出
+        if _wls:
+            _export_text = _json.dumps(_wls, ensure_ascii=False, indent=2)
+            st.download_button(
+                "📥 匯出全部清單（JSON）",
+                data=_export_text,
+                file_name="watchlists_backup.json",
+                mime="application/json",
+                use_container_width=True,
+                key="wl_export_btn",
+            )
+        else:
+            st.caption("（目前無清單可匯出）")
+        # 匯入
+        _uploaded = st.file_uploader(
+            "📤 匯入 JSON 檔還原清單",
+            type=['json'], key="wl_import_uploader"
+        )
+        if _uploaded is not None:
+            try:
+                _imported = _json.loads(_uploaded.read().decode('utf-8'))
+                if isinstance(_imported, dict):
+                    _merge_mode = st.radio(
+                        "匯入方式",
+                        ["合併（保留現有）", "覆蓋（清空再匯入）"],
+                        horizontal=True, key="wl_import_mode"
+                    )
+                    if st.button("✅ 確認匯入", type="primary",
+                                 use_container_width=True,
+                                 key="wl_import_confirm"):
+                        if _merge_mode.startswith("覆蓋"):
+                            _wls = _imported
+                        else:
+                            _wls = {**_imported, **_wls}
+                        _save_watchlists(_wls)
+                        st.success(f"✓ 已匯入 {len(_imported)} 個清單"
+                                   f"（合併後總共 {len(_wls)}）")
+                        st.rerun()
+                else:
+                    st.error("檔案格式錯誤（不是字典結構）")
+            except Exception as e:
+                st.error(f"解析失敗：{e}")
+
     if _localS is not None:
         st.caption(
-            "💾 自選股儲存於瀏覽器（不同瀏覽器/裝置不互通）"
-            if _localS else ""
+            "💾 localStorage 儲存於瀏覽器（建議定期匯出備份）"
         )
 
     st.markdown("---")
