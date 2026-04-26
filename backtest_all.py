@@ -25,7 +25,11 @@
 """
 
 import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+try:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    # Streamlit Cloud / 已被包過的 stdout 不支援 reconfigure，略過
+    pass
 import warnings; warnings.filterwarnings("ignore")
 
 import yfinance as yf
