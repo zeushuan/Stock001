@@ -3306,27 +3306,26 @@ if scan_btn:
     scan_results = []
 
     # 通用 yfinance 即時掃描函數（雲端 fallback / 美股皆用）
-    def _scan_via_yfinance(tickers, suffix="", is_tw_market=False):
+    # 改用 yf.download 批次下載（50/批），大幅加速雲端全市場掃描
+    def _scan_via_yfinance(tickers, suffix="", is_tw_market=False,
+                           batch_size=150):
         import yfinance as _yf
         import pandas as _pd
         import numpy as _np
         total = len(tickers)
         out = []
-        # 預先載入名稱字典
         if is_tw_market:
             tw_names = _get_tw_names()
-        for i, t in enumerate(tickers):
-            progress.progress(i / total,
-                              text=f"抓取 {t}  ({i+1}/{total})")
+
+        def _eval_one(t, h):
             try:
-                yf_sym = f"{t}{suffix}" if suffix else t
-                h = _yf.Ticker(yf_sym).history(period="1y", auto_adjust=True)
-                if h is None or len(h) < 60: continue
-                h.index = _pd.to_datetime(h.index)
-                pr = h['Close'].values
-                e20 = _pd.Series(pr).ewm(span=20, adjust=False).mean().values
-                e60 = _pd.Series(pr).ewm(span=60, adjust=False).mean().values
-                delta = _pd.Series(pr).diff()
+                if h is None or len(h) < 60: return None
+                pr = h['Close'].dropna().values
+                if len(pr) < 60: return None
+                s = _pd.Series(pr)
+                e20 = s.ewm(span=20, adjust=False).mean().values
+                e60 = s.ewm(span=60, adjust=False).mean().values
+                delta = s.diff()
                 gain = delta.where(delta > 0, 0.0).rolling(14).mean()
                 loss = -delta.where(delta < 0, 0.0).rolling(14).mean()
                 rs = gain / loss
@@ -3344,30 +3343,92 @@ if scan_btn:
                     sig, score = "⚠️ 過熱（RSI≥75）", 30
                 else:
                     sig, score = "🔴 空頭", 10
-                if sig in scan_signal_filter:
-                    cur_pr = float(pr[last])
-                    prev_pr = float(pr[last-1]) if last >= 1 else cur_pr
-                    chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
-                    # 取名稱
-                    if is_tw_market:
-                        name = tw_names.get(t, "")
-                    else:
-                        name = US_NAMES.get(t, "")
-                    out.append(dict(
-                        ticker=t, name=name,
-                        date=h.index[-1].strftime('%Y-%m-%d'),
-                        price=round(cur_pr, 2),
-                        change_pct=round(chg_pct, 2),
-                        signal=sig, score=score,
-                        rsi=round(cur_rsi, 1) if cur_rsi else None,
-                        is_bull=is_bull,
-                    ))
+                if sig not in scan_signal_filter: return None
+                cur_pr = float(pr[last])
+                prev_pr = float(pr[last-1]) if last >= 1 else cur_pr
+                chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
+                name = tw_names.get(t, "") if is_tw_market \
+                       else US_NAMES.get(t, "")
+                return dict(
+                    ticker=t, name=name,
+                    date=str(h.index[-1].date()),
+                    price=round(cur_pr, 2),
+                    change_pct=round(chg_pct, 2),
+                    signal=sig, score=score,
+                    rsi=round(cur_rsi, 1) if cur_rsi else None,
+                    is_bull=is_bull,
+                )
+            except Exception:
+                return None
+
+        # 批次下載
+        for batch_start in range(0, total, batch_size):
+            batch_end = min(batch_start + batch_size, total)
+            batch = tickers[batch_start:batch_end]
+            yf_syms = [f"{t}{suffix}" if suffix else t for t in batch]
+            progress.progress(
+                batch_start / total,
+                text=f"批次下載 {batch_start+1}-{batch_end}/{total}…"
+            )
+            try:
+                df_all = _yf.download(
+                    " ".join(yf_syms),
+                    period="1y", auto_adjust=True,
+                    group_by='ticker', threads=True,
+                    progress=False, show_errors=False,
+                )
             except Exception:
                 continue
+            for t, sym in zip(batch, yf_syms):
+                try:
+                    if len(yf_syms) > 1:
+                        if sym not in df_all.columns.get_level_values(0):
+                            continue
+                        h = df_all[sym].dropna(how='all')
+                    else:
+                        h = df_all
+                    r = _eval_one(t, h)
+                    if r: out.append(r)
+                except Exception:
+                    continue
         progress.progress(1.0, text=f"完成 {total} 檔")
         return out
 
-    # 台股熱門代號（雲端 fallback：個股精選 + 全部 ETF 動態載入）
+    # ── 動態載入：台股全市場（上市+上櫃+ETF+ETN+TDR ~2308 檔）
+    @st.cache_data(ttl=86400, show_spinner=False)
+    def _get_all_tw_universe() -> list:
+        """從 twstock 取得台股全部可交易標的（股票/ETF/ETN/TDR/特別股）"""
+        try:
+            import twstock
+            return sorted({
+                str(k) for k, v in twstock.codes.items()
+                if v.type in ('股票', 'ETF', 'ETN', '臺灣存託憑證(TDR)', '特別股')
+            })
+        except Exception:
+            return []
+
+    # ── 動態載入：美股全市場（NASDAQ + NYSE + AMEX ~6700 檔）
+    @st.cache_data(ttl=86400, show_spinner=False)
+    def _get_all_us_universe() -> list:
+        """從公開 GitHub 維護的全美股代號清單取得"""
+        url = ("https://raw.githubusercontent.com/rreichel3/"
+               "US-Stock-Symbols/main/all/all_tickers.txt")
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code != 200: return []
+            out = set()
+            for line in r.text.splitlines():
+                s = line.strip().upper()
+                if not s or len(s) > 6: continue
+                # 跳過含特殊字元（yfinance 不一定支援）
+                if any(c in s for c in ('$', '/', '^', '.', '=')): continue
+                if not s.replace('-', '').isalpha(): continue
+                out.add(s)
+            return sorted(out)
+        except Exception:
+            return []
+
+    # 個股精選清單（雲端 fallback；twstock 失敗時使用）
     TW_INDIVIDUAL_TICKERS = [
         # 半導體
         "2330","2454","2303","3711","6669","3034","3017","3661","6488","8081",
@@ -3537,21 +3598,35 @@ if scan_btn:
             pass
 
         if not local_ok:
-            # 個股 + 全部 ETF（雲端最完整覆蓋）
-            etfs = _get_all_tw_etfs()
-            uniq = list(dict.fromkeys(TW_INDIVIDUAL_TICKERS + etfs))
+            # 雲端：抓 twstock 全市場（~2300 檔）
+            full = _get_all_tw_universe()
+            if not full:
+                # twstock 失敗 fallback 到精選 + 手動 ETF 清單
+                full = list(dict.fromkeys(
+                    TW_INDIVIDUAL_TICKERS + _get_all_tw_etfs()))
             st.info(
-                f"📡 雲端模式：本地快取不存在，改用 yfinance 即時抓取 "
-                f"{len(uniq)} 檔（個股 {len(TW_INDIVIDUAL_TICKERS)} + ETF {len(etfs)}）"
+                f"📡 雲端模式：批次掃描台股全市場 **{len(full)}** 檔"
+                f"（含上市/上櫃/ETF/ETN/TDR/特別股）"
             )
-            scan_results = _scan_via_yfinance(uniq, suffix=".TW",
+            scan_results = _scan_via_yfinance(full, suffix=".TW",
                                               is_tw_market=True)
     else:
-        st.info(
-            f"📡 即時抓取美股 {len(US_HOT_TICKERS)} 檔"
-            f"（個股 {len(US_INDIVIDUAL_TICKERS)} + ETF {len(US_ETF_TICKERS)}）"
-        )
-        scan_results = _scan_via_yfinance(US_HOT_TICKERS, is_tw_market=False)
+        # 美股：嘗試 NASDAQ Trader 全市場 → fallback 至內建 318 檔
+        full_us = _get_all_us_universe()
+        if full_us and len(full_us) > 1000:
+            extra_hot = list(dict.fromkeys(US_HOT_TICKERS + full_us))
+            st.info(
+                f"📡 即時抓取美股全市場 **{len(extra_hot)}** 檔"
+                f"（NASDAQ + NYSE + AMEX，預估 3-5 分鐘）"
+            )
+            scan_results = _scan_via_yfinance(extra_hot, is_tw_market=False)
+        else:
+            st.info(
+                f"📡 即時抓取美股 {len(US_HOT_TICKERS)} 檔"
+                f"（個股 {len(US_INDIVIDUAL_TICKERS)} + ETF {len(US_ETF_TICKERS)}）"
+                f"（無法載入 NASDAQ 全清單，使用內建熱門池）"
+            )
+            scan_results = _scan_via_yfinance(US_HOT_TICKERS, is_tw_market=False)
 
     if scan_results:
         df_scan = pd.DataFrame(scan_results).sort_values(
