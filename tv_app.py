@@ -8,15 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.6"
+APP_VERSION   = "v8.7"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "🎯 側邊欄新增「策略風格」選擇器：保守 / 平衡 / 進攻三檔切換 ｜ "
-    "推薦：保守 POS+DXY (+121/0.99) | 平衡 POS (+142/0.85) | 進攻 P0 (+197)"
+    "🛡️ 極致風控 IND+DXY (+122/1.03 全新最佳) ｜ "
+    "保守 POS+DXY (+121/0.99) ｜ 平衡 POS (+142/0.85) ｜ 進攻 P0 (+197)"
 )
 APP_VALIDATIONS = (
-    "操作建議卡顯示當前選擇的策略風格徽章 ｜ "
-    "POS+DXY 跨年度 σ=7.67 最穩定 ｜ 2022 熊市 -0.46% 保護有效"
+    "IND 產業 specific：半導體配 SOX、景氣循環配 HG、其他配 DXY ｜ "
+    "POS+IND+DXY 風報比首次突破 1.0（=1.03）｜ 跨年度 σ=7.89 穩定"
 )
 
 import numpy as np
@@ -3096,19 +3096,31 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
     strategy_style = st.radio(
         label="策略風格",
-        options=["保守 (POS+DXY)", "平衡 (POS)", "進攻 (P0_T1T3)"],
+        options=[
+            "極致風控 (IND+DXY)",
+            "保守 (POS+DXY)",
+            "平衡 (POS)",
+            "進攻 (P0_T1T3)"
+        ],
         index=0,
         label_visibility="collapsed",
         key="strategy_style"
     )
     # 各風格對應的描述
     _style_meta = {
+        "極致風控 (IND+DXY)": dict(
+            mode="P0_T1T3+POS+IND+DXY",
+            color="#9d6dff",
+            icon="🛡️",
+            mean=122.25, low=-118.7, sharpe=1.03, sigma=7.89,
+            note="產業 specific 跨市場 + 全局 DXY。風報比 1.03 全部最佳！半導體配 SOX、景氣循環配 HG、其他配 DXY",
+        ),
         "保守 (POS+DXY)":  dict(
             mode="P0_T1T3+POS+DXY",
             color="#3dbb6a",
-            icon="🛡️",
+            icon="🌊",
             mean=120.51, low=-122, sharpe=0.99, sigma=7.67,
-            note="弱美元才進場 + 累積為正才加碼。2022 熊市僅 -0.46% 保護有效",
+            note="弱美元才進場 + 累積為正才加碼。2022 熊市 -0.46% 保護有效，跨年度 σ 最穩",
         ),
         "平衡 (POS)": dict(
             mode="P0_T1T3+POS",
@@ -3170,7 +3182,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 18  # v8.6：側邊欄新增策略風格選擇器（保守/平衡/進攻 三檔切換）2026-04-26
+_RESULTS_VERSION = 19  # v8.7：產業 specific IND+DXY 風報比 1.03 全新最佳，新增四檔風格 2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

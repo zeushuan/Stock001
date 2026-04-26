@@ -104,6 +104,62 @@ def _filter_period(df, start=None, end=None):
 INVERSE_ETF = {"00632R", "00633L", "00648U"}
 
 
+# ─── 產業 specific 跨市場映射 ─────────────────────────────────────
+# 每個產業匹配最相關的跨市場指標（基於前期 industry_pos_analysis 發現）
+_INDUSTRY_FILTERS = {
+    # 半導體相關 → SOX 多頭
+    '半導體業': 'SOX',
+    '電子零組件業': 'SOX',
+    '電腦及週邊設備業': 'SOX',
+    '其他電子業': 'SOX',
+    '通信網路業': 'SOX',
+    '光電業': 'SOX',
+    # 景氣循環/原物料 → HG 銅多頭
+    '航運業': 'HG',
+    '鋼鐵工業': 'HG',
+    '化學工業': 'HG',
+    '塑膠工業': 'HG',
+    '紡織纖維': 'HG',
+    '橡膠工業': 'HG',
+    '玻璃陶瓷': 'HG',
+    '水泥工業': 'HG',
+    # 內需/防禦 → DXY 弱美元（全球流動性）
+    '食品工業': 'DXY',
+    '觀光餐旅': 'DXY',
+    '貿易百貨業': 'DXY',
+    '居家生活': 'DXY',
+    '運動休閒': 'DXY',
+    # 金融/服務 → DXY
+    '金融保險業': 'DXY',
+    '資訊服務業': 'DXY',
+    '數位雲端': 'DXY',
+    # 工業 → DXY
+    '電機機械': 'DXY',
+    '電器電纜': 'DXY',
+    '電子通路業': 'DXY',
+    '汽車工業': 'DXY',
+    '建材營造業': 'DXY',
+    # 其他 → 不加過濾（保留 POS 純策略）
+}
+
+_INDUSTRY_MAP_CACHE = None
+def _load_industry_map():
+    """載入並快取 ticker→industry 映射"""
+    global _INDUSTRY_MAP_CACHE
+    if _INDUSTRY_MAP_CACHE is None:
+        import json
+        from pathlib import Path
+        p = Path(__file__).parent / 'tw_stock_list.json'
+        if p.exists():
+            with open(p, encoding='utf-8') as f:
+                data = json.load(f)
+            _INDUSTRY_MAP_CACHE = {tk: meta.get('industry', '')
+                                    for tk, meta in data.items()}
+        else:
+            _INDUSTRY_MAP_CACHE = {}
+    return _INDUSTRY_MAP_CACHE
+
+
 # ─── 模式解碼器 ────────────────────────────────────────────────
 def _decode_mode(mode: str) -> dict:
     """把模式字串拆成個別旗標"""
@@ -168,6 +224,8 @@ def _decode_mode(mode: str) -> dict:
         use_VIXTR    = 'VIXTR' in parts,  # VIX 下行時才進場（恐慌平息）
         use_DXYROC   = 'DXYROC' in parts, # DXY 5 日變化率 > 0 不進場（美元快速強勢）
         cuau_min     = None,              # CUAU{N}：銅金比 > N% 才進場
+        # 產業 specific 跨市場
+        use_IND      = 'IND' in parts,    # 依產業套用不同跨市場過濾
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -980,6 +1038,20 @@ def run_v7_variant(ticker: str, df, mode: str = 'base',
     if df is None or df.empty: return None
 
     flags = _decode_mode(mode)
+
+    # IND 模式：依產業動態啟用對應跨市場過濾
+    if flags.get('use_IND'):
+        ind_map = _load_industry_map()
+        industry = ind_map.get(ticker, '')
+        ind_filter = _INDUSTRY_FILTERS.get(industry)
+        if ind_filter == 'SOX':
+            flags['use_SOX'] = True
+        elif ind_filter == 'HG':
+            flags['use_HG'] = True
+        elif ind_filter == 'DXY':
+            flags['use_DXY'] = True
+        # 其他產業不加過濾，保留純 POS
+
     is_inv = ticker in INVERSE_ETF
     main_trades = _run_v7_strategy(df, flags, is_inverse_etf=is_inv)
     # 反向ETF 不啟用 T4（在空頭時不抓反彈，否則邏輯衝突）
