@@ -3311,12 +3311,14 @@ if scan_btn:
             import data_loader as _dl
             import variant_strategy as _vs
             import daily_scanner as _ds
-            from pathlib import Path as _P
 
-            cache_dir = _P(__file__).parent / 'data_cache'
+            cache_dir = _dl.CACHE_DIR
             files = sorted(cache_dir.glob('*.parquet'))
             if not files:
-                st.error("data_cache 為空，請先執行 backtest_tw_all.py 建立快取")
+                st.error(
+                    f"data_cache 為空（{cache_dir}），"
+                    "請先執行 backtest_tw_all.py 建立快取"
+                )
                 st.stop()
 
             mode = style_info['mode']
