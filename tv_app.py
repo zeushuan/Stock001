@@ -8,16 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.3"
+APP_VERSION   = "v8.4"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "v8 P0_T1T3+POS +141.68% / 風報比 0.85 ⭐ 生產推薦 ｜ "
-    "新增「接近條件預警」：T1/T3 即將觸發、停損即將觸碰、過熱警示"
+    "★ POS+DXY 風報比 0.99（最高）｜ POS+VIX30 0.91 ｜ POS 0.85 "
+    "｜ 接近條件預警 7 類 ｜ 跨市場過濾（VIX/DXY/SPX/TNX/ER）"
 )
 APP_VALIDATIONS = (
-    "Walk-forward EARLY/LATE 差 0.2%（Edge 穩定）｜ "
-    "POS 跨年度 σ=8.9 最穩 ｜ "
-    "預警系統涵蓋：T1/T3/ADX/EMA死叉/支撐/RSI過熱/趨勢轉弱"
+    "Walk-forward Edge 穩定｜ POS+DXY 最低 -122%（vs POS -166）｜ "
+    "DXY 弱美元利新興市場假設驗證成立 ｜ ER 財報季 / TNX 利率：無效"
 )
 
 import numpy as np
@@ -3093,7 +3092,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 15  # v8.3：新增「接近條件預警」系統（T1/T3/停損/過熱七種類別）2026-04-26
+_RESULTS_VERSION = 16  # v8.4：跨市場 / 基本面 / 執行優化全新方向（DXY 風報比 0.99） 2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

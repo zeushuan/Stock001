@@ -2,17 +2,20 @@
 策略變體執行器（v8 優化基礎建設）
 
 ★ 推薦模式 ★
-  最大獲利：P0_T1T3            +197.48%（最差 -290%）
-  風控版：  P0_T1T3+CB30        +134.07%（最差 -166%, 風報比 0.81）
-  ★ 自適應：P0_T1T3+POS        +141.68%（最差 -166%, 風報比 0.85）⭐ 生產推薦
-  保守版：  P0_T1T3+PS          +110.26%（最差 -149%）
+  最大獲利：P0_T1T3            +197.48% / -290% / 風報比 0.68
+  風控版：  P0_T1T3+CB30        +134.07% / -166% / 0.81
+  自適應：  P0_T1T3+POS         +141.68% / -166% / 0.85
+  ★ 跨市場：P0_T1T3+POS+DXY    +120.51% / -122% / 0.99 ⭐ 最高風報比
+  尾部最佳：P0_T1T3+POS+VIX30+DXY +115% / -120% / 0.96
 
-【POS 規則】累積已實現損益為正才允許加碼（自我驗證機制）
-  - 死亡迴圈股：永不觸發加碼（首倉永虧）
-  - 強趨勢股：快速累積收益，正常加碼
-  - 跨年度穩定性 σ=8.9（vs P0/CB30 σ=12.7）
+【新發現：跨市場過濾】
+  DXY  美元下行才進場（弱美元利新興市場）→ 風報比 0.99
+  VIX30 VIX>30 不進場（避恐慌期）        → 風報比 0.91
+  ER   財報季 (5/8/11/3) 避險             → 太粗糙，無效
+  LIQ  流動性過濾                         → 大樣本無感
+  SPX  美股多頭過濾                       → 略效
 
-Walk-forward 驗證：EARLY (2020-2022) +54.6 vs LATE (2023-2026) +54.4 = 結構穩定
+Walk-forward 驗證：EARLY (2020-2022) +54.6 vs LATE (2023-2026) +54.4 穩定
 扣 0.4275% 台股交易成本：P0_T1T3 仍 +184.33%
 
 支援模式（mode 參數）：
@@ -146,8 +149,18 @@ def _decode_mode(mode: str) -> dict:
         # 自適應規則（基於分群分析發現）
         bull_days_th = None,    # 加碼前要求過去 250 天 bull_days >= N%
         v7_pos_only  = 'POS' in parts,        # POS：累積為正才加碼
-        pos_min_pct  = None,                  # POSN：累積需達 N% 才加碼（POS5/POS10）
-        use_PR       = 'PR' in parts,         # PR：累積虧損後重置（停損後歸零）
+        pos_min_pct  = None,                  # POSN：累積需達 N% 才加碼
+        use_PR       = 'PR' in parts,         # PR：停損後 POS 重置
+        # 全新方向：執行優化
+        liq_min_vol  = None,    # LIQ{N}：進場前要求 60 日均量 ≥ N 張（預設 None）
+        slippage_pct = None,    # SLP{F}：進場/出場滑價%
+        # 全新方向：跨市場
+        vix_max_th   = None,    # VIX{N}：VIX 超過 N 時禁止新進場
+        use_SPX      = 'SPX' in parts,    # SPX 多頭時才進場
+        use_DXY      = 'DXY' in parts,    # 美元下行時才進場
+        tnx_max_th   = None,    # TNX{N}：10年美債殖利率上限
+        # 全新方向：基本面（財報季避險）
+        use_ER       = 'ER' in parts,    # 財報季避險：5/8/11/3 月不開新倉
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -215,10 +228,21 @@ def _decode_mode(mode: str) -> dict:
             try: flags['bull_days_th'] = float(part[2:])
             except ValueError: pass
         elif part.startswith('POS') and len(part) > 3:
-            # POS5 / POS10 / POS-2 等動態門檻
             try:
                 flags['pos_min_pct'] = float(part[3:])
-                flags['v7_pos_only'] = True   # 自動啟用 POS 機制
+                flags['v7_pos_only'] = True
+            except ValueError: pass
+        elif part.startswith('LIQ') and len(part) > 3:
+            try: flags['liq_min_vol'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('SLP') and len(part) > 3:
+            try: flags['slippage_pct'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('VIX') and len(part) > 3:
+            try: flags['vix_max_th'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('TNX') and len(part) > 3:
+            try: flags['tnx_max_th'] = float(part[3:])
             except ValueError: pass
 
     return flags
@@ -297,8 +321,58 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     atr_mult_hi  = flags['atr_mult_hi']  if flags['atr_mult_hi'] is not None else 3.0
     bull_days_th = flags['bull_days_th']
     v7_pos_only  = flags['v7_pos_only']
-    pos_min_pct  = flags['pos_min_pct']    # POS{N}：累積需達 N% 才加碼
-    use_PR       = flags['use_PR']         # PR：停損後 POS 計數重置
+    pos_min_pct  = flags['pos_min_pct']
+    use_PR       = flags['use_PR']
+    liq_min_vol  = flags['liq_min_vol']    # LIQ{N}：60日均量門檻
+    slippage_pct = flags['slippage_pct']   # SLP{F}：滑價%
+    vix_max_th   = flags['vix_max_th']     # VIX{N}：VIX 上限
+    use_SPX      = flags['use_SPX']        # SPX 多頭過濾
+    use_DXY      = flags['use_DXY']        # 美元下行過濾
+    tnx_max_th   = flags['tnx_max_th']     # TNX{N}：美債殖利率上限
+    use_ER       = flags['use_ER']         # 財報季避險
+
+    # 載入跨市場序列
+    def _load_cross_market(ticker):
+        try:
+            import data_loader as _dl
+            xdf = _dl.load_from_cache(ticker)
+            if xdf is None or xdf.empty:
+                return None
+            return xdf
+        except: return None
+
+    vix_series = None
+    if vix_max_th is not None:
+        xdf = _load_cross_market('^VIX')
+        if xdf is not None:
+            vix_series = xdf['Close'].reindex(df.index, method='ffill').values
+
+    spx_bull_arr = None
+    if use_SPX:
+        xdf = _load_cross_market('^GSPC')
+        if xdf is not None:
+            aligned = xdf.reindex(df.index, method='ffill')
+            if 'e20' in aligned.columns and 'e60' in aligned.columns:
+                spx_bull_arr = (aligned['e20'].values > aligned['e60'].values)
+
+    dxy_bear_arr = None
+    if use_DXY:
+        xdf = _load_cross_market('DX-Y.NYB')
+        if xdf is None:
+            xdf = _load_cross_market('DX=F')
+        if xdf is not None:
+            aligned = xdf.reindex(df.index, method='ffill')
+            if 'e20' in aligned.columns and 'e60' in aligned.columns:
+                dxy_bear_arr = (aligned['e20'].values < aligned['e60'].values)
+
+    tnx_series = None
+    if tnx_max_th is not None:
+        xdf = _load_cross_market('^TNX')
+        if xdf is not None:
+            tnx_series = xdf['Close'].reindex(df.index, method='ffill').values
+
+    # 成交量序列（流動性過濾用）
+    vol_arr = df['Volume'].values if 'Volume' in df.columns else None
 
     # F1 週線 EMA 預計算（從日線 resample）
     if use_WK:
@@ -357,6 +431,41 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         # F2 大盤 TWII 多頭過濾
         if use_MK and twii_bull_arr is not None:
             if not twii_bull_arr[i]:
+                return False, False
+
+        # 執行優化：流動性過濾（LIQ）
+        if liq_min_vol is not None and vol_arr is not None and i >= 60:
+            recent_vol = vol_arr[max(0, i-60):i]
+            valid_vol = recent_vol[~np.isnan(recent_vol)]
+            if len(valid_vol) > 30:
+                avg_vol = np.mean(valid_vol)
+                if avg_vol < liq_min_vol:
+                    return False, False
+
+        # 跨市場：VIX 過高時禁止進場（VIX）
+        if vix_max_th is not None and vix_series is not None:
+            if not np.isnan(vix_series[i]) and vix_series[i] > vix_max_th:
+                return False, False
+
+        # 跨市場：S&P500 必須多頭（SPX）
+        if use_SPX and spx_bull_arr is not None:
+            if not spx_bull_arr[i]:
+                return False, False
+
+        # 跨市場：美元下行才進場（DXY，弱美元利新興市場）
+        if use_DXY and dxy_bear_arr is not None:
+            if not dxy_bear_arr[i]:
+                return False, False
+
+        # 跨市場：10年美債殖利率上限（TNX）
+        if tnx_max_th is not None and tnx_series is not None:
+            if not np.isnan(tnx_series[i]) and tnx_series[i] > tnx_max_th:
+                return False, False
+
+        # 基本面：財報季避險（5/8/11/3 月禁止新倉）
+        if use_ER:
+            month = dates[i].month
+            if month in (3, 5, 8, 11):
                 return False, False
 
         # B3 量能確認（共用過濾，T1/T3 都需通過）
@@ -587,7 +696,14 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                     if pr[i] < e20[i]: do_exit_e20 = True
 
             if do_exit_std or do_exit_t or do_exit_e20 or do_exit_ed or do_exit_rh:
-                r = (pr[i] - ep) / ep
+                # 執行優化：滑價（進出場各扣 SLP%）
+                eff_ep = ep
+                eff_xp = pr[i]
+                if slippage_pct is not None:
+                    slp = slippage_pct / 100.0
+                    eff_ep = ep * (1 + slp)        # 進場價格往上滑（買入吃滑價）
+                    eff_xp = pr[i] * (1 - slp)     # 出場價格往下滑（賣出吃滑價）
+                r = (eff_xp - eff_ep) / eff_ep
                 trades.append((r, p['mult'], hit_stop or do_exit_t))
                 positions.remove(p)
                 had_exit = True
