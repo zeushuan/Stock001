@@ -1933,10 +1933,33 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     rsi_prev2  = d.get("rsi_prev2")          # T4：連續2天上升確認用
     atr14      = d.get("atr14")
     close      = d.get("close")
+    sma200     = d.get("sma200")
     cross_days = d.get("ema20_cross_days")   # +N=黃金交叉N天前, -N=死亡交叉N天前
 
     if ema20 is None or ema60 is None:
         return ""
+
+    # ── 風險評估指標（給策略風險匹配檢查用）──────────────────
+    _rel_atr_global = (atr14 / close * 100) if (atr14 and close and close > 0) else 0
+    _is_high_vol    = _rel_atr_global > 5.0     # 飆股級高波動（ATR/P > 5%）
+    _ext_200        = (close / sma200) if (close and sma200 and sma200 > 0) else None
+    _is_extended    = _ext_200 is not None and _ext_200 > 1.40   # 距 SMA200 > 40% = 過度延伸
+    # 距 EMA60 的 ATR 倍數（< 1.0 表示停損點極近 = 弱支撐）
+    _ema60_atr_dist = ((close - ema60) / atr14) if (atr14 and atr14 > 0 and ema60 and close) else None
+    _weak_support   = _ema60_atr_dist is not None and 0 < _ema60_atr_dist < 1.0
+
+    # 讀取使用者選擇的策略風格（用於「策略風險匹配」檢查）
+    try:
+        _active_style = st.session_state.get('active_strategy') or {}
+        _active_mode  = _active_style.get('mode', '')
+    except Exception:
+        _active_mode = ''
+    # 風險偏好分類
+    _is_conservative_style = any(k in _active_mode for k in
+                                 ('POS+IND+DXY', 'POS+DXY', 'WRSI+WADX'))
+    # 主動「進攻」/「平衡」style：只有 POS（無 DXY/IND）或純 P0_T1T3
+    _is_aggressive_style = _active_mode in ('P0_T1T3', 'P0_T1T3+POS') or \
+                           ('+RL' in _active_mode)
 
     # ── ⓪ 標的分類（反向ETF 走專屬邏輯）────────────────────────────
     special_banner = ""
@@ -2326,6 +2349,45 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = ""
 
+    # ── 🆕 策略風險匹配檢查（防 2313 型「保守選股 vs 飆股訊號」衝突）──
+    _mismatch_warns = []
+    if is_bull and adx_ok and _is_conservative_style:
+        # 保守風格遇到飆股訊號：警告
+        if _is_high_vol:
+            _mismatch_warns.append(
+                f"當前策略是<b>保守風格</b>，但這檔 ATR/P {_rel_atr_global:.1f}% > 5% 屬<b>高波動飆股</b>，"
+                f"歷史風報比 0.99 是建立在低波動股，不適用此標的"
+            )
+        if _is_extended:
+            _mismatch_warns.append(
+                f"股價已距 SMA200 約 <b>+{(_ext_200-1)*100:.0f}%</b>（過度延伸），"
+                f"保守風格設計為低基期長線進場，此時追高勝率偏低"
+            )
+        if _weak_support:
+            _mismatch_warns.append(
+                f"收盤距 EMA60 僅 <b>{_ema60_atr_dist:.2f} ATR</b>（弱支撐），"
+                f"明日小跌即可能跌破，停損 -{(atr14*2.5/close*100):.0f}% 風險已逼近"
+            )
+
+    # 若有警告，把建議降級
+    if _mismatch_warns and _rec_name not in ("不操作 — 等待訊號", "不操作 — 假多頭",
+                                              "等待回調 — 不追高", "⑦ 等待 T3 拉回"):
+        _rec_name_orig = _rec_name
+        _rec_name = "⚠️ 不建議進場（保守風格 vs 高風險訊號）"
+        _rec_color = "#e8a020"
+        _rec_badge = "background:#1a1200;color:#e8a020;border:1px solid #e8a02055"
+        _rec_reason = (
+            f"原訊號「{_rec_name_orig}」技術上有效，但與你選的「保守」策略風險不匹配。"
+            f"建議：①縮減部位至 1/2 ②手動上移停損至 EMA60 下方 ③或改選「平衡/進攻」風格"
+        )
+        _rec_warn = "🛡️ 保守風格：低基期 + 低波動才是甜蜜區"
+
+    # 進攻風格反向警告（過度保守）
+    if (is_bull and adx_ok and _is_aggressive_style and not _is_high_vol
+            and _ext_200 is not None and _ext_200 < 1.05 and not (t1_ok or _is_pullback if 'is_pullback' in dir() else False)):
+        # 進攻風格在低波動 + 未延伸標的 → 提示資金效率
+        pass  # 暫不警告，避免過度提示
+
     # 推薦策略 HTML 組裝
     rec_badge_html = (
         f'<span style="{_rec_badge};border-radius:4px;padding:2px 8px;'
@@ -2335,6 +2397,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<div style="margin-bottom:4px">{rec_badge_html}'
         f'&nbsp;<span style="color:#8ab0c8;font-size:.75rem">{_rec_reason}</span></div>'
     )
+
+    # 顯示風險匹配警告列表
+    if _mismatch_warns:
+        for w in _mismatch_warns:
+            rec_rows.append(
+                f'<div style="display:flex;gap:6px;margin-top:3px">'
+                f'<span style="color:#e8a020;font-size:.7rem;white-space:nowrap">⚠️ 風險</span>'
+                f'<span style="color:#f0c890;font-size:.74rem">{w}</span></div>'
+            )
     if _rec_entry != "—":
         rec_rows.append(
             f'<div style="display:flex;gap:6px">'
