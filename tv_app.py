@@ -2106,6 +2106,19 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'</div>'
             )
 
+        # 🆕 T4 預警：多頭但 EMA20 即將跌破 EMA60（距 < 1 ATR），不亮燈
+        if (atr14 is not None and atr14 > 0
+                and ema20 is not None and ema60 is not None
+                and (ema20 - ema60) < atr14):
+            _gap_atr = (ema20 - ema60) / atr14
+            entry_rows.append(
+                f'<div style="display:flex;gap:6px;align-items:baseline;opacity:0.75">'
+                f'<span style="background:#1a1410;border-radius:3px;padding:0 5px;'
+                f'font-size:.65rem;color:#7a6050;white-space:nowrap">T4 空頭反彈</span>'
+                f'<span style="color:#7a8899">⬜ 即將適用（EMA20 距 EMA60 僅 '
+                f'{_gap_atr:.2f} ATR，跌破後切換 T4 通道）</span></div>'
+            )
+
     elif is_bull and not adx_ok:
         entry_rows.append(
             f'<div style="color:#e8a020">ADX {adx_str} &lt; 22，趨勢強度不足，'
