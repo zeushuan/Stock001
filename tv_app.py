@@ -8,15 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.4"
+APP_VERSION   = "v8.5"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "★ POS+DXY 風報比 0.99（最高）｜ POS+VIX30 0.91 ｜ POS 0.85 "
-    "｜ 接近條件預警 7 類 ｜ 跨市場過濾（VIX/DXY/SPX/TNX/ER）"
+    "三檔候選：P0_T1T3 (+197/0.68) ｜ POS (+142/0.85) ｜ "
+    "★ POS+DXY (+121/0.99 跨年σ=7.67 最穩) ｜ 接近條件預警 7 類"
 )
 APP_VALIDATIONS = (
-    "Walk-forward Edge 穩定｜ POS+DXY 最低 -122%（vs POS -166）｜ "
-    "DXY 弱美元利新興市場假設驗證成立 ｜ ER 財報季 / TNX 利率：無效"
+    "POS+DXY 在 2022 熊市僅 -0.46% (vs POS -3.83 大幅保護) ｜ "
+    "DXY 包含全球流動性資訊，加入 GLD/HG/SOX/VIXTR 反而稀釋 ｜ "
+    "失敗方向：GLD 災難 (+44/0.28)、ER 財報季粗糙、TNX 從未觸發"
 )
 
 import numpy as np
@@ -3092,7 +3093,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 16  # v8.4：跨市場 / 基本面 / 執行優化全新方向（DXY 風報比 0.99） 2026-04-26
+_RESULTS_VERSION = 17  # v8.5：深化跨市場（黃金/銅/SOX 失敗，DXY 跨年度 σ=7.67 確認）2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

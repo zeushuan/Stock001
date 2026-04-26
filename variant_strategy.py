@@ -160,7 +160,14 @@ def _decode_mode(mode: str) -> dict:
         use_DXY      = 'DXY' in parts,    # 美元下行時才進場
         tnx_max_th   = None,    # TNX{N}：10年美債殖利率上限
         # 全新方向：基本面（財報季避險）
-        use_ER       = 'ER' in parts,    # 財報季避險：5/8/11/3 月不開新倉
+        use_ER       = 'ER' in parts,    # 財報季避險
+        # 深化跨市場
+        use_GLD      = 'GLD' in parts,    # 黃金多頭時不進場（避險情緒高）
+        use_HG       = 'HG' in parts,     # 銅多頭時才進場（景氣強）
+        use_SOX      = 'SOX' in parts,    # 費半多頭時才進場
+        use_VIXTR    = 'VIXTR' in parts,  # VIX 下行時才進場（恐慌平息）
+        use_DXYROC   = 'DXYROC' in parts, # DXY 5 日變化率 > 0 不進場（美元快速強勢）
+        cuau_min     = None,              # CUAU{N}：銅金比 > N% 才進場
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -243,6 +250,9 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('TNX') and len(part) > 3:
             try: flags['tnx_max_th'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('CUAU') and len(part) > 4:
+            try: flags['cuau_min'] = float(part[4:])
             except ValueError: pass
 
     return flags
@@ -330,6 +340,12 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     use_DXY      = flags['use_DXY']        # 美元下行過濾
     tnx_max_th   = flags['tnx_max_th']     # TNX{N}：美債殖利率上限
     use_ER       = flags['use_ER']         # 財報季避險
+    use_GLD      = flags['use_GLD']        # 黃金多頭時不進場
+    use_HG       = flags['use_HG']         # 銅多頭時才進場
+    use_SOX      = flags['use_SOX']        # 費半多頭時才進場
+    use_VIXTR    = flags['use_VIXTR']      # VIX 下行才進場
+    use_DXYROC   = flags['use_DXYROC']     # DXY 變化率過濾
+    cuau_min     = flags['cuau_min']       # 銅金比門檻
 
     # 載入跨市場序列
     def _load_cross_market(ticker):
@@ -370,6 +386,68 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         xdf = _load_cross_market('^TNX')
         if xdf is not None:
             tnx_series = xdf['Close'].reindex(df.index, method='ffill').values
+
+    # 深化跨市場：黃金多頭、銅多頭、費半多頭
+    gld_bull_arr = None
+    if use_GLD:
+        for tk in ['GC=F', 'GLD']:
+            xdf = _load_cross_market(tk)
+            if xdf is not None and 'e20' in xdf.columns:
+                aligned = xdf.reindex(df.index, method='ffill')
+                gld_bull_arr = (aligned['e20'].values > aligned['e60'].values)
+                break
+
+    hg_bull_arr = None
+    if use_HG:
+        xdf = _load_cross_market('HG=F')
+        if xdf is not None and 'e20' in xdf.columns:
+            aligned = xdf.reindex(df.index, method='ffill')
+            hg_bull_arr = (aligned['e20'].values > aligned['e60'].values)
+
+    sox_bull_arr = None
+    if use_SOX:
+        xdf = _load_cross_market('^SOX')
+        if xdf is not None and 'e20' in xdf.columns:
+            aligned = xdf.reindex(df.index, method='ffill')
+            sox_bull_arr = (aligned['e20'].values > aligned['e60'].values)
+
+    # VIX 下行（5日均線下行）
+    vix_falling_arr = None
+    if use_VIXTR and vix_series is None:
+        xdf = _load_cross_market('^VIX')
+        if xdf is not None:
+            vix_series_loc = xdf['Close'].reindex(df.index, method='ffill').values
+            # 5日均下行
+            vix_ma5 = pd.Series(vix_series_loc).rolling(5).mean().values
+            vix_ma5_prev = np.roll(vix_ma5, 1)
+            vix_falling_arr = (vix_ma5 < vix_ma5_prev)
+
+    # DXY 5日變化率（DXY 上升太快不進場）
+    dxy_roc_ok_arr = None
+    if use_DXYROC:
+        xdf = _load_cross_market('DX-Y.NYB') or _load_cross_market('DX=F')
+        if xdf is not None:
+            dxy_close = xdf['Close'].reindex(df.index, method='ffill').values
+            dxy_roc = (dxy_close - np.roll(dxy_close, 5)) / np.roll(dxy_close, 5) * 100
+            dxy_roc_ok_arr = (dxy_roc <= 0)   # DXY 5 日下降才進場
+
+    # 銅金比 (Copper/Gold ratio)
+    cuau_arr = None
+    if cuau_min is not None:
+        cu_df = _load_cross_market('HG=F')
+        au_df = _load_cross_market('GC=F')
+        if cu_df is not None and au_df is not None:
+            cu = cu_df['Close'].reindex(df.index, method='ffill').values
+            au = au_df['Close'].reindex(df.index, method='ffill').values
+            ratio = np.where(au > 0, cu / au * 1000, np.nan)  # 乘1000讓數值更直觀
+            # 計算相對位置（過去 250 天百分位）
+            cuau_arr = np.full(len(df), np.nan)
+            for i in range(250, len(df)):
+                window = ratio[i-250:i]
+                valid = window[~np.isnan(window)]
+                if len(valid) > 100:
+                    pct = (np.sum(valid <= ratio[i]) / len(valid)) * 100
+                    cuau_arr[i] = pct
 
     # 成交量序列（流動性過濾用）
     vol_arr = df['Volume'].values if 'Volume' in df.columns else None
@@ -467,6 +545,37 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
             month = dates[i].month
             if month in (3, 5, 8, 11):
                 return False, False
+
+        # 深化跨市場：黃金多頭時不進場（避險情緒高）
+        if use_GLD and gld_bull_arr is not None:
+            if gld_bull_arr[i]:
+                return False, False
+
+        # 深化跨市場：銅多頭時才進場（景氣強）
+        if use_HG and hg_bull_arr is not None:
+            if not hg_bull_arr[i]:
+                return False, False
+
+        # 深化跨市場：費半多頭才進場
+        if use_SOX and sox_bull_arr is not None:
+            if not sox_bull_arr[i]:
+                return False, False
+
+        # 深化跨市場：VIX 下行才進場（恐慌平息）
+        if use_VIXTR and vix_falling_arr is not None:
+            if i >= 5 and not vix_falling_arr[i]:
+                return False, False
+
+        # 深化跨市場：DXY 變化率過濾
+        if use_DXYROC and dxy_roc_ok_arr is not None:
+            if i >= 5 and not dxy_roc_ok_arr[i]:
+                return False, False
+
+        # 深化跨市場：銅金比 > N 百分位才進場
+        if cuau_min is not None and cuau_arr is not None:
+            if i >= 250 and not np.isnan(cuau_arr[i]):
+                if cuau_arr[i] < cuau_min:
+                    return False, False
 
         # B3 量能確認（共用過濾，T1/T3 都需通過）
         if use_VC and vol is not None and i >= 20:
