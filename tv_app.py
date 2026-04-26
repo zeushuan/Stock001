@@ -3306,12 +3306,15 @@ if scan_btn:
     scan_results = []
 
     # 通用 yfinance 即時掃描函數（雲端 fallback / 美股皆用）
-    def _scan_via_yfinance(tickers, suffix=""):
+    def _scan_via_yfinance(tickers, suffix="", is_tw_market=False):
         import yfinance as _yf
         import pandas as _pd
         import numpy as _np
         total = len(tickers)
         out = []
+        # 預先載入名稱字典
+        if is_tw_market:
+            tw_names = _get_tw_names()
         for i, t in enumerate(tickers):
             progress.progress(i / total,
                               text=f"抓取 {t}  ({i+1}/{total})")
@@ -3342,45 +3345,154 @@ if scan_btn:
                 else:
                     sig, score = "🔴 空頭", 10
                 if sig in scan_signal_filter:
+                    cur_pr = float(pr[last])
+                    prev_pr = float(pr[last-1]) if last >= 1 else cur_pr
+                    chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
+                    # 取名稱
+                    if is_tw_market:
+                        name = tw_names.get(t, "")
+                    else:
+                        name = US_NAMES.get(t, "")
                     out.append(dict(
-                        ticker=t, date=h.index[-1].strftime('%Y-%m-%d'),
-                        price=float(pr[last]), signal=sig, score=score,
-                        rsi=cur_rsi, adx=None, is_bull=is_bull,
+                        ticker=t, name=name,
+                        date=h.index[-1].strftime('%Y-%m-%d'),
+                        price=round(cur_pr, 2),
+                        change_pct=round(chg_pct, 2),
+                        signal=sig, score=score,
+                        rsi=round(cur_rsi, 1) if cur_rsi else None,
+                        is_bull=is_bull,
                     ))
             except Exception:
                 continue
         progress.progress(1.0, text=f"完成 {total} 檔")
         return out
 
-    # 台股熱門代號（雲端 fallback 用，依市值/成交量精選）
-    TW_HOT_TICKERS = [
+    # 台股熱門代號（雲端 fallback：個股精選 + 全部 ETF 動態載入）
+    TW_INDIVIDUAL_TICKERS = [
         # 半導體
         "2330","2454","2303","3711","6669","3034","3017","3661","6488","8081",
         "6552","2382","3037","2379","6770","3231","2451","2441","8299","6239",
-        # 電子/伺服器
-        "2317","2382","2308","3231","2474","2376","2356","3017","3596","2353",
+        "2408","6515","3035","3014","6147","6438","3325","3658","3105","6285",
+        # 電子/PC/伺服器/網通/EMS
+        "2317","2308","2474","2376","2356","3596","2353","2324","2354",
+        "3702","3045","2412","4904","3045","2383","2385","2360","6230",
+        "8261","6669","6781","2492","3653","6285","8210","3596","3088",
         # 金融
         "2881","2882","2891","2884","2885","2886","2887","2890","2892","5880",
-        "2883","2880",
-        # 傳產 / 食品
+        "2883","2880","2812","2823","2845","2849","2855","2867","2888","2889",
+        # 傳產/食品/塑化/紡織/水泥/航運/鋼鐵
         "1101","1102","2002","1216","1301","1303","2105","6505","9904","2912",
-        "2207","1326","1722","1227",
-        # ETF
-        "0050","0056","00878","00919","00929","006208","00713","00692","00701",
-        "00646","00713","0051","00632R","00679B","00937B",
-        # 其他熱門
-        "2412","3008","2603","2609","2615","2618","5483","8086","3443","2059",
-        "1519","6488","2049","6213","6285","8454","9910","1605","2812",
+        "2207","1326","1722","1227","1402","1907","2027","2014","2030",
+        "2603","2609","2615","2618","2606","2606","9904","9910","9921",
+        "1605","2812","2371","2362","2438","6121","2049","2049","6213",
+        # 生技/光電/車用/其他
+        "3008","4123","6446","4128","6691","4736","6446","4906","8454",
+        "1519","2059","2049","8086","5483","3443","2059","1907","6121",
     ]
-    # 美股熱門代號
-    US_HOT_TICKERS = [
-        "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","AVGO","AMD",
-        "NFLX","ORCL","CRM","ADBE","INTC","QCOM","IBM","TXN","CSCO",
-        "PYPL","SHOP","UBER","ABNB","COIN","PLTR","SNOW","DDOG","NET",
-        "JPM","BAC","GS","MS","WMT","COST","HD","MCD","NKE","DIS",
-        "BA","CAT","GE","XOM","CVX","JNJ","PFE","UNH","LLY",
-        "SPY","QQQ","DIA","IWM","BOTZ","SMH","SOXX","ARKK","XLF","XLE"
+
+    # 動態取得所有上市/上櫃 ETF（00 開頭）
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _get_all_tw_etfs() -> list:
+        try:
+            import twstock
+            etfs = []
+            for code, info in twstock.codes.items():
+                # ETF 篩選：代號以 00 開頭或 group=='ETF'
+                if (str(code).startswith('00') or
+                    getattr(info, 'group', '') == 'ETF' or
+                    'ETF' in (getattr(info, 'name', '') or '')):
+                    etfs.append(str(code))
+            return sorted(set(etfs))
+        except Exception:
+            # fallback：手動清單
+            return [
+                "0050","0051","0052","0053","0055","0056","0057","0061",
+                "006201","006203","006204","006208",
+                "00631L","00632R","00633L","00634R","00635U","00636",
+                "00637L","00638R","00640L","00641R","00642U","00643K",
+                "00646","00650L","00651R","00652","00655L","00656R","00657",
+                "00660","00661","00662","00663L","00664R","00665L","00666R",
+                "00668","00670L","00671R","00672L","00673R","00674R",
+                "00675L","00676R","00678","00679B","00680L","00681R","00682U",
+                "00687B","00688L","00689R","00690","00691R","00692","00693U",
+                "00694B","00695B","00696B","00697B","00700","00701","00709",
+                "00710B","00711B","00712","00713","00714","00715L","00717",
+                "00718B","00720B","00724B","00725B","00727B","00730","00731",
+                "00733","00735","00736","00737","00739","00740B","00742",
+                "00750","00751B","00752","00755","00757","00762","00763U",
+                "00770","00771","00773B","00775B","00777","00778B","00783",
+                "00850","00851","00861","00865B","00876","00878","00881",
+                "00885","00891","00892","00893","00894","00895","00896",
+                "00900","00901","00904","00905","00906","00907","00909",
+                "00911","00912","00913","00915","00916","00918","00919",
+                "00920","00921","00922","00923","00925","00927B","00929",
+                "00930","00931B","00932","00933","00934B","00935B","00936",
+                "00937B","00939","00940","00941","00943","00944","00945",
+                "00946B","00947B","00948","00949","00951","00952","00953B",
+                "00954B","00955B","00956B","00957B",
+            ]
+
+    # 美股大幅擴充：個股 ~150 + ETF ~80
+    US_INDIVIDUAL_TICKERS = [
+        # 科技七雄 + 半導體
+        "AAPL","MSFT","NVDA","GOOGL","GOOG","AMZN","META","TSLA",
+        "AVGO","AMD","INTC","QCOM","TXN","MU","AMAT","LRCX","KLAC","ADI",
+        "MRVL","ASML","TSM","ARM","SMCI","ON","NXPI","MCHP","SWKS","QRVO",
+        # 軟體 / 雲 / SaaS
+        "ORCL","CRM","ADBE","NOW","INTU","WDAY","SNOW","PLTR","DDOG","NET",
+        "MDB","CRWD","ZS","OKTA","TEAM","ZM","PANW","FTNT","CYBR",
+        "SHOP","SQ","PYPL","COIN","HOOD","SOFI","AFRM","UPST",
+        # 網路 / 媒體 / 通訊
+        "NFLX","DIS","CMCSA","T","VZ","TMUS","CHTR","WBD","PARA","ROKU",
+        "SPOT","PINS","SNAP","RBLX","EA","TTWO","UBER","LYFT","ABNB","DASH",
+        # 金融
+        "JPM","BAC","WFC","C","GS","MS","BLK","SCHW","AXP","COF",
+        "USB","PNC","TFC","BK","STT","MET","PRU","AIG","TRV","ALL",
+        "V","MA","FIS","FISV","ICE","CME","SPGI","MCO","MSCI",
+        # 消費 / 零售 / 餐飲
+        "WMT","COST","HD","LOW","TGT","DG","DLTR","BJ","KR",
+        "MCD","SBUX","CMG","YUM","DPZ","WEN","QSR","MNST","KO","PEP",
+        "PG","CL","KMB","CHD","CLX","UL","EL","NKE","LULU","UAA","DECK",
+        # 工業 / 國防 / 運輸
+        "BA","CAT","DE","GE","HON","LMT","RTX","NOC","GD","BAH",
+        "UNP","CSX","NSC","UPS","FDX","JBHT","CHRW",
+        # 能源 / 原物料
+        "XOM","CVX","COP","PSX","SLB","HAL","BKR","OXY","EOG","DVN",
+        "FCX","NEM","GOLD","AA","CLF","X","MP","LIN","APD","SHW",
+        # 醫療 / 藥廠 / 生技
+        "JNJ","PFE","MRK","ABBV","BMY","LLY","TMO","ABT","DHR","UNH",
+        "CVS","CI","HUM","ANTM","MDT","SYK","BSX","ISRG","ZBH","BAX",
+        "AMGN","GILD","BIIB","REGN","VRTX","MRNA","BNTX","NVAX",
+        # 公用 / REIT
+        "NEE","DUK","SO","D","AEP","EXC","SRE","XEL","ED",
+        "AMT","PLD","CCI","EQIX","DLR","SPG","O","WELL","PSA","AVB",
     ]
+
+    US_ETF_TICKERS = [
+        # 大盤指數
+        "SPY","VOO","IVV","QQQ","DIA","IWM","VTI","VT","VEA","VWO",
+        # 板塊 SPDR
+        "XLK","XLF","XLE","XLV","XLI","XLY","XLP","XLU","XLB","XLRE","XLC",
+        # 半導體 / 科技主題
+        "SMH","SOXX","SOXL","TQQQ","SQQQ","TECL","TECS","FNGU","FNGD",
+        "BOTZ","ROBO","ARKK","ARKW","ARKG","ARKQ","ARKF","ARKX",
+        "IGV","HACK","CIBR","CLOU","SKYY","WCLD","FDN",
+        # 因子 / 風格
+        "MTUM","QUAL","USMV","VLUE","SIZE","MOAT","SPLV","SPHQ",
+        # 國際
+        "EFA","EEM","FXI","INDA","EWJ","EWZ","EWG","EWU","EWT","RSX",
+        # 固定收益
+        "AGG","BND","TLT","IEF","SHY","LQD","HYG","JNK","MUB","TIP",
+        # 商品 / 黃金 / 能源
+        "GLD","IAU","SLV","USO","UNG","DBA","DBC","UUP","FXE","FXY",
+        # 房地產 / REIT
+        "VNQ","SCHH","REM","MORT",
+        # 高股息 / 收益
+        "SCHD","VYM","HDV","DVY","SPHD","PFF","DGRO","NOBL",
+        # 中小型 / 微型
+        "VB","IJH","IJR","SCHA","SCHM",
+    ]
+    US_HOT_TICKERS = US_INDIVIDUAL_TICKERS + US_ETF_TICKERS
 
     if is_tw:
         # 台股：優先使用本地 data_cache，雲端 fallback 至 yfinance
@@ -3392,6 +3504,7 @@ if scan_btn:
             cache_dir = _dl.CACHE_DIR
             files = sorted(cache_dir.glob('*.parquet'))
             if files:
+                tw_names = _get_tw_names()
                 mode = style_info['mode']
                 total = len(files)
                 for i, fp in enumerate(files):
@@ -3402,6 +3515,19 @@ if scan_btn:
                     try:
                         r = _ds.scan_one(ticker, str(fp), mode=mode)
                         if r is not None and r.get('signal') in scan_signal_filter:
+                            # 補上名稱與漲跌
+                            try:
+                                df_local = pd.read_parquet(fp)
+                                if len(df_local) >= 2:
+                                    cur_p = float(df_local['Close'].iloc[-1])
+                                    prev_p = float(df_local['Close'].iloc[-2])
+                                    r['change_pct'] = round(
+                                        (cur_p - prev_p) / prev_p * 100, 2) \
+                                        if prev_p else 0
+                            except Exception:
+                                r['change_pct'] = None
+                            r['name'] = tw_names.get(ticker, "")
+                            r['price'] = round(r.get('price', 0), 2)
                             scan_results.append(r)
                     except Exception:
                         continue
@@ -3411,24 +3537,57 @@ if scan_btn:
             pass
 
         if not local_ok:
+            # 個股 + 全部 ETF（雲端最完整覆蓋）
+            etfs = _get_all_tw_etfs()
+            uniq = list(dict.fromkeys(TW_INDIVIDUAL_TICKERS + etfs))
             st.info(
-                "📡 雲端模式：本地快取不存在，改用 yfinance 即時抓取台股熱門代號（~110 檔）"
+                f"📡 雲端模式：本地快取不存在，改用 yfinance 即時抓取 "
+                f"{len(uniq)} 檔（個股 {len(TW_INDIVIDUAL_TICKERS)} + ETF {len(etfs)}）"
             )
-            # 去重後抓取
-            uniq = list(dict.fromkeys(TW_HOT_TICKERS))
-            scan_results = _scan_via_yfinance(uniq, suffix=".TW")
+            scan_results = _scan_via_yfinance(uniq, suffix=".TW",
+                                              is_tw_market=True)
     else:
-        scan_results = _scan_via_yfinance(US_HOT_TICKERS)
+        st.info(
+            f"📡 即時抓取美股 {len(US_HOT_TICKERS)} 檔"
+            f"（個股 {len(US_INDIVIDUAL_TICKERS)} + ETF {len(US_ETF_TICKERS)}）"
+        )
+        scan_results = _scan_via_yfinance(US_HOT_TICKERS, is_tw_market=False)
 
     if scan_results:
         df_scan = pd.DataFrame(scan_results).sort_values(
             'score', ascending=False).head(scan_top_n)
+        # 重新整理欄位順序，把名稱/價格/漲跌放到代號旁邊
+        preferred_cols = ['ticker', 'name', 'price', 'change_pct',
+                          'signal', 'score', 'rsi', 'adx', 'is_bull',
+                          'cross_days', 'date']
+        ordered = [c for c in preferred_cols if c in df_scan.columns]
+        ordered += [c for c in df_scan.columns if c not in ordered]
+        df_scan = df_scan[ordered]
         st.markdown(
             f'<div style="font-size:.85rem;color:#3dbb6a;margin:.5rem 0">'
             f'✓ 找到 <b>{len(scan_results)}</b> 檔候選，'
             f'顯示前 <b>{len(df_scan)}</b> 檔（依 score 排序）</div>',
             unsafe_allow_html=True)
-        st.dataframe(df_scan, use_container_width=True, height=600)
+        st.dataframe(
+            df_scan,
+            use_container_width=True,
+            height=600,
+            column_config={
+                "ticker": st.column_config.TextColumn("代號", width="small"),
+                "name": st.column_config.TextColumn("名稱", width="medium"),
+                "price": st.column_config.NumberColumn("收盤價", format="%.2f"),
+                "change_pct": st.column_config.NumberColumn(
+                    "漲跌%", format="%+.2f%%"),
+                "signal": st.column_config.TextColumn("信號", width="medium"),
+                "score": st.column_config.NumberColumn("分數", format="%.0f"),
+                "rsi": st.column_config.NumberColumn("RSI", format="%.1f"),
+                "adx": st.column_config.NumberColumn("ADX", format="%.1f"),
+                "is_bull": st.column_config.CheckboxColumn("多頭"),
+                "cross_days": st.column_config.NumberColumn(
+                    "交叉天", format="%.0f"),
+                "date": st.column_config.TextColumn("日期"),
+            },
+        )
         # 一鍵填入清單按鈕
         if st.button("📋 將掃描結果填入股票清單"):
             txt = "\n".join(df_scan['ticker'].tolist())
