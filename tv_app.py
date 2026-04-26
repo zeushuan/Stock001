@@ -3316,6 +3316,9 @@ if scan_btn:
         out = []
         if is_tw_market:
             tw_names = _get_tw_names()
+            # 補入靜態 fallback（雲端 twstock 載不齊時）
+            tw_names = {**(st.session_state.get('_tw_static_names') or {}),
+                        **tw_names}
 
         def _eval_one(t, h):
             try:
@@ -3394,18 +3397,39 @@ if scan_btn:
         progress.progress(1.0, text=f"完成 {total} 檔")
         return out
 
-    # ── 動態載入：台股全市場（上市+上櫃+ETF+ETN+TDR ~2308 檔）
+    # ── 載入台股全市場（優先從靜態檔，再嘗試 twstock）
     @st.cache_data(ttl=86400, show_spinner=False)
-    def _get_all_tw_universe() -> list:
-        """從 twstock 取得台股全部可交易標的（股票/ETF/ETN/TDR/特別股）"""
+    def _get_all_tw_universe() -> tuple:
+        """回傳 (tickers, name_map)。
+        優先從 repo 內 tw_universe.txt 載入（雲端最可靠），
+        失敗 fallback 到 twstock.codes。"""
+        from pathlib import Path as _P2
+        # ① 靜態檔（已 commit 至 repo）
+        f = _P2(__file__).parent / 'tw_universe.txt'
+        if f.exists():
+            try:
+                tickers, names = [], {}
+                for line in f.read_text(encoding='utf-8').splitlines():
+                    if not line or line.startswith('#'): continue
+                    parts = line.split('|')
+                    if len(parts) >= 2:
+                        tickers.append(parts[0])
+                        names[parts[0]] = parts[1]
+                if tickers:
+                    return sorted(set(tickers)), names
+            except Exception:
+                pass
+        # ② twstock 動態載入
         try:
             import twstock
-            return sorted({
-                str(k) for k, v in twstock.codes.items()
-                if v.type in ('股票', 'ETF', 'ETN', '臺灣存託憑證(TDR)', '特別股')
-            })
+            tickers = []; names = {}
+            for k, v in twstock.codes.items():
+                if v.type in ('股票', 'ETF', 'ETN', '臺灣存託憑證(TDR)', '特別股'):
+                    tickers.append(str(k))
+                    names[str(k)] = v.name
+            return sorted(set(tickers)), names
         except Exception:
-            return []
+            return [], {}
 
     # ── 動態載入：美股全市場（NASDAQ + NYSE + AMEX ~6700 檔）
     @st.cache_data(ttl=86400, show_spinner=False)
@@ -3598,12 +3622,15 @@ if scan_btn:
             pass
 
         if not local_ok:
-            # 雲端：抓 twstock 全市場（~2300 檔）
-            full = _get_all_tw_universe()
+            # 雲端：載入台股全市場（優先 tw_universe.txt → twstock → 手動）
+            full, tw_static_names = _get_all_tw_universe()
             if not full:
-                # twstock 失敗 fallback 到精選 + 手動 ETF 清單
+                # 兩條路都失敗 → 精選 + 手動 ETF 清單
                 full = list(dict.fromkeys(
                     TW_INDIVIDUAL_TICKERS + _get_all_tw_etfs()))
+                tw_static_names = {}
+            # 將靜態名稱注入 session，供 _scan_via_yfinance 使用
+            st.session_state['_tw_static_names'] = tw_static_names
             st.info(
                 f"📡 雲端模式：批次掃描台股全市場 **{len(full)}** 檔"
                 f"（含上市/上櫃/ETF/ETN/TDR/特別股）"
