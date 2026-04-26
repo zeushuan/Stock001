@@ -3,8 +3,14 @@
 
 ★ 推薦模式 ★
   最大獲利：P0_T1T3            +197.48%（最差 -290%）
-  ★ 平衡：P0_T1T3+CB30          +134.07%（最差 -166%）⭐ 生產推薦
-  最保守：P0_T1T3+PS            +110.26%（最差 -149%）
+  風控版：  P0_T1T3+CB30        +134.07%（最差 -166%, 風報比 0.81）
+  ★ 自適應：P0_T1T3+POS        +141.68%（最差 -166%, 風報比 0.85）⭐ 生產推薦
+  保守版：  P0_T1T3+PS          +110.26%（最差 -149%）
+
+【POS 規則】累積已實現損益為正才允許加碼（自我驗證機制）
+  - 死亡迴圈股：永不觸發加碼（首倉永虧）
+  - 強趨勢股：快速累積收益，正常加碼
+  - 跨年度穩定性 σ=8.9（vs P0/CB30 σ=12.7）
 
 Walk-forward 驗證：EARLY (2020-2022) +54.6 vs LATE (2023-2026) +54.4 = 結構穩定
 扣 0.4275% 台股交易成本：P0_T1T3 仍 +184.33%
@@ -137,6 +143,9 @@ def _decode_mode(mode: str) -> dict:
         rsi_t3_th    = None,    # 預設 50
         atr_mult_lo  = None,    # 預設 2.5（ADX<30 時）
         atr_mult_hi  = None,    # 預設 3.0（ADX≥30 時）
+        # 自適應規則（基於分群分析發現）
+        bull_days_th = None,    # 加碼前要求過去 250 天 bull_days >= N%
+        v7_pos_only  = 'POS' in parts,  # 僅當 v7 base 在此股累積為正時才加碼
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -183,6 +192,7 @@ def _decode_mode(mode: str) -> dict:
     # RSI{N}    -- T3 RSI 上限
     # ATL{F}    -- 低 ADX ATR 倍數（ADX<30 時）
     # ATH{F}    -- 高 ADX ATR 倍數（ADX≥30 時）
+    # BD{N}     -- 加碼前要求過去 250 天 bull_days >= N%（自適應）
     for part in parts:
         if part.startswith('ADX') and len(part) > 3 and part != 'ADX':
             try: flags['adx_th'] = float(part[3:])
@@ -198,6 +208,9 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('ATH') and len(part) > 3:
             try: flags['atr_mult_hi'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('BD') and len(part) > 2:
+            try: flags['bull_days_th'] = float(part[2:])
             except ValueError: pass
 
     return flags
@@ -274,6 +287,8 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     rsi_t3_th    = flags['rsi_t3_th']    if flags['rsi_t3_th'] is not None else 50.0
     atr_mult_lo  = flags['atr_mult_lo']  if flags['atr_mult_lo'] is not None else 2.5
     atr_mult_hi  = flags['atr_mult_hi']  if flags['atr_mult_hi'] is not None else 3.0
+    bull_days_th = flags['bull_days_th']
+    v7_pos_only  = flags['v7_pos_only']
 
     # F1 週線 EMA 預計算（從日線 resample）
     if use_WK:
@@ -584,19 +599,18 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                     if signal_type in pyramid_signals:
                         n_pos = len(positions)
 
-                        # D1 階梯式門檻：每多一倉，門檻 +5%
+                        # D1 階梯式門檻
                         eff_th = pyramid_th
                         if use_PS:
                             eff_th = pyramid_th + 5.0 * n_pos
-
-                        # D4 軟上限：倉位多時門檻倍增
+                        # D4 軟上限
                         if use_PSL:
                             if n_pos >= 6:
                                 eff_th = max(eff_th, pyramid_th + 10.0)
                             elif n_pos >= 4:
                                 eff_th = max(eff_th, pyramid_th + 5.0)
 
-                        # D3 加碼間距：距上次加碼 < N 天則禁止
+                        # D3 加碼間距
                         gap_ok = True
                         if pg_days is not None and positions:
                             last_entry = max(p['ed'] for p in positions)
@@ -604,11 +618,29 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                             if gap < pg_days:
                                 gap_ok = False
 
+                        # 自適應 BD：過去 250 天 bull_days 比例需 >= 門檻
+                        bd_ok = True
+                        if bull_days_th is not None and i >= 250:
+                            past_e20 = e20[i-250:i]
+                            past_e60 = e60[i-250:i]
+                            valid = ~np.isnan(past_e20) & ~np.isnan(past_e60)
+                            if np.sum(valid) > 100:
+                                bull_pct = np.sum((past_e20 > past_e60) & valid) / np.sum(valid) * 100
+                                if bull_pct < bull_days_th:
+                                    bd_ok = False
+
+                        # 自適應 POS：累積已實現損益必須為正才允許加碼
+                        pos_ok = True
+                        if v7_pos_only:
+                            cum_pnl = sum(t[0] for t in trades)  # 已平倉累積收益率
+                            if cum_pnl < 0:
+                                pos_ok = False
+
                         all_above_th = all(
                             ((pr[i] - p['ep']) / p['ep'] * 100) >= eff_th
                             for p in positions
                         )
-                        if all_above_th and gap_ok:
+                        if all_above_th and gap_ok and bd_ok and pos_ok:
                             should_open = True
                             # A2 累積虧損熔斷
                             if cb_th is not None and realized_loss_pct >= cb_th:
