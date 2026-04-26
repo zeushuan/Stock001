@@ -3549,8 +3549,14 @@ if scan_btn:
         def _eval_one(t, h):
             try:
                 if h is None or len(h) < 60: return None
-                pr = h['Close'].dropna().values
-                if len(pr) < 60: return None
+                # 必要欄位：Close + High + Low（算 ADX）
+                if 'High' not in h.columns or 'Low' not in h.columns:
+                    return None
+                df_x = h[['Open','High','Low','Close']].dropna()
+                if len(df_x) < 60: return None
+                pr = df_x['Close'].values
+                hi = df_x['High'].values
+                lo = df_x['Low'].values
                 s = _pd.Series(pr)
                 e20 = s.ewm(span=20, adjust=False).mean().values
                 e60 = s.ewm(span=60, adjust=False).mean().values
@@ -3559,19 +3565,40 @@ if scan_btn:
                 loss = -delta.where(delta < 0, 0.0).rolling(14).mean()
                 rs = gain / loss
                 rsi = (100 - 100/(1+rs)).values
+
+                # 計算 ADX（標準 14 期）— 排除假多頭關鍵指標
+                try:
+                    from ta.trend import ADXIndicator
+                    adx_arr = ADXIndicator(
+                        high=df_x['High'], low=df_x['Low'],
+                        close=df_x['Close'], window=14, fillna=False,
+                    ).adx().values
+                    cur_adx = float(adx_arr[-1]) if not _np.isnan(adx_arr[-1]) else None
+                except Exception:
+                    cur_adx = None
+
+                ADX_TH = 22  # 趨勢強度門檻：< 22 視為盤整／假多頭
+
                 last = len(pr) - 1
                 is_bull = e20[last] > e60[last]
                 is_t1 = (last >= 1 and e20[last-1] <= e60[last-1] and
                          e20[last] > e60[last])
                 cur_rsi = float(rsi[last]) if not _np.isnan(rsi[last]) else None
-                if is_t1:
+                adx_ok = cur_adx is not None and cur_adx >= ADX_TH
+
+                if is_t1 and adx_ok:
                     sig, score = "T1 黃金交叉", 90
-                elif is_bull and cur_rsi and cur_rsi < 60:
+                elif is_bull and adx_ok and cur_rsi and cur_rsi < 60:
                     sig, score = "🟢 多頭觀察", 50
-                elif is_bull and cur_rsi and cur_rsi >= 75:
+                elif is_bull and adx_ok and cur_rsi and cur_rsi >= 75:
                     sig, score = "⚠️ 過熱（RSI≥75）", 30
+                elif is_bull and not adx_ok:
+                    # 假多頭：不輸出（後面 sig in scan_signal_filter 會過濾掉）
+                    sig, score = "⚠️ 假多頭（ADX弱）", 15
                 else:
                     sig, score = "🔴 空頭", 10
+                # 假多頭直接丟棄
+                if sig == "⚠️ 假多頭（ADX弱）": return None
                 if sig not in scan_signal_filter: return None
                 cur_pr = float(pr[last])
                 prev_pr = float(pr[last-1]) if last >= 1 else cur_pr
@@ -3590,6 +3617,7 @@ if scan_btn:
                     change_pct=round(chg_pct, 2),
                     signal=sig,
                     industry=_get_industry(t),
+                    adx=round(cur_adx, 1) if cur_adx else None,
                     is_bull=is_bull,
                     tv_url=tv_url,
                 )
