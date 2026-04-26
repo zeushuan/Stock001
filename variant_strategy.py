@@ -298,6 +298,10 @@ def _decode_mode(mode: str) -> dict:
         vol_regime_th = None,    # VR{N}
         # 全新方法：強化學習加碼決策
         use_RL       = 'RL' in parts,    # RL：用訓練好的 Q-table 決定加碼
+        # 全新方法：Online Adaptive Threshold（線上自適應）
+        use_AT       = 'AT' in parts,    # AT：贏放寬、輸收緊（自適應 POS 門檻）
+        # 全新方法：Anomaly Detection（簡易統計版）
+        anom_atr_th  = None,             # ANOM{N}：當前 ATR > N 倍 60 日中位數時暫停
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -399,6 +403,9 @@ def _decode_mode(mode: str) -> dict:
         elif part.startswith('VR') and len(part) > 2:
             try: flags['vol_regime_th'] = float(part[2:])
             except ValueError: pass
+        elif part.startswith('ANOM') and len(part) > 4:
+            try: flags['anom_atr_th'] = float(part[4:])
+            except ValueError: pass
 
     return flags
 
@@ -499,9 +506,16 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     ens_min_votes = flags.get('ens_min_votes')  # Ensemble 票數門檻
     vol_regime_th = flags.get('vol_regime_th')  # 波動率 regime
     use_RL       = flags.get('use_RL', False)   # 強化學習 Q-table 決策
+    use_AT       = flags.get('use_AT', False)   # 線上自適應門檻
+    anom_atr_th  = flags.get('anom_atr_th')     # 異常波動偵測
 
     # 載入 RL Q-table
     rl_q_table = _load_q_table() if use_RL else {}
+
+    # 預備：60 日 ATR 中位數（ANOM 用）
+    atr_med60_arr = None
+    if anom_atr_th is not None:
+        atr_med60_arr = pd.Series(atr).rolling(60).median().values
 
     # 預備：60日波動率百分位（VR 用）
     vol_regime_arr = None
@@ -1024,6 +1038,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     consec_loss = 0       # AA 用：全域連敗計數
     realized_loss_pct = 0.0   # A2 用：已實現虧損累積（%）
     pos_cum_pct = 0.0     # POS 用：累積已實現收益率%（可被 PR 重置）
+    at_dynamic_th = 0.0   # AT 用：線上自適應 POS 門檻（贏放寬、輸收緊）
 
     for i in range(1, n):
         # ── Step 1：先檢查所有現有倉位的出場條件 ───────────────
@@ -1129,6 +1144,12 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                 had_exit = True
                 # 更新 POS 累積指標
                 pos_cum_pct += r * p['mult'] * 100
+                # AT 線上自適應：贏 → 門檻降低 0.5；輸 → 門檻升高 1
+                if use_AT:
+                    if r > 0:
+                        at_dynamic_th = max(0.0, at_dynamic_th - 0.5)
+                    else:
+                        at_dynamic_th = min(15.0, at_dynamic_th + 1.0)
                 if r < 0:
                     consec_loss += 1
                     realized_loss_pct += abs(r * p['mult']) * 100
@@ -1185,8 +1206,18 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                         pos_ok = True
                         if v7_pos_only:
                             min_th = pos_min_pct if pos_min_pct is not None else 0.0
+                            # AT 動態門檻覆蓋：使用線上學習的門檻
+                            if use_AT:
+                                min_th = max(min_th, at_dynamic_th)
                             if pos_cum_pct < min_th:
                                 pos_ok = False
+
+                        # 異常波動偵測（ANOM）
+                        anom_ok = True
+                        if anom_atr_th is not None and atr_med60_arr is not None:
+                            if not np.isnan(atr_med60_arr[i]) and atr_med60_arr[i] > 0:
+                                if atr[i] / atr_med60_arr[i] > anom_atr_th:
+                                    anom_ok = False
 
                         # 強化學習決策：用 Q-table 查最佳 action
                         rl_ok = True
@@ -1219,7 +1250,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                             ((pr[i] - p['ep']) / p['ep'] * 100) >= eff_th
                             for p in positions
                         )
-                        if all_above_th and gap_ok and bd_ok and pos_ok and rl_ok:
+                        if all_above_th and gap_ok and bd_ok and pos_ok and rl_ok and anom_ok:
                             should_open = True
                             # A2 累積虧損熔斷
                             if cb_th is not None and realized_loss_pct >= cb_th:
