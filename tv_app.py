@@ -8,11 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.0"
+APP_VERSION   = "v8.1"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "⑦自適應 v7：T1/T3 + EMA120 過濾，1263 檔均值 +72.79% ｜ "
-    "v8 金字塔加碼（P0_T1T3）+197.48% (1.7×超越BH)"
+    "v7 base +72.99% ｜ v8 P0_T1T3 +197.48% (BH 120%) ｜ "
+    "★ 生產推薦：P0_T1T3+CB30 +134.07% / 最差 -166%（風報比 0.81）"
+)
+APP_VALIDATIONS = (
+    "Walk-forward 驗證 EARLY/LATE 差距 0.2% (Edge 穩定) ｜ "
+    "扣 0.4275% 交易成本後 P0_T1T3 +184.33% ｜ "
+    "Monte Carlo: EMA120/ATR 健壯, ADX 中度敏感, RSI 脆弱"
 )
 
 import numpy as np
@@ -1422,19 +1427,29 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
     return verdict, None
 
 # ─────────────────────────────────────────────────────────────────
-# ⑦ 自適應趨勢策略 v7（最終版，2026-04-26）
-# 全市場回測驗證：1263 檔台股均值 +72.79%（v7 base）
-#                 加上金字塔加碼 P0_T1T3 達 +197.48%（v8）
-# 進場兩觸發：T1 黃金交叉 | T3 多頭拉回 RSI<50（已移除 T2 首日強制進場）
-# 共同前提：EMA20>EMA60 + ADX≥22（v7 升級至 22，過濾假突破）
-# T3 過濾：EMA120 60日跌幅 < 2%（防長期下跌股死亡迴圈）
-# 出場依 ATR/Price 自動分類：
-#   高波動股（ATR/P > 3.5%）→ 只守 EMA20/60 死叉，無停損
-#   穩健股（ATR/P ≤ 3.5%）  → EMA死叉 + ADX<25時RSI>75 + 動態 ATR 停損
-# 停損：ADX≥30 用 ATR×3.0；其他 ATR×2.5
+# ⑦ 自適應趨勢策略 v7 + v8（2026-04-26 完整版）
+#
+# 【v7 base 基礎策略】1263 檔均值 +72.79%
+# 進場兩觸發：T1 黃金交叉 | T3 多頭拉回 RSI<50
+# 共同前提：EMA20>EMA60 + ADX≥22 + EMA120 60日跌幅<2%（防死亡迴圈）
+# 出場 ATR/Price 自動分類：高波動 EMA死叉 / 穩健 EMA+RSI+ATR
 # 長持鎖定：持倉>200天 + 浮動>50% + EMA120上升 → EMA60/120 慢出場
 # 反向ETF：ATR×1.5 + RSI>70 出場（無 T4）
-# v8 金字塔加碼：同股不限倉位，T3 拉回信號可累加部位（門檻 P0~P30 可調）
+#
+# 【v8 金字塔加碼】同股不限倉位（架構性突破）
+# 模式：P{N}_{signals}+{filters}
+#   P0_T1T3            +197.48% （最大獲利，最差 -290%）
+# ★ P0_T1T3+CB30     +134.07% （生產推薦，最差 -166%，風報比 0.81）
+#   P0_T1T3+PS         +110.26% （最保守，最差 -149%）
+#
+# 【健壯性驗證】
+# - Walk-forward EARLY (2020-2022) +54.6 / LATE (2023-2026) +54.4 → Edge 穩定
+# - 扣 0.4275% 台股交易成本後 P0_T1T3 仍 +184.33%
+# - Monte Carlo：EMA120/ATR 健壯、ADX 中度敏感、RSI 上限脆弱
+#
+# 【實證測試結論】
+# 進場過濾普遍誤殺強勢股；退場優化大多切碎飆股
+# 加碼控制 (CB30, PS) 才是改善風報比的關鍵
 # ─────────────────────────────────────────────────────────────────
 
 # 反向ETF：使用 ⑦反向ETF策略（T1/T3 based on own chart，無T4，ATR×1.5，RSI>70出場）
@@ -2818,8 +2833,11 @@ st.markdown(f"""
     <div style="color:#5a8ab0;font-size:.7rem">更新：{APP_UPDATED}</div>
   </div>
 </div>
-<div style="background:#0d1b2e;border:1px solid #1e3a5f;border-radius:6px;padding:8px 14px;margin-bottom:1rem;font-size:.72rem;color:#7aaac8">
+<div style="background:#0d1b2e;border:1px solid #1e3a5f;border-radius:6px;padding:8px 14px;margin-bottom:.5rem;font-size:.72rem;color:#7aaac8">
   📌 <b style="color:#8ab8d8">{APP_VERSION} 更新重點</b>：{APP_NOTES}
+</div>
+<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:6px;padding:6px 14px;margin-bottom:1rem;font-size:.68rem;color:#5a8ab0">
+  🔬 <b style="color:#7aaac8">健壯性驗證</b>：{APP_VALIDATIONS}
 </div>""", unsafe_allow_html=True)
 
 with st.sidebar:
@@ -2911,7 +2929,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 12  # v8：移除 T2、EMA120 過濾、金字塔加碼說明，ATR×3.0 雙軌停損 2026-04-26
+_RESULTS_VERSION = 13  # v8.1：加入健壯性驗證標籤、推薦 P0_T1T3+CB30 生產配置 2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
