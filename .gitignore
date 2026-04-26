@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Claude Code state
+.claude/
+
+# Cache & runtime artifacts
+tw_backtest_checkpoint.csv
+tw_stock_list.json
+*.log
+tw_all_log.txt
+tw_all_err.txt
+test_encoding.json
+
+# Output reports (regeneratable from fresh run)
+tw_all_results_*.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

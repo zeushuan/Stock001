@@ -2,10 +2,20 @@
 多股票六策略回測腳本
 自動辨別台股 / 美股 / 指數，輸出逐筆明細 + 最終排行榜
 
-⑦ 自適應趨勢 v3（2026-04-25）：
-  進場時依 ATR/Price 自動分類出場規則
-  ATR/P > 3.5% → 高波動股：只守EMA死叉，無停損（保留飆股主升段）
-  ATR/P ≤ 3.5% → 穩健股：EMA死叉 + ADX<25時RSI>75 + 動態ATR停損
+⑦ 自適應趨勢 v7（2026-04-26）：
+  進場：T1 黃金交叉 + T3 RSI拉回（含 EMA120 過濾）
+    T1：EMA20 由下穿越 EMA60（不加過濾，捕捉底部反轉）
+    T3：EMA20>EMA60 + ADX≥22 + RSI<50
+        + EMA120 60日跌幅 < 2%（防長期下跌股死亡迴圈）
+  出場依 ATR/Price 自動分類：
+    ATR/P > 3.5% → 高波動股：只守EMA死叉，無停損（保留飆股主升段）
+    ATR/P ≤ 3.5% → 穩健股：EMA死叉 + ADX<25時RSI>75 + 動態ATR停損
+    持倉>200天 + 浮動>50% + EMA120上升 → 升至 EMA60/120 慢出場
+
+  v8 嘗試（已回滾）：W-Bottom 形態過濾理論上正確（符合 Bollinger 雙底）
+    但全市場 1272 檔測試 +69.8% 反而劣於 v7 的 +72.3%
+    結論：理論最佳 ≠ 實證最佳，W-Bottom 對「中間態」股票誤殺過多
+    保留 pctb 計算供未來實驗使用
 """
 
 import sys, io
@@ -17,7 +27,7 @@ import pandas as pd
 import numpy as np
 from ta.trend import EMAIndicator, ADXIndicator, MACD
 from ta.momentum import RSIIndicator
-from ta.volatility import AverageTrueRange
+from ta.volatility import AverageTrueRange, BollingerBands
 from datetime import timedelta
 
 # ─────────────────────────────────────────────────────────────
@@ -74,12 +84,15 @@ def calc_ind(df):
     df["e10"]  = EMAIndicator(c, 10).ema_indicator()
     df["e20"]  = EMAIndicator(c, 20).ema_indicator()
     df["e60"]  = EMAIndicator(c, 60).ema_indicator()
+    df["e120"] = EMAIndicator(c, 120).ema_indicator()
     df["rsi"]  = RSIIndicator(c, 14).rsi()
     adx        = ADXIndicator(h, l, c, 14)
     df["adx"]  = adx.adx()
     m          = MACD(c, 26, 12, 9)
     df["mh"]   = m.macd_diff()
     df["atr"]  = AverageTrueRange(h, l, c, 14).average_true_range()
+    bb         = BollingerBands(c, window=20, window_dev=2)
+    df["pctb"] = bb.bollinger_pband()   # %b：0=下軌, 0.5=中軌, 1=上軌
     return df
 
 # ─────────────────────────────────────────────────────────────
@@ -144,12 +157,29 @@ def pbar(pnl, scale=500):
     return ("+" + "█"*n) if pnl >= 0 else ("-" + "▒"*n)
 
 # ─────────────────────────────────────────────────────────────
+def analyze_from_df(df, ticker):
+    """
+    接受已下載的 DataFrame（跳過下載步驟）直接執行策略分析。
+    供批次下載模式使用：先 yf.download([list]) 批次抓，再逐支分析。
+    df 需包含 OHLCV 欄位（Open/High/Low/Close/Volume）。
+    """
+    if df is None or df.empty or "Close" not in df.columns:
+        return None
+    df = df.copy()
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    df = calc_ind(df)
+    return _analyze_core(df, ticker)
+
 def analyze(ticker):
     df = download(ticker)
     if df.empty or "Close" not in df.columns:
         return None
     df = calc_ind(df)
+    return _analyze_core(df, ticker)
 
+def _analyze_core(df, ticker):
+    """策略分析核心（與下載分離，供批次模式呼叫）"""
     mask  = (df.index >= START) & (df.index <= END)
     sub   = df[mask].copy()
     # 移除收盤價為 NaN 的列（可能是最新未完成交易日）
@@ -163,10 +193,12 @@ def analyze(ticker):
     e10   = sub["e10"].values.astype(float)
     e20   = sub["e20"].values.astype(float)
     e60   = sub["e60"].values.astype(float)
+    e120  = sub["e120"].values.astype(float)
     rsi   = sub["rsi"].values.astype(float)
     adx_v = sub["adx"].values.astype(float)
     mh    = sub["mh"].values.astype(float)
     atr_v = sub["atr"].values.astype(float)
+    pctb  = sub["pctb"].values.astype(float)
 
     def safe(arr, i): return arr[i] if i >= 0 and not np.isnan(arr[i]) else None
 
@@ -230,42 +262,73 @@ def analyze(ticker):
 
     t6 = run_bt(dates, pr, e6_en, e6_ex, stop_pct=0.05)
 
-    # ── ⑦ 自適應趨勢 v3（V7b 自動分類）────────────────────────────
+    # ── ⑦ 自適應趨勢 v4（長持趨勢鎖定）──────────────────────────
     # 多頭主策略（T1/T2/T3）：EMA20>EMA60 + ADX≥22
     #   T1 黃金交叉 | T2 期初多頭RSI<65 | T3 多頭拉回RSI<50
     #
-    # 【v3 核心改良：進場時依 ATR/Price 自動分類出場規則】
-    #   高波動（ATR/Price > 3.5%）→ 只守EMA死叉，無ATR停損，無RSI出場
-    #     → 避免停損/過早出場砍掉飆股主升段（NVDA/TSLA/PLTR 實證）
+    # 【v3 核心：ATR/Price 自動分類出場規則】
+    #   高波動（ATR/Price > 3.5%）→ 只守EMA20/60死叉，無停損，無RSI出場
     #   穩健（ATR/Price ≤ 3.5%）  → EMA死叉 + ADX<25時RSI>75 + 動態ATR停損
-    #     → ADX≥30 用 ATR×3.0 給強趨勢更多空間；其餘 ATR×2.5
+    #
+    # 【v4 改良：長持趨勢鎖定（針對穩健型長期大趨勢股）】
+    #   條件：穩健股 + 持倉>180天 + 浮動獲利>100% + 距持倉高點<20%
+    #   → 三個條件同時滿足，代表是真正的超強長期趨勢，升至EMA60/120守護
+    #   → 週期股通常在100%+獲利後深度修正(>20%)，條件自動排除
+    #   → 高波動股（航運/飆股）急漲急跌，EMA60/120太慢反傷，不適用
+    #   → 全市場1098股回測後設計：針對亞翔型股，盡量不影響天鈺/智原型
     #
     # 空頭反彈補充（T4）：RSI<35 連續2天上升，RSI>55 或黃金交叉出場，ATR×2.0
     # 反向ETF：專屬策略（另行處理）
 
-    # ── 進場（T1/T2/T3，多頭主策略）──
+    # ── 進場（T1/T3，多頭主策略）──
+    # 移除 T2（期初強制首日進場）：
+    #   T2 在回測起點（2020-01-02）市場高點就進場，接著 COVID 崩盤造成早期大幅損失。
+    #   移除後，等真實訊號才進場：
+    #     T1 黃金交叉：EMA20 由下往上穿越 EMA60（趨勢啟動）
+    #     T3 RSI拉回：多頭中 RSI<50（健康回檔）
+    #   對 2020 年初趨勢股：COVID 把 RSI 壓到 <50，T3 讓策略在低點進場，
+    #   全期進場基期更低，報酬更佳，v5 長持鎖定的觸發條件也更健康。
     def e7_en(i):
         if i < 1: return False
         if any(np.isnan([e20[i], e60[i], adx_v[i]])): return False
         if not (e20[i] > e60[i] and adx_v[i] >= 22): return False
+
+        # T1 黃金交叉 —— 不加過濾（底部反轉，允許 EMA120 仍下降）
         if not any(np.isnan([e20[i-1], e60[i-1]])):
             if e20[i-1] <= e60[i-1] and e20[i] > e60[i]:
                 return True                                       # T1 黃金交叉
-        if i == 1 and not np.isnan(rsi[i]) and rsi[i] < 65:
-            return True                                           # T2 期初多頭
+
+        # T3 RSI 拉回 —— EMA120 60日跌幅 < 2% 才允許進場
+        # 【設計邏輯】
+        #   長期下跌股（2939/2498）：EMA120 每60日下跌 5~15% → 被過濾 → 中斷死亡迴圈
+        #   盤整/恢復股（2317在94附近整理）：EMA120 幾乎持平（-0.5%~-1%）→ 允許
+        #   大幅修正後恢復（4961 2022年底）：EMA120 仍快速下降（-9%）→ 被過濾（T1已負責捕捉底部）
+        if i < 60: return False                                   # 歷史不足，保守跳過
+        if np.isnan(e120[i]) or np.isnan(e120[i-60]): return False
+        if e120[i-60] == 0: return False
+        pct60 = (e120[i] - e120[i-60]) / abs(e120[i-60]) * 100  # 60日變化率%
+        if pct60 < -2.0:                                         # EMA120 下降超過2%
+            return False
         if not np.isnan(rsi[i]) and rsi[i] < 50:
             return True                                           # T3 拉回
         return False
 
-    # ── 出場函式（依進場時股性決定）──
+    # ── 出場函式（依進場時股性 + 利潤鎖定層級決定）──
     def _ex_highvol(i):
-        """高波動股：只守EMA死叉"""
+        """高波動股 / 利潤50~150%：只守EMA20/60死叉"""
         if i < 1: return False
         if any(np.isnan([e20[i], e60[i]])): return False
         return e20[i] < e60[i]
 
+    def _ex_lock2(i):
+        """利潤鎖定模式（浮動獲利>150%）：只守EMA60/120死叉（半年線）"""
+        if i < 1: return False
+        if any(np.isnan([e60[i], e120[i]])): return False
+        return e60[i] < e120[i]
+
     def _ex_stable(i):
-        """穩健股：EMA死叉 + ADX<25時RSI>75"""
+        """穩健股：EMA死叉 + ADX<25時RSI>75
+        （週期股靠RSI>75在高點出場再低點重進，改高門檻反而有害）"""
         if i < 1: return False
         if any(np.isnan([e20[i], e60[i]])): return False
         if e20[i] < e60[i]: return True
@@ -274,33 +337,64 @@ def analyze(ticker):
                 return True
         return False
 
-    # ── 主策略回測（含 ATR/Price 自動分類）──
+    # ── 主策略回測 v4（EMA60/120 超強趨勢鎖定）──
     def _run_v7b_main():
         trades = []
-        in_mkt, ep, ed, stop_p, ex_fn = False, None, None, None, None
+        in_mkt = False
+        ep = ed = stop_p = ex_fn = None
+        is_hv  = False   # 高波動股旗標
+
         for i in range(1, n):
             if not in_mkt:
                 if e7_en(i):
                     in_mkt, ep, ed = True, pr[i], dates[i]
                     _atr_raw = atr_v[i] if not np.isnan(atr_v[i]) else pr[i] * 0.03
                     rel_atr  = _atr_raw / pr[i] * 100 if pr[i] > 0 else 0
-                    if rel_atr > 3.5:                            # 高波動：無停損
+                    if rel_atr > 3.5:                        # 高波動：無停損
+                        is_hv  = True
                         stop_p = None
                         ex_fn  = _ex_highvol
-                    else:                                        # 穩健：動態ATR停損
+                    else:                                    # 穩健：動態ATR停損
+                        is_hv  = False
                         _adx  = adx_v[i] if not np.isnan(adx_v[i]) else 22.0
                         _mult = 3.0 if _adx >= 30 else 2.5
                         stop_p = pr[i] - _atr_raw * _mult
                         ex_fn  = _ex_stable
             else:
+                # 【v5 多年大趨勢鎖定】
+                #   條件：非高波動股 + EMA120本身上升中(比60天前高) + EMA20≥EMA120×1.15
+                #   → 代表半年線持續向上 且 20日線已大幅高於半年線 = 多年大趨勢
+                #   → 切換至 EMA60/120 慢速出場，忽略 RSI>75 短線出場信號
+                #   → 週期股 EMA120 上下震盪、或 EMA20/120 差距不足 → 不觸發
+                # 長持趨勢鎖定：持倉超過200天 + 浮動獲利>50% + 半年線仍上升中
+                # → 多年大趨勢：長持且帳面獲利豐厚 → EMA60/120 慢速出場
+                # → 週期股：持倉短或帳面獲利有限 → 維持原RSI出場
+                # → 大漲後深跌（半年線轉平）→ 不鎖定，保護下行
+                if not is_hv:
+                    trade_days = (dates[i] - ed).days
+                    float_pct  = (pr[i] - ep) / ep * 100
+                    if i >= 120 and trade_days > 200 and float_pct > 50:
+                        _e120_now  = e120[i]
+                        _e120_past = e120[i - 120]
+                        if (not any(np.isnan([_e120_now, _e120_past]))
+                                and _e120_now > _e120_past):    # 半年線仍在上升中
+                            cur_ex = _ex_lock2
+                        else:
+                            cur_ex = ex_fn
+                    else:
+                        cur_ex = ex_fn
+                else:
+                    cur_ex = ex_fn
+
                 hit_stop = (stop_p is not None) and (pr[i] < stop_p)
-                if hit_stop or ex_fn(i):
+                if hit_stop or cur_ex(i):
                     r = (pr[i] - ep) / ep
                     trades.append(dict(ed=ed, xd=dates[i], ep=ep, xp=pr[i],
                                        ret=r, pnl=INVEST*r,
                                        days=(dates[i]-ed).days,
                                        stop=bool(hit_stop), open=False))
                     in_mkt = False
+
         if in_mkt:
             r = (pr[-1] - ep) / ep
             trades.append(dict(ed=ed, xd=dates[-1], ep=ep, xp=pr[-1],
