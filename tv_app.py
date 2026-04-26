@@ -294,74 +294,25 @@ _US_SECTOR_ZH = {
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _load_concept_tags() -> dict:
-    """合併三個來源建立 {ticker: [concepts]} 反向對照：
-    1. concept_tags.json — 主題概念（AI / 矽光子 / CoWoS …）
-    2. tw_universe.txt   — 台股產業類別（半導體業 / 金融保險業 …）
-    3. us_sectors.txt    — 美股 GICS Sector + Sub-Industry
-    """
+    """主題概念股對照（純 concept_tags.json，不含產業）：
+    AI / 矽光子 / CoWoS / HBM / 散熱 / 軍工 / 蘋果 …"""
     import json as _json
     from pathlib import Path as _P
-    base = _P(__file__).parent
+    p = _P(__file__).parent / 'concept_tags.json'
+    if not p.exists(): return {}
     rev = {}
-
-    # ── 1) 主題概念 ──
-    p1 = base / 'concept_tags.json'
-    if p1.exists():
-        try:
-            data = _json.loads(p1.read_text(encoding='utf-8'))
-            for market in ('tw', 'us'):
-                for concept, tickers in data.get(market, {}).items():
-                    for t in tickers:
-                        rev.setdefault(t, []).append(concept)
-        except Exception:
-            pass
-
-    # ── 2) 台股產業類別（每檔都有，覆蓋全市場 2318 檔） ──
-    p2 = base / 'tw_universe.txt'
-    if p2.exists():
-        try:
-            for line in p2.read_text(encoding='utf-8').splitlines():
-                if not line or line.startswith('#'): continue
-                parts = line.split('|')
-                if len(parts) < 5: continue
-                ticker, name, _typ, _mkt, industry = parts[0], parts[1], parts[2], parts[3], parts[4]
-                # 加產業
-                if industry:
-                    rev.setdefault(ticker, []).append(industry)
-                # ETF 額外標記類型
-                if _typ == 'ETF':
-                    rev.setdefault(ticker, []).append('ETF')
-                elif _typ == 'ETN':
-                    rev.setdefault(ticker, []).append('ETN')
-                elif _typ == '特別股':
-                    rev.setdefault(ticker, []).append('特別股')
-                elif _typ == '臺灣存託憑證(TDR)':
-                    rev.setdefault(ticker, []).append('TDR')
-        except Exception:
-            pass
-
-    # ── 3) 美股 GICS Sector / Sub-Industry ──
-    p3 = base / 'us_sectors.txt'
-    if p3.exists():
-        try:
-            for line in p3.read_text(encoding='utf-8').splitlines():
-                if not line or line.startswith('#'): continue
-                parts = line.split('|')
-                if len(parts) < 4: continue
-                ticker, _name, sector, sub = parts[0], parts[1], parts[2], parts[3]
-                if sector:
-                    rev.setdefault(ticker, []).append(
-                        _US_SECTOR_ZH.get(sector, sector))
-                if sub and sub != sector:
-                    rev.setdefault(ticker, []).append(sub)
-        except Exception:
-            pass
-
-    # 去重保序
-    return {t: list(dict.fromkeys(cs)) for t, cs in rev.items()}
+    try:
+        data = _json.loads(p.read_text(encoding='utf-8'))
+        for market in ('tw', 'us'):
+            for concept, tickers in data.get(market, {}).items():
+                for t in tickers:
+                    rev.setdefault(t, []).append(concept)
+        return {t: list(dict.fromkeys(cs)) for t, cs in rev.items()}
+    except Exception:
+        return {}
 
 def _get_concepts(ticker: str, max_n: int = 5) -> list:
-    """取得單檔股票的概念股標籤（最多 max_n 個）"""
+    """取得主題概念股標籤（純 concept_tags.json，不含產業類別，最多 max_n 個）"""
     return _load_concept_tags().get(ticker, [])[:max_n]
 
 # 概念顏色配對（依首字 hash 對應顏色，視覺穩定）
@@ -3187,41 +3138,40 @@ st.markdown(f"""
 </div>""", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("### 📋 股票清單")
-    st.markdown("""
-<div style="font-size:.72rem;color:#5a8ab0;line-height:1.8;margin-bottom:8px">
-  <b style="color:#8ab8d8">台股</b>：直接輸入代號（純數字 或 含字母 ETF）<br>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">2330</code>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00878</code>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">00632R</code><br>
-  <b style="color:#8ab8d8">美股</b>：直接輸入代號<br>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">BOTZ</code>
-  <code style="background:#0d1b2e;padding:1px 4px;border-radius:3px">NVDA</code><br>
-  <span style="color:#334455"># 開頭為註解行</span>
-</div>""", unsafe_allow_html=True)
+    # ═══════════════════════════════════════════════════════════════
+    # § 1. 股票清單（含自選股管理）
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown(
+        '<div style="font-size:.95rem;font-weight:700;color:#e8f4fd;'
+        'margin:4px 0 8px;letter-spacing:.04em">📋 股票清單</div>',
+        unsafe_allow_html=True
+    )
 
-    # 從 GitHub 讀取預設清單
-    GITHUB_LIST_URL = "https://raw.githubusercontent.com/zeushuan/stock001/main/stocks.txt"
-    @st.cache_data(ttl=None, show_spinner=False)
-    def load_default_stocks() -> str:
-        try:
-            r = requests.get(GITHUB_LIST_URL, timeout=6)
-            if r.status_code == 200 and r.text.strip():
-                # 清除空行及多餘空白
-                lines = [l.strip() for l in r.text.splitlines() if l.strip()]
-                return "\n".join(lines)
-        except Exception:
-            pass
-        return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
-
-    default_stocks = load_default_stocks()
-
-    # ── 📑 自選股清單（v9.0 新增：本地 JSON 持久化）────────────
+    # ── 自選股持久化：localStorage（雲端用） + 本地 JSON 雙軌 ──
     import json as _json
     from pathlib import Path as _Path
     _WATCHLIST_FILE = _Path(__file__).parent / 'watchlists.json'
 
+    # localStorage（雲端唯一可持久化選項）
+    try:
+        from streamlit_local_storage import LocalStorage
+        _localS = LocalStorage()
+    except Exception:
+        _localS = None
+
     def _load_watchlists() -> dict:
+        # ① localStorage 優先（瀏覽器端持久，雲端最可靠）
+        if _localS is not None:
+            try:
+                v = _localS.getItem("stock001_watchlists")
+                if v:
+                    if isinstance(v, str):
+                        return _json.loads(v)
+                    if isinstance(v, dict):
+                        return v
+            except Exception:
+                pass
+        # ② 檔案 fallback（本地有效）
         if _WATCHLIST_FILE.exists():
             try:
                 return _json.loads(_WATCHLIST_FILE.read_text(encoding='utf-8'))
@@ -3230,23 +3180,44 @@ with st.sidebar:
         return {}
 
     def _save_watchlists(d: dict):
+        text = _json.dumps(d, ensure_ascii=False, indent=2)
+        # ① 寫 localStorage（雲端持久）
+        if _localS is not None:
+            try:
+                _localS.setItem("stock001_watchlists", text)
+            except Exception:
+                pass
+        # ② 寫檔（本地有效；雲端 ephemeral 但不傷）
         try:
-            _WATCHLIST_FILE.write_text(
-                _json.dumps(d, ensure_ascii=False, indent=2),
-                encoding='utf-8')
-        except Exception as e:
-            st.error(f"儲存失敗：{e}")
+            _WATCHLIST_FILE.write_text(text, encoding='utf-8')
+        except Exception:
+            pass
 
-    if 'watchlists' not in st.session_state:
-        st.session_state['watchlists'] = _load_watchlists()
-    _wls = st.session_state['watchlists']
+    # 從 GitHub 讀取預設清單
+    GITHUB_LIST_URL = "https://raw.githubusercontent.com/zeushuan/stock001/main/stocks.txt"
+    @st.cache_data(ttl=None, show_spinner=False)
+    def load_default_stocks() -> str:
+        try:
+            r = requests.get(GITHUB_LIST_URL, timeout=6)
+            if r.status_code == 200 and r.text.strip():
+                lines = [l.strip() for l in r.text.splitlines() if l.strip()]
+                return "\n".join(lines)
+        except Exception:
+            pass
+        return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
 
-    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-bottom:2px'>📑 自選股清單</div>",
-                unsafe_allow_html=True)
+    default_stocks = load_default_stocks()
+
+    # 載入自選股（每次 rerun 都從持久層重新讀，避免 session_state 過時）
+    _wls = _load_watchlists()
+    st.session_state['watchlists'] = _wls
+
+    # 自選股下拉
     _wl_options = ["（預設清單）"] + sorted(_wls.keys())
     _selected_wl = st.selectbox(
-        "自選股", options=_wl_options,
-        index=0, label_visibility="collapsed", key="watchlist_select"
+        "自選股清單", options=_wl_options,
+        index=0, key="watchlist_select",
+        help="選擇已儲存的清單；下方文字框可編輯後另存新名稱"
     )
 
     # 依選擇載入清單內容
@@ -3256,16 +3227,20 @@ with st.sidebar:
         _initial_text = _wls.get(_selected_wl, default_stocks)
 
     stock_input = st.text_area(
-        "輸入股票清單", label_visibility="collapsed",
-        value=_initial_text, height=200, key=f"stock_input_{_selected_wl}"
+        "代號（每行一檔）",
+        value=_initial_text, height=180,
+        key=f"stock_input_{_selected_wl}",
+        help="台股：純數字或含字母 ETF（2330/00878/00632R）；美股：英文代號（NVDA/SPY）；# 開頭為註解",
     )
 
-    # 儲存 / 刪除 按鈕
-    _c1, _c2 = st.columns([3, 1])
+    # 儲存 / 刪除（更緊湊的 2 欄佈局）
+    _c1, _c2 = st.columns([2, 1])
     with _c1:
         _save_name = st.text_input(
-            "另存為", placeholder="輸入清單名稱…",
-            label_visibility="collapsed", key="wl_save_name"
+            "新清單名稱",
+            placeholder="輸入名稱…",
+            label_visibility="collapsed",
+            key="wl_save_name"
         )
     with _c2:
         if st.button("💾 存", use_container_width=True, key="wl_save_btn"):
@@ -3279,18 +3254,34 @@ with st.sidebar:
                 st.rerun()
 
     if _selected_wl != "（預設清單）":
-        if st.button(f"🗑 刪除「{_selected_wl}」", use_container_width=True,
-                     key="wl_del_btn"):
+        if st.button(f"🗑 刪除「{_selected_wl}」",
+                     use_container_width=True, key="wl_del_btn"):
             _wls.pop(_selected_wl, None)
             _save_watchlists(_wls)
             st.success(f"✓ 已刪除「{_selected_wl}」")
             st.rerun()
 
-    # ── 日期選擇 ──────────────────────────────────────────────────
+    # 雲端 localStorage 儲存提示
+    if _localS is not None:
+        st.caption(
+            "💾 自選股儲存於瀏覽器（不同瀏覽器/裝置不互通）"
+            if _localS else ""
+        )
+
+    st.markdown("---")
+
+    # ═══════════════════════════════════════════════════════════════
+    # § 2. 分析設定
+    # ═══════════════════════════════════════════════════════════════
+    st.markdown(
+        '<div style="font-size:.95rem;font-weight:700;color:#e8f4fd;'
+        'margin:4px 0 8px;letter-spacing:.04em">⚙️ 分析設定</div>',
+        unsafe_allow_html=True
+    )
+
+    # ── 日期 ──
     import datetime as _dt
-    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-top:6px;margin-bottom:2px'>📅 資料截止日期</div>",
-                unsafe_allow_html=True)
-    use_hist = st.checkbox("指定歷史日期", value=False, key="use_hist_date")
+    use_hist = st.checkbox("📅 指定歷史日期", value=False, key="use_hist_date")
     if use_hist:
         hist_date = st.date_input(
             "選擇日期",
@@ -3302,20 +3293,13 @@ with st.sidebar:
         selected_end_date = hist_date.isoformat()
         st.markdown(
             f'<div style="font-size:.68rem;color:#f0a030;background:#1a1200;'
-            f'border:1px solid #6a4a00;border-radius:6px;padding:5px 8px;margin-top:4px">'
-            f'⏱ 歷史模式：{hist_date.strftime("%Y-%m-%d")} 當日收盤</div>',
+            f'border:1px solid #6a4a00;border-radius:6px;padding:4px 8px;'
+            f'margin:2px 0 6px">⏱ 歷史模式：{hist_date.strftime("%Y-%m-%d")}</div>',
             unsafe_allow_html=True)
     else:
         selected_end_date = ""
-        st.markdown(
-            '<div style="font-size:.68rem;color:#3a6a3a;background:#0a1a0a;'
-            'border:1px solid #2a5a2a;border-radius:6px;padding:5px 8px;margin-top:4px">'
-            '✓ 即時模式：最新收盤資料</div>',
-            unsafe_allow_html=True)
 
-    # ── 🎯 策略風格（v9.0：移至日期下方，改為下拉選單）─────────
-    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-top:10px;margin-bottom:2px'>🎯 策略風格</div>",
-                unsafe_allow_html=True)
+    # ── 策略風格 ──
     _STRATEGY_OPTIONS = [
         "🛡️ 極致風控 (IND+DXY)",
         "🛟 超低風險 (五重保護)",
@@ -3325,16 +3309,15 @@ with st.sidebar:
         "🚀 進攻 (P0_T1T3)",
     ]
     strategy_style = st.selectbox(
-        label="策略風格",
-        options=_STRATEGY_OPTIONS,
-        index=0,
-        label_visibility="collapsed",
-        key="strategy_style"
+        "🎯 策略風格", options=_STRATEGY_OPTIONS, index=0,
+        key="strategy_style",
+        help="從六檔回測驗證的策略風格中選擇，影響操作建議與市場掃描的篩選邏輯"
     )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='margin:10px 0'></div>", unsafe_allow_html=True)
+    fetch_btn = st.button("🔍  開始抓取資料", type="primary",
+                          use_container_width=True)
+    st.markdown("---")
 
     # ── 🔎 市場掃描器（v9.0 新增）──────────────────────────────
     with st.expander("🔎 市場掃描器（找進場候選）", expanded=False):
