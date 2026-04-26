@@ -315,6 +315,46 @@ def _get_concepts(ticker: str, max_n: int = 5) -> list:
     """取得主題概念股標籤（純 concept_tags.json，不含產業類別，最多 max_n 個）"""
     return _load_concept_tags().get(ticker, [])[:max_n]
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _load_industry_map() -> dict:
+    """單一字串產業類別（簡短）：
+    台股：tw_universe.txt 第 5 欄；ETF/ETN/特別股顯示類型
+    美股：us_sectors.txt sector（中譯）"""
+    from pathlib import Path as _P
+    base = _P(__file__).parent
+    out = {}
+    p2 = base / 'tw_universe.txt'
+    if p2.exists():
+        try:
+            for line in p2.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|')
+                if len(parts) < 5: continue
+                ticker, _n, _typ, _mkt, industry = parts[:5]
+                if industry:
+                    out[ticker] = industry
+                elif _typ in ('ETF','ETN','特別股','臺灣存託憑證(TDR)'):
+                    out[ticker] = ('TDR' if _typ=='臺灣存託憑證(TDR)'
+                                   else _typ)
+        except Exception:
+            pass
+    p3 = base / 'us_sectors.txt'
+    if p3.exists():
+        try:
+            for line in p3.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|')
+                if len(parts) < 4: continue
+                ticker, _name, sector, _sub = parts[:4]
+                if sector and sector != 'NO_SECTOR':
+                    out[ticker] = _US_SECTOR_ZH.get(sector, sector)
+        except Exception:
+            pass
+    return out
+
+def _get_industry(ticker: str) -> str:
+    return _load_industry_map().get(ticker, "")
+
 # 概念顏色配對（依首字 hash 對應顏色，視覺穩定）
 _CONCEPT_COLORS = [
     "#3b9eff", "#ff6dc8", "#9d6dff", "#10c0c0", "#3dbb6a",
@@ -3500,16 +3540,14 @@ if scan_btn:
                 chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
                 name = tw_names.get(t, "") if is_tw_market \
                        else us_names_full.get(t, "")
-                concepts = _get_concepts(t, max_n=4)
                 return dict(
                     ticker=t, name=name,
                     date=str(h.index[-1].date()),
                     price=round(cur_pr, 2),
                     change_pct=round(chg_pct, 2),
-                    signal=sig, score=score,
-                    rsi=round(cur_rsi, 1) if cur_rsi else None,
+                    signal=sig,
+                    industry=_get_industry(t),
                     is_bull=is_bull,
-                    concepts=" / ".join(concepts) if concepts else "",
                 )
             except Exception:
                 return None
@@ -3796,8 +3834,10 @@ if scan_btn:
                                 r['change_pct'] = None
                             r['name'] = tw_names.get(ticker, "")
                             r['price'] = round(r.get('price', 0), 2)
-                            cs = _get_concepts(ticker, max_n=4)
-                            r['concepts'] = " / ".join(cs) if cs else ""
+                            r['industry'] = _get_industry(ticker)
+                            # 移除掃描表不需要的欄位
+                            r.pop('score', None)
+                            r.pop('rsi', None)
                             scan_results.append(r)
                     except Exception:
                         continue
@@ -3842,12 +3882,21 @@ if scan_btn:
             scan_results = _scan_via_yfinance(US_HOT_TICKERS, is_tw_market=False)
 
     if scan_results:
-        df_scan = pd.DataFrame(scan_results).sort_values(
-            'score', ascending=False).head(scan_top_n)
-        # 重新整理欄位順序，把名稱/價格/漲跌放到代號旁邊
+        df_scan = pd.DataFrame(scan_results)
+        # 排序：先按信號類型，再按漲跌幅
+        if 'score' in df_scan.columns:
+            df_scan = df_scan.sort_values('score', ascending=False)
+        else:
+            df_scan = df_scan.sort_values('change_pct', ascending=False)
+        df_scan = df_scan.head(scan_top_n)
+        # 移除掃描表不需要顯示的欄位
+        for col in ('score', 'rsi'):
+            if col in df_scan.columns:
+                df_scan = df_scan.drop(columns=[col])
+        # 欄位順序
         preferred_cols = ['ticker', 'name', 'price', 'change_pct',
-                          'concepts',
-                          'signal', 'score', 'rsi', 'adx', 'is_bull',
+                          'industry',
+                          'signal', 'adx', 'is_bull',
                           'cross_days', 'date']
         ordered = [c for c in preferred_cols if c in df_scan.columns]
         ordered += [c for c in df_scan.columns if c not in ordered]
@@ -3867,11 +3916,9 @@ if scan_btn:
                 "price": st.column_config.NumberColumn("收盤價", format="%.2f"),
                 "change_pct": st.column_config.NumberColumn(
                     "漲跌%", format="%+.2f%%"),
-                "concepts": st.column_config.TextColumn(
-                    "概念股", width="medium"),
+                "industry": st.column_config.TextColumn(
+                    "產業別", width="small"),
                 "signal": st.column_config.TextColumn("信號", width="medium"),
-                "score": st.column_config.NumberColumn("分數", format="%.0f"),
-                "rsi": st.column_config.NumberColumn("RSI", format="%.1f"),
                 "adx": st.column_config.NumberColumn("ADX", format="%.1f"),
                 "is_bull": st.column_config.CheckboxColumn("多頭"),
                 "cross_days": st.column_config.NumberColumn(
