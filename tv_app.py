@@ -8,16 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.2"
+APP_VERSION   = "v8.3"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "v7 base +72.99% ｜ v8 P0_T1T3 +197.48% ｜ "
-    "★ 生產推薦：P0_T1T3+POS +141.68% / 最差 -166% / 風報比 0.85（最佳）"
+    "v8 P0_T1T3+POS +141.68% / 風報比 0.85 ⭐ 生產推薦 ｜ "
+    "新增「接近條件預警」：T1/T3 即將觸發、停損即將觸碰、過熱警示"
 )
 APP_VALIDATIONS = (
-    "Walk-forward EARLY/LATE 差距 0.2%（Edge 穩定）｜ "
-    "POS 跨年度 σ=8.9（最穩定）｜ "
-    "Cohen's d：v7<0 股 → 退步機率 10×（POS 自動排除）"
+    "Walk-forward EARLY/LATE 差 0.2%（Edge 穩定）｜ "
+    "POS 跨年度 σ=8.9 最穩 ｜ "
+    "預警系統涵蓋：T1/T3/ADX/EMA死叉/支撐/RSI過熱/趨勢轉弱"
 )
 
 import numpy as np
@@ -1427,6 +1427,116 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
     return verdict, None
 
 # ─────────────────────────────────────────────────────────────────
+# 接近條件預警 — 即使尚未觸發 T1/T3/停損，也預先提示可能即將發生
+# ─────────────────────────────────────────────────────────────────
+def _get_proximity_alerts(d: dict) -> list:
+    """
+    產生「接近條件」的預警字串清單（HTML 已格式化）
+
+    預警類型：
+      📈 進場預警：
+        - T1 即將黃金交叉（EMA20 距 EMA60 < 1.5% 且向上靠近）
+        - T3 即將拉回到位（RSI 50~55 下行中）
+        - ADX 即將達標（ADX 18~22 上行中）
+
+      📉 出場/停損預警：
+        - 接近 EMA 死叉（多頭中，EMA20 距 EMA60 已縮小）
+        - 接近 ATR 停損價（價格距近期低點 < 2 ATR）
+        - RSI 即將過熱（RSI 70~75 上行中）
+        - 黃金交叉天數 > 60 天且 ADX 下降（趨勢可能轉弱）
+
+    回傳：list of (level, html_text)
+      level: 'info' / 'warning' / 'danger'
+    """
+    alerts = []
+    e20      = d.get('ema20')
+    e60      = d.get('ema60')
+    e20_prev = d.get('ema20_prev')
+    e60_prev = d.get('ema60_prev')
+    rsi      = d.get('rsi')
+    rsi_prev = d.get('rsi_prev')
+    adx      = d.get('adx')
+    adx_prev = d.get('adx_prev')
+    close    = d.get('close')
+    atr14    = d.get('atr14')
+
+    if not all(v is not None for v in [e20, e60, rsi, close, atr14]):
+        return alerts
+
+    is_bull = e20 > e60
+    cross_days = d.get('cross_days')
+
+    # ── 進場預警（空頭時觀察）──
+    if not is_bull:
+        # T1 即將黃金交叉：EMA20 與 EMA60 收斂中
+        diff_pct = (e60 - e20) / e60 * 100 if e60 > 0 else 0
+        if 0 < diff_pct < 1.5:
+            # 進一步確認 EMA20 是否上行
+            if e20_prev is not None and e20 > e20_prev:
+                alerts.append(('info',
+                    f'⏰ <b style="color:#7abadd">T1 黃金交叉預警</b>'
+                    f'：EMA20 距 EMA60 僅 <b>{diff_pct:.2f}%</b>'
+                    f'（且 EMA20 上行中），可能短期內形成黃金交叉，準備進場條件'))
+
+    # ── T3 拉回預警（多頭中）──
+    if is_bull:
+        adx_ok = adx is not None and adx >= 22
+        if adx_ok and rsi is not None and rsi_prev is not None:
+            if 50 < rsi < 55 and rsi < rsi_prev:
+                alerts.append(('info',
+                    f'⏰ <b style="color:#7abadd">T3 拉回預警</b>'
+                    f'：RSI {rsi:.1f} 下行中（前日 {rsi_prev:.1f}），'
+                    f'再跌 <b>{rsi - 50:.1f} 點</b>即達 T3 進場條件（RSI&lt;50）'))
+
+    # ── ADX 預警（趨勢即將達標）──
+    if adx is not None and adx_prev is not None:
+        if 18 <= adx < 22 and adx > adx_prev and is_bull:
+            alerts.append(('info',
+                f'⏰ <b style="color:#7abadd">ADX 強度預警</b>'
+                f'：ADX {adx:.1f} 上行中（前日 {adx_prev:.1f}），'
+                f'即將突破 22 門檻啟動策略可進場狀態'))
+
+    # ── 出場預警（多頭中持倉假設）──
+    if is_bull:
+        # 接近 EMA 死叉
+        if e20_prev is not None and e60_prev is not None:
+            spread_now  = (e20 - e60) / e60 * 100 if e60 > 0 else 0
+            spread_prev = (e20_prev - e60_prev) / e60_prev * 100 if e60_prev > 0 else 0
+            if 0 < spread_now < 1.0 and spread_now < spread_prev:
+                alerts.append(('warning',
+                    f'⚠️ <b style="color:#e8a020">EMA 死叉預警</b>'
+                    f'：EMA20/60 差距收斂至 <b>{spread_now:.2f}%</b>（前日 {spread_prev:.2f}%）'
+                    f'，若持續收斂可能觸發出場'))
+
+        # 接近 ATR 停損（用近期低點+ATR×2.5 推算）
+        # 簡化版：價格距 EMA60 < 1×ATR 視為接近重要支撐
+        if e60 > 0 and atr14 > 0:
+            dist_e60 = close - e60
+            if 0 < dist_e60 < atr14 * 1.0:
+                alerts.append(('warning',
+                    f'⚠️ <b style="color:#e8a020">支撐預警</b>'
+                    f'：收盤距 EMA60 僅 <b>{dist_e60:.1f}</b> 元（&lt; 1×ATR），'
+                    f'若跌破恐觸發停損'))
+
+        # RSI 過熱預警（多頭 + 高位）
+        if rsi is not None and rsi_prev is not None:
+            if 70 <= rsi < 75 and rsi > rsi_prev:
+                alerts.append(('warning',
+                    f'⚠️ <b style="color:#e8a020">RSI 過熱預警</b>'
+                    f'：RSI {rsi:.1f} 上行中接近 75，若 ADX&lt;25 可能觸發出場'))
+
+        # 黃金交叉時間長 + ADX 下降 → 趨勢轉弱
+        if cross_days is not None and cross_days > 60:
+            if adx is not None and adx_prev is not None and adx < adx_prev:
+                alerts.append(('warning',
+                    f'⚠️ <b style="color:#e8a020">趨勢轉弱預警</b>'
+                    f'：黃金交叉已 {cross_days} 天，ADX 從 {adx_prev:.1f} 降至 {adx:.1f}，'
+                    f'趨勢動能減弱，可考慮收緊停損'))
+
+    return alerts
+
+
+# ─────────────────────────────────────────────────────────────────
 # ⑦ 自適應趨勢策略 v7 + v8（2026-04-26 完整版）
 #
 # 【v7 base 基礎策略】1263 檔均值 +72.79%
@@ -1627,6 +1737,27 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
                  "white-space:nowrap;margin-top:2px")
     val_style = "font-size:.78rem;line-height:1.8;color:#c8dff0"
 
+    # 反向ETF 預警（用相同函式，但邏輯仍適用：黃金交叉預警 = 大盤死叉預警）
+    inv_proximity = _get_proximity_alerts(d)
+    inv_alert_html = ""
+    if inv_proximity:
+        ainv_lines = []
+        for level, txt in inv_proximity:
+            bg = "#0d1f30" if level == 'info' else "#1a1505"
+            border = "#2a4060" if level == 'info' else "#5a4a10"
+            ainv_lines.append(
+                f'<div style="background:{bg};border:1px solid {border};'
+                f'border-radius:4px;padding:4px 10px;margin-top:3px;font-size:.72rem">'
+                f'{txt}</div>'
+            )
+        inv_alert_html = (
+            f'<div style="margin-top:10px;border-top:1px solid #1a3055;padding-top:8px">'
+            f'<div style="font-size:.7rem;color:#5a8ab0;margin-bottom:4px">'
+            f'🔔 接近條件預警</div>'
+            f'{"".join(ainv_lines)}'
+            f'</div>'
+        )
+
     return (
         f'<div style="background:#050e1a;border:1px solid #1a4030;border-radius:8px;'
         f'padding:10px 14px;margin-bottom:12px">'
@@ -1647,6 +1778,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
         f'<span style="{tag_style}">③出場停損</span>'
         f'<div style="{val_style}">{"".join(risk_rows)}</div>'
         f'</div>'
+        f'{inv_alert_html}'
         f'</div>'
     )
 
@@ -2097,6 +2229,27 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<div style="color:#f0c030;font-size:.73rem;margin-top:3px">{_rec_warn}</div>'
         )
 
+    # ── ✨ 接近條件預警（即使尚未觸發 T1/T3/停損也提示）──
+    proximity_alerts = _get_proximity_alerts(d)
+    alert_html = ""
+    if proximity_alerts:
+        alert_lines = []
+        for level, txt in proximity_alerts:
+            bg = "#0d1f30" if level == 'info' else "#1a1505"
+            border = "#2a4060" if level == 'info' else "#5a4a10"
+            alert_lines.append(
+                f'<div style="background:{bg};border:1px solid {border};'
+                f'border-radius:4px;padding:4px 10px;margin-top:3px;font-size:.72rem">'
+                f'{txt}</div>'
+            )
+        alert_html = (
+            f'<div style="margin-top:10px;border-top:1px solid #1a2f48;padding-top:8px">'
+            f'<div style="font-size:.7rem;color:#5a8ab0;margin-bottom:4px;letter-spacing:.05em">'
+            f'🔔 接近條件預警（雖未觸發但已接近）</div>'
+            f'{"".join(alert_lines)}'
+            f'</div>'
+        )
+
     # ── 組合 HTML ────────────────────────────────────────────
     label_tag = (
         f'<span style="background:{action_bg};color:{action_fg};'
@@ -2151,6 +2304,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<span style="{tag_style};background:#0f2040;color:#f0c030">⑤推薦策略</span>'
         f'<div style="{val_style}">{"".join(rec_rows)}</div>'
         f'</div></div>'
+        # ⑥ 接近條件預警（即使未觸發也提示）
+        f'{alert_html}'
         f'</div>'
     )
     return html
@@ -2938,7 +3093,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 14  # v8.2：升級推薦為 P0_T1T3+POS（風報比 0.85, σ=8.9 最穩） 2026-04-26
+_RESULTS_VERSION = 15  # v8.3：新增「接近條件預警」系統（T1/T3/停損/過熱七種類別）2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
