@@ -3319,6 +3319,10 @@ if scan_btn:
             # 補入靜態 fallback（雲端 twstock 載不齊時）
             tw_names = {**(st.session_state.get('_tw_static_names') or {}),
                         **tw_names}
+        else:
+            # 美股：合併內建 + 靜態檔
+            us_names_full = {**US_NAMES,
+                             **(st.session_state.get('_us_static_names') or {})}
 
         def _eval_one(t, h):
             try:
@@ -3351,7 +3355,7 @@ if scan_btn:
                 prev_pr = float(pr[last-1]) if last >= 1 else cur_pr
                 chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
                 name = tw_names.get(t, "") if is_tw_market \
-                       else US_NAMES.get(t, "")
+                       else us_names_full.get(t, "")
                 return dict(
                     ticker=t, name=name,
                     date=str(h.index[-1].date()),
@@ -3443,26 +3447,47 @@ if scan_btn:
         except Exception:
             return [], {}
 
-    # ── 動態載入：美股全市場（NASDAQ + NYSE + AMEX ~6700 檔）
+    # ── 動態載入：美股全市場 + 名稱對照
     @st.cache_data(ttl=86400, show_spinner=False)
-    def _get_all_us_universe() -> list:
-        """從公開 GitHub 維護的全美股代號清單取得"""
+    def _get_all_us_universe() -> tuple:
+        """回傳 (tickers, name_map)。
+        優先從 repo us_names.txt 讀（含名稱），失敗 fallback 到 GitHub 純代號清單。"""
+        from pathlib import Path as _P3
+        # ① 靜態檔（已 commit，含 8000+ 代號 + 名稱）
+        f = _P3(__file__).parent / 'us_names.txt'
+        if f.exists():
+            try:
+                tickers, names = [], {}
+                for line in f.read_text(encoding='utf-8').splitlines():
+                    if not line or line.startswith('#'): continue
+                    parts = line.split('|', 1)
+                    if len(parts) >= 2:
+                        sym = parts[0].strip()
+                        # yfinance 不支援的特殊代號跳過
+                        if any(c in sym for c in ('$','/','^','.','=')): continue
+                        if not sym.replace('-','').isalpha(): continue
+                        tickers.append(sym)
+                        names[sym] = parts[1].strip()
+                if tickers:
+                    return sorted(set(tickers)), names
+            except Exception:
+                pass
+        # ② GitHub 純代號 fallback
         url = ("https://raw.githubusercontent.com/rreichel3/"
                "US-Stock-Symbols/main/all/all_tickers.txt")
         try:
             r = requests.get(url, timeout=10)
-            if r.status_code != 200: return []
+            if r.status_code != 200: return [], {}
             out = set()
             for line in r.text.splitlines():
                 s = line.strip().upper()
                 if not s or len(s) > 6: continue
-                # 跳過含特殊字元（yfinance 不一定支援）
-                if any(c in s for c in ('$', '/', '^', '.', '=')): continue
-                if not s.replace('-', '').isalpha(): continue
+                if any(c in s for c in ('$','/','^','.','=')): continue
+                if not s.replace('-','').isalpha(): continue
                 out.add(s)
-            return sorted(out)
+            return sorted(out), {}
         except Exception:
-            return []
+            return [], {}
 
     # 個股精選清單（雲端 fallback；twstock 失敗時使用）
     TW_INDIVIDUAL_TICKERS = [
@@ -3650,10 +3675,11 @@ if scan_btn:
             scan_results = _scan_via_yfinance(full, suffix=".TW",
                                               is_tw_market=True)
     else:
-        # 美股：嘗試 NASDAQ Trader 全市場 → fallback 至內建 318 檔
-        full_us = _get_all_us_universe()
+        # 美股：靜態檔 us_names.txt（~8000 檔，含名稱）
+        full_us, us_static_names = _get_all_us_universe()
         if full_us and len(full_us) > 1000:
             extra_hot = list(dict.fromkeys(US_HOT_TICKERS + full_us))
+            st.session_state['_us_static_names'] = us_static_names
             st.info(
                 f"📡 即時抓取美股全市場 **{len(extra_hot)}** 檔"
                 f"（NASDAQ + NYSE + AMEX，預估 3-5 分鐘）"
