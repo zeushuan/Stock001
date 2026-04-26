@@ -259,24 +259,89 @@ def _get_tw_names() -> dict:
         return {}
 
 # ── 概念股標籤 ─────────────────────────────────────────────────
+# 美股 GICS sector 中文對照
+_US_SECTOR_ZH = {
+    "Information Technology": "資訊科技",
+    "Financials": "金融",
+    "Health Care": "醫療保健",
+    "Consumer Discretionary": "非必需消費",
+    "Industrials": "工業",
+    "Communication Services": "通訊服務",
+    "Consumer Staples": "必需消費",
+    "Energy": "能源",
+    "Utilities": "公用事業",
+    "Real Estate": "不動產",
+    "Materials": "原材料",
+    "ETF": "ETF",
+}
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def _load_concept_tags() -> dict:
-    """從 concept_tags.json 建立 {ticker: [concepts]} 反向對照"""
+    """合併三個來源建立 {ticker: [concepts]} 反向對照：
+    1. concept_tags.json — 主題概念（AI / 矽光子 / CoWoS …）
+    2. tw_universe.txt   — 台股產業類別（半導體業 / 金融保險業 …）
+    3. us_sectors.txt    — 美股 GICS Sector + Sub-Industry
+    """
     import json as _json
     from pathlib import Path as _P
-    p = _P(__file__).parent / 'concept_tags.json'
-    if not p.exists(): return {}
-    try:
-        data = _json.loads(p.read_text(encoding='utf-8'))
-        rev = {}
-        for market in ('tw', 'us'):
-            for concept, tickers in data.get(market, {}).items():
-                for t in tickers:
-                    rev.setdefault(t, []).append(concept)
-        # 去重保序
-        return {t: list(dict.fromkeys(cs)) for t, cs in rev.items()}
-    except Exception:
-        return {}
+    base = _P(__file__).parent
+    rev = {}
+
+    # ── 1) 主題概念 ──
+    p1 = base / 'concept_tags.json'
+    if p1.exists():
+        try:
+            data = _json.loads(p1.read_text(encoding='utf-8'))
+            for market in ('tw', 'us'):
+                for concept, tickers in data.get(market, {}).items():
+                    for t in tickers:
+                        rev.setdefault(t, []).append(concept)
+        except Exception:
+            pass
+
+    # ── 2) 台股產業類別（每檔都有，覆蓋全市場 2318 檔） ──
+    p2 = base / 'tw_universe.txt'
+    if p2.exists():
+        try:
+            for line in p2.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|')
+                if len(parts) < 5: continue
+                ticker, name, _typ, _mkt, industry = parts[0], parts[1], parts[2], parts[3], parts[4]
+                # 加產業
+                if industry:
+                    rev.setdefault(ticker, []).append(industry)
+                # ETF 額外標記類型
+                if _typ == 'ETF':
+                    rev.setdefault(ticker, []).append('ETF')
+                elif _typ == 'ETN':
+                    rev.setdefault(ticker, []).append('ETN')
+                elif _typ == '特別股':
+                    rev.setdefault(ticker, []).append('特別股')
+                elif _typ == '臺灣存託憑證(TDR)':
+                    rev.setdefault(ticker, []).append('TDR')
+        except Exception:
+            pass
+
+    # ── 3) 美股 GICS Sector / Sub-Industry ──
+    p3 = base / 'us_sectors.txt'
+    if p3.exists():
+        try:
+            for line in p3.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|')
+                if len(parts) < 4: continue
+                ticker, _name, sector, sub = parts[0], parts[1], parts[2], parts[3]
+                if sector:
+                    rev.setdefault(ticker, []).append(
+                        _US_SECTOR_ZH.get(sector, sector))
+                if sub and sub != sector:
+                    rev.setdefault(ticker, []).append(sub)
+        except Exception:
+            pass
+
+    # 去重保序
+    return {t: list(dict.fromkeys(cs)) for t, cs in rev.items()}
 
 def _get_concepts(ticker: str, max_n: int = 5) -> list:
     """取得單檔股票的概念股標籤（最多 max_n 個）"""
