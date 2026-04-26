@@ -731,6 +731,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "ichimoku": last(ichi.ichimoku_base_line()),
             "vwma":     last(vwma(c, v, 20)),
             "hma":      last(hull_ma(c, 9)),
+            # 60 日高點（接刀風險警告用）
+            "high60":   float(h.iloc[-60:].max()) if len(h) >= 60 else None,
         }
     except Exception as e:
         return {"_error": str(e)[:120]}
@@ -1948,6 +1950,20 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     _ema60_atr_dist = ((close - ema60) / atr14) if (atr14 and atr14 > 0 and ema60 and close) else None
     _weak_support   = _ema60_atr_dist is not None and 0 < _ema60_atr_dist < 1.0
 
+    # ── 🆕 接刀風險檢查（B 方案：只警告，不修改交易邏輯）─────
+    # 觸發條件（三項全達標）：剛死叉(<30天) + 從60日高點跌≥15% + %B<0.10
+    bbu_x  = d.get("bbu")
+    bbl_x  = d.get("bbl")
+    high60 = d.get("high60")
+    pct_b_now = None
+    if bbu_x and bbl_x and (bbu_x - bbl_x) > 0 and close is not None:
+        pct_b_now = (close - bbl_x) / (bbu_x - bbl_x)
+    _just_dead_cross = (cross_days is not None and -30 <= cross_days < 0)
+    _drawdown_pct = ((high60 - close) / high60 * 100) if (high60 and close and high60 > 0) else None
+    _knife_drawdown = (_drawdown_pct is not None and _drawdown_pct >= 15)
+    _knife_at_lowband = (pct_b_now is not None and pct_b_now < 0.10)
+    _is_falling_knife = _just_dead_cross and _knife_drawdown and _knife_at_lowband
+
     # 讀取使用者選擇的策略風格（用於「策略風險匹配」檢查）
     try:
         _active_style = st.session_state.get('active_strategy') or {}
@@ -2406,6 +2422,38 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<span style="color:#e8a020;font-size:.7rem;white-space:nowrap">⚠️ 風險</span>'
                 f'<span style="color:#f0c890;font-size:.74rem">{w}</span></div>'
             )
+
+    # 🆕 接刀風險警告（B 方案：警告但不修改回測邏輯）
+    # 實證統計來自全市場 5306 筆 T4 反彈交易（2020-2026）
+    if _is_falling_knife:
+        _knife_header = (
+            f"<b>🔪 接刀風險偵測</b>：剛死叉 <b>{abs(cross_days)}</b> 天前 + "
+            f"從 60 日高 <b>{high60:.2f}</b> 跌至 <b>{close:.2f}</b>"
+            f"（-{_drawdown_pct:.1f}%）+ %B {pct_b_now*100:.0f}% 仍在下軌"
+        )
+        _knife_stats = (
+            "<b>歷史實證（全市場 299 筆接刀情境）</b>："
+            "<br>📈 噴出 &gt; +10%：<b style='color:#3dbb6a'>21.7%</b>"
+            "（一般 T4 為 20.9%，<b>機率相當</b>）"
+            "<br>📉 重摔 &lt; -10%：<b style='color:#ff5555'>16.1%</b>"
+            "（一般 T4 僅 7.4%，<b>×2.2 倍風險</b>）"
+            "<br>⚖️ 平均報酬：<b>+1.19%</b>（一般 +2.66%，期望值砍半）"
+            "<br>✅ 勝率：53.2%（一般 58.4%）"
+        )
+        _knife_action = (
+            "<b style='color:#f0c030'>建議</b>：部位 ×0.5、ATR×2.0 嚴格停損 "
+            "→ 把單筆下檔壓到 ~5%，16% 重摔機率就無關緊要"
+        )
+        rec_rows.append(
+            f'<div style="margin-top:8px;background:#2a1500;'
+            f'border-left:3px solid #ff5555;padding:8px 10px;border-radius:3px;'
+            f'font-size:.74rem;line-height:1.7">'
+            f'<div style="color:#ffb090">{_knife_header}</div>'
+            f'<div style="color:#c8dff0;margin-top:5px;padding-top:5px;'
+            f'border-top:1px solid #5a2010">{_knife_stats}</div>'
+            f'<div style="color:#ffd980;margin-top:5px">{_knife_action}</div>'
+            f'</div>'
+        )
     if _rec_entry != "—":
         rec_rows.append(
             f'<div style="display:flex;gap:6px">'
