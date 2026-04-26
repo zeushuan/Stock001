@@ -129,8 +129,14 @@ def _decode_mode(mode: str) -> dict:
         pg_days  = None,             # D3 加碼間距
         use_PSL  = 'PSL' in parts,   # D4 軟上限
         # F 類：架構擴充
-        use_WK   = 'WK' in parts,    # F1 週線多頭確認（週 EMA20 > EMA60）
-        use_MK   = 'MK' in parts,    # F2 大盤多頭過濾（^TWII EMA20 > EMA60）
+        use_WK   = 'WK' in parts,    # F1 週線多頭確認
+        use_MK   = 'MK' in parts,    # F2 大盤多頭過濾
+        # E2 Monte Carlo：可調核心參數（None 用預設值）
+        adx_th       = None,    # 預設 22
+        e120_filter  = None,    # 預設 -2.0
+        rsi_t3_th    = None,    # 預設 50
+        atr_mult_lo  = None,    # 預設 2.5（ADX<30 時）
+        atr_mult_hi  = None,    # 預設 3.0（ADX≥30 時）
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -170,6 +176,29 @@ def _decode_mode(mode: str) -> dict:
                 flags['pg_days'] = int(part[2:])
             except ValueError:
                 pass
+
+    # E2 Monte Carlo 可調參數
+    # ADX{N}    -- ADX 進場門檻
+    # E120{N}   -- EMA120 60日過濾門檻（負數，如 E120-3 表示 -3%）
+    # RSI{N}    -- T3 RSI 上限
+    # ATL{F}    -- 低 ADX ATR 倍數（ADX<30 時）
+    # ATH{F}    -- 高 ADX ATR 倍數（ADX≥30 時）
+    for part in parts:
+        if part.startswith('ADX') and len(part) > 3 and part != 'ADX':
+            try: flags['adx_th'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('E120') and len(part) > 4:
+            try: flags['e120_filter'] = float(part[4:])
+            except ValueError: pass
+        elif part.startswith('RSI') and len(part) > 3:
+            try: flags['rsi_t3_th'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('ATL') and len(part) > 3:
+            try: flags['atr_mult_lo'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('ATH') and len(part) > 3:
+            try: flags['atr_mult_hi'] = float(part[3:])
+            except ValueError: pass
 
     return flags
 
@@ -239,6 +268,12 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     use_PSL  = flags['use_PSL']   # D4 軟上限
     use_WK   = flags['use_WK']    # F1 週線多頭確認
     use_MK   = flags['use_MK']    # F2 大盤多頭過濾
+    # E2 可調參數（None 則用預設值）
+    adx_th       = flags['adx_th']       if flags['adx_th'] is not None else 22.0
+    e120_filter  = flags['e120_filter']  if flags['e120_filter'] is not None else -2.0
+    rsi_t3_th    = flags['rsi_t3_th']    if flags['rsi_t3_th'] is not None else 50.0
+    atr_mult_lo  = flags['atr_mult_lo']  if flags['atr_mult_lo'] is not None else 2.5
+    atr_mult_hi  = flags['atr_mult_hi']  if flags['atr_mult_hi'] is not None else 3.0
 
     # F1 週線 EMA 預計算（從日線 resample）
     if use_WK:
@@ -286,7 +321,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         """回傳 (ok, is_t1)"""
         if i < 1: return False, False
         if any(np.isnan([e20[i], e60[i], adx[i]])): return False, False
-        if not (e20[i] > e60[i] and adx[i] >= 22): return False, False
+        if not (e20[i] > e60[i] and adx[i] >= adx_th): return False, False
 
         # F1 週線多頭確認
         if use_WK and we20_daily is not None and we60_daily is not None:
@@ -310,11 +345,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         if not any(np.isnan([e20[i-1], e60[i-1]])):
             if e20[i-1] <= e60[i-1] and e20[i] > e60[i]:
                 return True, True
-        # T3 RSI 拉回
+        # T3 RSI 拉回（套用 E2 可調參數）
         if i < 60: return False, False
         if np.isnan(e120[i]) or np.isnan(e120[i-60]) or e120[i-60] == 0: return False, False
-        if (e120[i] - e120[i-60]) / abs(e120[i-60]) * 100 < -2.0: return False, False
-        if np.isnan(rsi[i]) or rsi[i] >= 50: return False, False
+        if (e120[i] - e120[i-60]) / abs(e120[i-60]) * 100 < e120_filter: return False, False
+        if np.isnan(rsi[i]) or rsi[i] >= rsi_t3_th: return False, False
 
         # B4 T3 拉回深度確認：當前價需從 30 日高點下跌 ≥ 5%
         if use_DP and i >= 30:
@@ -399,8 +434,8 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
             base_mult = 0.0    # 高波動股無 ATR 停損，base_mult 僅供 dict 紀錄
         else:
             is_hv = False
-            _adx  = adx[i] if not np.isnan(adx[i]) else 22.0
-            base_mult = (3.0 if _adx >= 30 else 2.5) * va_factor
+            _adx  = adx[i] if not np.isnan(adx[i]) else adx_th
+            base_mult = (atr_mult_hi if _adx >= 30 else atr_mult_lo) * va_factor
             if use_AA and consec_loss > 0:
                 atr_m = max(1.5, base_mult * (0.8 ** consec_loss))
             else:
