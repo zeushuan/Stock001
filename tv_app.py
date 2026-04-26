@@ -3540,6 +3540,11 @@ if scan_btn:
                 chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
                 name = tw_names.get(t, "") if is_tw_market \
                        else us_names_full.get(t, "")
+                # TradingView 連結（台股 .TW → TWSE/TPEX 前綴；美股直接用代號）
+                if is_tw_market:
+                    tv_url = f"https://www.tradingview.com/chart/?symbol=TWSE:{t}"
+                else:
+                    tv_url = f"https://www.tradingview.com/chart/?symbol={t}"
                 return dict(
                     ticker=t, name=name,
                     date=str(h.index[-1].date()),
@@ -3548,6 +3553,7 @@ if scan_btn:
                     signal=sig,
                     industry=_get_industry(t),
                     is_bull=is_bull,
+                    tv_url=tv_url,
                 )
             except Exception:
                 return None
@@ -3835,6 +3841,7 @@ if scan_btn:
                             r['name'] = tw_names.get(ticker, "")
                             r['price'] = round(r.get('price', 0), 2)
                             r['industry'] = _get_industry(ticker)
+                            r['tv_url'] = f"https://www.tradingview.com/chart/?symbol=TWSE:{ticker}"
                             # 移除掃描表不需要的欄位
                             r.pop('score', None)
                             r.pop('rsi', None)
@@ -3883,36 +3890,47 @@ if scan_btn:
 
     if scan_results:
         df_scan = pd.DataFrame(scan_results)
-        # 排序：先按信號類型，再按漲跌幅
         if 'score' in df_scan.columns:
             df_scan = df_scan.sort_values('score', ascending=False)
         else:
             df_scan = df_scan.sort_values('change_pct', ascending=False)
-        df_scan = df_scan.head(scan_top_n)
+        df_scan = df_scan.head(scan_top_n).reset_index(drop=True)
         # 移除掃描表不需要顯示的欄位
         for col in ('score', 'rsi'):
             if col in df_scan.columns:
                 df_scan = df_scan.drop(columns=[col])
-        # 欄位順序
-        preferred_cols = ['ticker', 'name', 'price', 'change_pct',
+        # 欄位順序：tv_url 在 name 後面（讓 LinkColumn 顯示為「📈 連結」）
+        preferred_cols = ['ticker', 'name', 'tv_url',
+                          'price', 'change_pct',
                           'industry',
                           'signal', 'adx', 'is_bull',
                           'cross_days', 'date']
         ordered = [c for c in preferred_cols if c in df_scan.columns]
         ordered += [c for c in df_scan.columns if c not in ordered]
         df_scan = df_scan[ordered]
+
         st.markdown(
             f'<div style="font-size:.85rem;color:#3dbb6a;margin:.5rem 0">'
-            f'✓ 找到 <b>{len(scan_results)}</b> 檔候選，'
-            f'顯示前 <b>{len(df_scan)}</b> 檔（依 score 排序）</div>',
+            f'✓ 找到 <b>{len(scan_results)}</b> 檔候選，顯示前 <b>{len(df_scan)}</b> 檔。'
+            f'勾選左側方框可多選後加入清單。</div>',
             unsafe_allow_html=True)
-        st.dataframe(
+
+        # 持久化已存自選股清單（雲端 localStorage）
+        _wls_for_scan = _load_watchlists()
+
+        # 用 st.dataframe + selection_mode 達成多選
+        sel_event = st.dataframe(
             df_scan,
             use_container_width=True,
             height=600,
+            on_select="rerun",
+            selection_mode="multi-row",
+            key="scan_table_select",
             column_config={
                 "ticker": st.column_config.TextColumn("代號", width="small"),
                 "name": st.column_config.TextColumn("名稱", width="medium"),
+                "tv_url": st.column_config.LinkColumn(
+                    "圖表", display_text="📈 TV", width="small"),
                 "price": st.column_config.NumberColumn("收盤價", format="%.2f"),
                 "change_pct": st.column_config.NumberColumn(
                     "漲跌%", format="%+.2f%%"),
@@ -3926,11 +3944,74 @@ if scan_btn:
                 "date": st.column_config.TextColumn("日期"),
             },
         )
-        # 一鍵填入清單按鈕
-        if st.button("📋 將掃描結果填入股票清單"):
-            txt = "\n".join(df_scan['ticker'].tolist())
-            st.session_state[f"stock_input_{_selected_wl}"] = txt
-            st.rerun()
+
+        # 取出選中的列
+        try:
+            sel_rows = sel_event.selection.rows  # type: ignore
+        except Exception:
+            sel_rows = []
+        sel_tickers = [df_scan.iloc[i]['ticker'] for i in sel_rows] if sel_rows else []
+
+        # ── 加入清單操作面板 ──────────────────────────────────────
+        st.markdown(
+            f'<div style="background:#0a1628;border:1px solid #1a2f48;'
+            f'border-radius:10px;padding:12px 16px;margin-top:10px">'
+            f'<div style="color:#7ab0d0;font-size:.78rem;margin-bottom:8px">'
+            f'已選擇 <b style="color:#3dbb6a">{len(sel_tickers)}</b> 檔'
+            f'{"：" + "、".join(sel_tickers[:8]) + ("…" if len(sel_tickers)>8 else "") if sel_tickers else ""}'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+
+        if sel_tickers:
+            _add_targets = ["（覆蓋目前清單）"] + sorted(_wls_for_scan.keys())
+            ca, cb, cc = st.columns([2, 1, 1])
+            with ca:
+                _add_to = st.selectbox(
+                    "加入到清單", options=_add_targets,
+                    key="scan_add_target",
+                    help="選擇現有清單將以「合併」方式加入（不會覆蓋既有代號）；選『覆蓋目前清單』則將目前文字框替換為選中項。"
+                )
+            with cb:
+                if st.button("➕ 加入清單", use_container_width=True,
+                             type="primary", key="scan_append_btn"):
+                    if _add_to == "（覆蓋目前清單）":
+                        # 覆蓋目前 textarea
+                        st.session_state[f"stock_input_{_selected_wl}"] = \
+                            "\n".join(sel_tickers)
+                        st.success(f"✓ 已覆蓋目前清單為 {len(sel_tickers)} 檔")
+                    else:
+                        # 合併到指定 saved 清單
+                        existing = _wls_for_scan.get(_add_to, "")
+                        existing_set = {l.strip() for l in existing.splitlines()
+                                        if l.strip() and not l.strip().startswith('#')}
+                        new_set = set(sel_tickers) - existing_set
+                        merged = (existing.rstrip() + "\n" if existing.strip() else "") + \
+                                 "\n".join(sel_tickers)
+                        # 去重保序
+                        seen = set(); out_lines = []
+                        for ln in merged.splitlines():
+                            s = ln.strip()
+                            if not s or s.startswith('#'):
+                                out_lines.append(ln); continue
+                            if s in seen: continue
+                            seen.add(s); out_lines.append(ln)
+                        _wls_for_scan[_add_to] = "\n".join(out_lines)
+                        _save_watchlists(_wls_for_scan)
+                        st.success(
+                            f"✓ 加入「{_add_to}」（新增 {len(new_set)} 檔，"
+                            f"原 {len(existing_set)} → {len(seen)}）"
+                        )
+                    st.rerun()
+            with cc:
+                if st.button("📋 全部填入文字框", use_container_width=True,
+                             key="scan_fill_btn"):
+                    st.session_state[f"stock_input_{_selected_wl}"] = \
+                        "\n".join(df_scan['ticker'].tolist())
+                    st.success(f"✓ 已填入 {len(df_scan)} 檔")
+                    st.rerun()
+        else:
+            st.caption("👆 在表格左側勾選想加入清單的股票（可多選）")
     else:
         err = st.session_state.pop('_scan_first_err', None)
         if err:
