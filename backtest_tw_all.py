@@ -25,8 +25,8 @@ urllib3.disable_warnings()
 
 # ── 設定 ─────────────────────────────────────────────────────
 ANALYZE_TIMEOUT = 45    # 每支股票 CPU 分析最多等幾秒
-MAX_WORKERS     = 10    # 並行 CPU 分析線程數
-BATCH_SIZE      = 50    # 每批下載支數（一次 API call）
+MAX_WORKERS     = 16    # 並行 CPU 分析線程數（v8 提升至 16）
+BATCH_SIZE      = 80    # 每批下載支數（v8 提升至 80，減少 API call 次數）
 
 
 # ── 批次下載 ─────────────────────────────────────────────────
