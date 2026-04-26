@@ -148,7 +148,7 @@ def fetch_range(start: str, end: str, max_workers: int = 5):
                       flush=True)
             except Exception as e:
                 print(f"  [{done}/{len(todo)}] {d}: ERROR {e}")
-            time.sleep(0.4)    # 避免被 rate limit
+            time.sleep(2.0)    # 保守速率：每 2 秒一個請求
 
     print(f"\n總耗時：{time.time()-t0:.1f}s")
 

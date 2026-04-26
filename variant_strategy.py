@@ -442,7 +442,7 @@ def _score_to_mult(score: int, use_C: bool) -> float:
 
 
 # ─── 主策略迴圈（v7 + 變體 + 金字塔加碼） ────────────────────────
-def _run_v7_strategy(df, flags, is_inverse_etf=False):
+def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     """
     純策略邏輯：接受預處理 DataFrame + 旗標 dict，回傳 trades 列表
 
@@ -524,7 +524,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     # 載入此股的三大法人歷史
     inst_total_arr = None
     inst_foreign_arr = None
-    if use_INST or use_FOR:
+    if (use_INST or use_FOR) and ticker:
         from pathlib import Path
         inst_path = Path(__file__).parent / 'inst_per_ticker' / f'{ticker}.parquet'
         if inst_path.exists():
@@ -1408,7 +1408,7 @@ def run_v7_variant(ticker: str, df, mode: str = 'base',
         # 其他產業不加過濾，保留純 POS
 
     is_inv = ticker in INVERSE_ETF
-    main_trades = _run_v7_strategy(df, flags, is_inverse_etf=is_inv)
+    main_trades = _run_v7_strategy(df, flags, is_inverse_etf=is_inv, ticker=ticker)
     # 反向ETF 不啟用 T4（在空頭時不抓反彈，否則邏輯衝突）
     t4_trades   = [] if is_inv else _run_t4_bear_bounce(df)
     all_trades  = main_trades + t4_trades
