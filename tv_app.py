@@ -315,55 +315,6 @@ def _get_concepts(ticker: str, max_n: int = 5) -> list:
     """取得主題概念股標籤（純 concept_tags.json，不含產業類別，最多 max_n 個）"""
     return _load_concept_tags().get(ticker, [])[:max_n]
 
-# ── 基本面：毛利率 YoY 訊號（從 margin_quarterly.parquet）──
-@st.cache_data(ttl=86400, show_spinner=False)
-def _load_margin_data() -> dict:
-    """載入毛利率資料：{ticker: list of (date, margin)}"""
-    from pathlib import Path as _P
-    f = _P(__file__).parent / 'margin_quarterly.parquet'
-    if not f.exists(): return {}
-    try:
-        import pandas as _pd
-        df = _pd.read_parquet(f)
-        out = {}
-        for ticker, sub in df.groupby('ticker'):
-            sub_sorted = sub.sort_values('date')
-            out[str(ticker)] = list(zip(
-                sub_sorted['date'].dt.strftime('%Y-%m-%d').tolist(),
-                sub_sorted['margin'].tolist()
-            ))
-        return out
-    except Exception:
-        return {}
-
-def _get_margin_yoy_status(ticker: str) -> dict:
-    """取得最新毛利率 YoY 變化。
-    回傳 {has_data, latest_date, latest_margin, year_ago_margin, yoy_pp, signal}
-    signal: 'up' / 'down' / 'flat' / None
-    """
-    data = _load_margin_data().get(str(ticker))
-    if not data or len(data) < 5:
-        return {'has_data': False}
-    # 取最後一筆與 4 季前
-    latest_date, latest_m = data[-1]
-    year_ago_date, year_ago_m = data[-5]
-    yoy_pp = (latest_m - year_ago_m) * 100   # 百分點
-    if yoy_pp > 0.5:
-        signal = 'up'
-    elif yoy_pp < -0.5:
-        signal = 'down'
-    else:
-        signal = 'flat'
-    return dict(
-        has_data=True,
-        latest_date=latest_date,
-        latest_margin=latest_m * 100,
-        year_ago_date=year_ago_date,
-        year_ago_margin=year_ago_m * 100,
-        yoy_pp=yoy_pp,
-        signal=signal,
-    )
-
 @st.cache_data(ttl=86400, show_spinner=False)
 def _load_industry_map() -> dict:
     """單一字串產業類別（簡短）：
@@ -2516,41 +2467,6 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="display:flex;gap:6px;margin-top:3px">'
                 f'<span style="color:#e8a020;font-size:.7rem;white-space:nowrap">⚠️ 風險</span>'
                 f'<span style="color:#f0c890;font-size:.74rem">{w}</span></div>'
-            )
-
-    # 🆕 基本面：毛利率 YoY 警告（MARGUP 訊號的 UI 投影）
-    # 實證：MARGUP 在進攻/平衡/極致風控 改善風報比 +0.04 ~ +0.08
-    _marg = _get_margin_yoy_status(ticker)
-    if _marg.get('has_data') and is_bull and adx_ok:
-        if _marg['signal'] == 'down':
-            _ms = _marg
-            rec_rows.append(
-                f'<div style="display:flex;gap:6px;margin-top:5px;'
-                f'background:#2a1500;border-left:3px solid #ff8040;'
-                f'padding:5px 8px;border-radius:3px">'
-                f'<span style="color:#ff8040;font-size:.74rem;white-space:nowrap;'
-                f'font-weight:700">📉 基本面</span>'
-                f'<span style="color:#ffb090;font-size:.74rem">'
-                f'<b>毛利率惡化警示</b>：最新季 <b>{_ms["latest_margin"]:.1f}%</b>'
-                f'（{_ms["latest_date"][:7]}）vs 4 季前 <b>{_ms["year_ago_margin"]:.1f}%</b>'
-                f'（{_ms["year_ago_date"][:7]}），YoY <b style="color:#ff5555">'
-                f'{_ms["yoy_pp"]:+.1f} pp</b>。回測：MARGUP 過濾在進攻/平衡/極致風控可改善風報比 '
-                f'+0.04~+0.08，目前訊號為「不建議進場」'
-                f'</span></div>'
-            )
-        elif _marg['signal'] == 'up':
-            _ms = _marg
-            rec_rows.append(
-                f'<div style="display:flex;gap:6px;margin-top:5px;'
-                f'background:#0d2010;border-left:3px solid #3dbb6a;'
-                f'padding:5px 8px;border-radius:3px">'
-                f'<span style="color:#3dbb6a;font-size:.74rem;white-space:nowrap;'
-                f'font-weight:700">📈 基本面</span>'
-                f'<span style="color:#a8e0b8;font-size:.74rem">'
-                f'<b>毛利率改善</b>：最新季 <b>{_ms["latest_margin"]:.1f}%</b>'
-                f'（{_ms["latest_date"][:7]}）vs 4 季前 <b>{_ms["year_ago_margin"]:.1f}%</b>，'
-                f'YoY <b style="color:#3dbb6a">{_ms["yoy_pp"]:+.1f} pp</b>。基本面支持進場'
-                f'</span></div>'
             )
 
     # 🆕 接刀風險警告（B 方案：警告但不修改回測邏輯）
