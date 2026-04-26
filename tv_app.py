@@ -3365,7 +3365,6 @@ with st.sidebar:
             "市場", options=["🇹🇼 台股", "🇺🇸 美股"],
             horizontal=True, key="scan_market_choice"
         )
-        scan_top_n = st.slider("顯示前 N 檔", 10, 100, 30, key="scan_top_n")
         scan_signal_filter = st.multiselect(
             "信號類型篩選",
             options=["T1 黃金交叉", "T3 多頭拉回", "🟢 多頭觀察"],
@@ -3894,7 +3893,7 @@ if scan_btn:
             df_scan = df_scan.sort_values('score', ascending=False)
         else:
             df_scan = df_scan.sort_values('change_pct', ascending=False)
-        df_scan = df_scan.head(scan_top_n).reset_index(drop=True)
+        df_scan = df_scan.reset_index(drop=True)
         # 移除掃描表不需要顯示的欄位
         for col in ('score', 'rsi'):
             if col in df_scan.columns:
@@ -3911,8 +3910,7 @@ if scan_btn:
 
         st.markdown(
             f'<div style="font-size:.85rem;color:#3dbb6a;margin:.5rem 0">'
-            f'✓ 找到 <b>{len(scan_results)}</b> 檔候選，顯示前 <b>{len(df_scan)}</b> 檔。'
-            f'勾選左側方框可多選後加入清單。</div>',
+            f'✓ 找到 <b>{len(df_scan)}</b> 檔候選。勾選左側方框可多選後加入清單。</div>',
             unsafe_allow_html=True)
 
         # 持久化已存自選股清單（雲端 localStorage）
