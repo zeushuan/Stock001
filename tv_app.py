@@ -5,6 +5,16 @@ from datetime import datetime
 
 warnings.filterwarnings("ignore")
 
+# ─────────────────────────────────────────────────────────────────
+# 應用版本資訊
+# ─────────────────────────────────────────────────────────────────
+APP_VERSION   = "v8.0"
+APP_UPDATED   = "2026-04-26"
+APP_NOTES     = (
+    "⑦自適應 v7：T1/T3 + EMA120 過濾，1263 檔均值 +72.79% ｜ "
+    "v8 金字塔加碼（P0_T1T3）+197.48% (1.7×超越BH)"
+)
+
 import numpy as np
 import pandas as pd
 import ta
@@ -1412,15 +1422,22 @@ def apply_cap(verdict: str, d: dict, mom_grade: str = "中立") -> tuple:
     return verdict, None
 
 # ─────────────────────────────────────────────────────────────────
-# ⑦ 自適應趨勢策略 操作建議
-# 回測驗證：13 檔平均 +70.1%，唯一主動策略平均超過 70% 的方法
-# 進場三觸發：T1 黃金交叉 | T3 多頭拉回 RSI<50 | T2 多頭背景 RSI<65
-# 共同前提：EMA20>EMA60 + ADX≥18
-# 出場：EMA 死亡交叉（不用 RSI 出場，讓趨勢跑完）
-# 停損：ATR×2.5 動態計算
+# ⑦ 自適應趨勢策略 v7（最終版，2026-04-26）
+# 全市場回測驗證：1263 檔台股均值 +72.79%（v7 base）
+#                 加上金字塔加碼 P0_T1T3 達 +197.48%（v8）
+# 進場兩觸發：T1 黃金交叉 | T3 多頭拉回 RSI<50（已移除 T2 首日強制進場）
+# 共同前提：EMA20>EMA60 + ADX≥22（v7 升級至 22，過濾假突破）
+# T3 過濾：EMA120 60日跌幅 < 2%（防長期下跌股死亡迴圈）
+# 出場依 ATR/Price 自動分類：
+#   高波動股（ATR/P > 3.5%）→ 只守 EMA20/60 死叉，無停損
+#   穩健股（ATR/P ≤ 3.5%）  → EMA死叉 + ADX<25時RSI>75 + 動態 ATR 停損
+# 停損：ADX≥30 用 ATR×3.0；其他 ATR×2.5
+# 長持鎖定：持倉>200天 + 浮動>50% + EMA120上升 → EMA60/120 慢出場
+# 反向ETF：ATR×1.5 + RSI>70 出場（無 T4）
+# v8 金字塔加碼：同股不限倉位，T3 拉回信號可累加部位（門檻 P0~P30 可調）
 # ─────────────────────────────────────────────────────────────────
 
-# 反向ETF：使用 ⑦反向ETF策略（T1/T2/T3 based on own chart，無T4，ATR×1.5，RSI>70出場）
+# 反向ETF：使用 ⑦反向ETF策略（T1/T3 based on own chart，無T4，ATR×1.5，RSI>70出場）
 # 核心邏輯：反向ETF的EMA黃金交叉 = 大盤開始下跌 → 此時正是進場時機
 # 回測驗證（2020~2026）：RSI>70出場（-9.49%）優於ADX<25→RSI>65（-19.57%）
 _INVERSE_ETF_TICKERS = {"00632R", "00633L", "00648U", "00675L", "00676L"}
@@ -1429,7 +1446,8 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
                              rsi_prev2, atr14, close, cross_days) -> str:
     """
     反向ETF專屬操作建議卡片。
-    邏輯：對此標的自身K線套用 ⑦T1/T2/T3，但：
+    邏輯：對此標的自身K線套用 ⑦T1/T3，但：
+      - 無T2（已從 v7 移除）
       - 無T4（空頭=大盤多頭，不抓反彈）
       - ATR×1.5（更緊停損）
       - RSI>70 即出場（回測最佳：不限ADX，RSI>70就走）
@@ -1735,16 +1753,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'{"　← 可進場" if t3_ok else ""}</span></div>'
         )
 
-        # T2：多頭 + RSI < 65（背景可進場，T1/T3 未達時顯示）
-        t2_ok = (rsi is not None and 50 <= rsi < 65)
-        if t2_ok and not t1_ok and not t3_ok:
+        # （v7 已移除 T2 強制進場；多頭中段顯示等待 T3 拉回）
+        if rsi is not None and 50 <= rsi < 65 and not t1_ok and not t3_ok:
             to50 = f"{rsi - 50:.1f}"
             entry_rows.append(
                 f'<div style="display:flex;gap:6px;align-items:baseline">'
                 f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
-                f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T2 背景可進</span>'
-                f'<span style="color:#c8b87a">📌 RSI {rsi_str} &lt; 65，多頭中段可酌量進場，'
-                f'但 T3（RSI&lt;50）再距 {to50} 點，等 T3 確認更安全</span></div>'
+                f'font-size:.65rem;color:#7a8899;white-space:nowrap">等待 T3</span>'
+                f'<span style="color:#c8b87a">📌 RSI {rsi_str}，多頭中段，'
+                f'等待 RSI &lt; 50（再距 {to50} 點）確認 T3 拉回再進場</span></div>'
             )
         elif rsi is not None and rsi >= 65 and not t1_ok:
             entry_rows.append(
@@ -1965,7 +1982,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                            f"這是強勢股最佳加碼點")
             _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
             _rec_exit   = "EMA 死亡交叉出場（ADX≥30強趨，不設RSI出場目標）"
-            _rec_stop   = "ATR × 2.5"
+            _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = "🚀 強趨勢拉回是加碼點，RSI出場會提早離場"
         elif _is_strong and not _is_pullback and not _is_hot:
             # ADX ≥ 30 但 RSI 在中間帶（50~70）
@@ -1976,7 +1993,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                            f"等待回調至 RSI < 50 再進場獲得更佳風報比")
             _rec_entry  = "等待 RSI 回落至 50 以下（T3）再進場"
             _rec_exit   = "EMA 死亡交叉出場（強趨勢不提前出，等趨勢結束）"
-            _rec_stop   = "ATR × 2.5"
+            _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = ""
         elif not _is_strong and _is_fresh:
             # ADX 22~30 + 剛黃金交叉 → ⑦T1 穩健進場
@@ -1987,7 +2004,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                            f"⑦T1 進場配合 ATR 停損，風報比合理")
             _rec_entry  = f"立即進場（黃金交叉 {cross_days} 天前，T1）"
             _rec_exit   = "ADX < 25 時 RSI > 70 提前出場；ADX ≥ 25 持到死叉"
-            _rec_stop   = "ATR × 2.5"
+            _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = "⚠️ 趨勢強度中等，需更嚴守停損"
         elif not _is_strong and _is_pullback:
             # ADX 22~30 + RSI 拉回 → ⑦T3
@@ -1998,7 +2015,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                            f"⑦T3 是此情境下勝率最高的進場方式")
             _rec_entry  = f"立即進場（RSI {rsi_str} < 50，T3 拉回進場）"
             _rec_exit   = "ADX < 25 時 RSI > 70 出場；ADX ≥ 25 持到死叉"
-            _rec_stop   = "ATR × 2.5"
+            _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = ""
         elif _is_hot:
             # RSI ≥ 70
@@ -2013,15 +2030,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_stop   = "—"
             _rec_warn   = ""
         else:
-            # RSI 50~70，ADX 22~30，無交叉
-            _rec_name   = "⑦ 自適應T2（可觀察）"
+            # RSI 50~70，ADX 22~30，無交叉（v7 已移除 T2，改為等待 T3 確認）
+            _rec_name   = "⑦ 等待 T3 拉回"
             _rec_color  = "#c8b87a"
             _rec_badge  = "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44"
             _rec_reason = (f"多頭市場中段，RSI {rsi_str} 偏高，"
-                           f"T2 背景條件達成但 T3（RSI<50）更優，可小量試探")
-            _rec_entry  = "酌量小部位試探（T2），等待 RSI < 50 加碼（T3）"
+                           f"等 T3（RSI<50）拉回再進場（v7 已移除 T2 中段進場）")
+            _rec_entry  = "等待 RSI < 50 出現 T3 拉回信號再進場"
             _rec_exit   = "ADX < 25 時 RSI > 70 出場；ADX ≥ 25 持到死叉"
-            _rec_stop   = "ATR × 2.5"
+            _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = ""
 
     # 推薦策略 HTML 組裝
@@ -2236,7 +2253,7 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
     adx_ok     = (adx is not None and adx >= 22)
 
     if _is_inverse:
-        # 反向ETF：自身趨勢判斷，只用T1/T2/T3
+        # 反向ETF：自身趨勢判斷，只用T1/T3（v7 已移除 T2）
         if is_bull and adx_ok:
             t1_ok = (cross_days is not None and 0 < cross_days <= 10)
             t3_ok = (rsi is not None and rsi < 50)
@@ -2281,7 +2298,7 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
         elif _is_hot:
             return ("等待回調 — 不追高",     "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
         else:
-            return ("⑦T2 可觀察",           "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
+            return ("⑦ 等待T3 拉回",         "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
 
 
 def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}",
@@ -2789,11 +2806,20 @@ def build_stock_range_excel(ticker: str, market: str,
 # ─────────────────────────────────────────────────────────────────
 # STREAMLIT UI
 # ─────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="tv-header">
-  <div style="font-size:1.8rem">📊</div>
-  <div><h1>Indicator Scanner</h1>
-  <div class="sub">四群組加權評分 · 趨勢40% / 位置30% / 動能20% / 輔助10% · Hard Limits · Excel 匯出</div></div>
+st.markdown(f"""
+<div class="tv-header" style="justify-content:space-between">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="font-size:1.8rem">📊</div>
+    <div><h1>Indicator Scanner</h1>
+    <div class="sub">四群組加權評分 · 趨勢40% / 位置30% / 動能20% / 輔助10% · Hard Limits · Excel 匯出</div></div>
+  </div>
+  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;line-height:1.4">
+    <div style="color:#3b9eff;font-size:.95rem;font-weight:700;letter-spacing:.04em">{APP_VERSION}</div>
+    <div style="color:#5a8ab0;font-size:.7rem">更新：{APP_UPDATED}</div>
+  </div>
+</div>
+<div style="background:#0d1b2e;border:1px solid #1e3a5f;border-radius:6px;padding:8px 14px;margin-bottom:1rem;font-size:.72rem;color:#7aaac8">
+  📌 <b style="color:#8ab8d8">{APP_VERSION} 更新重點</b>：{APP_NOTES}
 </div>""", unsafe_allow_html=True)
 
 with st.sidebar:
@@ -2885,7 +2911,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 11  # v5：⑦自適應v3 ATR/P自動分類整合、④出場獲利飆股/穩健雙軌 2026-04-25
+_RESULTS_VERSION = 12  # v8：移除 T2、EMA120 過濾、金字塔加碼說明，ATR×3.0 雙軌停損 2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
