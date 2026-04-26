@@ -28,6 +28,15 @@ ANALYZE_TIMEOUT = 45    # 每支股票 CPU 分析最多等幾秒
 MAX_WORKERS     = 16    # 並行 CPU 分析線程數（v8 提升至 16）
 BATCH_SIZE      = 80    # 每批下載支數（v8 提升至 80，減少 API call 次數）
 
+# ── 磁碟快取（v8 新增）─────────────────────────────────────────
+# 將下載+calc_ind 後的 DataFrame 自動存入 data_cache/ 供 variant 測試共用
+USE_CACHE = True
+try:
+    import data_loader
+except Exception:
+    USE_CACHE = False
+    data_loader = None
+
 
 # ── 批次下載 ─────────────────────────────────────────────────
 def batch_download(codes):
@@ -521,8 +530,32 @@ if __name__ == "__main__":
             df   = df_map.get(code)
             if df is None:
                 return _seq, code, name, meta, None, ValueError("無下載資料")
-            r, err = analyze_from_df_with_timeout(code, df)
-            return _seq, code, name, meta, r, err
+
+            # ── v8 快取：calc_ind 一次，存 parquet 供變體測試共用 ──
+            try:
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                df_ind = bt.calc_ind(df)
+                if USE_CACHE and data_loader is not None:
+                    data_loader.save_to_cache(code, df_ind)
+            except Exception as e:
+                return _seq, code, name, meta, None, e
+
+            # 用預計算指標跑策略（避免 analyze_from_df 重複 calc_ind）
+            result = [None]; exc = [None]
+            def _run():
+                try:
+                    result[0] = bt.analyze_with_indicators(df_ind, code)
+                except Exception as e:
+                    exc[0] = e
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+            t.join(ANALYZE_TIMEOUT)
+            if t.is_alive():
+                return _seq, code, name, meta, None, TimeoutError(f"超過 {ANALYZE_TIMEOUT}s")
+            if exc[0] is not None:
+                return _seq, code, name, meta, None, exc[0]
+            return _seq, code, name, meta, result[0], None
 
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {

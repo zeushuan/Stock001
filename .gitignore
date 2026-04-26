@@ -17,6 +17,10 @@ test_encoding.json
 
 # Output reports (regeneratable from fresh run)
 tw_all_results_*.csv
+results_*.csv
+
+# v8 快取目錄（regeneratable，~230MB）
+data_cache/
 
 # IDE
 .vscode/

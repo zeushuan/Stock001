@@ -177,6 +177,18 @@ def analyze_from_df(df, ticker):
     df = calc_ind(df)
     return _analyze_core(df, ticker)
 
+def analyze_with_indicators(df, ticker):
+    """
+    接受已 calc_ind 過的 DataFrame，直接跑策略分析（v8 快取機制專用）。
+    比 analyze_from_df 快：略過重複的 calc_ind 步驟。
+    """
+    if df is None or df.empty or "Close" not in df.columns:
+        return None
+    if "e120" not in df.columns:
+        # 退回 calc_ind（防呆）
+        return analyze_from_df(df, ticker)
+    return _analyze_core(df, ticker)
+
 def analyze(ticker):
     df = download(ticker)
     if df.empty or "Close" not in df.columns:
