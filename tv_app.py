@@ -250,13 +250,30 @@ def get_prompt_text(ticker: str, name: str, d: dict) -> str:
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=86400, show_spinner=False)
 def _get_tw_names() -> dict:
-    """台股中文名稱字典，從 twstock 載入並快取"""
+    """台股中文名稱字典：合併 twstock + 靜態 tw_universe.txt（雲端可靠）"""
+    out = {}
+    # 1. 靜態檔（雲端首選，本地 fallback）
+    try:
+        from pathlib import Path as _P
+        f = _P(__file__).parent / 'tw_universe.txt'
+        if f.exists():
+            for line in f.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|')
+                if len(parts) >= 2:
+                    out[parts[0].strip()] = parts[1].strip()
+    except Exception:
+        pass
+    # 2. twstock 動態（本地有，會覆蓋為最新）
     try:
         import twstock
-        return {code: info.name for code, info in twstock.codes.items()}
+        for code, info in twstock.codes.items():
+            out[str(code)] = info.name
     except Exception:
-        return {}
+        pass
+    return out
 
 # ── 概念股標籤 ─────────────────────────────────────────────────
 # 美股 GICS sector 中文對照
@@ -376,20 +393,40 @@ US_NAMES = {
     "TLT": "iShares 20+ Year Treasury Bond ETF",
 }
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _get_us_names_static() -> dict:
+    """從 us_names.txt 載入靜態名稱對照（~8000 檔）"""
+    out = {}
+    try:
+        from pathlib import Path as _P
+        f = _P(__file__).parent / 'us_names.txt'
+        if f.exists():
+            for line in f.read_text(encoding='utf-8').splitlines():
+                if not line or line.startswith('#'): continue
+                parts = line.split('|', 1)
+                if len(parts) >= 2:
+                    out[parts[0].strip()] = parts[1].strip()
+    except Exception:
+        pass
+    return out
+
 def _get_stock_name(ticker: str, symbol: str) -> str:
     """取得股票中文/英文名稱"""
     try:
         # 1. 指數/特殊代號靜態對照
         if symbol in INDEX_NAMES:
             return INDEX_NAMES[symbol]
-        # 2. 台股 twstock
+        # 2. 台股 twstock + 靜態 tw_universe.txt
         if is_tw_stock(ticker):
             tw_names = _get_tw_names()
             return tw_names.get(ticker, ticker)
-        # 3. 常用美股靜態對照
+        # 3. 常用美股靜態對照（內建 13 檔 + us_names.txt 8000+ 檔）
         if ticker in US_NAMES:
             return US_NAMES[ticker]
-        # 4. yfinance 動態查詢（fallback）
+        us_static = _get_us_names_static()
+        if ticker in us_static:
+            return us_static[ticker]
+        # 4. yfinance 動態查詢（最後 fallback）
         try:
             t = yf.Ticker(symbol)
             info = t.get_info()
