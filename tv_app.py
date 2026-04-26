@@ -1951,18 +1951,28 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     _weak_support   = _ema60_atr_dist is not None and 0 < _ema60_atr_dist < 1.0
 
     # ── 🆕 接刀風險檢查（B 方案：只警告，不修改交易邏輯）─────
-    # 觸發條件（三項全達標）：剛死叉(<30天) + 從60日高點跌≥15% + %B<0.10
+    # 觸發：(已死叉<30天 OR 即將死叉) + 從60日高點跌≥15% + %B<0.10
     bbu_x  = d.get("bbu")
     bbl_x  = d.get("bbl")
     high60 = d.get("high60")
     pct_b_now = None
     if bbu_x and bbl_x and (bbu_x - bbl_x) > 0 and close is not None:
         pct_b_now = (close - bbl_x) / (bbu_x - bbl_x)
+    # 已死叉（過去 30 天內）
     _just_dead_cross = (cross_days is not None and -30 <= cross_days < 0)
+    # 即將死叉：仍多頭但 EMA20 距 EMA60 < 1 ATR（隨時可能交叉）
+    _imminent_dc = False
+    if (cross_days is not None and cross_days > 0
+            and ema20 is not None and ema60 is not None
+            and atr14 is not None and atr14 > 0
+            and ema20 > ema60):
+        if (ema20 - ema60) < atr14:
+            _imminent_dc = True
+    _knife_dc_zone = _just_dead_cross or _imminent_dc
     _drawdown_pct = ((high60 - close) / high60 * 100) if (high60 and close and high60 > 0) else None
     _knife_drawdown = (_drawdown_pct is not None and _drawdown_pct >= 15)
     _knife_at_lowband = (pct_b_now is not None and pct_b_now < 0.10)
-    _is_falling_knife = _just_dead_cross and _knife_drawdown and _knife_at_lowband
+    _is_falling_knife = _knife_dc_zone and _knife_drawdown and _knife_at_lowband
 
     # 讀取使用者選擇的策略風格（用於「策略風險匹配」檢查）
     try:
@@ -2426,10 +2436,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     # 🆕 接刀風險警告（B 方案：警告但不修改回測邏輯）
     # 實證統計來自全市場 5306 筆 T4 反彈交易（2020-2026）
     if _is_falling_knife:
+        if _imminent_dc:
+            _dc_status = (f"⏳ <b>EMA20 即將死叉</b>"
+                          f"（距 EMA60 僅 {(ema20-ema60):.2f} 元 &lt; 1 ATR）")
+        else:
+            _dc_status = f"💀 死叉 <b>{abs(cross_days)}</b> 天前"
         _knife_header = (
-            f"<b>🔪 接刀風險偵測</b>：剛死叉 <b>{abs(cross_days)}</b> 天前 + "
+            f"<b>🔪 接刀風險偵測</b>：{_dc_status} + "
             f"從 60 日高 <b>{high60:.2f}</b> 跌至 <b>{close:.2f}</b>"
-            f"（-{_drawdown_pct:.1f}%）+ %B {pct_b_now*100:.0f}% 仍在下軌"
+            f"（-{_drawdown_pct:.1f}%）+ %B {pct_b_now*100:.0f}% 在下軌"
         )
         _knife_stats = (
             "<b>歷史實證（全市場 299 筆接刀情境）</b>："
