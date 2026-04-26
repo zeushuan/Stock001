@@ -306,6 +306,10 @@ def _decode_mode(mode: str) -> dict:
         use_INST     = 'INST' in parts,  # 三大法人合計買超才加碼
         use_FOR      = 'FOR' in parts,   # 外資 N 日累積買超才加碼
         for_days     = None,             # FORN{N}：外資 N 日累積期
+        # 基本面：月營收 YoY 過濾
+        revup_n      = None,             # REVUP{N}：連續 N 月 YoY > 0 才進場
+        # 基本面：毛利率 YoY 過濾
+        use_MARGUP   = 'MARGUP' in parts,    # 毛利率 vs 一年前同季 上升才進場
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -415,6 +419,10 @@ def _decode_mode(mode: str) -> dict:
                 flags['for_days'] = int(part[4:])
                 flags['use_FOR'] = True
             except ValueError: pass
+        elif part.startswith('REVUP') and len(part) > 5:
+            # REVUP3 = 連續 3 月 YoY > 0% 才進場
+            try: flags['revup_n'] = int(part[5:])
+            except ValueError: pass
 
     return flags
 
@@ -520,6 +528,55 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_INST     = flags.get('use_INST', False) # 三大法人合計買超
     use_FOR      = flags.get('use_FOR', False)  # 外資 N 日累積買超
     for_days     = flags.get('for_days') or 5
+    revup_n      = flags.get('revup_n')         # 月營收連續 N 月 YoY > 0
+    use_MARGUP   = flags.get('use_MARGUP', False)  # 毛利率 YoY 上升
+
+    # 🆕 載入此股的毛利率 YoY 訊號（vs 一年前同季）
+    margup_ok_arr = None
+    if use_MARGUP and ticker:
+        from pathlib import Path as _P
+        m_file = _P(__file__).parent / 'margin_quarterly.parquet'
+        if m_file.exists():
+            try:
+                m_all = pd.read_parquet(m_file)
+                m_t = m_all[m_all['ticker'] == ticker].copy()
+                if len(m_t) >= 5:
+                    m_t = m_t.sort_values('date').set_index('date')
+                    # 同季 YoY：本季毛利率 vs 4 季前
+                    m_t['margin_yoy'] = m_t['margin'] - m_t['margin'].shift(4)
+                    m_t['signal'] = (m_t['margin_yoy'] > 0)
+                    # 對齊到日線：財報公布日（季底 +45 天保守）
+                    m_t.index = m_t.index + pd.Timedelta(days=45)
+                    m_aligned = m_t['signal'].reindex(
+                        df.index, method='ffill').fillna(False)
+                    margup_ok_arr = m_aligned.values
+            except Exception:
+                pass
+
+    # 🆕 載入此股的月營收 YoY 訊號（連續 N 月正成長）
+    revup_ok_arr = None
+    if revup_n is not None and ticker:
+        from pathlib import Path as _P
+        rev_file = _P(__file__).parent / 'monthly_revenue.parquet'
+        if rev_file.exists():
+            try:
+                rev_all = pd.read_parquet(rev_file)
+                rev = rev_all[rev_all['ticker'] == ticker].copy()
+                if not rev.empty:
+                    rev = rev.sort_values('date').set_index('date')
+                    # YoY = 本月 / 12 個月前同月 - 1
+                    rev['rev_yoy'] = rev['revenue'].pct_change(12)
+                    rev['yoy_pos'] = (rev['rev_yoy'] > 0).astype(int)
+                    # 連續 N 月正成長：用 rolling sum 確認
+                    rev['cons_pos'] = rev['yoy_pos'].rolling(revup_n).sum()
+                    rev['signal'] = (rev['cons_pos'] >= revup_n)
+                    # 對齊到日線：每月公布日（date 是公布月首日）後生效
+                    # 加 10 天保守緩衝（10 號才公布）
+                    rev_aligned = rev['signal'].reindex(
+                        df.index, method='ffill').fillna(False)
+                    revup_ok_arr = rev_aligned.values
+            except Exception:
+                pass
 
     # 載入此股的三大法人歷史
     inst_total_arr = None
@@ -894,6 +951,16 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
         # 波動率 regime 過濾（VR{N}：當前波動率百分位 > N 時不進場）
         if vol_regime_th is not None and vol_regime_arr is not None:
             if vol_regime_arr[i] > vol_regime_th:
+                return False, False
+
+        # 🆕 月營收 YoY 連續 N 月正成長才進場（REVUP{N}）
+        if revup_n is not None and revup_ok_arr is not None:
+            if not bool(revup_ok_arr[i]):
+                return False, False
+
+        # 🆕 毛利率 YoY 上升才進場（MARGUP）
+        if use_MARGUP and margup_ok_arr is not None:
+            if not bool(margup_ok_arr[i]):
                 return False, False
 
         # 三大法人合計買超才進場（INST）
