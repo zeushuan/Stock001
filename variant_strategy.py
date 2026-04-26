@@ -1,25 +1,41 @@
 """
 策略變體執行器（v8 優化基礎建設）
 
-設計理念：
-  抽取 v7 主策略邏輯（_run_v7b_main + T4），參數化所有變體選項
-  讓多變體測試可以共用「同一份 calc_ind 結果」+「不同的策略參數」
+★ 推薦模式：P0_T1T3 ★
+  全市場 1263 檔回測：均值 +197.48% (vs v7 base +72.99%，改善 +124.49%)
+  超越 BH (+163.94%) 達 120%，捕獲率提升至 1.7 倍
 
-接受：
-  ticker (str), df (DataFrame, 預先 calc_ind), mode (str)
-回傳：
-  dict 含 ticker, pnl, pnl_pct, n_trades, win_rate
+支援模式（mode 參數）：
 
-支援的模式（mode 參數）：
-  base    -- v7 原版（基線）
-  T30     -- 時間停損 30 日
-  T45     -- 時間停損 45 日
-  AA      -- 動態 ATR（連敗緊縮）
-  E20b    -- 浮動獲利 >5% 後啟用 EMA20 跟蹤
-  W       -- W-Bottom 形態進場
-  C       -- 信號分級部位（0.5/1.0/1.5x）
-  T30+AA  -- 組合
-  ALL     -- T30 + AA + E20b
+【基礎變體（單倉位）】
+  base    -- v7 原版（基線，+72.99%）
+  T30/T45 -- 時間停損 N 日（中性或微傷）
+  AA      -- 動態 ATR（連敗緊縮，幾乎無效）
+  E20a/E20b -- EMA20 跟蹤停損（飆股殺手，禁用）
+  W       -- W-Bottom 形態進場（理論最佳，全市場負面）
+  C       -- 信號分級部位（強趨勢誤殺）
+
+【金字塔加碼（多倉位，v8 主軸）】
+  P{N}_{signals}  -- 同股可有多個並行倉位，所有現有倉位均≥N%獲利才開新倉
+                      signals: T1 / T3 / T1T3
+  範例（已測試）：
+    P0_T1T3   -- ★ 最佳 +197.48%（不限門檻，T1+T3 皆可加碼）
+    P1_T3     -- 次佳 +144.80%
+    P5_T3     -- 平衡 +115.30%
+    P10_T1T3  -- 保守 +104.51%
+    P30_T1T3  -- 最謹慎 +88.54%
+
+  反向ETF（00632R/00633L/00648U）：自動使用 ATR×1.5 + RSI>70 出場（無 T4）
+  正股 + ETF：T1/T3 主策略 + T4 空頭反彈
+
+組合：模式以 + 連接，例如 "P0_T1T3+T30"（測試發現多數組合會降低獲利）
+
+【設計理念】
+  v7 對大趨勢股捕獲率僅 45%（+72.99% vs BH +163.94%）
+  原因：v7 一次只能持 1 倉，主升段多次回檔信號被「已在倉中」浪費
+  v8：同股不限倉位，每次 T3 拉回信號都能再加碼累積部位
+  → 死亡迴圈股：永不觸發加碼（首倉永遠虧損）→ 損失不擴大
+  → 大趨勢股：6139 亞翔 v7 +2441% → v8 +10298%（4 倍放大）
 
 新變體可在 _decode_mode() 中加入。
 """
@@ -42,11 +58,16 @@ def _filter_period(df):
     return sub
 
 
+# ─── 反向 ETF 清單（與 bt.INVERSE_ETF 同步） ──────────────────────
+INVERSE_ETF = {"00632R", "00633L", "00648U"}
+
+
 # ─── 模式解碼器 ────────────────────────────────────────────────
 def _decode_mode(mode: str) -> dict:
     """把模式字串拆成個別旗標"""
     parts = set(mode.split('+')) if mode != 'ALL' else {'T30', 'AA', 'E20b'}
-    return dict(
+
+    flags = dict(
         use_T   = ('T30' in parts) or ('T45' in parts) or ('T60' in parts),
         t_days  = 60 if 'T60' in parts else (45 if 'T45' in parts else 30),
         use_AA  = 'AA' in parts,
@@ -54,7 +75,34 @@ def _decode_mode(mode: str) -> dict:
         use_E20b = 'E20b' in parts,
         use_W   = 'W' in parts,
         use_C   = 'C' in parts,
+        # 金字塔
+        pyramid_th = None,        # None = 不加碼；數值 = 加碼門檻 %
+        pyramid_signals = set(),  # {'T1'}, {'T3'}, {'T1','T3'}
     )
+
+    # 解析金字塔模式 P{th}_{signals}
+    for part in parts:
+        if not part.startswith('P') or len(part) < 2:
+            continue
+        if not part[1].isdigit():
+            continue
+        try:
+            body = part[1:]
+            if '_' in body:
+                th_str, sig_str = body.split('_', 1)
+            else:
+                th_str = body
+                sig_str = 'T1T3'   # 預設兩種信號都允許
+            flags['pyramid_th'] = float(th_str)
+            sig_str_upper = sig_str.upper()
+            if 'T1' in sig_str_upper:
+                flags['pyramid_signals'].add('T1')
+            if 'T3' in sig_str_upper:
+                flags['pyramid_signals'].add('T3')
+        except ValueError:
+            continue
+
+    return flags
 
 
 # ─── 信號評分（C 用） ────────────────────────────────────────────
@@ -79,10 +127,13 @@ def _score_to_mult(score: int, use_C: bool) -> float:
     return 1.5
 
 
-# ─── 主策略迴圈（v7 + 變體） ────────────────────────────────────
-def _run_v7_strategy(df, flags):
+# ─── 主策略迴圈（v7 + 變體 + 金字塔加碼） ────────────────────────
+def _run_v7_strategy(df, flags, is_inverse_etf=False):
     """
     純策略邏輯：接受預處理 DataFrame + 旗標 dict，回傳 trades 列表
+
+    支援金字塔：positions 列表，每筆獨立 ep/stop_p/ex_fn
+    is_inverse_etf=True：使用反向ETF 出場（RSI>70）+ ATR×1.5
     """
     dates = df.index.tolist()
     pr    = df['Close'].values
@@ -95,15 +146,18 @@ def _run_v7_strategy(df, flags):
     pctb  = df['pctb'].values if 'pctb' in df.columns else np.full(len(df), np.nan)
     n     = len(pr)
 
-    use_T   = flags['use_T']
-    t_days  = flags['t_days']
-    use_AA  = flags['use_AA']
+    use_T    = flags['use_T']
+    t_days   = flags['t_days']
+    use_AA   = flags['use_AA']
     use_E20a = flags['use_E20a']
     use_E20b = flags['use_E20b']
-    use_W   = flags['use_W']
-    use_C   = flags['use_C']
+    use_W    = flags['use_W']
+    use_C    = flags['use_C']
+    pyramid_th       = flags['pyramid_th']
+    pyramid_signals  = flags['pyramid_signals']
 
     def e7_en(i):
+        """回傳 (ok, is_t1)"""
         if i < 1: return False, False
         if any(np.isnan([e20[i], e60[i], adx[i]])): return False, False
         if not (e20[i] > e60[i] and adx[i] >= 22): return False, False
@@ -116,7 +170,7 @@ def _run_v7_strategy(df, flags):
         if np.isnan(e120[i]) or np.isnan(e120[i-60]) or e120[i-60] == 0: return False, False
         if (e120[i] - e120[i-60]) / abs(e120[i-60]) * 100 < -2.0: return False, False
         if np.isnan(rsi[i]) or rsi[i] >= 50: return False, False
-        # W-Bottom 過濾（變體）
+        # W-Bottom 過濾
         if use_W:
             if i < 15: return False, False
             w15 = pctb[max(0, i-15):i]
@@ -148,43 +202,72 @@ def _run_v7_strategy(df, flags):
                 return True
         return False
 
-    trades = []
-    in_mkt = False
-    ep = ed = stop_p = ex_fn = None
-    is_hv = False
-    consec_loss = 0
-    cur_mult = 1.0
+    def _ex_inverse(i):
+        """反向 ETF 出場：死叉 OR RSI>70"""
+        if i < 1: return False
+        if any(np.isnan([e20[i], e60[i]])): return False
+        if e20[i] < e60[i]: return True
+        if not np.isnan(rsi[i]) and rsi[i] > 70: return True
+        return False
+
+    def _open_position(i, is_t1):
+        """建立新倉位 dict"""
+        _atr = atr[i] if not np.isnan(atr[i]) else pr[i] * 0.03
+        rel  = _atr / pr[i] * 100 if pr[i] > 0 else 0
+        if is_inverse_etf:
+            # 反向ETF：固定 ATR×1.5 + RSI>70 出場（無 highvol 分類）
+            is_hv  = False
+            _adx   = adx[i] if not np.isnan(adx[i]) else 22.0
+            base_mult = 1.5
+            if use_AA and consec_loss > 0:
+                atr_m = max(1.0, base_mult * (0.8 ** consec_loss))
+            else:
+                atr_m = base_mult
+            stop_p = pr[i] - _atr * atr_m
+            ex_fn  = _ex_inverse
+        elif rel > 3.5:
+            is_hv  = True
+            stop_p = None
+            ex_fn  = _ex_highvol
+        else:
+            is_hv = False
+            _adx  = adx[i] if not np.isnan(adx[i]) else 22.0
+            base_mult = 3.0 if _adx >= 30 else 2.5
+            if use_AA and consec_loss > 0:
+                atr_m = max(1.5, base_mult * (0.8 ** consec_loss))
+            else:
+                atr_m = base_mult
+            stop_p = pr[i] - _atr * atr_m
+            ex_fn  = _ex_stable
+
+        # 信號評分
+        if use_C:
+            sc = _signal_score(i, is_t1, e20, e60, e120, adx, rsi)
+            mult = _score_to_mult(sc, True)
+        else:
+            mult = 1.0
+
+        return dict(
+            ed=dates[i], ei=i, ep=pr[i],
+            is_hv=is_hv, stop_p=stop_p, ex_fn=ex_fn,
+            is_t1=is_t1, mult=mult,
+        )
+
+    trades = []           # 已平倉交易：(ret, mult, stopped)
+    positions = []        # 開倉中的所有倉位
+    consec_loss = 0       # AA 用：全域連敗計數
 
     for i in range(1, n):
-        if not in_mkt:
-            ok, is_t1 = e7_en(i)
-            if ok:
-                in_mkt = True
-                ep, ed = pr[i], dates[i]
-                # 信號評分（C 變體）
-                if use_C:
-                    sc = _signal_score(i, is_t1, e20, e60, e120, adx, rsi)
-                    cur_mult = _score_to_mult(sc, True)
-                else:
-                    cur_mult = 1.0
+        # ── Step 1：先檢查所有現有倉位的出場條件 ───────────────
+        had_exit = False
+        for p in list(positions):
+            ed = p['ed']; ep = p['ep']
+            is_hv = p['is_hv']
+            stop_p = p['stop_p']
+            ex_fn  = p['ex_fn']
 
-                _atr = atr[i] if not np.isnan(atr[i]) else pr[i] * 0.03
-                rel = _atr / pr[i] * 100 if pr[i] > 0 else 0
-                if rel > 3.5:
-                    is_hv = True; stop_p = None; ex_fn = _ex_highvol
-                else:
-                    is_hv = False
-                    _adx = adx[i] if not np.isnan(adx[i]) else 22.0
-                    base_mult = 3.0 if _adx >= 30 else 2.5
-                    if use_AA and consec_loss > 0:
-                        atr_m = max(1.5, base_mult * (0.8 ** consec_loss))
-                    else:
-                        atr_m = base_mult
-                    stop_p = pr[i] - _atr * atr_m
-                    ex_fn = _ex_stable
-        else:
-            # v5 長持鎖定
-            if not is_hv:
+            # v5 長持鎖定（per-position）
+            if not is_hv and not is_inverse_etf:
                 td = (dates[i] - ed).days
                 fp = (pr[i] - ep) / ep * 100
                 if i >= 120 and td > 200 and fp > 50:
@@ -220,14 +303,38 @@ def _run_v7_strategy(df, flags):
 
             if do_exit_std or do_exit_t or do_exit_e20:
                 r = (pr[i] - ep) / ep
-                trades.append((r, cur_mult, hit_stop or do_exit_t))
-                in_mkt = False
+                trades.append((r, p['mult'], hit_stop or do_exit_t))
+                positions.remove(p)
+                had_exit = True
                 if r < 0: consec_loss += 1
                 else: consec_loss = 0
 
-    if in_mkt:
-        r = (pr[-1] - ep) / ep
-        trades.append((r, cur_mult, False))
+        # ── Step 2：進場檢查（同日有出場則跳過，與 bt 原語意一致）──
+        # 例外：若 had_exit 但 positions 仍有其他開倉（純加碼情境），允許進場
+        skip_entry = had_exit and not positions
+        if not skip_entry:
+            ok, is_t1 = e7_en(i)
+            if ok:
+                should_open = False
+                if not positions:
+                    should_open = True   # 首倉一律允許
+                elif pyramid_th is not None:
+                    # 加碼：信號類型必須在允許清單，且所有現有倉位均達門檻
+                    signal_type = 'T1' if is_t1 else 'T3'
+                    if signal_type in pyramid_signals:
+                        all_above_th = all(
+                            ((pr[i] - p['ep']) / p['ep'] * 100) >= pyramid_th
+                            for p in positions
+                        )
+                        if all_above_th:
+                            should_open = True
+                if should_open:
+                    positions.append(_open_position(i, is_t1))
+
+    # 期末未平倉的倉位以最後價結算
+    for p in positions:
+        r = (pr[-1] - p['ep']) / p['ep']
+        trades.append((r, p['mult'], False))
 
     return trades
 
@@ -287,6 +394,9 @@ def run_v7_variant(ticker: str, df, mode: str = 'base') -> dict:
     df: 已 calc_ind 過的 DataFrame（從快取讀取，含 280 日暖機期）
     mode: 模式字串，見 _decode_mode()
 
+    反向ETF：使用反向專屬出場（RSI>70 + ATR×1.5），不執行 T4
+    其他股票：T1/T3 主策略 + T4 空頭反彈
+
     回傳：dict（含 ticker, pnl, pnl_pct, n_trades, win_rate, mode）
     """
     if df is None or df.empty: return None
@@ -297,8 +407,10 @@ def run_v7_variant(ticker: str, df, mode: str = 'base') -> dict:
     if df is None or df.empty: return None
 
     flags = _decode_mode(mode)
-    main_trades = _run_v7_strategy(df, flags)
-    t4_trades   = _run_t4_bear_bounce(df)
+    is_inv = ticker in INVERSE_ETF
+    main_trades = _run_v7_strategy(df, flags, is_inverse_etf=is_inv)
+    # 反向ETF 不啟用 T4（在空頭時不抓反彈，否則邏輯衝突）
+    t4_trades   = [] if is_inv else _run_t4_bear_bounce(df)
     all_trades  = main_trades + t4_trades
 
     if not all_trades:
