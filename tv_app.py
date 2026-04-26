@@ -3371,6 +3371,45 @@ with st.sidebar:
             default=["T1 黃金交叉", "T3 多頭拉回"],
             key="scan_signal_filter",
         )
+
+        # 產業別篩選：依市場列出可選類別
+        @st.cache_data(ttl=86400, show_spinner=False)
+        def _industry_options(market_choice: str) -> list:
+            """依市場回傳該市場存在的產業類別清單（去重排序）"""
+            from pathlib import Path as _P
+            base = _P(__file__).parent
+            out = set()
+            if "台股" in market_choice or "TW" in market_choice:
+                p = base / 'tw_universe.txt'
+                if p.exists():
+                    for line in p.read_text(encoding='utf-8').splitlines():
+                        if not line or line.startswith('#'): continue
+                        parts = line.split('|')
+                        if len(parts) >= 5 and parts[4]:
+                            out.add(parts[4])
+                        elif len(parts) >= 3 and parts[2] in (
+                                'ETF','ETN','特別股'):
+                            out.add(parts[2])
+            else:
+                p = base / 'us_sectors.txt'
+                if p.exists():
+                    for line in p.read_text(encoding='utf-8').splitlines():
+                        if not line or line.startswith('#'): continue
+                        parts = line.split('|')
+                        if len(parts) >= 3:
+                            sector = parts[2]
+                            if sector and sector != 'NO_SECTOR':
+                                out.add(_US_SECTOR_ZH.get(sector, sector))
+            return sorted(out)
+
+        scan_industry_filter = st.multiselect(
+            "產業別篩選（不選=全部）",
+            options=_industry_options(scan_market),
+            default=[],
+            key="scan_industry_filter",
+            help="只篩選選中的產業；不選代表掃描全市場"
+        )
+
         scan_btn = st.button("🚀 開始掃描", use_container_width=True,
                              key="scan_btn")
 
@@ -3814,6 +3853,10 @@ if scan_btn:
             import daily_scanner as _ds
             cache_dir = _dl.CACHE_DIR
             files = sorted(cache_dir.glob('*.parquet'))
+            # 產業篩選（本地入口）
+            if files and scan_industry_filter:
+                files = [fp for fp in files
+                         if _get_industry(fp.stem) in scan_industry_filter]
             if files:
                 tw_names = _get_tw_names()
                 mode = style_info['mode']
@@ -3856,16 +3899,22 @@ if scan_btn:
             # 雲端：載入台股全市場（優先 tw_universe.txt → twstock → 手動）
             full, tw_static_names = _get_all_tw_universe()
             if not full:
-                # 兩條路都失敗 → 精選 + 手動 ETF 清單
                 full = list(dict.fromkeys(
                     TW_INDIVIDUAL_TICKERS + _get_all_tw_etfs()))
                 tw_static_names = {}
-            # 將靜態名稱注入 session，供 _scan_via_yfinance 使用
             st.session_state['_tw_static_names'] = tw_static_names
-            st.info(
-                f"📡 雲端模式：批次掃描台股全市場 **{len(full)}** 檔"
-                f"（含上市/上櫃/ETF/ETN/TDR/特別股）"
-            )
+            # 產業篩選（雲端入口）
+            if scan_industry_filter:
+                full = [t for t in full if _get_industry(t) in scan_industry_filter]
+                st.info(
+                    f"📡 雲端模式：依產業篩選後掃描 **{len(full)}** 檔"
+                    f"（產業：{'、'.join(scan_industry_filter)}）"
+                )
+            else:
+                st.info(
+                    f"📡 雲端模式：批次掃描台股全市場 **{len(full)}** 檔"
+                    f"（含上市/上櫃/ETF/ETN/TDR/特別股）"
+                )
             scan_results = _scan_via_yfinance(full, suffix=".TW",
                                               is_tw_market=True)
     else:
@@ -3874,10 +3923,19 @@ if scan_btn:
         if full_us and len(full_us) > 1000:
             extra_hot = list(dict.fromkeys(US_HOT_TICKERS + full_us))
             st.session_state['_us_static_names'] = us_static_names
-            st.info(
-                f"📡 即時抓取美股全市場 **{len(extra_hot)}** 檔"
-                f"（NASDAQ + NYSE + AMEX，預估 3-5 分鐘）"
-            )
+            # 產業篩選（美股）
+            if scan_industry_filter:
+                extra_hot = [t for t in extra_hot
+                             if _get_industry(t) in scan_industry_filter]
+                st.info(
+                    f"📡 依產業篩選後掃描美股 **{len(extra_hot)}** 檔"
+                    f"（產業：{'、'.join(scan_industry_filter)}）"
+                )
+            else:
+                st.info(
+                    f"📡 即時抓取美股全市場 **{len(extra_hot)}** 檔"
+                    f"（NASDAQ + NYSE + AMEX，預估 3-5 分鐘）"
+                )
             scan_results = _scan_via_yfinance(extra_hot, is_tw_market=False)
         else:
             st.info(
