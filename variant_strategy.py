@@ -213,7 +213,8 @@ def _decode_mode(mode: str) -> dict:
         # 全新方向：跨市場
         vix_max_th   = None,    # VIX{N}：VIX 超過 N 時禁止新進場
         use_SPX      = 'SPX' in parts,    # SPX 多頭時才進場
-        use_DXY      = 'DXY' in parts,    # 美元下行時才進場
+        use_DXY      = 'DXY' in parts,    # 美元下行時才進場（基本版）
+        dxy_strength_th = None,           # DXYS{N}：DXY EMA20 須比 EMA60 低 N% 以上
         tnx_max_th   = None,    # TNX{N}：10年美債殖利率上限
         # 全新方向：基本面（財報季避險）
         use_ER       = 'ER' in parts,    # 財報季避險
@@ -312,6 +313,9 @@ def _decode_mode(mode: str) -> dict:
         elif part.startswith('CUAU') and len(part) > 4:
             try: flags['cuau_min'] = float(part[4:])
             except ValueError: pass
+        elif part.startswith('DXYS') and len(part) > 4:
+            try: flags['dxy_strength_th'] = float(part[4:])
+            except ValueError: pass
 
     return flags
 
@@ -395,7 +399,8 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     slippage_pct = flags['slippage_pct']   # SLP{F}：滑價%
     vix_max_th   = flags['vix_max_th']     # VIX{N}：VIX 上限
     use_SPX      = flags['use_SPX']        # SPX 多頭過濾
-    use_DXY      = flags['use_DXY']        # 美元下行過濾
+    use_DXY      = flags['use_DXY']        # 美元下行過濾（基本版）
+    dxy_strength_th = flags['dxy_strength_th']  # DXY 強度門檻（動態版）
     tnx_max_th   = flags['tnx_max_th']     # TNX{N}：美債殖利率上限
     use_ER       = flags['use_ER']         # 財報季避險
     use_GLD      = flags['use_GLD']        # 黃金多頭時不進場
@@ -430,14 +435,26 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                 spx_bull_arr = (aligned['e20'].values > aligned['e60'].values)
 
     dxy_bear_arr = None
-    if use_DXY:
+    dxy_strong_bear_arr = None
+    if use_DXY or dxy_strength_th is not None:
         xdf = _load_cross_market('DX-Y.NYB')
         if xdf is None:
             xdf = _load_cross_market('DX=F')
         if xdf is not None:
             aligned = xdf.reindex(df.index, method='ffill')
             if 'e20' in aligned.columns and 'e60' in aligned.columns:
-                dxy_bear_arr = (aligned['e20'].values < aligned['e60'].values)
+                dxy_e20 = aligned['e20'].values
+                dxy_e60 = aligned['e60'].values
+                dxy_bear_arr = (dxy_e20 < dxy_e60)
+                if dxy_strength_th is not None:
+                    # DXY EMA20 比 EMA60 低 N% 以上才算強勢弱美元
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        dxy_diff_pct = np.where(
+                            dxy_e60 > 0,
+                            (dxy_e20 - dxy_e60) / dxy_e60 * 100,
+                            np.nan
+                        )
+                    dxy_strong_bear_arr = (dxy_diff_pct < -dxy_strength_th)
 
     tnx_series = None
     if tnx_max_th is not None:
@@ -591,6 +608,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         # 跨市場：美元下行才進場（DXY，弱美元利新興市場）
         if use_DXY and dxy_bear_arr is not None:
             if not dxy_bear_arr[i]:
+                return False, False
+
+        # 跨市場：DXY 強度過濾（動態，DXYS{N}）
+        if dxy_strength_th is not None and dxy_strong_bear_arr is not None:
+            if not dxy_strong_bear_arr[i]:
                 return False, False
 
         # 跨市場：10年美債殖利率上限（TNX）
