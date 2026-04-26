@@ -4026,19 +4026,6 @@ platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
 
 st.markdown("#### 完整指標一覽表")
-with st.expander("⚖️ 四群組加權說明（點擊展開）", expanded=False):
-    st.markdown("""
-<div style="font-size:.73rem;color:#8ab8d0;line-height:2.1">
-指標依<b style="color:#a8cce8">功能屬性</b>分為四群組，反映「先看趨勢，再看位置，再確認動能，輔助佐證」的分析邏輯。<br><br>
-<span style="color:#3b9eff;font-weight:700">趨勢結構 40%</span>　EMA20/60 交叉 · EMA(60) 位置 · SMA(200) 位置 · ADX(14) 方向<br>
-<span style="color:#f0a030;font-weight:700">位置風險 30%</span>　RSI 區間評分（超賣/低位=買、超買=賣）· 布林 %B（&lt;20%=買、&gt;80%=賣）<br>
-<span style="color:#a060ff;font-weight:700">動能確認 20%</span>　MACD 零軸位置 · 動量(10) 方向 · AO 碟形/零軸交叉<br>
-<span style="color:#7a8899;font-weight:700">輔助指標 10%</span>　KD · CCI · StochRSI · 威廉%R · 牛熊力度 · 終極震盪 · EMA/SMA 10~50 · VWMA · Hull MA<br><br>
-<b style="color:#c8a030">⚠ 上限機制（Cap）</b>：以下情況最高評等限制為「買入」，不顯示「強力買入」：<br>
-&nbsp;&nbsp;• EMA20 &lt; EMA60（趨勢偏空）<br>
-&nbsp;&nbsp;• ADX &lt; 20（盤整，訊號可信度低）<br>
-&nbsp;&nbsp;• RSI &gt; 75 且布林 %B &gt; 100%（位置風險過高）
-</div>""", unsafe_allow_html=True)
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
