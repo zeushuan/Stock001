@@ -8,16 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.8"
+APP_VERSION   = "v8.9"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "🛟 超低風險 (+83/-88) ｜ 🛡️ IND+DXY (+122/1.03) ｜ "
+    "🆕 🤖 RL 智能加碼（Q-Learning，+153/0.67）｜ "
+    "🛟 超低風險 (+83/-88) ｜ 🛡️ IND+DXY (+122/1.03 仍最佳) ｜ "
     "🌊 POS+DXY (+121/0.99) ｜ ⚖️ POS (+142/0.85) ｜ 🚀 P0 (+197)"
 )
 APP_VALIDATIONS = (
-    "五重保護組合 POS+IND+DXY+WRSI+WADX 達最低 -88.3% (史上最低尾部) ｜ "
-    "事件驅動避險（AVOL/SHK）測試無顯著效果 ｜ "
-    "ML 決策樹確認 POS 已抓 80% 即時可用訊息"
+    "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
+    "純 RL 獲利 +153 但風險 -227 ｜ POS+IND+DXY 仍是最佳風報比 1.03"
 )
 
 import numpy as np
@@ -3098,11 +3098,12 @@ with st.sidebar:
     strategy_style = st.radio(
         label="策略風格",
         options=[
-            "超低風險 (五重保護)",
-            "極致風控 (IND+DXY)",
-            "保守 (POS+DXY)",
-            "平衡 (POS)",
-            "進攻 (P0_T1T3)"
+            "🛟 超低風險 (五重保護)",
+            "🛡️ 極致風控 (IND+DXY)",
+            "🌊 保守 (POS+DXY)",
+            "⚖️ 平衡 (POS)",
+            "🤖 RL 智能加碼",
+            "🚀 進攻 (P0_T1T3)",
         ],
         index=1,
         label_visibility="collapsed",
@@ -3110,35 +3111,42 @@ with st.sidebar:
     )
     # 各風格對應的描述
     _style_meta = {
-        "超低風險 (五重保護)": dict(
+        "🛟 超低風險 (五重保護)": dict(
             mode="P0_T1T3+POS+IND+DXY+WRSI+WADX",
             color="#ff6dc8",
             icon="🛟",
             mean=83.04, low=-88.3, sharpe=0.94, sigma=8.50,
             note="五重保護：POS+產業跨市場+DXY+週RSI+週ADX。最低風險僅 -88（史上最低），適合資金規模大需嚴控下檔",
         ),
-        "極致風控 (IND+DXY)": dict(
+        "🤖 RL 智能加碼": dict(
+            mode="P0_T1T3+RL",
+            color="#10c0c0",
+            icon="🤖",
+            mean=153.03, low=-227, sharpe=0.67, sigma=11.5,
+            note="Tabular Q-Learning 訓練 199,886 樣本，學到「累積<0 不加碼、SPX多頭+RSI30-50 加碼」等規則。獲利 +153% 略高於純 POS，自動發現的智能規則",
+        ),
+        "🛡️ 極致風控 (IND+DXY)": dict(
             mode="P0_T1T3+POS+IND+DXY",
             color="#9d6dff",
             icon="🛡️",
             mean=122.25, low=-118.7, sharpe=1.03, sigma=7.89,
             note="產業 specific 跨市場 + 全局 DXY。風報比 1.03 全部最佳！半導體配 SOX、景氣循環配 HG、其他配 DXY",
         ),
-        "保守 (POS+DXY)":  dict(
+        "🌊 保守 (POS+DXY)":  dict(
             mode="P0_T1T3+POS+DXY",
             color="#3dbb6a",
             icon="🌊",
             mean=120.51, low=-122, sharpe=0.99, sigma=7.67,
             note="弱美元才進場 + 累積為正才加碼。2022 熊市 -0.46% 保護有效，跨年度 σ 最穩",
         ),
-        "平衡 (POS)": dict(
+        "⚖️ 平衡 (POS)": dict(
             mode="P0_T1T3+POS",
             color="#3b9eff",
             icon="⚖️",
             mean=141.68, low=-166, sharpe=0.85, sigma=8.89,
             note="累積已實現損益為正才加碼，跨年度穩定，獲利與保護平衡",
         ),
-        "進攻 (P0_T1T3)": dict(
+        "🚀 進攻 (P0_T1T3)": dict(
             mode="P0_T1T3",
             color="#f0c030",
             icon="🚀",
@@ -3191,7 +3199,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 20  # v8.8：五重保護「超低風險」選項（最低 -88.3 史上最低）2026-04-26
+_RESULTS_VERSION = 21  # v8.9：新增 RL 智能加碼選項（Q-Learning 從 19.9 萬樣本學到的規則）2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
