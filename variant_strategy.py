@@ -142,6 +142,65 @@ _INDUSTRY_FILTERS = {
     # 其他 → 不加過濾（保留 POS 純策略）
 }
 
+# ─── 強化學習 Q-table 載入 ──────────────────────────────────
+_Q_TABLE_CACHE = None
+def _load_q_table():
+    """載入訓練好的 Q-table 並轉成 dict[(state, action)] -> q_val"""
+    global _Q_TABLE_CACHE
+    if _Q_TABLE_CACHE is not None:
+        return _Q_TABLE_CACHE
+    import json
+    from pathlib import Path
+    p = Path(__file__).parent / 'q_table.json'
+    if not p.exists():
+        _Q_TABLE_CACHE = {}
+        return _Q_TABLE_CACHE
+    try:
+        with open(p, encoding='utf-8') as f:
+            data = json.load(f)
+        # key 格式：(s_pnl, s_dxy, s_vix, s_spx, s_pos, s_rsi, s_bd)_action
+        result = {}
+        for k, v in data.items():
+            # 拆解 "(0, 1, 2, 1, 3, 2, 1)_1"
+            try:
+                state_str, action_str = k.rsplit('_', 1)
+                state_tuple = eval(state_str)
+                result[(state_tuple, int(action_str))] = float(v)
+            except: pass
+        _Q_TABLE_CACHE = result
+    except Exception:
+        _Q_TABLE_CACHE = {}
+    return _Q_TABLE_CACHE
+
+
+def _rl_discretize_state(pos_pnl_pct, dxy_bear, vix, spx_bull, n_pos, rsi, bull_days_pct):
+    """與 rl_trainer.py 的 discretize_state 完全一致"""
+    if pos_pnl_pct < 0: s_pnl = 0
+    elif pos_pnl_pct < 10: s_pnl = 1
+    elif pos_pnl_pct < 50: s_pnl = 2
+    else: s_pnl = 3
+    s_dxy = 1 if dxy_bear else 0
+    if vix is None or (isinstance(vix, float) and np.isnan(vix)): s_vix = 1
+    elif vix < 20: s_vix = 0
+    elif vix < 30: s_vix = 1
+    else: s_vix = 2
+    s_spx = 1 if spx_bull else 0
+    if n_pos == 0: s_pos = 0
+    elif n_pos < 4: s_pos = 1
+    elif n_pos < 8: s_pos = 2
+    else: s_pos = 3
+    if rsi is None or (isinstance(rsi, float) and np.isnan(rsi)): s_rsi = 1
+    elif rsi < 30: s_rsi = 0
+    elif rsi < 50: s_rsi = 1
+    elif rsi < 70: s_rsi = 2
+    else: s_rsi = 3
+    if bull_days_pct is None or np.isnan(bull_days_pct): s_bd = 1
+    elif bull_days_pct < 40: s_bd = 0
+    elif bull_days_pct < 60: s_bd = 1
+    else: s_bd = 2
+    return (s_pnl, s_dxy, s_vix, s_spx, s_pos, s_rsi, s_bd)
+
+
 _INDUSTRY_MAP_CACHE = None
 def _load_industry_map():
     """載入並快取 ticker→industry 映射"""
@@ -231,8 +290,14 @@ def _decode_mode(mode: str) -> dict:
         avol_max_th  = None,    # AVOL{N}：當前 ATR / 60日均 > N 倍時禁進場
         shk_pct_th   = None,    # SHK{N}：單日 |%change| > N% 後 5天冷卻
         # 多時間框架（週線）
-        use_WRSI     = 'WRSI' in parts,    # 週 RSI<50 才允許加碼（深度回檔）
+        use_WRSI     = 'WRSI' in parts,    # 週 RSI<50 才允許加碼
         use_WADX     = 'WADX' in parts,    # 週 ADX≥22 才進場
+        # 全新方法：Ensemble Voting
+        ens_min_votes = None,    # EV{K}
+        # 全新方法：Volatility Regime
+        vol_regime_th = None,    # VR{N}
+        # 全新方法：強化學習加碼決策
+        use_RL       = 'RL' in parts,    # RL：用訓練好的 Q-table 決定加碼
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -327,6 +392,12 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('SHK') and len(part) > 3:
             try: flags['shk_pct_th'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('EV') and len(part) > 2:
+            try: flags['ens_min_votes'] = int(part[2:])
+            except ValueError: pass
+        elif part.startswith('VR') and len(part) > 2:
+            try: flags['vol_regime_th'] = float(part[2:])
             except ValueError: pass
 
     return flags
@@ -425,6 +496,29 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     shk_pct_th   = flags['shk_pct_th']     # 衝擊事件門檻
     use_WRSI     = flags['use_WRSI']       # 週 RSI 過濾
     use_WADX     = flags['use_WADX']       # 週 ADX 過濾
+    ens_min_votes = flags.get('ens_min_votes')  # Ensemble 票數門檻
+    vol_regime_th = flags.get('vol_regime_th')  # 波動率 regime
+    use_RL       = flags.get('use_RL', False)   # 強化學習 Q-table 決策
+
+    # 載入 RL Q-table
+    rl_q_table = _load_q_table() if use_RL else {}
+
+    # 預備：60日波動率百分位（VR 用）
+    vol_regime_arr = None
+    if vol_regime_th is not None and len(pr) > 60:
+        try:
+            log_ret = np.diff(np.log(pr + 1e-9))
+            vol_60 = pd.Series(log_ret).rolling(60).std().values
+            # 計算每天的「波動率歷史百分位」
+            vol_regime_arr = np.full(len(pr), 50.0)
+            for i in range(120, len(pr) - 1):
+                window = vol_60[max(0, i-250):i]
+                valid = window[~np.isnan(window)]
+                if len(valid) > 50 and not np.isnan(vol_60[i]):
+                    pct = np.sum(valid <= vol_60[i]) / len(valid) * 100
+                    vol_regime_arr[i+1] = pct
+        except Exception:
+            vol_regime_arr = None
 
     # 預備：ATR 60 日均線（AVOL 用）
     if avol_max_th is not None:
@@ -654,6 +748,61 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
             if not spx_bull_arr[i]:
                 return False, False
 
+        # ─── Ensemble Voting：N 個保護條件中至少 K 個同意 ───
+        if ens_min_votes is not None:
+            votes = 0
+            total_protectors = 0
+
+            # 投票項 1：DXY 弱美元
+            if dxy_bear_arr is not None:
+                total_protectors += 1
+                if dxy_bear_arr[i]: votes += 1
+
+            # 投票項 2：VIX 在合理範圍
+            if vix_series is not None:
+                total_protectors += 1
+                if not np.isnan(vix_series[i]) and vix_series[i] < 25:
+                    votes += 1
+
+            # 投票項 3：SPX 多頭
+            if spx_bull_arr is not None:
+                total_protectors += 1
+                if spx_bull_arr[i]: votes += 1
+
+            # 投票項 4：週 ADX 強勢
+            if week_adx_daily is not None:
+                total_protectors += 1
+                if not np.isnan(week_adx_daily[i]) and week_adx_daily[i] >= 20:
+                    votes += 1
+
+            # 投票項 5：產業 specific 過濾
+            if use_IND:
+                total_protectors += 1
+                ind_map = _load_industry_map()
+                industry = ind_map.get(ticker, '')
+                ind_filter = _INDUSTRY_FILTERS.get(industry)
+                ind_passes = False
+                if ind_filter == 'SOX' and sox_bull_arr is not None:
+                    ind_passes = sox_bull_arr[i]
+                elif ind_filter == 'HG' and hg_bull_arr is not None:
+                    ind_passes = hg_bull_arr[i]
+                elif ind_filter == 'DXY' and dxy_bear_arr is not None:
+                    ind_passes = dxy_bear_arr[i]
+                else:
+                    ind_passes = True   # 沒對應產業則自動通過
+                if ind_passes: votes += 1
+
+            # 投票項 6：波動率 regime（低波動加分）
+            if vol_regime_arr is not None:
+                total_protectors += 1
+                if vol_regime_arr[i] < 70:   # 非極端高波動
+                    votes += 1
+
+            # 動態門檻：根據實際載入的保護器數量調整
+            if total_protectors >= ens_min_votes:
+                if votes < ens_min_votes:
+                    return False, False
+
         # 跨市場：美元下行才進場（DXY，弱美元利新興市場）
         if use_DXY and dxy_bear_arr is not None:
             if not dxy_bear_arr[i]:
@@ -696,6 +845,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         # 多時間框架：週 ADX 過濾
         if use_WADX and week_adx_daily is not None:
             if not np.isnan(week_adx_daily[i]) and week_adx_daily[i] < 22:
+                return False, False
+
+        # 波動率 regime 過濾（VR{N}：當前波動率百分位 > N 時不進場）
+        if vol_regime_th is not None and vol_regime_arr is not None:
+            if vol_regime_arr[i] > vol_regime_th:
                 return False, False
 
         # 深化跨市場：黃金多頭時不進場（避險情緒高）
@@ -1034,11 +1188,38 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                             if pos_cum_pct < min_th:
                                 pos_ok = False
 
+                        # 強化學習決策：用 Q-table 查最佳 action
+                        rl_ok = True
+                        if use_RL and rl_q_table:
+                            # 構造當下 state
+                            _vix = vix_series[i] if vix_series is not None else None
+                            _dxy_bear = dxy_bear_arr[i] if dxy_bear_arr is not None else False
+                            _spx_bull = spx_bull_arr[i] if spx_bull_arr is not None else True
+                            # bull_days_pct 過去 250 天
+                            if i >= 250:
+                                past = (e20[i-250:i] > e60[i-250:i])
+                                _bd_pct = float(np.sum(past) / 250 * 100)
+                            else:
+                                _bd_pct = 50.0
+                            state = _rl_discretize_state(
+                                pos_pnl_pct = pos_cum_pct,
+                                dxy_bear = _dxy_bear,
+                                vix = _vix,
+                                spx_bull = _spx_bull,
+                                n_pos = len(positions),
+                                rsi = rsi[i],
+                                bull_days_pct = _bd_pct,
+                            )
+                            q_hold = rl_q_table.get((state, 0), 0.0)
+                            q_pyramid = rl_q_table.get((state, 1), 0.0)
+                            if q_pyramid <= q_hold:
+                                rl_ok = False
+
                         all_above_th = all(
                             ((pr[i] - p['ep']) / p['ep'] * 100) >= eff_th
                             for p in positions
                         )
-                        if all_above_th and gap_ok and bd_ok and pos_ok:
+                        if all_above_th and gap_ok and bd_ok and pos_ok and rl_ok:
                             should_open = True
                             # A2 累積虧損熔斷
                             if cb_th is not None and realized_loss_pct >= cb_th:
