@@ -2012,6 +2012,12 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
 
+    # T4 條件：RSI<35（與回測一致）+ 連續2天上升
+    _t4_rsi_oversold = (rsi is not None and rsi < 35)
+    _t4_rsi_rising = (rsi is not None and rsi_prev is not None and rsi > rsi_prev
+                      and rsi_prev2 is not None and rsi_prev > rsi_prev2)
+    _t4_rising = (not is_bull) and _t4_rsi_oversold and _t4_rsi_rising
+
     # ── ① 環境判斷 ────────────────────────────────────────────
     if not is_bull:
         # 空頭：細分嚴重程度
@@ -2019,16 +2025,12 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             cross_txt = f"，死亡交叉 {abs(cross_days)} 天前"
         else:
             cross_txt = ""
-        # T4 條件：RSI<32 且連續2天上升（v3改良③）
-        _t4_rising = (rsi is not None and rsi < 32 and
-                      rsi_prev is not None and rsi > rsi_prev and
-                      rsi_prev2 is not None and rsi_prev > rsi_prev2)
         if _t4_rising:
             env_color, env_icon = "#ff9944", "🟡"
             env_tag   = "空頭 — 超賣反彈觀察（T4）"
-            env_desc  = (f"EMA20 &lt; EMA60{cross_txt}｜RSI {rsi_str} &lt; 32 且<b>連續2天止跌回升</b>"
+            env_desc  = (f"EMA20 &lt; EMA60{cross_txt}｜RSI {rsi_str} &lt; 35 且<b>連續2天止跌回升</b>"
                          f"（{rsi_prev2:.1f}→{rsi_prev:.1f}→{rsi_str}），T4反彈條件達成（ATR×2.0嚴格停損）")
-        elif rsi is not None and rsi < 32:
+        elif _t4_rsi_oversold:
             env_color, env_icon = "#ff9944", "🔴"
             env_tag   = "空頭 — 極度超賣"
             env_desc  = (f"EMA20 &lt; EMA60{cross_txt}｜RSI {rsi_str} 極度超賣，"
@@ -2109,22 +2111,43 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<div style="color:#e8a020">ADX {adx_str} &lt; 22，趨勢強度不足，'
             f'等待 ADX ≥ 22 後進場</div>'
         )
-    else:  # 空頭
-        if _t4_rising:
-            entry_rows.append(
-                f'<div style="color:#ff9944">T4反彈條件達成：RSI {rsi_str} &lt; 32 且<b>連續2天止跌回升</b>，'
-                f'可短線觀察反彈（ATR×<b>2.0</b> 嚴格停損，非多頭策略）</div>'
-            )
-        elif rsi is not None and rsi < 32:
-            _need = "（僅差1天，再觀察1日）" if (rsi_prev is not None and rsi > rsi_prev) else "（RSI尚未止跌）"
-            entry_rows.append(
-                f'<div style="color:#7a8899">RSI {rsi_str} 超賣但T4條件未達{_need}，'
-                f'等待連續2天RSI回升後再評估</div>'
-            )
+    else:  # 空頭：以 T4 為主要進場通道
+        # T4 條件分項顯示（與 T1/T3 一致格式）
+        _t4_cond1 = (rsi is not None and rsi < 35)
+        _t4_cond2 = _t4_rsi_rising
+        if rsi is None:
+            _t4_state = "資料不足"
+        elif _t4_rising:
+            _t4_state = (f"RSI {rsi_str} &lt; 35 且<b>連續2天回升</b>"
+                         f"（{rsi_prev2:.1f}→{rsi_prev:.1f}→{rsi_str}）　← <b>可進場</b>")
+            _t4_color = "#3dbb6a"
+        elif _t4_cond1 and not _t4_cond2:
+            _need = ("僅差1日（昨升今續升即達標）"
+                     if (rsi_prev is not None and rsi > rsi_prev)
+                     else "RSI 尚未止跌")
+            _t4_state = f"RSI {rsi_str} &lt; 35 ✅ 但連續2日上升 ⬜（{_need}）"
+            _t4_color = "#c8b87a"
+        elif not _t4_cond1:
+            _t4_state = (f"RSI {rsi_str} ≥ 35（還差 {35 - rsi:.1f} 點到超賣門檻）"
+                         if rsi is not None else "")
+            _t4_color = "#7a8899"
         else:
+            _t4_state = "等待"; _t4_color = "#7a8899"
+
+        _t4_icon = "✅" if _t4_rising else ("🟡" if _t4_cond1 else "⬜")
+        entry_rows.append(
+            f'<div style="display:flex;gap:6px;align-items:baseline">'
+            f'<span style="background:#2a1500;border-radius:3px;padding:0 5px;'
+            f'font-size:.65rem;color:#ff9944;white-space:nowrap">T4 空頭反彈</span>'
+            f'<span style="color:{_t4_color}">{_t4_icon} {_t4_state}</span></div>'
+        )
+
+        # 補充：仍是空頭的提示
+        if not _t4_rising:
             entry_rows.append(
-                f'<div style="color:#7a8899">空頭期間不進場，'
-                f'等待 EMA20 穿越 EMA60（黃金交叉）後重新評估</div>'
+                f'<div style="color:#7a8899;font-size:.72rem;margin-left:6px">'
+                f'空頭期間僅 T4 適用（ATR×2.0 嚴格停損）；'
+                f'其餘等 EMA 黃金交叉後重新評估</div>'
             )
 
     # 進場動作標籤
