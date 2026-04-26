@@ -8,16 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.5"
+APP_VERSION   = "v8.6"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "三檔候選：P0_T1T3 (+197/0.68) ｜ POS (+142/0.85) ｜ "
-    "★ POS+DXY (+121/0.99 跨年σ=7.67 最穩) ｜ 接近條件預警 7 類"
+    "🎯 側邊欄新增「策略風格」選擇器：保守 / 平衡 / 進攻三檔切換 ｜ "
+    "推薦：保守 POS+DXY (+121/0.99) | 平衡 POS (+142/0.85) | 進攻 P0 (+197)"
 )
 APP_VALIDATIONS = (
-    "POS+DXY 在 2022 熊市僅 -0.46% (vs POS -3.83 大幅保護) ｜ "
-    "DXY 包含全球流動性資訊，加入 GLD/HG/SOX/VIXTR 反而稀釋 ｜ "
-    "失敗方向：GLD 災難 (+44/0.28)、ER 財報季粗糙、TNX 從未觸發"
+    "操作建議卡顯示當前選擇的策略風格徽章 ｜ "
+    "POS+DXY 跨年度 σ=7.67 最穩定 ｜ 2022 熊市 -0.46% 保護有效"
 )
 
 import numpy as np
@@ -2229,6 +2228,25 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<div style="color:#f0c030;font-size:.73rem;margin-top:3px">{_rec_warn}</div>'
         )
 
+    # ── 🎯 當前選擇的策略風格徽章（從 session_state 讀取）──
+    style_info_local = None
+    try:
+        style_info_local = st.session_state.get('active_strategy')
+    except Exception:
+        pass
+
+    style_badge_html = ""
+    if style_info_local:
+        style_badge_html = (
+            f'<div style="background:{style_info_local["color"]}22;'
+            f'border-left:3px solid {style_info_local["color"]};'
+            f'border-radius:4px;padding:4px 10px;margin-top:6px;font-size:.7rem">'
+            f'{style_info_local["icon"]} 當前策略風格：'
+            f'<b style="color:{style_info_local["color"]}">{style_info_local["mode"]}</b>'
+            f'　獲利 +{style_info_local["mean"]:.0f}% ｜ 風報比 {style_info_local["sharpe"]:.2f}'
+            f'</div>'
+        )
+
     # ── ✨ 接近條件預警（即使尚未觸發 T1/T3/停損也提示）──
     proximity_alerts = _get_proximity_alerts(d)
     alert_html = ""
@@ -2304,6 +2322,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<span style="{tag_style};background:#0f2040;color:#f0c030">⑤推薦策略</span>'
         f'<div style="{val_style}">{"".join(rec_rows)}</div>'
         f'</div></div>'
+        # 🎯 策略風格徽章（從側邊欄選擇）
+        f'{style_badge_html}'
         # ⑥ 接近條件預警（即使未觸發也提示）
         f'{alert_html}'
         f'</div>'
@@ -3067,6 +3087,63 @@ with st.sidebar:
     fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("---")
+
+    # ── 策略風格選擇器（v8.6 新增）─────────────────────────────
+    st.markdown("""
+<div style="font-size:.75rem;color:#8ab8d8;font-weight:700;letter-spacing:.06em;
+            text-transform:uppercase;margin-bottom:6px">
+  🎯 策略風格
+</div>""", unsafe_allow_html=True)
+    strategy_style = st.radio(
+        label="策略風格",
+        options=["保守 (POS+DXY)", "平衡 (POS)", "進攻 (P0_T1T3)"],
+        index=0,
+        label_visibility="collapsed",
+        key="strategy_style"
+    )
+    # 各風格對應的描述
+    _style_meta = {
+        "保守 (POS+DXY)":  dict(
+            mode="P0_T1T3+POS+DXY",
+            color="#3dbb6a",
+            icon="🛡️",
+            mean=120.51, low=-122, sharpe=0.99, sigma=7.67,
+            note="弱美元才進場 + 累積為正才加碼。2022 熊市僅 -0.46% 保護有效",
+        ),
+        "平衡 (POS)": dict(
+            mode="P0_T1T3+POS",
+            color="#3b9eff",
+            icon="⚖️",
+            mean=141.68, low=-166, sharpe=0.85, sigma=8.89,
+            note="累積已實現損益為正才加碼，跨年度穩定，獲利與保護平衡",
+        ),
+        "進攻 (P0_T1T3)": dict(
+            mode="P0_T1T3",
+            color="#f0c030",
+            icon="🚀",
+            mean=197.48, low=-290, sharpe=0.68, sigma=12.7,
+            note="不限門檻 T1+T3 加碼，最大化獲利但變動大",
+        ),
+    }
+    style_info = _style_meta[strategy_style]
+    st.markdown(
+        f'<div style="background:#0a1628;border:1px solid {style_info["color"]}55;'
+        f'border-radius:6px;padding:8px 12px;margin-top:6px;font-size:.68rem;line-height:1.5">'
+        f'<div style="color:{style_info["color"]};font-weight:700;margin-bottom:3px">'
+        f'{style_info["icon"]} {style_info["mode"]}</div>'
+        f'<div style="color:#7aaac8">'
+        f'均值 <b style="color:{style_info["color"]}">+{style_info["mean"]:.0f}%</b> ｜ '
+        f'最差 <b style="color:#ff5555">{style_info["low"]:+.0f}%</b><br>'
+        f'風報比 <b style="color:#f0c030">{style_info["sharpe"]:.2f}</b> ｜ '
+        f'跨年σ <b style="color:#7abadd">{style_info["sigma"]:.1f}</b><br>'
+        f'<span style="color:#5a8ab0;font-size:.67rem">{style_info["note"]}</span>'
+        f'</div></div>',
+        unsafe_allow_html=True
+    )
+    # 存到 session_state 供後續使用
+    st.session_state['active_strategy'] = style_info
+
+    st.markdown("---")
     st.markdown("""
 <div style="font-size:.75rem;color:#8ab8d8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">
   📖 使用說明
@@ -3093,7 +3170,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 17  # v8.5：深化跨市場（黃金/銅/SOX 失敗，DXY 跨年度 σ=7.67 確認）2026-04-26
+_RESULTS_VERSION = 18  # v8.6：側邊欄新增策略風格選擇器（保守/平衡/進攻 三檔切換）2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
