@@ -302,6 +302,10 @@ def _decode_mode(mode: str) -> dict:
         use_AT       = 'AT' in parts,    # AT：贏放寬、輸收緊（自適應 POS 門檻）
         # 全新方法：Anomaly Detection（簡易統計版）
         anom_atr_th  = None,             # ANOM{N}：當前 ATR > N 倍 60 日中位數時暫停
+        # 全新方法：三大法人籌碼整合
+        use_INST     = 'INST' in parts,  # 三大法人合計買超才加碼
+        use_FOR      = 'FOR' in parts,   # 外資 N 日累積買超才加碼
+        for_days     = None,             # FORN{N}：外資 N 日累積期
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -406,6 +410,11 @@ def _decode_mode(mode: str) -> dict:
         elif part.startswith('ANOM') and len(part) > 4:
             try: flags['anom_atr_th'] = float(part[4:])
             except ValueError: pass
+        elif part.startswith('FORN') and len(part) > 4:
+            try:
+                flags['for_days'] = int(part[4:])
+                flags['use_FOR'] = True
+            except ValueError: pass
 
     return flags
 
@@ -508,6 +517,27 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     use_RL       = flags.get('use_RL', False)   # 強化學習 Q-table 決策
     use_AT       = flags.get('use_AT', False)   # 線上自適應門檻
     anom_atr_th  = flags.get('anom_atr_th')     # 異常波動偵測
+    use_INST     = flags.get('use_INST', False) # 三大法人合計買超
+    use_FOR      = flags.get('use_FOR', False)  # 外資 N 日累積買超
+    for_days     = flags.get('for_days') or 5
+
+    # 載入此股的三大法人歷史
+    inst_total_arr = None
+    inst_foreign_arr = None
+    if use_INST or use_FOR:
+        from pathlib import Path
+        inst_path = Path(__file__).parent / 'inst_per_ticker' / f'{ticker}.parquet'
+        if inst_path.exists():
+            try:
+                inst_df = pd.read_parquet(inst_path)
+                # 對齊到日線
+                inst_aligned = inst_df.reindex(df.index, method='ffill')
+                if '三大法人買賣超股數' in inst_aligned.columns:
+                    inst_total_arr = inst_aligned['三大法人買賣超股數'].values
+                if '外陸資買賣超股數(不含外資自營商)' in inst_aligned.columns:
+                    inst_foreign_arr = inst_aligned['外陸資買賣超股數(不含外資自營商)'].values
+            except Exception:
+                pass
 
     # 載入 RL Q-table
     rl_q_table = _load_q_table() if use_RL else {}
@@ -865,6 +895,20 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         if vol_regime_th is not None and vol_regime_arr is not None:
             if vol_regime_arr[i] > vol_regime_th:
                 return False, False
+
+        # 三大法人合計買超才進場（INST）
+        if use_INST and inst_total_arr is not None:
+            if not np.isnan(inst_total_arr[i]) and inst_total_arr[i] <= 0:
+                return False, False
+
+        # 外資 N 日累積買超才進場（FOR / FORN{N}）
+        if use_FOR and inst_foreign_arr is not None and i >= for_days:
+            recent_for = inst_foreign_arr[i-for_days:i+1]
+            valid = recent_for[~np.isnan(recent_for)]
+            if len(valid) >= for_days // 2:
+                cum_for = np.sum(valid)
+                if cum_for <= 0:
+                    return False, False
 
         # 深化跨市場：黃金多頭時不進場（避險情緒高）
         if use_GLD and gld_bull_arr is not None:
