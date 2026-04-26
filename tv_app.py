@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.9"
+APP_VERSION   = "v9.0"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "🆕 🤖 RL 智能加碼（Q-Learning，+153/0.67）｜ "
-    "🛟 超低風險 (+83/-88) ｜ 🛡️ IND+DXY (+122/1.03 仍最佳) ｜ "
-    "🌊 POS+DXY (+121/0.99) ｜ ⚖️ POS (+142/0.85) ｜ 🚀 P0 (+197)"
+    "🆕 自選股清單儲存 ｜ 🆕 市場掃描器（台股/美股 進場候選） ｜ "
+    "🆕 策略風格下拉選單（移至日期下方） ｜ "
+    "🛡️ IND+DXY (+122/1.03 最佳)"
 )
 APP_VALIDATIONS = (
     "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
@@ -3054,8 +3054,76 @@ with st.sidebar:
         return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
 
     default_stocks = load_default_stocks()
-    stock_input = st.text_area("輸入股票清單", label_visibility="collapsed",
-        value=default_stocks, height=220)
+
+    # ── 📑 自選股清單（v9.0 新增：本地 JSON 持久化）────────────
+    import json as _json
+    from pathlib import Path as _Path
+    _WATCHLIST_FILE = _Path(__file__).parent / 'watchlists.json'
+
+    def _load_watchlists() -> dict:
+        if _WATCHLIST_FILE.exists():
+            try:
+                return _json.loads(_WATCHLIST_FILE.read_text(encoding='utf-8'))
+            except Exception:
+                return {}
+        return {}
+
+    def _save_watchlists(d: dict):
+        try:
+            _WATCHLIST_FILE.write_text(
+                _json.dumps(d, ensure_ascii=False, indent=2),
+                encoding='utf-8')
+        except Exception as e:
+            st.error(f"儲存失敗：{e}")
+
+    if 'watchlists' not in st.session_state:
+        st.session_state['watchlists'] = _load_watchlists()
+    _wls = st.session_state['watchlists']
+
+    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-bottom:2px'>📑 自選股清單</div>",
+                unsafe_allow_html=True)
+    _wl_options = ["（預設清單）"] + sorted(_wls.keys())
+    _selected_wl = st.selectbox(
+        "自選股", options=_wl_options,
+        index=0, label_visibility="collapsed", key="watchlist_select"
+    )
+
+    # 依選擇載入清單內容
+    if _selected_wl == "（預設清單）":
+        _initial_text = default_stocks
+    else:
+        _initial_text = _wls.get(_selected_wl, default_stocks)
+
+    stock_input = st.text_area(
+        "輸入股票清單", label_visibility="collapsed",
+        value=_initial_text, height=200, key=f"stock_input_{_selected_wl}"
+    )
+
+    # 儲存 / 刪除 按鈕
+    _c1, _c2 = st.columns([3, 1])
+    with _c1:
+        _save_name = st.text_input(
+            "另存為", placeholder="輸入清單名稱…",
+            label_visibility="collapsed", key="wl_save_name"
+        )
+    with _c2:
+        if st.button("💾 存", use_container_width=True, key="wl_save_btn"):
+            n = _save_name.strip()
+            if not n:
+                st.warning("請先輸入清單名稱")
+            else:
+                _wls[n] = stock_input
+                _save_watchlists(_wls)
+                st.success(f"✓ 已存「{n}」")
+                st.rerun()
+
+    if _selected_wl != "（預設清單）":
+        if st.button(f"🗑 刪除「{_selected_wl}」", use_container_width=True,
+                     key="wl_del_btn"):
+            _wls.pop(_selected_wl, None)
+            _save_watchlists(_wls)
+            st.success(f"✓ 已刪除「{_selected_wl}」")
+            st.rerun()
 
     # ── 日期選擇 ──────────────────────────────────────────────────
     import datetime as _dt
@@ -3084,32 +3152,48 @@ with st.sidebar:
             '✓ 即時模式：最新收盤資料</div>',
             unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("---")
-
-    # ── 策略風格選擇器（v8.6 新增）─────────────────────────────
-    st.markdown("""
-<div style="font-size:.75rem;color:#8ab8d8;font-weight:700;letter-spacing:.06em;
-            text-transform:uppercase;margin-bottom:6px">
-  🎯 策略風格
-</div>""", unsafe_allow_html=True)
-    strategy_style = st.radio(
+    # ── 🎯 策略風格（v9.0：移至日期下方，改為下拉選單）─────────
+    st.markdown("<div style='font-size:.72rem;color:#5a8ab0;margin-top:10px;margin-bottom:2px'>🎯 策略風格</div>",
+                unsafe_allow_html=True)
+    _STRATEGY_OPTIONS = [
+        "🛡️ 極致風控 (IND+DXY)",
+        "🛟 超低風險 (五重保護)",
+        "🌊 保守 (POS+DXY)",
+        "⚖️ 平衡 (POS)",
+        "🤖 RL 智能加碼",
+        "🚀 進攻 (P0_T1T3)",
+    ]
+    strategy_style = st.selectbox(
         label="策略風格",
-        options=[
-            "🛟 超低風險 (五重保護)",
-            "🛡️ 極致風控 (IND+DXY)",
-            "🌊 保守 (POS+DXY)",
-            "⚖️ 平衡 (POS)",
-            "🤖 RL 智能加碼",
-            "🚀 進攻 (P0_T1T3)",
-        ],
-        index=1,
+        options=_STRATEGY_OPTIONS,
+        index=0,
         label_visibility="collapsed",
         key="strategy_style"
     )
-    # 各風格對應的描述
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    fetch_btn = st.button("🔍  開始抓取資料", type="primary", use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── 🔎 市場掃描器（v9.0 新增）──────────────────────────────
+    with st.expander("🔎 市場掃描器（找進場候選）", expanded=False):
+        scan_market = st.radio(
+            "市場", options=["🇹🇼 台股", "🇺🇸 美股"],
+            horizontal=True, key="scan_market_choice"
+        )
+        scan_top_n = st.slider("顯示前 N 檔", 10, 100, 30, key="scan_top_n")
+        scan_signal_filter = st.multiselect(
+            "信號類型篩選",
+            options=["T1 黃金交叉", "T3 多頭拉回", "🟢 多頭觀察"],
+            default=["T1 黃金交叉", "T3 多頭拉回"],
+            key="scan_signal_filter",
+        )
+        scan_btn = st.button("🚀 開始掃描", use_container_width=True,
+                             key="scan_btn")
+
+    st.markdown("---")
+
+    # 各風格對應的描述（提到外層供策略 selectbox 與市場掃描共用）
     _style_meta = {
         "🛟 超低風險 (五重保護)": dict(
             mode="P0_T1T3+POS+IND+DXY+WRSI+WADX",
@@ -3169,7 +3253,6 @@ with st.sidebar:
         f'</div></div>',
         unsafe_allow_html=True
     )
-    # 存到 session_state 供後續使用
     st.session_state['active_strategy'] = style_info
 
     st.markdown("---")
@@ -3199,11 +3282,132 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 21  # v8.9：新增 RL 智能加碼選項（Q-Learning 從 19.9 萬樣本學到的規則）2026-04-26
+_RESULTS_VERSION = 22  # v9.0：自選股持久化、市場掃描器、策略下拉選單 2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
     st.session_state["results_version"] = _RESULTS_VERSION
+
+# ── 🔎 市場掃描器處理（v9.0 新增）─────────────────────────────
+if scan_btn:
+    is_tw = (scan_market == "🇹🇼 台股")
+    st.markdown(f"""
+<div style="background:#0d1b2e;border:1px solid #1e3a5f;border-radius:10px;
+            padding:16px 20px;margin-bottom:1rem">
+  <div style="font-size:1.05rem;font-weight:700;color:#8ab8d8">
+    🔎 市場掃描中 {'🇹🇼 台股' if is_tw else '🇺🇸 美股'}
+  </div>
+  <div style="font-size:.75rem;color:#5a8ab0;margin-top:4px">
+    策略：{style_info['icon']} {style_info['mode']}
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    progress = st.progress(0.0, text="準備中...")
+    scan_results = []
+
+    if is_tw:
+        # 台股：使用本地 data_cache 快取
+        try:
+            import data_loader as _dl
+            import variant_strategy as _vs
+            import daily_scanner as _ds
+            from pathlib import Path as _P
+
+            cache_dir = _P(__file__).parent / 'data_cache'
+            files = sorted(cache_dir.glob('*.parquet'))
+            if not files:
+                st.error("data_cache 為空，請先執行 backtest_tw_all.py 建立快取")
+                st.stop()
+
+            mode = style_info['mode']
+            total = len(files)
+            for i, fp in enumerate(files):
+                if i % 20 == 0:
+                    progress.progress(i / total,
+                                      text=f"掃描中 {i+1}/{total}…")
+                ticker = fp.stem
+                try:
+                    r = _ds.scan_one(ticker, str(fp), mode=mode)
+                    if r is not None and r.get('signal') in scan_signal_filter:
+                        scan_results.append(r)
+                except Exception:
+                    continue
+            progress.progress(1.0, text=f"完成 {total} 檔")
+        except ImportError as e:
+            st.error(f"模組載入失敗：{e}")
+            st.stop()
+    else:
+        # 美股：用熱門代號清單即時抓取
+        US_TICKERS = [
+            "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","AVGO","AMD",
+            "NFLX","ORCL","CRM","ADBE","INTC","QCOM","IBM","TXN","CSCO",
+            "PYPL","SHOP","UBER","ABNB","COIN","PLTR","SNOW","DDOG","NET",
+            "JPM","BAC","GS","MS","WMT","COST","HD","MCD","NKE","DIS",
+            "BA","CAT","GE","XOM","CVX","JNJ","PFE","UNH","LLY",
+            "SPY","QQQ","DIA","IWM","BOTZ","SMH","SOXX","ARKK","XLF","XLE"
+        ]
+        try:
+            import yfinance as _yf
+            import pandas as _pd
+            import numpy as _np
+            total = len(US_TICKERS)
+            for i, t in enumerate(US_TICKERS):
+                progress.progress(i / total,
+                                  text=f"抓取 {t}  ({i+1}/{total})")
+                try:
+                    h = _yf.Ticker(t).history(period="1y", auto_adjust=True)
+                    if h is None or len(h) < 60: continue
+                    h.index = _pd.to_datetime(h.index)
+                    pr = h['Close'].values
+                    e20 = _pd.Series(pr).ewm(span=20, adjust=False).mean().values
+                    e60 = _pd.Series(pr).ewm(span=60, adjust=False).mean().values
+                    delta = _pd.Series(pr).diff()
+                    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+                    loss = -delta.where(delta < 0, 0.0).rolling(14).mean()
+                    rs = gain / loss
+                    rsi = (100 - 100/(1+rs)).values
+                    last = len(pr) - 1
+                    is_bull = e20[last] > e60[last]
+                    is_t1 = (last >= 1 and e20[last-1] <= e60[last-1] and
+                             e20[last] > e60[last])
+                    cur_rsi = float(rsi[last]) if not _np.isnan(rsi[last]) else None
+                    if is_t1:
+                        sig, score = "T1 黃金交叉", 90
+                    elif is_bull and cur_rsi and cur_rsi < 60:
+                        sig, score = "🟢 多頭觀察", 50
+                    elif is_bull and cur_rsi and cur_rsi >= 75:
+                        sig, score = "⚠️ 過熱（RSI≥75）", 30
+                    else:
+                        sig, score = "🔴 空頭", 10
+                    if sig in scan_signal_filter:
+                        scan_results.append(dict(
+                            ticker=t, date=h.index[-1].strftime('%Y-%m-%d'),
+                            price=float(pr[last]), signal=sig, score=score,
+                            rsi=cur_rsi, adx=None, is_bull=is_bull,
+                        ))
+                except Exception:
+                    continue
+            progress.progress(1.0, text=f"完成 {total} 檔")
+        except Exception as e:
+            st.error(f"美股掃描失敗：{e}")
+
+    if scan_results:
+        df_scan = pd.DataFrame(scan_results).sort_values(
+            'score', ascending=False).head(scan_top_n)
+        st.markdown(
+            f'<div style="font-size:.85rem;color:#3dbb6a;margin:.5rem 0">'
+            f'✓ 找到 <b>{len(scan_results)}</b> 檔候選，'
+            f'顯示前 <b>{len(df_scan)}</b> 檔（依 score 排序）</div>',
+            unsafe_allow_html=True)
+        st.dataframe(df_scan, use_container_width=True, height=600)
+        # 一鍵填入清單按鈕
+        if st.button("📋 將掃描結果填入股票清單"):
+            txt = "\n".join(df_scan['ticker'].tolist())
+            st.session_state[f"stock_input_{_selected_wl}"] = txt
+            st.rerun()
+    else:
+        st.warning("沒有符合條件的股票")
+    st.stop()
 
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
 if fetch_btn:
