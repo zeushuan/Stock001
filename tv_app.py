@@ -3305,93 +3305,120 @@ if scan_btn:
     progress = st.progress(0.0, text="準備中...")
     scan_results = []
 
+    # 通用 yfinance 即時掃描函數（雲端 fallback / 美股皆用）
+    def _scan_via_yfinance(tickers, suffix=""):
+        import yfinance as _yf
+        import pandas as _pd
+        import numpy as _np
+        total = len(tickers)
+        out = []
+        for i, t in enumerate(tickers):
+            progress.progress(i / total,
+                              text=f"抓取 {t}  ({i+1}/{total})")
+            try:
+                yf_sym = f"{t}{suffix}" if suffix else t
+                h = _yf.Ticker(yf_sym).history(period="1y", auto_adjust=True)
+                if h is None or len(h) < 60: continue
+                h.index = _pd.to_datetime(h.index)
+                pr = h['Close'].values
+                e20 = _pd.Series(pr).ewm(span=20, adjust=False).mean().values
+                e60 = _pd.Series(pr).ewm(span=60, adjust=False).mean().values
+                delta = _pd.Series(pr).diff()
+                gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+                loss = -delta.where(delta < 0, 0.0).rolling(14).mean()
+                rs = gain / loss
+                rsi = (100 - 100/(1+rs)).values
+                last = len(pr) - 1
+                is_bull = e20[last] > e60[last]
+                is_t1 = (last >= 1 and e20[last-1] <= e60[last-1] and
+                         e20[last] > e60[last])
+                cur_rsi = float(rsi[last]) if not _np.isnan(rsi[last]) else None
+                if is_t1:
+                    sig, score = "T1 黃金交叉", 90
+                elif is_bull and cur_rsi and cur_rsi < 60:
+                    sig, score = "🟢 多頭觀察", 50
+                elif is_bull and cur_rsi and cur_rsi >= 75:
+                    sig, score = "⚠️ 過熱（RSI≥75）", 30
+                else:
+                    sig, score = "🔴 空頭", 10
+                if sig in scan_signal_filter:
+                    out.append(dict(
+                        ticker=t, date=h.index[-1].strftime('%Y-%m-%d'),
+                        price=float(pr[last]), signal=sig, score=score,
+                        rsi=cur_rsi, adx=None, is_bull=is_bull,
+                    ))
+            except Exception:
+                continue
+        progress.progress(1.0, text=f"完成 {total} 檔")
+        return out
+
+    # 台股熱門代號（雲端 fallback 用，依市值/成交量精選）
+    TW_HOT_TICKERS = [
+        # 半導體
+        "2330","2454","2303","3711","6669","3034","3017","3661","6488","8081",
+        "6552","2382","3037","2379","6770","3231","2451","2441","8299","6239",
+        # 電子/伺服器
+        "2317","2382","2308","3231","2474","2376","2356","3017","3596","2353",
+        # 金融
+        "2881","2882","2891","2884","2885","2886","2887","2890","2892","5880",
+        "2883","2880",
+        # 傳產 / 食品
+        "1101","1102","2002","1216","1301","1303","2105","6505","9904","2912",
+        "2207","1326","1722","1227",
+        # ETF
+        "0050","0056","00878","00919","00929","006208","00713","00692","00701",
+        "00646","00713","0051","00632R","00679B","00937B",
+        # 其他熱門
+        "2412","3008","2603","2609","2615","2618","5483","8086","3443","2059",
+        "1519","6488","2049","6213","6285","8454","9910","1605","2812",
+    ]
+    # 美股熱門代號
+    US_HOT_TICKERS = [
+        "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","AVGO","AMD",
+        "NFLX","ORCL","CRM","ADBE","INTC","QCOM","IBM","TXN","CSCO",
+        "PYPL","SHOP","UBER","ABNB","COIN","PLTR","SNOW","DDOG","NET",
+        "JPM","BAC","GS","MS","WMT","COST","HD","MCD","NKE","DIS",
+        "BA","CAT","GE","XOM","CVX","JNJ","PFE","UNH","LLY",
+        "SPY","QQQ","DIA","IWM","BOTZ","SMH","SOXX","ARKK","XLF","XLE"
+    ]
+
     if is_tw:
-        # 台股：使用本地 data_cache 快取
+        # 台股：優先使用本地 data_cache，雲端 fallback 至 yfinance
+        local_ok = False
         try:
             import data_loader as _dl
             import variant_strategy as _vs
             import daily_scanner as _ds
-
             cache_dir = _dl.CACHE_DIR
             files = sorted(cache_dir.glob('*.parquet'))
-            if not files:
-                st.error(
-                    f"data_cache 為空（{cache_dir}），"
-                    "請先執行 backtest_tw_all.py 建立快取"
-                )
-                st.stop()
+            if files:
+                mode = style_info['mode']
+                total = len(files)
+                for i, fp in enumerate(files):
+                    if i % 20 == 0:
+                        progress.progress(i / total,
+                                          text=f"掃描中 {i+1}/{total}…（本地快取）")
+                    ticker = fp.stem
+                    try:
+                        r = _ds.scan_one(ticker, str(fp), mode=mode)
+                        if r is not None and r.get('signal') in scan_signal_filter:
+                            scan_results.append(r)
+                    except Exception:
+                        continue
+                progress.progress(1.0, text=f"完成 {total} 檔（本地快取）")
+                local_ok = True
+        except ImportError:
+            pass
 
-            mode = style_info['mode']
-            total = len(files)
-            for i, fp in enumerate(files):
-                if i % 20 == 0:
-                    progress.progress(i / total,
-                                      text=f"掃描中 {i+1}/{total}…")
-                ticker = fp.stem
-                try:
-                    r = _ds.scan_one(ticker, str(fp), mode=mode)
-                    if r is not None and r.get('signal') in scan_signal_filter:
-                        scan_results.append(r)
-                except Exception:
-                    continue
-            progress.progress(1.0, text=f"完成 {total} 檔")
-        except ImportError as e:
-            st.error(f"模組載入失敗：{e}")
-            st.stop()
+        if not local_ok:
+            st.info(
+                "📡 雲端模式：本地快取不存在，改用 yfinance 即時抓取台股熱門代號（~110 檔）"
+            )
+            # 去重後抓取
+            uniq = list(dict.fromkeys(TW_HOT_TICKERS))
+            scan_results = _scan_via_yfinance(uniq, suffix=".TW")
     else:
-        # 美股：用熱門代號清單即時抓取
-        US_TICKERS = [
-            "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","AVGO","AMD",
-            "NFLX","ORCL","CRM","ADBE","INTC","QCOM","IBM","TXN","CSCO",
-            "PYPL","SHOP","UBER","ABNB","COIN","PLTR","SNOW","DDOG","NET",
-            "JPM","BAC","GS","MS","WMT","COST","HD","MCD","NKE","DIS",
-            "BA","CAT","GE","XOM","CVX","JNJ","PFE","UNH","LLY",
-            "SPY","QQQ","DIA","IWM","BOTZ","SMH","SOXX","ARKK","XLF","XLE"
-        ]
-        try:
-            import yfinance as _yf
-            import pandas as _pd
-            import numpy as _np
-            total = len(US_TICKERS)
-            for i, t in enumerate(US_TICKERS):
-                progress.progress(i / total,
-                                  text=f"抓取 {t}  ({i+1}/{total})")
-                try:
-                    h = _yf.Ticker(t).history(period="1y", auto_adjust=True)
-                    if h is None or len(h) < 60: continue
-                    h.index = _pd.to_datetime(h.index)
-                    pr = h['Close'].values
-                    e20 = _pd.Series(pr).ewm(span=20, adjust=False).mean().values
-                    e60 = _pd.Series(pr).ewm(span=60, adjust=False).mean().values
-                    delta = _pd.Series(pr).diff()
-                    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
-                    loss = -delta.where(delta < 0, 0.0).rolling(14).mean()
-                    rs = gain / loss
-                    rsi = (100 - 100/(1+rs)).values
-                    last = len(pr) - 1
-                    is_bull = e20[last] > e60[last]
-                    is_t1 = (last >= 1 and e20[last-1] <= e60[last-1] and
-                             e20[last] > e60[last])
-                    cur_rsi = float(rsi[last]) if not _np.isnan(rsi[last]) else None
-                    if is_t1:
-                        sig, score = "T1 黃金交叉", 90
-                    elif is_bull and cur_rsi and cur_rsi < 60:
-                        sig, score = "🟢 多頭觀察", 50
-                    elif is_bull and cur_rsi and cur_rsi >= 75:
-                        sig, score = "⚠️ 過熱（RSI≥75）", 30
-                    else:
-                        sig, score = "🔴 空頭", 10
-                    if sig in scan_signal_filter:
-                        scan_results.append(dict(
-                            ticker=t, date=h.index[-1].strftime('%Y-%m-%d'),
-                            price=float(pr[last]), signal=sig, score=score,
-                            rsi=cur_rsi, adx=None, is_bull=is_bull,
-                        ))
-                except Exception:
-                    continue
-            progress.progress(1.0, text=f"完成 {total} 檔")
-        except Exception as e:
-            st.error(f"美股掃描失敗：{e}")
+        scan_results = _scan_via_yfinance(US_HOT_TICKERS)
 
     if scan_results:
         df_scan = pd.DataFrame(scan_results).sort_values(
