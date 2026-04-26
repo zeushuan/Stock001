@@ -145,7 +145,9 @@ def _decode_mode(mode: str) -> dict:
         atr_mult_hi  = None,    # 預設 3.0（ADX≥30 時）
         # 自適應規則（基於分群分析發現）
         bull_days_th = None,    # 加碼前要求過去 250 天 bull_days >= N%
-        v7_pos_only  = 'POS' in parts,  # 僅當 v7 base 在此股累積為正時才加碼
+        v7_pos_only  = 'POS' in parts,        # POS：累積為正才加碼
+        pos_min_pct  = None,                  # POSN：累積需達 N% 才加碼（POS5/POS10）
+        use_PR       = 'PR' in parts,         # PR：累積虧損後重置（停損後歸零）
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -211,6 +213,12 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('BD') and len(part) > 2:
             try: flags['bull_days_th'] = float(part[2:])
+            except ValueError: pass
+        elif part.startswith('POS') and len(part) > 3:
+            # POS5 / POS10 / POS-2 等動態門檻
+            try:
+                flags['pos_min_pct'] = float(part[3:])
+                flags['v7_pos_only'] = True   # 自動啟用 POS 機制
             except ValueError: pass
 
     return flags
@@ -289,6 +297,8 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     atr_mult_hi  = flags['atr_mult_hi']  if flags['atr_mult_hi'] is not None else 3.0
     bull_days_th = flags['bull_days_th']
     v7_pos_only  = flags['v7_pos_only']
+    pos_min_pct  = flags['pos_min_pct']    # POS{N}：累積需達 N% 才加碼
+    use_PR       = flags['use_PR']         # PR：停損後 POS 計數重置
 
     # F1 週線 EMA 預計算（從日線 resample）
     if use_WK:
@@ -484,6 +494,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     positions = []        # 開倉中的所有倉位
     consec_loss = 0       # AA 用：全域連敗計數
     realized_loss_pct = 0.0   # A2 用：已實現虧損累積（%）
+    pos_cum_pct = 0.0     # POS 用：累積已實現收益率%（可被 PR 重置）
 
     for i in range(1, n):
         # ── Step 1：先檢查所有現有倉位的出場條件 ───────────────
@@ -580,9 +591,14 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                 trades.append((r, p['mult'], hit_stop or do_exit_t))
                 positions.remove(p)
                 had_exit = True
+                # 更新 POS 累積指標
+                pos_cum_pct += r * p['mult'] * 100
                 if r < 0:
                     consec_loss += 1
                     realized_loss_pct += abs(r * p['mult']) * 100
+                    # PR 規則：停損時重置 POS 累積（清零）
+                    if use_PR and (hit_stop or do_exit_t):
+                        pos_cum_pct = 0.0
                 else:
                     consec_loss = 0
 
@@ -629,11 +645,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
                                 if bull_pct < bull_days_th:
                                     bd_ok = False
 
-                        # 自適應 POS：累積已實現損益必須為正才允許加碼
+                        # 自適應 POS：累積已實現損益必須達門檻才允許加碼
                         pos_ok = True
                         if v7_pos_only:
-                            cum_pnl = sum(t[0] for t in trades)  # 已平倉累積收益率
-                            if cum_pnl < 0:
+                            min_th = pos_min_pct if pos_min_pct is not None else 0.0
+                            if pos_cum_pct < min_th:
                                 pos_ok = False
 
                         all_above_th = all(
