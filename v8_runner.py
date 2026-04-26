@@ -61,11 +61,17 @@ def _worker_task(args):
 
 def _worker_task_path(args):
     """直接從 parquet 檔讀取（避免大量 IPC 資料傳輸）"""
-    ticker, file_path, mode = args
+    if len(args) == 3:
+        ticker, file_path, mode = args
+        start = end = None
+        tx_cost = 0.0
+    else:
+        ticker, file_path, mode, start, end, tx_cost = args
     import pandas as pd
     try:
         df = pd.read_parquet(file_path)
-        return vs.run_v7_variant(ticker, df, mode=mode)
+        return vs.run_v7_variant(ticker, df, mode=mode,
+                                 start=start, end=end, tx_cost_pct=tx_cost)
     except Exception as e:
         return dict(ticker=ticker, mode=mode, error=str(e))
 
@@ -78,6 +84,10 @@ def main():
     ap.add_argument('--refresh', action='store_true', help='強制重新下載')
     ap.add_argument('--tickers-file', default=None, help='自訂股票清單檔（每行一支）')
     ap.add_argument('--quiet', action='store_true')
+    ap.add_argument('--start', default=None, help='自訂回測起始日（walk-forward 用）')
+    ap.add_argument('--end', default=None, help='自訂回測結束日（walk-forward 用）')
+    ap.add_argument('--tx-cost', type=float, default=0.0,
+                    help='每筆雙邊交易成本百分比（台股實際 ~0.4275）')
     args = ap.parse_args()
 
     if args.output is None:
@@ -113,7 +123,8 @@ def main():
         print(f"[{args.mode}] 階段2：ProcessPool 平行分析（{args.workers} workers）...")
 
     # 用檔案路徑傳遞，避免 IPC 大量資料 pickle 開銷
-    tasks = [(tk, str(data_loader.cache_path(tk)), args.mode)
+    tasks = [(tk, str(data_loader.cache_path(tk)), args.mode,
+              args.start, args.end, args.tx_cost)
              for tk in data_map.keys()]
 
     results = []
@@ -138,8 +149,8 @@ def main():
         # 排序：按 pnl_pct 倒序
         results.sort(key=lambda r: r.get('pnl_pct', -1e9), reverse=True)
         with open(args.output, 'w', encoding='utf-8-sig', newline='') as f:
-            fields = ['ticker', 'mode', 'bh_pct', 'pnl_pct', 'n_trades',
-                      'n_t4', 'win_rate', 'pnl']
+            fields = ['ticker', 'mode', 'bh_pct', 'pnl_pct', 'pnl_pct_net',
+                      'n_trades', 'n_t4', 'win_rate', 'pnl']
             writer = csv.DictWriter(f, fieldnames=fields, extrasaction='ignore')
             writer.writeheader()
             for r in results:
