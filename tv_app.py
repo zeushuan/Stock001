@@ -3308,7 +3308,7 @@ if scan_btn:
     # 通用 yfinance 即時掃描函數（雲端 fallback / 美股皆用）
     # 改用 yf.download 批次下載（50/批），大幅加速雲端全市場掃描
     def _scan_via_yfinance(tickers, suffix="", is_tw_market=False,
-                           batch_size=150):
+                           batch_size=80):
         import yfinance as _yf
         import pandas as _pd
         import numpy as _np
@@ -3365,6 +3365,7 @@ if scan_btn:
                 return None
 
         # 批次下載
+        first_err = None
         for batch_start in range(0, total, batch_size):
             batch_end = min(batch_start + batch_size, total)
             batch = tickers[batch_start:batch_end]
@@ -3375,12 +3376,18 @@ if scan_btn:
             )
             try:
                 df_all = _yf.download(
-                    " ".join(yf_syms),
+                    yf_syms,
                     period="1y", auto_adjust=True,
                     group_by='ticker', threads=True,
-                    progress=False, show_errors=False,
+                    progress=False,
                 )
-            except Exception:
+            except Exception as e:
+                if first_err is None:
+                    first_err = f"download err: {type(e).__name__}: {e}"
+                continue
+            if df_all is None or df_all.empty:
+                if first_err is None:
+                    first_err = f"batch {batch_start}: 空 DataFrame"
                 continue
             for t, sym in zip(batch, yf_syms):
                 try:
@@ -3392,9 +3399,14 @@ if scan_btn:
                         h = df_all
                     r = _eval_one(t, h)
                     if r: out.append(r)
-                except Exception:
+                except Exception as e:
+                    if first_err is None:
+                        first_err = f"eval {t}: {type(e).__name__}: {e}"
                     continue
         progress.progress(1.0, text=f"完成 {total} 檔")
+        # 回傳除錯資訊
+        if not out and first_err:
+            st.session_state['_scan_first_err'] = first_err
         return out
 
     # ── 載入台股全市場（優先從靜態檔，再嘗試 twstock）
@@ -3696,7 +3708,16 @@ if scan_btn:
             st.session_state[f"stock_input_{_selected_wl}"] = txt
             st.rerun()
     else:
-        st.warning("沒有符合條件的股票")
+        err = st.session_state.pop('_scan_first_err', None)
+        if err:
+            st.error(
+                f"⚠️ 沒有符合條件的股票（且批次下載出錯）\n\n"
+                f"第一個錯誤：`{err}`\n\n"
+                f"可能原因：yfinance 在 Streamlit Cloud 被限速、"
+                f"或 yfinance 版本與此程式不相容。"
+            )
+        else:
+            st.warning("沒有符合條件的股票（資料下載成功，但全市場都不符合篩選條件）")
     st.stop()
 
 # ── 用 session_state 儲存結果，避免下拉選單觸發重跑時資料消失 ──
