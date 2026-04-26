@@ -258,6 +258,42 @@ def _get_tw_names() -> dict:
     except Exception:
         return {}
 
+# ── 概念股標籤 ─────────────────────────────────────────────────
+@st.cache_data(ttl=86400, show_spinner=False)
+def _load_concept_tags() -> dict:
+    """從 concept_tags.json 建立 {ticker: [concepts]} 反向對照"""
+    import json as _json
+    from pathlib import Path as _P
+    p = _P(__file__).parent / 'concept_tags.json'
+    if not p.exists(): return {}
+    try:
+        data = _json.loads(p.read_text(encoding='utf-8'))
+        rev = {}
+        for market in ('tw', 'us'):
+            for concept, tickers in data.get(market, {}).items():
+                for t in tickers:
+                    rev.setdefault(t, []).append(concept)
+        # 去重保序
+        return {t: list(dict.fromkeys(cs)) for t, cs in rev.items()}
+    except Exception:
+        return {}
+
+def _get_concepts(ticker: str, max_n: int = 5) -> list:
+    """取得單檔股票的概念股標籤（最多 max_n 個）"""
+    return _load_concept_tags().get(ticker, [])[:max_n]
+
+# 概念顏色配對（依首字 hash 對應顏色，視覺穩定）
+_CONCEPT_COLORS = [
+    "#3b9eff", "#ff6dc8", "#9d6dff", "#10c0c0", "#3dbb6a",
+    "#f0a030", "#ff5555", "#7abadd", "#c0a060", "#a060ff",
+]
+def _concept_chip_html(c: str) -> str:
+    color = _CONCEPT_COLORS[hash(c) % len(_CONCEPT_COLORS)]
+    return (f'<span style="background:{color}22;color:{color};'
+            f'border:1px solid {color}66;border-radius:10px;'
+            f'padding:1px 7px;margin:1px 3px 1px 0;font-size:.66rem;'
+            f'white-space:nowrap;display:inline-block">{c}</span>')
+
 # 常用美股/ETF 靜態名稱對照（避免 get_info() 在雲端失敗）
 US_NAMES = {
     "BOTZ": "Global X Robotics & AI ETF",
@@ -2513,11 +2549,15 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
 
         if error or not d:
             tv_url_err = get_tv_url(ticker, market)
+            err_concepts = _get_concepts(ticker, max_n=4)
+            err_concept_html = "".join(_concept_chip_html(c) for c in err_concepts) \
+                       if err_concepts else '<span style="color:#334455;font-size:.7rem">—</span>'
             rows += (f'<tr>'
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#a8cce8;font-size:.78rem">—</td>'
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
-                     f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td></tr>')
+                     f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td>'
+                     f'<td>{err_concept_html}</td></tr>')
             continue
 
         close_val  = d.get("close")
@@ -2558,17 +2598,24 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                 f'alert(\'提示詞已複製！請在新視窗中貼上(Ctrl+V / Cmd+V)\');}});return false;"'
                 f' title="複製提示詞並開啟{selected_platform}" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
             )
+        # 概念股標籤
+        concepts = _get_concepts(ticker, max_n=4)
+        concept_html = "".join(_concept_chip_html(c) for c in concepts) \
+                       if concepts else '<span style="color:#334455;font-size:.7rem">—</span>'
+        concept_cell = (f'<td style="max-width:220px;line-height:1.7">{concept_html}</td>')
+
         rows += (f'<tr>'
                  f'<td class="ticker-cell">{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}{tot_cell}{exit_cell}</tr>')
+                 f'{price_cell}{chg_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
 
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
             f'<th style="background:#060c18;min-width:140px">操作建議</th>'
             f'<th style="background:#060c18;min-width:120px">④出場獲利</th>'
+            f'<th style="background:#060c18;min-width:140px">概念股</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
@@ -2644,7 +2691,19 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
 
     advice_html = get_operation_advice(d, ticker=ticker)
 
-    return f'<div style="padding:4px 8px">{advice_html}{summary_row}{sections}</div>'
+    # 概念股標籤區塊
+    concepts = _get_concepts(ticker, max_n=10)
+    concept_html = ""
+    if concepts:
+        chips = "".join(_concept_chip_html(c) for c in concepts)
+        concept_html = (
+            f'<div style="background:#0a1628;border:1px solid #1a2f48;'
+            f'border-radius:8px;padding:8px 12px;margin-bottom:10px">'
+            f'<span style="color:#7ab0d0;font-size:.68rem;font-weight:700;'
+            f'margin-right:8px">🏷️ 概念股</span>{chips}</div>'
+        )
+
+    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
@@ -3356,6 +3415,7 @@ if scan_btn:
                 chg_pct = (cur_pr - prev_pr) / prev_pr * 100 if prev_pr else 0
                 name = tw_names.get(t, "") if is_tw_market \
                        else us_names_full.get(t, "")
+                concepts = _get_concepts(t, max_n=4)
                 return dict(
                     ticker=t, name=name,
                     date=str(h.index[-1].date()),
@@ -3364,6 +3424,7 @@ if scan_btn:
                     signal=sig, score=score,
                     rsi=round(cur_rsi, 1) if cur_rsi else None,
                     is_bull=is_bull,
+                    concepts=" / ".join(concepts) if concepts else "",
                 )
             except Exception:
                 return None
@@ -3650,6 +3711,8 @@ if scan_btn:
                                 r['change_pct'] = None
                             r['name'] = tw_names.get(ticker, "")
                             r['price'] = round(r.get('price', 0), 2)
+                            cs = _get_concepts(ticker, max_n=4)
+                            r['concepts'] = " / ".join(cs) if cs else ""
                             scan_results.append(r)
                     except Exception:
                         continue
@@ -3698,6 +3761,7 @@ if scan_btn:
             'score', ascending=False).head(scan_top_n)
         # 重新整理欄位順序，把名稱/價格/漲跌放到代號旁邊
         preferred_cols = ['ticker', 'name', 'price', 'change_pct',
+                          'concepts',
                           'signal', 'score', 'rsi', 'adx', 'is_bull',
                           'cross_days', 'date']
         ordered = [c for c in preferred_cols if c in df_scan.columns]
@@ -3718,6 +3782,8 @@ if scan_btn:
                 "price": st.column_config.NumberColumn("收盤價", format="%.2f"),
                 "change_pct": st.column_config.NumberColumn(
                     "漲跌%", format="%+.2f%%"),
+                "concepts": st.column_config.TextColumn(
+                    "概念股", width="medium"),
                 "signal": st.column_config.TextColumn("信號", width="medium"),
                 "score": st.column_config.NumberColumn("分數", format="%.0f"),
                 "rsi": st.column_config.NumberColumn("RSI", format="%.1f"),
