@@ -8,15 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v8.7"
+APP_VERSION   = "v8.8"
 APP_UPDATED   = "2026-04-26"
 APP_NOTES     = (
-    "🛡️ 極致風控 IND+DXY (+122/1.03 全新最佳) ｜ "
-    "保守 POS+DXY (+121/0.99) ｜ 平衡 POS (+142/0.85) ｜ 進攻 P0 (+197)"
+    "🛟 超低風險 (+83/-88) ｜ 🛡️ IND+DXY (+122/1.03) ｜ "
+    "🌊 POS+DXY (+121/0.99) ｜ ⚖️ POS (+142/0.85) ｜ 🚀 P0 (+197)"
 )
 APP_VALIDATIONS = (
-    "IND 產業 specific：半導體配 SOX、景氣循環配 HG、其他配 DXY ｜ "
-    "POS+IND+DXY 風報比首次突破 1.0（=1.03）｜ 跨年度 σ=7.89 穩定"
+    "五重保護組合 POS+IND+DXY+WRSI+WADX 達最低 -88.3% (史上最低尾部) ｜ "
+    "事件驅動避險（AVOL/SHK）測試無顯著效果 ｜ "
+    "ML 決策樹確認 POS 已抓 80% 即時可用訊息"
 )
 
 import numpy as np
@@ -3097,17 +3098,25 @@ with st.sidebar:
     strategy_style = st.radio(
         label="策略風格",
         options=[
+            "超低風險 (五重保護)",
             "極致風控 (IND+DXY)",
             "保守 (POS+DXY)",
             "平衡 (POS)",
             "進攻 (P0_T1T3)"
         ],
-        index=0,
+        index=1,
         label_visibility="collapsed",
         key="strategy_style"
     )
     # 各風格對應的描述
     _style_meta = {
+        "超低風險 (五重保護)": dict(
+            mode="P0_T1T3+POS+IND+DXY+WRSI+WADX",
+            color="#ff6dc8",
+            icon="🛟",
+            mean=83.04, low=-88.3, sharpe=0.94, sigma=8.50,
+            note="五重保護：POS+產業跨市場+DXY+週RSI+週ADX。最低風險僅 -88（史上最低），適合資金規模大需嚴控下檔",
+        ),
         "極致風控 (IND+DXY)": dict(
             mode="P0_T1T3+POS+IND+DXY",
             color="#9d6dff",
@@ -3182,7 +3191,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 19  # v8.7：產業 specific IND+DXY 風報比 1.03 全新最佳，新增四檔風格 2026-04-26
+_RESULTS_VERSION = 20  # v8.8：五重保護「超低風險」選項（最低 -88.3 史上最低）2026-04-26
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

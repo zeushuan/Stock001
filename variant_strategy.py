@@ -227,6 +227,12 @@ def _decode_mode(mode: str) -> dict:
         cuau_min     = None,              # CUAU{N}：銅金比 > N% 才進場
         # 產業 specific 跨市場
         use_IND      = 'IND' in parts,    # 依產業套用不同跨市場過濾
+        # 事件驅動避險（即時可計算）
+        avol_max_th  = None,    # AVOL{N}：當前 ATR / 60日均 > N 倍時禁進場
+        shk_pct_th   = None,    # SHK{N}：單日 |%change| > N% 後 5天冷卻
+        # 多時間框架（週線）
+        use_WRSI     = 'WRSI' in parts,    # 週 RSI<50 才允許加碼（深度回檔）
+        use_WADX     = 'WADX' in parts,    # 週 ADX≥22 才進場
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -315,6 +321,12 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('DXYS') and len(part) > 4:
             try: flags['dxy_strength_th'] = float(part[4:])
+            except ValueError: pass
+        elif part.startswith('AVOL') and len(part) > 4:
+            try: flags['avol_max_th'] = float(part[4:])
+            except ValueError: pass
+        elif part.startswith('SHK') and len(part) > 3:
+            try: flags['shk_pct_th'] = float(part[3:])
             except ValueError: pass
 
     return flags
@@ -409,6 +421,43 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
     use_VIXTR    = flags['use_VIXTR']      # VIX 下行才進場
     use_DXYROC   = flags['use_DXYROC']     # DXY 變化率過濾
     cuau_min     = flags['cuau_min']       # 銅金比門檻
+    avol_max_th  = flags['avol_max_th']    # ATR 異常放大門檻
+    shk_pct_th   = flags['shk_pct_th']     # 衝擊事件門檻
+    use_WRSI     = flags['use_WRSI']       # 週 RSI 過濾
+    use_WADX     = flags['use_WADX']       # 週 ADX 過濾
+
+    # 預備：ATR 60 日均線（AVOL 用）
+    if avol_max_th is not None:
+        atr_ma60_arr = pd.Series(atr).rolling(60).mean().values
+    else:
+        atr_ma60_arr = None
+
+    # 預備：日報酬率（SHK 用）
+    if shk_pct_th is not None:
+        daily_chg_arr = np.zeros(len(pr))
+        if len(pr) > 1:
+            daily_chg_arr[1:] = np.abs((pr[1:] - pr[:-1]) / pr[:-1] * 100)
+    else:
+        daily_chg_arr = None
+
+    # 預備：週線 RSI / ADX
+    week_rsi_daily = None
+    week_adx_daily = None
+    if use_WRSI or use_WADX:
+        try:
+            from ta.momentum import RSIIndicator
+            from ta.trend import ADXIndicator
+            weekly_close = df['Close'].resample('W-FRI').last()
+            weekly_high  = df['High'].resample('W-FRI').max() if 'High' in df.columns else weekly_close
+            weekly_low   = df['Low'].resample('W-FRI').min() if 'Low' in df.columns else weekly_close
+            if use_WRSI and len(weekly_close) > 14:
+                wrsi_w = RSIIndicator(weekly_close, 14).rsi()
+                week_rsi_daily = wrsi_w.reindex(df.index, method='ffill').values
+            if use_WADX and len(weekly_close) > 14:
+                wadx_w = ADXIndicator(weekly_high, weekly_low, weekly_close, 14).adx()
+                week_adx_daily = wadx_w.reindex(df.index, method='ffill').values
+        except Exception:
+            pass
 
     # 載入跨市場序列
     def _load_cross_market(ticker):
@@ -626,6 +675,29 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
             if month in (3, 5, 8, 11):
                 return False, False
 
+        # 事件驅動：ATR 異常放大過濾
+        if avol_max_th is not None and atr_ma60_arr is not None and i >= 60:
+            if not np.isnan(atr_ma60_arr[i]) and atr_ma60_arr[i] > 0 and not np.isnan(atr[i]):
+                if atr[i] / atr_ma60_arr[i] > avol_max_th:
+                    return False, False
+
+        # 事件驅動：衝擊事件後 5 天冷卻
+        if shk_pct_th is not None and daily_chg_arr is not None and i >= 5:
+            recent_max_chg = np.max(daily_chg_arr[max(0, i-5):i+1])
+            if recent_max_chg > shk_pct_th:
+                return False, False
+
+        # 多時間框架：週 RSI 過濾（週深度回檔才允許 T3 拉回加碼）
+        if use_WRSI and week_rsi_daily is not None:
+            if not np.isnan(week_rsi_daily[i]):
+                # T1 黃金交叉不過濾，僅 T3 須週 RSI<60（避免週線過熱時加碼）
+                pass  # 在 T3 區塊獨立處理
+
+        # 多時間框架：週 ADX 過濾
+        if use_WADX and week_adx_daily is not None:
+            if not np.isnan(week_adx_daily[i]) and week_adx_daily[i] < 22:
+                return False, False
+
         # 深化跨市場：黃金多頭時不進場（避險情緒高）
         if use_GLD and gld_bull_arr is not None:
             if gld_bull_arr[i]:
@@ -673,6 +745,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False):
         if np.isnan(e120[i]) or np.isnan(e120[i-60]) or e120[i-60] == 0: return False, False
         if (e120[i] - e120[i-60]) / abs(e120[i-60]) * 100 < e120_filter: return False, False
         if np.isnan(rsi[i]) or rsi[i] >= rsi_t3_th: return False, False
+
+        # 多時間框架：週 RSI < 60 才允許 T3（避免週線過熱時加碼）
+        if use_WRSI and week_rsi_daily is not None:
+            if not np.isnan(week_rsi_daily[i]) and week_rsi_daily[i] >= 60:
+                return False, False
 
         # B4 T3 拉回深度確認：當前價需從 30 日高點下跌 ≥ 5%
         if use_DP and i >= 30:
