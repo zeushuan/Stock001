@@ -3012,7 +3012,7 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
             f'</div></div>'
         )
 
-    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{kline_html}{summary_row}{sections}</div>'
+    return f'<div style="padding:4px 8px">{advice_html}{kline_html}{concept_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
