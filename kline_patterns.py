@@ -182,6 +182,29 @@ PATTERNS = {
 }
 
 
+def detect_all(df) -> dict:
+    """掃描整個 DataFrame 偵測所有型態。
+    回傳 {pattern_name: [trigger_indices]}
+    """
+    if df is None or len(df) < 6: return {n: [] for n in PATTERNS}
+    o = df['Open'].values
+    h = df['High'].values
+    l = df['Low'].values
+    c = df['Close'].values
+    atr = df['atr'].values if 'atr' in df.columns else np.full(len(df), np.nan)
+    n = len(c)
+    out = {name: [] for name in PATTERNS}
+    for name, (fn, _, _, _) in PATTERNS.items():
+        for i in range(2, n):
+            if any(np.isnan([o[i], h[i], l[i], c[i], atr[i]])): continue
+            try:
+                if fn(o, h, l, c, atr, i):
+                    out[name].append(i)
+            except Exception:
+                continue
+    return out
+
+
 def detect_recent(df, lookback: int = 5) -> list:
     """偵測最近 N 個交易日內出現的所有型態。
     回傳 [(date, name_zh, side, note, days_ago), ...]，依 days_ago 升冪。

@@ -8,16 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.4"
-APP_UPDATED   = "2026-04-27 16:05"
+APP_VERSION   = "v9.5"
+APP_UPDATED   = "2026-04-27 17:30"
 APP_NOTES     = (
-    "🆕 ⭐ Fugle VWAP 盤中執行（5 年研究最大突破，TEST 期 +0.31 風報比）｜ "
-    "🆕 簡化指標顯示（移除輔助指標）｜ "
-    "🆕 市場廣度警報 ｜ 🆕 台股 universe 3080 檔 ｜ K 線型態 + 接刀警告"
+    "🆕 ⭐⭐⭐ Fugle VWAP 93 檔擴大驗證（TEST 期 Δ RR +1.684、勝率 44→62%、最差 -47→-34）｜ "
+    "🆕 Streamlit Cloud 自動讀 st.secrets（FUGLE_API_KEY 雲端可用）｜ "
+    "🆕 簡化指標顯示｜🆕 台股 universe 3080 檔 ｜ K 線型態 + 接刀警告"
 )
 APP_VALIDATIONS = (
-    "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
-    "純 RL 獲利 +153 但風險 -227 ｜ POS+IND+DXY 仍是最佳風報比 1.03"
+    "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
+    "TEST out-of-sample Δ +1.684 確認非過擬合 ｜ "
+    "POS+IND+DXY 純技術面 RR 1.03 仍是 baseline"
 )
 
 import numpy as np
@@ -3898,7 +3899,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 26  # v9.4：Fugle VWAP 盤中執行優化（首個 TEST out-of-sample 正向）2026-04-27 16:05
+_RESULTS_VERSION = 27  # v9.5：VWAP 93 檔擴大驗證（TEST Δ +1.684）+ st.secrets 雲端 2026-04-27 17:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

@@ -50,3 +50,24 @@ watchlists.json
 .env
 *.env
 fugle_credentials*
+
+# Fugle / VWAP 快取（regeneratable，需 API key）
+intraday_cache/
+vwap_cache/
+
+# 跨年度結果 CSV（regeneratable）
+yr*_*.csv
+features.csv
+per_stock_full.csv
+
+# RL / ML artifacts（regeneratable）
+q_table.json
+
+# 各式 debug / analyze 腳本（暫時性，不入庫）
+debug_*.py
+analyze_*.py
+test_thresholds.py
+test_v4.py
+backtest_etf.py
+backtest_stoploss.py
+test_tickers.txt

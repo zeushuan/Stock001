@@ -38,12 +38,30 @@ def _load_env():
                 k, _, v = line.partition('=')
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
+
+def _load_streamlit_secrets():
+    """Streamlit Cloud 部署時，從 st.secrets 讀取 FUGLE_API_KEY"""
+    try:
+        import streamlit as st
+        # st.secrets 只在 Streamlit runtime 才有效，而且讀取會在沒設定時報錯
+        if hasattr(st, 'secrets'):
+            try:
+                key = st.secrets.get('FUGLE_API_KEY', None)
+                if key:
+                    os.environ.setdefault('FUGLE_API_KEY', str(key))
+            except Exception:
+                pass
+    except ImportError:
+        pass
+
+
 _load_env()
+_load_streamlit_secrets()
 
 CACHE_DIR = Path(__file__).parent / 'intraday_cache'
 CACHE_DIR.mkdir(exist_ok=True)
 
-# Fugle API key 從環境變數讀
+# Fugle API key 從環境變數讀（優先序：st.secrets > .env > 系統 env）
 FUGLE_API_KEY = os.environ.get('FUGLE_API_KEY')
 
 
