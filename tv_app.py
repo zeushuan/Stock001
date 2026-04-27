@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.5"
-APP_UPDATED   = "2026-04-27 17:30"
+APP_VERSION   = "v9.5b"
+APP_UPDATED   = "2026-04-27 17:50"
 APP_NOTES     = (
+    "🔧 修正：版本切換時自動清 fetch_indicators 快取（VWAP 才能立即顯示）｜ "
     "🆕 ⭐⭐⭐ Fugle VWAP 93 檔擴大驗證（TEST 期 Δ RR +1.684、勝率 44→62%、最差 -47→-34）｜ "
-    "🆕 Streamlit Cloud 自動讀 st.secrets（FUGLE_API_KEY 雲端可用）｜ "
-    "🆕 簡化指標顯示｜🆕 台股 universe 3080 檔 ｜ K 線型態 + 接刀警告"
+    "🆕 Streamlit Cloud 自動讀 st.secrets｜🆕 簡化指標顯示｜K 線型態 + 接刀警告"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -3899,10 +3899,19 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 27  # v9.5：VWAP 93 檔擴大驗證（TEST Δ +1.684）+ st.secrets 雲端 2026-04-27 17:30
+_RESULTS_VERSION = 28  # v9.5b：清 fetch_indicators 快取，VWAP UI 顯示修正 2026-04-27 17:50
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
+    # ⭐ 同步清 @st.cache_data 函式快取，讓資料結構變更立即生效（VWAP 等）
+    try:
+        fetch_indicators.clear()
+    except Exception:
+        pass
+    try:
+        fetch_indicators_range.clear()
+    except Exception:
+        pass
     st.session_state["results_version"] = _RESULTS_VERSION
 
 # ── 🔎 市場掃描器處理（v9.0 新增）─────────────────────────────
