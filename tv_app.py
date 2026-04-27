@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.5b"
-APP_UPDATED   = "2026-04-27 17:50"
+APP_VERSION   = "v9.5c"
+APP_UPDATED   = "2026-04-27 18:05"
 APP_NOTES     = (
-    "🔧 修正：版本切換時自動清 fetch_indicators 快取（VWAP 才能立即顯示）｜ "
-    "🆕 ⭐⭐⭐ Fugle VWAP 93 檔擴大驗證（TEST 期 Δ RR +1.684、勝率 44→62%、最差 -47→-34）｜ "
-    "🆕 Streamlit Cloud 自動讀 st.secrets｜🆕 簡化指標顯示｜K 線型態 + 接刀警告"
+    "🔧 VWAP 區塊移至「② 進場判斷」（接在 T1/T3/T4 後）｜ "
+    "🔧 close > VWAP 改為「不建議追高進場」提醒｜ "
+    "🆕 ⭐⭐⭐ VWAP 93 檔驗證（TEST 期 Δ RR +1.684）｜🆕 Cloud 自動讀 st.secrets"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -2260,6 +2260,31 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'其餘等 EMA 黃金交叉後重新評估</div>'
             )
 
+    # 🆕 VWAP 盤中執行建議（93 檔回測驗證 TEST 期 Δ RR +1.684、勝率 +17.5pp）
+    vwap_today = d.get("vwap_today")
+    if vwap_today and close:
+        vwap_pct = (close - vwap_today) / vwap_today * 100
+        if close < vwap_today:
+            vwap_msg = (
+                f'<b>📈 VWAP 進場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
+                f'收盤 {close:.2f} 已 <b style="color:#3dbb6a">低於均價 {abs(vwap_pct):.1f}%</b>，'
+                f'進場成本佳；<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
+            )
+            vwap_color = '#3dbb6a'
+        else:
+            vwap_msg = (
+                f'<b>📈 VWAP 提醒</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
+                f'收盤 {close:.2f} 高於均價 +{vwap_pct:.1f}%，'
+                f'<b>不建議追高進場</b>；若已持倉欲出場，盤中可在 ≥ {vwap_today:.2f} 掛賣單'
+            )
+            vwap_color = '#7abadd'
+        entry_rows.append(
+            f'<div style="background:#08131f;border-left:2px solid {vwap_color};'
+            f'padding:5px 8px;margin:5px 0;border-radius:3px">'
+            f'<span style="color:{vwap_color};font-size:.78rem">{vwap_msg}</span>'
+            f'</div>'
+        )
+
     # 進場動作標籤
     if not is_bull:
         if _t4_rising:
@@ -2291,31 +2316,6 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     else:
         risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
-
-    # 🆕 VWAP 進場/出場建議（盤中執行優化，回測驗證 +0.31 RR/TEST 期）
-    vwap_today = d.get("vwap_today")
-    if vwap_today and close:
-        vwap_pct = (close - vwap_today) / vwap_today * 100
-        if close < vwap_today:
-            vwap_msg = (
-                f'<b>📈 VWAP 進場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
-                f'收盤 {close:.2f} 已 <b style="color:#3dbb6a">低於均價 {abs(vwap_pct):.1f}%</b>，'
-                f'進場成本佳；<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
-            )
-            vwap_color = '#3dbb6a'
-        else:
-            vwap_msg = (
-                f'<b>📈 VWAP 出場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
-                f'收盤 {close:.2f} 高於均價 +{vwap_pct:.1f}%；'
-                f'<b>若要出場，盤中可在 ≥ {vwap_today:.2f} 掛賣單</b>'
-            )
-            vwap_color = '#7abadd'
-        risk_rows.append(
-            f'<div style="background:#08131f;border-left:2px solid {vwap_color};'
-            f'padding:5px 8px;margin:5px 0;border-radius:3px">'
-            f'<span style="color:{vwap_color};font-size:.78rem">{vwap_msg}</span>'
-            f'</div>'
-        )
 
     # ── ④ 出場獲利（v3：ATR/Price 自動分類出場規則）──────────────
     exit_rows = []
@@ -3899,7 +3899,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 28  # v9.5b：清 fetch_indicators 快取，VWAP UI 顯示修正 2026-04-27 17:50
+_RESULTS_VERSION = 29  # v9.5c：VWAP 區塊移至「② 進場判斷」 2026-04-27 18:05
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
