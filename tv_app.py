@@ -8,11 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.0"
-APP_UPDATED   = "2026-04-26"
+APP_VERSION   = "v9.1"
+APP_UPDATED   = "2026-04-27"
 APP_NOTES     = (
-    "🆕 自選股清單儲存 ｜ 🆕 市場掃描器（台股/美股 進場候選） ｜ "
-    "🆕 策略風格下拉選單（移至日期下方） ｜ "
+    "🆕 台股 universe 補完至 3080 檔（含 4169 泰宗等新上市）｜ "
+    "🆕 接刀風險警告 + 即將死叉預警 ｜ "
+    "🆕 K 線型態顯示（操作建議內）｜ "
     "🛡️ IND+DXY (+122/1.03 最佳)"
 )
 APP_VALIDATIONS = (
@@ -3769,7 +3770,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 22  # v9.0：自選股持久化、市場掃描器、策略下拉選單 2026-04-26
+_RESULTS_VERSION = 23  # v9.1：tw_universe 補完至 3080 檔（含新上市）+ K線型態 + 接刀警告 2026-04-27
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
