@@ -2597,6 +2597,35 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                  "white-space:nowrap;margin-top:2px")
     val_style = "font-size:.78rem;line-height:1.8;color:#c8dff0"
 
+    # 🆕 K 線型態（近 5 日）— 顯示於標題下、①市場環境上
+    _klines_local = d.get("kline_patterns", []) if d else []
+    _kline_inline = ""
+    if _klines_local:
+        _side_color = {'bull': '#3dbb6a', 'bear': '#ff5555', 'neutral': '#7a8899'}
+        _chips = []
+        for k in _klines_local:
+            _color = _side_color.get(k['side'], '#7a8899')
+            _day_label = ('今日' if k['days_ago'] == 0 else
+                          '昨日' if k['days_ago'] == 1 else
+                          f"{k['days_ago']} 日前")
+            _chips.append(
+                f'<span style="background:{_color}22;color:{_color};'
+                f'border:1px solid {_color}66;border-radius:10px;'
+                f'padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                f'white-space:nowrap;display:inline-block" '
+                f'title="{k["note"]}">'
+                f'{k["name_zh"]} <span style="opacity:0.7">· {_day_label}</span></span>'
+            )
+        _kline_inline = (
+            f'<div style="display:flex;gap:6px;align-items:flex-start;'
+            f'margin:0 0 8px;padding:6px 8px;background:#08131f;'
+            f'border-radius:5px;border-left:2px solid #3a5a7a">'
+            f'<span style="color:#7ab0d0;font-size:.66rem;font-weight:700;'
+            f'white-space:nowrap;flex-shrink:0">📐 K 線</span>'
+            f'<div style="line-height:1.7">{"".join(_chips)}</div>'
+            f'</div>'
+        )
+
     html = (
         f'<div style="background:#050e1a;border:1px solid #1a3050;border-radius:8px;'
         f'padding:10px 14px;margin-bottom:12px">'
@@ -2605,6 +2634,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         # 標題
         f'<div style="font-size:.82rem;font-weight:700;color:#4a8cbf;margin-bottom:8px">'
         f'📊 ⑦ 自適應趨勢 操作建議{label_tag}</div>'
+        # 📐 K 線型態（標題下、①上）
+        f'{_kline_inline}'
         # ①
         f'<div style="{sec_style}">'
         f'<span style="{tag_style}">①市場環境</span>'
@@ -2981,38 +3012,9 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
             f'margin-right:8px">🏷️ 概念股</span>{chips}</div>'
         )
 
-    # K 線型態（最近 5 日）
-    kline_html = ""
-    klines = d.get("kline_patterns", [])
-    if klines:
-        side_color = {'bull': '#3dbb6a', 'bear': '#ff5555', 'neutral': '#7a8899'}
-        chips_html = []
-        for k in klines:
-            color = side_color.get(k['side'], '#7a8899')
-            day_label = ('今日' if k['days_ago'] == 0 else
-                         '昨日' if k['days_ago'] == 1 else
-                         f"{k['days_ago']} 日前")
-            chips_html.append(
-                f'<span style="background:{color}22;color:{color};'
-                f'border:1px solid {color}66;border-radius:10px;'
-                f'padding:2px 8px;margin:2px 4px 2px 0;font-size:.7rem;'
-                f'white-space:nowrap;display:inline-block" '
-                f'title="{k["note"]}">'
-                f'{k["name_zh"]} <span style="opacity:0.7">· {day_label}</span></span>'
-            )
-        kline_html = (
-            f'<div style="background:#0a1628;border:1px solid #1a2f48;'
-            f'border-radius:8px;padding:8px 12px;margin-bottom:10px">'
-            f'<span style="color:#7ab0d0;font-size:.68rem;font-weight:700;'
-            f'margin-right:8px">📐 K 線型態（近 5 日）</span>'
-            f'{"".join(chips_html)}'
-            f'<div style="font-size:.65rem;color:#5a8ab0;margin-top:4px">'
-            f'⚠️ 純資訊參考（v3 回測：型態整合 v8 全部失敗，'
-            f'勝率升但長尾贏家損失）'
-            f'</div></div>'
-        )
+    # K 線型態已移至 get_operation_advice 內部（標題下、①市場環境上）
 
-    return f'<div style="padding:4px 8px">{advice_html}{kline_html}{concept_html}{summary_row}{sections}</div>'
+    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
