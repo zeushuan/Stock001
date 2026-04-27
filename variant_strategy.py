@@ -316,6 +316,10 @@ def _decode_mode(mode: str) -> dict:
         use_VWAP_EXIT  = 'VWAPEXIT' in parts,     # 只在 close > 當日 VWAP 才出場
         # VWAPEXEC 隔離驗證：停損出場用市價（不套 VWAP），其他出場仍用 max(close, VWAP)
         use_VWAP_NOSTOP = 'VWAPNOSTOP' in parts,  # 與 VWAPEXEC 並用：hit_stop 時跳過 VWAP
+        # 黑天鵝防護（讀 black_swans.json 的 danger_dates）
+        use_BSGUARD    = 'BSGUARD' in parts,      # 危險窗暫停 T1/T3 進場
+        use_BSEXIT     = 'BSEXIT' in parts,       # 危險窗加速出場（ATR×1.5）
+        use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -540,6 +544,23 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_VWAP_EXEC  = flags.get('use_VWAP_EXEC', False)
     use_VWAP_EXIT  = flags.get('use_VWAP_EXIT', False)
     use_VWAP_NOSTOP = flags.get('use_VWAP_NOSTOP', False)
+    use_BSGUARD    = flags.get('use_BSGUARD', False)
+    use_BSEXIT     = flags.get('use_BSEXIT', False)
+    use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
+
+    # 黑天鵝危險日清單（一次性載入）
+    bs_danger_set = None
+    if use_BSGUARD or use_BSEXIT or use_BSPOSHALF:
+        try:
+            from pathlib import Path as _P
+            import json as _json
+            bs_path = _P(__file__).parent / 'black_swans.json'
+            if bs_path.exists():
+                with open(bs_path, encoding='utf-8') as _f:
+                    bs_data = _json.load(_f)
+                bs_danger_set = set(bs_data.get('danger_dates', []))
+        except Exception:
+            bs_danger_set = None
 
     # 🆕 載入此股的毛利率 YoY 訊號（vs 一年前同季）
     margup_ok_arr = None
@@ -1318,6 +1339,11 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
 
         # ── Step 2：進場檢查（同日有出場則跳過，與 bt 原語意一致）──
         skip_entry = had_exit and not positions
+        # 黑天鵝防護：危險窗（trigger 起 21 日內）暫停 T1/T3 進場
+        if use_BSGUARD and bs_danger_set is not None:
+            cur_date_str = pd.Timestamp(dates[i]).strftime('%Y-%m-%d')
+            if cur_date_str in bs_danger_set:
+                skip_entry = True
         if not skip_entry:
             ok, is_t1 = e7_en(i)
             if ok:

@@ -168,6 +168,27 @@
     - 散戶版：盤中等待單（close < VWAP 才掛買）
     - tv_app v9.5d 加入三段式 VWAP UI（② 進場 / ③ 停損盯盤 / ④ 出場獲利）
 
+21. **🦢 黑天鵝防護驗證失敗**（2026-04-27）：
+    - 識別歷史黑天鵝：VIX>35 OR TWII<-3% OR SPX<-3% OR SOX<-4%
+    - 自 2019 起 **42 個黑天鵝事件**（COVID/Ukraine/2022 升息/yen carry/Trump 關稅等）
+    - 三種防護變體：
+      * **BSGUARD**：危險窗暫停 T1/T3 進場
+      * BSEXIT：危險窗加速出場（ATR×1.5）
+      * BSPOSHALF：危險窗部位減半
+    - **BSGUARD 結果（284 檔）**：
+      * 21 日窗：FULL Δ -0.46、TRAIN -0.32、TEST 0.00（全敗）
+      * 7 日窗 + VIX>25 才認定：FULL Δ -0.08、TRAIN -0.10、TEST 0.00（仍負）
+      * 最差個股**完全無改善**（v8 本來就避開大跌段）
+      * 與 VWAPEXEC 疊加：D = C - 0.10 ~ 0.02（拖累 VWAPEXEC alpha）
+    - **失敗根因**：
+      ```
+      黑天鵝期間：v8 趨勢過濾已自動避開（EMA20 < EMA60）
+      黑天鵝結束 + VIX 仍高 + 價格回升：v8 想進場（黃金交叉）
+      → BSGUARD 還在禁進場 → 錯過反彈 = 砍贏家
+      ```
+    - **教訓**：**v8 趨勢追蹤本身 = 天然黑天鵝防護**；額外的 BSGUARD 過頭
+    - 與 50+ 變體失敗模式呼應：「v8 過濾恰到好處」
+
 19. **🤖 ML Regime Gate 失敗**（最後一個方向，sklearn LR + RF）：
     - 訓練：4 特徵（TWII 60d ROC、廣度、VIX、DXY ROC）→ 預測下月 v8 RR < 0
     - LR Test acc 50%（隨機）/ Precision 44% / Recall 31%
