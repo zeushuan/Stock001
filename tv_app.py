@@ -668,7 +668,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         except Exception:
             pass
 
-        return {
+        d = {
             "name":         name,
             "close":        close_val,
             "prev_close":   prev_close_val,
@@ -734,6 +734,21 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             # 60 日高點（接刀風險警告用）
             "high60":   float(h.iloc[-60:].max()) if len(h) >= 60 else None,
         }
+
+        # K 線型態偵測（最近 5 個交易日內出現的型態）
+        try:
+            from kline_patterns import detect_recent
+            o = get_col("open")
+            atr_s = ta.volatility.AverageTrueRange(h, l, c, 14).average_true_range()
+            kdf = pd.DataFrame({
+                'Open': o, 'High': h, 'Low': l, 'Close': c, 'atr': atr_s
+            })
+            kdf.index = c.index
+            d['kline_patterns'] = detect_recent(kdf, lookback=5)
+        except Exception:
+            d['kline_patterns'] = []
+
+        return d
     except Exception as e:
         return {"_error": str(e)[:120]}
 
@@ -2966,7 +2981,38 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
             f'margin-right:8px">🏷️ 概念股</span>{chips}</div>'
         )
 
-    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{summary_row}{sections}</div>'
+    # K 線型態（最近 5 日）
+    kline_html = ""
+    klines = d.get("kline_patterns", [])
+    if klines:
+        side_color = {'bull': '#3dbb6a', 'bear': '#ff5555', 'neutral': '#7a8899'}
+        chips_html = []
+        for k in klines:
+            color = side_color.get(k['side'], '#7a8899')
+            day_label = ('今日' if k['days_ago'] == 0 else
+                         '昨日' if k['days_ago'] == 1 else
+                         f"{k['days_ago']} 日前")
+            chips_html.append(
+                f'<span style="background:{color}22;color:{color};'
+                f'border:1px solid {color}66;border-radius:10px;'
+                f'padding:2px 8px;margin:2px 4px 2px 0;font-size:.7rem;'
+                f'white-space:nowrap;display:inline-block" '
+                f'title="{k["note"]}">'
+                f'{k["name_zh"]} <span style="opacity:0.7">· {day_label}</span></span>'
+            )
+        kline_html = (
+            f'<div style="background:#0a1628;border:1px solid #1a2f48;'
+            f'border-radius:8px;padding:8px 12px;margin-bottom:10px">'
+            f'<span style="color:#7ab0d0;font-size:.68rem;font-weight:700;'
+            f'margin-right:8px">📐 K 線型態（近 5 日）</span>'
+            f'{"".join(chips_html)}'
+            f'<div style="font-size:.65rem;color:#5a8ab0;margin-top:4px">'
+            f'⚠️ 純資訊參考（v3 回測：型態整合 v8 全部失敗，'
+            f'勝率升但長尾贏家損失）'
+            f'</div></div>'
+        )
+
+    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{kline_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
