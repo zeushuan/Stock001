@@ -8,13 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.3"
-APP_UPDATED   = "2026-04-27 13:42"
+APP_VERSION   = "v9.4"
+APP_UPDATED   = "2026-04-27 16:05"
 APP_NOTES     = (
-    "🆕 簡化指標顯示：移除「輔助指標」區塊（10 項不影響操作建議的 informational 指標）｜ "
-    "🆕 市場廣度警報（偵測 2024 型「指數漲廣度差」失效市況）｜ "
-    "🆕 台股 universe 3080 檔 ｜ "
-    "🆕 K 線型態 + 接刀警告"
+    "🆕 ⭐ Fugle VWAP 盤中執行（5 年研究最大突破，TEST 期 +0.31 風報比）｜ "
+    "🆕 簡化指標顯示（移除輔助指標）｜ "
+    "🆕 市場廣度警報 ｜ 🆕 台股 universe 3080 檔 ｜ K 線型態 + 接刀警告"
 )
 APP_VALIDATIONS = (
     "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
@@ -810,6 +809,25 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             d['kline_patterns'] = detect_recent(kdf, lookback=5)
         except Exception:
             d['kline_patterns'] = []
+
+        # 🆕 VWAP 今日值（盤中執行優化建議）— 僅台股
+        try:
+            if is_tw:
+                from fugle_connector import get_minute_candles
+                from vwap_loader import compute_daily_vwap
+                # 抓近 1 天 5m 資料（即時值）
+                tk = ticker.replace('.TW', '').replace('.TWO', '')
+                m_df = get_minute_candles(tk, freq='5m', use_cache=False)
+                if m_df is not None and not m_df.empty:
+                    # 只取最後一天
+                    last_date = m_df.index.normalize().max()
+                    last_day = m_df[m_df.index >= last_date - pd.Timedelta(hours=8)]
+                    if len(last_day) >= 3:
+                        vw_df = compute_daily_vwap(last_day)
+                        if vw_df is not None and not vw_df.empty:
+                            d['vwap_today'] = float(vw_df['VWAP'].iloc[-1])
+        except Exception:
+            pass
 
         return d
     except Exception as e:
@@ -2269,8 +2287,34 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'&nbsp;<span style="color:#7a8899">（收盤 {close:.2f} − ATR×{_atr_mult_s} {stop_dist:.2f}'
             f' = -{stop_pct:.1f}%）</span></div>'
         )
+
     else:
         risk_rows.append('<div style="color:#7a8899">ATR 資料不足，無法計算動態停損</div>')
+
+    # 🆕 VWAP 進場/出場建議（盤中執行優化，回測驗證 +0.31 RR/TEST 期）
+    vwap_today = d.get("vwap_today")
+    if vwap_today and close:
+        vwap_pct = (close - vwap_today) / vwap_today * 100
+        if close < vwap_today:
+            vwap_msg = (
+                f'<b>📈 VWAP 進場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
+                f'收盤 {close:.2f} 已 <b style="color:#3dbb6a">低於均價 {abs(vwap_pct):.1f}%</b>，'
+                f'進場成本佳；<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
+            )
+            vwap_color = '#3dbb6a'
+        else:
+            vwap_msg = (
+                f'<b>📈 VWAP 出場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
+                f'收盤 {close:.2f} 高於均價 +{vwap_pct:.1f}%；'
+                f'<b>若要出場，盤中可在 ≥ {vwap_today:.2f} 掛賣單</b>'
+            )
+            vwap_color = '#7abadd'
+        risk_rows.append(
+            f'<div style="background:#08131f;border-left:2px solid {vwap_color};'
+            f'padding:5px 8px;margin:5px 0;border-radius:3px">'
+            f'<span style="color:{vwap_color};font-size:.78rem">{vwap_msg}</span>'
+            f'</div>'
+        )
 
     # ── ④ 出場獲利（v3：ATR/Price 自動分類出場規則）──────────────
     exit_rows = []
@@ -3854,7 +3898,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 25  # v9.3：簡化指標顯示（移除輔助指標群組）2026-04-27 13:42
+_RESULTS_VERSION = 26  # v9.4：Fugle VWAP 盤中執行優化（首個 TEST out-of-sample 正向）2026-04-27 16:05
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

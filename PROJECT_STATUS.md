@@ -124,6 +124,23 @@
     - 均值微升（+4~14）但最差個股惡化 -75~-199
     - 教訓：**部位調整不能脫離信號品質單獨優化**——v8 等權設計反而是「過濾恰到好處」之外的另一個保護機制
 
+20. **🚀 Fugle VWAP 盤中執行 — 5 年研究最大突破**（2026-04-27）：
+    - 接入玉山 Fugle (富果) API 取得 5-min bar
+    - 計算每日 VWAP = sum(typical × volume) / sum(volume)
+    - 三變體：
+      * **+VWAPEXEC**（進場 min(close,VWAP)、出場 max(close,VWAP)）
+      * +VWAPENTRY（filter）
+      * +VWAPEXIT（filter）
+    - 31 檔樣本（2023.6-2026.4）：
+      * baseline POS+IND+DXY: 風報比 0.179
+      * **+VWAPEXEC: 風報比 1.369（Δ +1.19）⭐**
+    - **Walk-Forward 7:3 驗證（首個 out-of-sample 正向）**：
+      * TRAIN (2023.6-2024.12): Δ +1.05
+      * **TEST (2025.1-2026.4): Δ +0.31** ⭐ 真實 alpha 確認
+    - 限制：Fugle 5m 資料只給 ~3 年；需「盤中能達到 VWAP 價」假設
+    - 散戶版：盤中等待單（close < VWAP 才掛買）
+    - tv_app v9.4 加入「📈 VWAP 進場/出場建議」UI
+
 19. **🤖 ML Regime Gate 失敗**（最後一個方向，sklearn LR + RF）：
     - 訓練：4 特徵（TWII 60d ROC、廣度、VIX、DXY ROC）→ 預測下月 v8 RR < 0
     - LR Test acc 50%（隨機）/ Precision 44% / Recall 31%
