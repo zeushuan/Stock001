@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.1"
-APP_UPDATED   = "2026-04-27"
+APP_VERSION   = "v9.2"
+APP_UPDATED   = "2026-04-27 13:15"
 APP_NOTES     = (
-    "🆕 台股 universe 補完至 3080 檔（含 4169 泰宗等新上市）｜ "
+    "🆕 市場廣度警報（偵測 2024 型「指數漲廣度差」失效市況）｜ "
+    "🆕 台股 universe 3080 檔（含 4169 泰宗等新上市）｜ "
     "🆕 接刀風險警告 + 即將死叉預警 ｜ "
-    "🆕 K 線型態顯示（操作建議內）｜ "
-    "🛡️ IND+DXY (+122/1.03 最佳)"
+    "🆕 K 線型態顯示（操作建議內）"
 )
 APP_VALIDATIONS = (
     "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
@@ -251,6 +251,68 @@ def get_prompt_text(ticker: str, name: str, d: dict) -> str:
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+# ── 🆕 市場廣度警報（D：偵測「指數漲、廣度差」失效市況）──────
+@st.cache_data(ttl=3600, show_spinner=False)
+def _get_market_breadth() -> dict:
+    """從 yfinance 取台股大盤 + 計算廣度。
+    回傳 {twii_60d_chg, breadth_pct, alert_level, msg}
+    """
+    try:
+        twii = yf.Ticker('^TWII').history(period='3mo', auto_adjust=True)
+        if len(twii) < 60: return {'has_data': False}
+        cur = float(twii['Close'].iloc[-1])
+        c60 = float(twii['Close'].iloc[-60])
+        twii_60d_chg = (cur - c60) / c60 * 100
+
+        # 用幾檔權值股代理計算廣度（取重要 30 檔，每檔看是否仍 > EMA60）
+        # 這是廣度的快速近似，避免抓全市場
+        proxies = ['2330','2317','2454','2412','2882','2891','2308','2382',
+                   '2884','2603','2885','2886','3008','2880','2207','1101',
+                   '1216','1303','2002','2615','2609','2610','3711','2474',
+                   '6505','3034','2618','3037','2890','2887']
+        above_ema60 = 0; total = 0
+        for t in proxies:
+            try:
+                df = yf.Ticker(f'{t}.TW').history(period='3mo',
+                                                    auto_adjust=True)
+                if len(df) < 60: continue
+                ema60 = df['Close'].ewm(span=60, adjust=False).mean().iloc[-1]
+                cur_p = df['Close'].iloc[-1]
+                if cur_p > ema60: above_ema60 += 1
+                total += 1
+            except Exception:
+                continue
+        if total < 10: return {'has_data': False}
+        breadth_pct = above_ema60 / total * 100
+
+        # 警戒級別
+        if twii_60d_chg > 5 and breadth_pct < 40:
+            level = 'red'
+            msg = (f'⚠️ 市場廣度警示：大盤 60 日 +{twii_60d_chg:.1f}% '
+                   f'但僅 {breadth_pct:.0f}% 權值股站上 EMA60。'
+                   f'指數由少數股拉動、多數股盤整下跌——v8 系統可能結構性失效（2024 範式）')
+        elif twii_60d_chg > 5 and breadth_pct < 60:
+            level = 'yellow'
+            msg = (f'⚠️ 市場廣度偏窄：大盤 60 日 +{twii_60d_chg:.1f}% '
+                   f'但僅 {breadth_pct:.0f}% 權值股站上 EMA60，主升段集中於少數股')
+        elif twii_60d_chg < -5 and breadth_pct < 40:
+            level = 'red_bear'
+            msg = (f'⚠️ 全面空頭：大盤 60 日 {twii_60d_chg:+.1f}% + '
+                   f'僅 {breadth_pct:.0f}% 權值股站上 EMA60')
+        else:
+            level = 'green'
+            msg = (f'✓ 市場廣度健康：大盤 60 日 {twii_60d_chg:+.1f}%、'
+                   f'{breadth_pct:.0f}% 權值股站上 EMA60')
+        return {
+            'has_data': True,
+            'twii_60d_chg': twii_60d_chg,
+            'breadth_pct': breadth_pct,
+            'level': level, 'msg': msg,
+        }
+    except Exception:
+        return {'has_data': False}
+
+
 @st.cache_data(ttl=86400, show_spinner=False)
 def _get_tw_names() -> dict:
     """台股中文名稱字典：合併 twstock + 靜態 tw_universe.txt（雲端可靠）"""
@@ -3396,6 +3458,25 @@ st.markdown(f"""
   🔬 <b style="color:#7aaac8">健壯性驗證</b>：{APP_VALIDATIONS}
 </div>""", unsafe_allow_html=True)
 
+# 🆕 市場廣度警報（D 路徑）
+_breadth = _get_market_breadth()
+if _breadth.get('has_data'):
+    _level_style = {
+        'red':      ('#2a0a00', '#ff5555', '#ffb090'),
+        'red_bear': ('#1a0a05', '#ff5555', '#ffa090'),
+        'yellow':   ('#1a1200', '#f0a030', '#f0c890'),
+        'green':    ('#0a1e10', '#3dbb6a', '#a8e0b8'),
+    }.get(_breadth['level'], ('#0a1628', '#7aaac8', '#a0b8c8'))
+    _bg, _bord, _fg = _level_style
+    st.markdown(
+        f'<div style="background:{_bg};border:1px solid {_bord}55;'
+        f'border-left:3px solid {_bord};border-radius:6px;'
+        f'padding:8px 14px;margin-bottom:1rem;font-size:.74rem;'
+        f'color:{_fg}"><b style="color:{_bord}">市場廣度</b> '
+        f'{_breadth["msg"]}</div>',
+        unsafe_allow_html=True
+    )
+
 with st.sidebar:
     # ═══════════════════════════════════════════════════════════════
     # § 1. 股票清單（含自選股管理）
@@ -3770,7 +3851,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 23  # v9.1：tw_universe 補完至 3080 檔（含新上市）+ K線型態 + 接刀警告 2026-04-27
+_RESULTS_VERSION = 24  # v9.2：市場廣度警報 + 時間精準到分鐘 2026-04-27 13:15
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
