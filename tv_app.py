@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.2"
-APP_UPDATED   = "2026-04-27 13:15"
+APP_VERSION   = "v9.3"
+APP_UPDATED   = "2026-04-27 13:42"
 APP_NOTES     = (
+    "🆕 簡化指標顯示：移除「輔助指標」區塊（10 項不影響操作建議的 informational 指標）｜ "
     "🆕 市場廣度警報（偵測 2024 型「指數漲廣度差」失效市況）｜ "
-    "🆕 台股 universe 3080 檔（含 4169 泰宗等新上市）｜ "
-    "🆕 接刀風險警告 + 即將死叉預警 ｜ "
-    "🆕 K 線型態顯示（操作建議內）"
+    "🆕 台股 universe 3080 檔 ｜ "
+    "🆕 K 線型態 + 接刀警告"
 )
 APP_VALIDATIONS = (
     "RL 從 199,886 樣本學到的規則與人工 POS 高度一致 ｜ "
@@ -3030,7 +3030,8 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
         f'<span style="color:#7ab0d0;font-size:.68rem">收盤價 </span>'
         f'<b style="color:#e8f4fd;font-family:\'IBM Plex Mono\',monospace">{fmt(d["close"])}</b></div>'
     )
-    for gname, color, pct, summ in zip(GROUP_NAMES, gc, GROUP_WEIGHTS, [ts_s, ps_s, ms_s, xs_s]):
+    # 同樣只顯示前 3 個群組的摘要（隱藏輔助指標）
+    for gname, color, pct, summ in zip(GROUP_NAMES[:3], gc[:3], GROUP_WEIGHTS[:3], [ts_s, ps_s, ms_s]):
         b, s, n, r = summ
         summary_row += (
             f'<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;padding:7px 12px">'
@@ -3054,11 +3055,13 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
         f'</div>'
     )
 
+    # ⚙️ 只顯示「實際驅動操作建議」的 3 個群組
+    # 隱藏「輔助指標」（KD/CCI/StochRSI/威廉%R/牛熊力度/終極震盪/Hull MA 等
+    # 都只是 informational scoring，不影響 T1/T3/T4 / cap / 接刀警告等判斷）
     sections = (
         group_section("趨勢結構", gc[0], g_trend,    ts_s) +
         group_section("位置風險", gc[1], g_position,  ps_s) +
-        group_section("動能確認", gc[2], g_momentum,  ms_s) +
-        group_section("輔助指標", gc[3], g_aux,       xs_s)
+        group_section("動能確認", gc[2], g_momentum,  ms_s)
     )
 
     advice_html = get_operation_advice(d, ticker=ticker)
@@ -3851,7 +3854,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 24  # v9.2：市場廣度警報 + 時間精準到分鐘 2026-04-27 13:15
+_RESULTS_VERSION = 25  # v9.3：簡化指標顯示（移除輔助指標群組）2026-04-27 13:42
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
