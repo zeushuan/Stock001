@@ -124,6 +124,44 @@
     - 均值微升（+4~14）但最差個股惡化 -75~-199
     - 教訓：**部位調整不能脫離信號品質單獨優化**——v8 等權設計反而是「過濾恰到好處」之外的另一個保護機制
 
+19. **🤖 ML Regime Gate 失敗**（最後一個方向，sklearn LR + RF）：
+    - 訓練：4 特徵（TWII 60d ROC、廣度、VIX、DXY ROC）→ 預測下月 v8 RR < 0
+    - LR Test acc 50%（隨機）/ Precision 44% / Recall 31%
+    - RF Test acc 61%（過擬合 Train 98%）/ Precision 62% / Recall 38%
+    - 整合進 v8 → REGIMELR Δ-0.268、REGIMERF Δ-0.212
+    - **失敗原因**：6 年 76 個月樣本對 ML 太少；regime 訊號被 v8 噪音淹沒
+    - **教訓**：即使 market-level filter 也救不了 v8 過擬合問題
+
+---
+
+### 🏆 終結性結論（2026-04-27）
+
+**全部 50+ 變體完整驗證，無一可改善風報比 ≥ 0.05**：
+
+```
+個股級過濾 (砍贏家陷阱)
+├ 三大法人 INST/FOR (10+ 變體)             ❌
+├ 學術因子 H52 / Persistency               ❌
+├ 型態識別 K線進場/出場/進階                ❌
+├ MACD 雙線                                ❌
+├ 過濾器 RG/T4G/REVUP/MARGUP                ❌
+├ MA 類型 SMA vs EMA                        ❌
+├ 部位 IVOL/ADXW                            ❌
+├ COOL/ACCEL/PSL/PG                         ❌
+├ 行業內輪動 SECTOP                         ❌
+└ 動態 ATR (VA)                            ✓ +0.015 微弱
+
+市場級過濾
+└ ML Regime Gate (LR/RF)                   ❌
+
+診斷
+└ Walk-Forward 7:3 拆分                    🚨 過擬合 67-88%
+```
+
+**真實未來預期**：v8 Test RR 約 0.20（不是樣本內 1.03）
+**核心洞察**：v8「過濾恰到好處」，再加任何過濾都會破壞長尾贏家結構
+**唯一突破方向**：新資料源（盤中、新聞、Alt-data）
+
 17b. **🚨 過擬合警告（Walk-Forward 7:3 拆分）**：
     - Train (2020-2024.5) → Test (2024.6-2026.4)
     - 6 風格 Test RR 全部 0.08~0.22（vs Train 0.56~0.79）
