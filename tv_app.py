@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.5d"
-APP_UPDATED   = "2026-04-27 18:30"
+APP_VERSION   = "v9.5e"
+APP_UPDATED   = "2026-04-27 19:00"
 APP_NOTES     = (
-    "🆕 VWAP 三段式建議：② 進場（綠）+ ④ 出場獲利（藍）+ ③ 停損盯盤（橘/紅）｜ "
-    "🆕 停損觸發時智能判斷：VWAP > 現價 → 限價搶反彈；VWAP < 現價 → 立即市價｜ "
-    "🆕 ⭐⭐⭐ VWAP 93 檔驗證 TEST Δ RR +1.684｜🆕 Cloud 讀 st.secrets"
+    "🎨 VWAP 提示視覺強化：警告型也用警告框（黃色 + 加粗 VWAP 數值）｜ "
+    "🆕 VWAP 三段式建議：② 進場 + ③ 停損 + ④ 出場獲利｜ "
+    "🆕 NOSTOP 隔離驗證：停損 VWAP 僅占 4-13% 提升｜🆕 Cloud 讀 st.secrets"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -2266,23 +2266,28 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if vwap_today and close:
         vwap_pct = (close - vwap_today) / vwap_today * 100
         if close < vwap_today:
+            # 進場有利：綠色強調框
             entry_rows.append(
-                f'<div style="background:#08131f;border-left:2px solid #3dbb6a;'
-                f'padding:5px 8px;margin:5px 0;border-radius:3px">'
-                f'<span style="color:#3dbb6a;font-size:.78rem">'
-                f'<b>📈 VWAP 進場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
-                f'收盤 {close:.2f} 已 <b>低於均價 {abs(vwap_pct):.1f}%</b>，'
-                f'進場成本佳；<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
+                f'<div style="background:#08131f;border-left:3px solid #3dbb6a;'
+                f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                f'<span style="color:#3dbb6a;font-size:.85rem">'
+                f'<b>📈 VWAP 進場建議</b>　收盤 {close:.2f} 低於 VWAP '
+                f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
+                f'(<b>-{abs(vwap_pct):.1f}%</b>)，進場成本佳；'
+                f'<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
                 f'</span></div>'
             )
         else:
-            # close ≥ VWAP：不建議追高進場（出場側建議在 ④）
+            # close ≥ VWAP：警告框（黃色），明顯但非綠/紅
             entry_rows.append(
-                f'<div style="color:#7a8899;font-size:.72rem;margin:3px 0">'
-                f'📉 目前收盤 {close:.2f} 已 <b>高於 VWAP {vwap_today:.2f}</b>'
-                f' (+{vwap_pct:.1f}%)，<b>不建議追高進場</b>，'
-                f'盤中等回落至 ≤ VWAP 再考慮'
-                f'</div>'
+                f'<div style="background:#1a1605;border-left:3px solid #d4a020;'
+                f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                f'<span style="color:#e8b830;font-size:.85rem">'
+                f'<b>⚠️ VWAP 進場提醒</b>　收盤 {close:.2f} 已高於 VWAP '
+                f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
+                f'(<b>+{vwap_pct:.1f}%</b>)，<b>不建議追高進場</b>；'
+                f'盤中等回落至 ≤ {vwap_today:.2f} 再考慮'
+                f'</span></div>'
             )
 
     # 進場動作標籤
@@ -2442,25 +2447,30 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     # 適用於「獲利了結 / 訊號出場」；停損出場另有規範（見 ③ 停損區塊）
     if vwap_today and close:
         if close > vwap_today:
+            # 出場有利：藍色強調框
             _vw_pct = (close - vwap_today) / vwap_today * 100
             exit_rows.append(
-                f'<div style="background:#08131f;border-left:2px solid #7abadd;'
-                f'padding:5px 8px;margin:5px 0;border-radius:3px">'
-                f'<span style="color:#7abadd;font-size:.78rem">'
-                f'<b>📈 VWAP 出場建議</b>：今日 VWAP <b>{vwap_today:.2f}</b>，'
-                f'收盤 {close:.2f} <b>高於均價 +{_vw_pct:.1f}%</b>，'
-                f'若觸發出場訊號（RSI&gt;70 / 死叉 / 高乖離），'
-                f'<b>盤中可在 ≥ {vwap_today:.2f} 掛賣單</b>賣得更貴'
+                f'<div style="background:#08131f;border-left:3px solid #7abadd;'
+                f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                f'<span style="color:#7abadd;font-size:.85rem">'
+                f'<b>📈 VWAP 出場建議</b>　收盤 {close:.2f} 高於 VWAP '
+                f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
+                f'(<b>+{_vw_pct:.1f}%</b>)，若觸發出場訊號（RSI&gt;70 / 死叉 / 高乖離），'
+                f'<b>盤中可在 ≥ {vwap_today:.2f} 掛賣單賣得更貴</b>'
                 f'</span></div>'
             )
         else:
+            # close ≤ VWAP：警告框（黃色），告知賣價不利
             _vw_pct = (vwap_today - close) / vwap_today * 100
             exit_rows.append(
-                f'<div style="color:#7a8899;font-size:.72rem;margin:3px 0">'
-                f'📉 目前 {close:.2f} <b>低於 VWAP {vwap_today:.2f}</b>'
-                f' (-{_vw_pct:.1f}%)，賣價已不利；'
-                f'若非觸發停損，可等盤中反彈至 ≥ VWAP 再賣'
-                f'</div>'
+                f'<div style="background:#1a1605;border-left:3px solid #d4a020;'
+                f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                f'<span style="color:#e8b830;font-size:.85rem">'
+                f'<b>⚠️ VWAP 出場提醒</b>　收盤 {close:.2f} 低於 VWAP '
+                f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
+                f'(<b>-{_vw_pct:.1f}%</b>)，<b>賣價不利</b>；'
+                f'若非觸發停損，可等盤中反彈至 ≥ {vwap_today:.2f} 再賣'
+                f'</span></div>'
             )
 
     # ── ④ 推薦策略 ────────────────────────────────────────────
@@ -3948,7 +3958,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 30  # v9.5d：VWAP 三段式建議（②進場 / ③停損 / ④出場獲利） 2026-04-27 18:30
+_RESULTS_VERSION = 31  # v9.5e：VWAP 提示視覺強化（警告型黃色框 + 數值加粗） 2026-04-27 19:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
