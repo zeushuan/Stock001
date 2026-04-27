@@ -148,9 +148,17 @@
       * **勝率躍升**：TEST 期 baseline 44.0% → VWAPEXEC **61.5%**（+17.5pp）
       * **最差個股改善**：TEST 期 -47.04% → -34.43%（-12.6pp）
     - 一致性：FULL / TRAIN / TEST **三段全部 Δ +1.5 ~ +2.3** → 首個跨期穩健的真 alpha
+    - **【停損隔離】VWAPNOSTOP 變體驗證**：
+      * 加入 `VWAPNOSTOP` 旗標：停損觸發時跳過 VWAP 用市價
+      * FULL: VWAPEXEC 5.580 → +NOSTOP 5.485（停損貢獻僅 **4.2%**）
+      * TEST: VWAPEXEC 3.433 → +NOSTOP 3.218（停損貢獻 **12.8%**）
+      * **87-96% 的提升來自非停損出場**（獲利了結/RSI/EMA死叉）
+      * → 沒盯盤直接停損市價出，仍可獲得 +1.469 RR 提升
     - 限制：Fugle 5m 資料只給 ~3 年（2023.6+）；TRAIN 期僅最後一年有 VWAP，仍正向 → 即使部分啟用也有效
+    - **代表性**：93 檔 = TWSE 前 100 大型權值股，**結論限定流動性高的中大型股**；
+      小型股/OTC 需另外驗證
     - 散戶版：盤中等待單（close < VWAP 才掛買）
-    - tv_app v9.4 加入「📈 VWAP 進場/出場建議」UI
+    - tv_app v9.5d 加入三段式 VWAP UI（② 進場 / ③ 停損盯盤 / ④ 出場獲利）
 
 19. **🤖 ML Regime Gate 失敗**（最後一個方向，sklearn LR + RF）：
     - 訓練：4 特徵（TWII 60d ROC、廣度、VIX、DXY ROC）→ 預測下月 v8 RR < 0

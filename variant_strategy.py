@@ -314,6 +314,8 @@ def _decode_mode(mode: str) -> dict:
         use_VWAP_ENTRY = 'VWAPENTRY' in parts,    # 只在 close < 當日 VWAP 才進場
         use_VWAP_EXEC  = 'VWAPEXEC' in parts,     # 進場價用 min(close, VWAP)、出場價用 max
         use_VWAP_EXIT  = 'VWAPEXIT' in parts,     # 只在 close > 當日 VWAP 才出場
+        # VWAPEXEC 隔離驗證：停損出場用市價（不套 VWAP），其他出場仍用 max(close, VWAP)
+        use_VWAP_NOSTOP = 'VWAPNOSTOP' in parts,  # 與 VWAPEXEC 並用：hit_stop 時跳過 VWAP
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -537,6 +539,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_VWAP_ENTRY = flags.get('use_VWAP_ENTRY', False)
     use_VWAP_EXEC  = flags.get('use_VWAP_EXEC', False)
     use_VWAP_EXIT  = flags.get('use_VWAP_EXIT', False)
+    use_VWAP_NOSTOP = flags.get('use_VWAP_NOSTOP', False)
 
     # 🆕 載入此股的毛利率 YoY 訊號（vs 一年前同季）
     margup_ok_arr = None
@@ -1282,7 +1285,9 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                 eff_ep = ep
                 eff_xp = pr[i]
                 # 🆕 VWAP_EXEC：出場價用 max(close, VWAP)（賣在均價以上）
-                if use_VWAP_EXEC and vwap_arr is not None and i < len(vwap_arr):
+                # NOSTOP 隔離驗證：停損觸發時跳過 VWAP（用市價，反映真實風險）
+                _apply_vwap = use_VWAP_EXEC and not (use_VWAP_NOSTOP and hit_stop)
+                if _apply_vwap and vwap_arr is not None and i < len(vwap_arr):
                     cur_vwap = vwap_arr[i]
                     if not np.isnan(cur_vwap):
                         eff_xp = max(pr[i], cur_vwap)
