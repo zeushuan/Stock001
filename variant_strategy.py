@@ -310,6 +310,10 @@ def _decode_mode(mode: str) -> dict:
         revup_n      = None,             # REVUP{N}：連續 N 月 YoY > 0 才進場
         # 基本面：毛利率 YoY 過濾
         use_MARGUP   = 'MARGUP' in parts,    # 毛利率 vs 一年前同季 上升才進場
+        # 盤中執行：VWAP 進出場（需 vwap_cache）
+        use_VWAP_ENTRY = 'VWAPENTRY' in parts,    # 只在 close < 當日 VWAP 才進場
+        use_VWAP_EXEC  = 'VWAPEXEC' in parts,     # 進場價用 min(close, VWAP)、出場價用 max
+        use_VWAP_EXIT  = 'VWAPEXIT' in parts,     # 只在 close > 當日 VWAP 才出場
     )
 
     # 解析金字塔模式 P{th}_{signals}
@@ -530,6 +534,9 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     for_days     = flags.get('for_days') or 5
     revup_n      = flags.get('revup_n')         # 月營收連續 N 月 YoY > 0
     use_MARGUP   = flags.get('use_MARGUP', False)  # 毛利率 YoY 上升
+    use_VWAP_ENTRY = flags.get('use_VWAP_ENTRY', False)
+    use_VWAP_EXEC  = flags.get('use_VWAP_EXEC', False)
+    use_VWAP_EXIT  = flags.get('use_VWAP_EXIT', False)
 
     # 🆕 載入此股的毛利率 YoY 訊號（vs 一年前同季）
     margup_ok_arr = None
@@ -806,6 +813,21 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     else:
         vol = None
 
+    # 🆕 VWAP 預載（盤中執行優化）
+    vwap_arr = None
+    if (use_VWAP_ENTRY or use_VWAP_EXEC or use_VWAP_EXIT) and ticker:
+        try:
+            from pathlib import Path as _P
+            vwap_path = _P(__file__).parent / 'vwap_cache' / f'{ticker}.parquet'
+            if vwap_path.exists():
+                vw_df = pd.read_parquet(vwap_path)
+                # 對齊到日線（vw_df index 是日期 datetime）
+                vw_aligned = vw_df['VWAP'].reindex(df.index, method='nearest',
+                                                    tolerance=pd.Timedelta('1D'))
+                vwap_arr = vw_aligned.values
+        except Exception:
+            vwap_arr = None
+
     # A3 預計算：ATR/Price 歷史中位數（用於波動正常化）
     if use_VA:
         atr_pct_arr = np.where(pr > 0, atr / pr * 100, np.nan)
@@ -957,6 +979,13 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
         if revup_n is not None and revup_ok_arr is not None:
             if not bool(revup_ok_arr[i]):
                 return False, False
+
+        # 🆕 VWAPENTRY：只在 close < 當日 VWAP 才進場（買在均價以下）
+        if use_VWAP_ENTRY and vwap_arr is not None:
+            cur_vwap = vwap_arr[i] if i < len(vwap_arr) else None
+            if cur_vwap is not None and not np.isnan(cur_vwap):
+                if pr[i] >= cur_vwap:
+                    return False, False
 
         # 🆕 毛利率 YoY 上升才進場（MARGUP）
         if use_MARGUP and margup_ok_arr is not None:
@@ -1133,8 +1162,15 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
         if use_PD and n_existing > 0:
             mult *= (0.8 ** n_existing)
 
+        # 🆕 VWAP_EXEC：進場價調整（用 min(close, VWAP) 模擬盤中等待）
+        ep_adjusted = pr[i]
+        if use_VWAP_EXEC and vwap_arr is not None and i < len(vwap_arr):
+            cur_vwap = vwap_arr[i]
+            if not np.isnan(cur_vwap):
+                ep_adjusted = min(pr[i], cur_vwap)
+
         return dict(
-            ed=dates[i], ei=i, ep=pr[i],
+            ed=dates[i], ei=i, ep=ep_adjusted,
             is_hv=is_hv, stop_p=stop_p, ex_fn=ex_fn,
             is_t1=is_t1, mult=mult,
             # C 類用：每倉位獨立追蹤狀態
@@ -1245,10 +1281,15 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                 # 執行優化：滑價（進出場各扣 SLP%）
                 eff_ep = ep
                 eff_xp = pr[i]
+                # 🆕 VWAP_EXEC：出場價用 max(close, VWAP)（賣在均價以上）
+                if use_VWAP_EXEC and vwap_arr is not None and i < len(vwap_arr):
+                    cur_vwap = vwap_arr[i]
+                    if not np.isnan(cur_vwap):
+                        eff_xp = max(pr[i], cur_vwap)
                 if slippage_pct is not None:
                     slp = slippage_pct / 100.0
-                    eff_ep = ep * (1 + slp)        # 進場價格往上滑（買入吃滑價）
-                    eff_xp = pr[i] * (1 - slp)     # 出場價格往下滑（賣出吃滑價）
+                    eff_ep = ep * (1 + slp)
+                    eff_xp = eff_xp * (1 - slp)
                 r = (eff_xp - eff_ep) / eff_ep
                 trades.append((r, p['mult'], hit_stop or do_exit_t))
                 positions.remove(p)

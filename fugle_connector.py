@@ -133,21 +133,30 @@ def _fetch_fugle(ticker: str, start: str, end: str, freq: str) -> pd.DataFrame:
             s = datetime.now() - timedelta(days=30)
             e = datetime.now()
 
+        import time as _time
         chunks = []
         cur_s = s
         while cur_s < e:
             cur_e = min(cur_s + timedelta(days=360), e)
-            try:
-                resp = client.stock.historical.candles(
-                    symbol=ticker, timeframe=timeframe,
-                    **{'from': cur_s.strftime('%Y-%m-%d'),
-                       'to': cur_e.strftime('%Y-%m-%d')}
-                )
-                data = resp.get('data', [])
-                if data: chunks.extend(data)
-            except Exception as e_inner:
-                print(f"  chunk {cur_s.date()}~{cur_e.date()} err: {str(e_inner)[:60]}")
+            for retry in range(3):
+                try:
+                    resp = client.stock.historical.candles(
+                        symbol=ticker, timeframe=timeframe,
+                        **{'from': cur_s.strftime('%Y-%m-%d'),
+                           'to': cur_e.strftime('%Y-%m-%d')}
+                    )
+                    data = resp.get('data', [])
+                    if data: chunks.extend(data)
+                    break
+                except Exception as e_inner:
+                    msg = str(e_inner)[:80]
+                    if 'Rate limit' in msg:
+                        _time.sleep(15)  # 限速時等 15 秒
+                        continue
+                    print(f"  chunk {cur_s.date()}~{cur_e.date()} err: {msg}")
+                    break
             cur_s = cur_e + timedelta(days=1)
+            _time.sleep(1.5)  # 每個 chunk 間隔 1.5s
 
         if not chunks: return None
         df = pd.DataFrame(chunks)
