@@ -8,11 +8,11 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9j"
-APP_UPDATED   = "2026-04-28 21:00"
+APP_VERSION   = "v9.9k"
+APP_UPDATED   = "2026-04-28 21:15"
 APP_NOTES     = (
-    "🆕 TOP 200 三欄改顯示全部（不再限 15 檔，「+N 檔」消失）｜ "
-    "🆕 每檔加 P/E（顏色判定：綠 < 20 / 黃 20-30 / 橘 30-50 / 紅 ≥ 50）｜ "
+    "🔧 TOP 200 三欄移除 RSI 顯示（資訊精簡）｜ "
+    "🆕 每檔保留 P/E（綠/黃/橘/紅）+ 訊號類型（T1/T3/出場原因）+ Δ%｜ "
     "🤖 NLP 規則+BERT 混合｜ 🚀 Portfolio + 投組模擬器"
 )
 APP_VALIDATIONS = (
@@ -4289,13 +4289,11 @@ def _render_top200_panel():
             out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
                    f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
             for r in rows[:max_n]:
-                rsi = r.get('rsi')
-                rsi_str = f'RSI {rsi:.0f}' if rsi else ''
                 sig = r.get('sig', '')
                 # 🆕 P/E（顏色判定）
                 pe_v = r.get('pe')
                 if pe_v is None:
-                    pe_html = '<span style="color:#3a5a7a;font-size:.65rem">PE —</span>'
+                    pe_html = '<span style="color:#3a5a7a;font-size:.7rem">PE —</span>'
                 else:
                     if pe_v <= 0 or pe_v > 100:
                         pe_color = '#ff5555'
@@ -4307,19 +4305,18 @@ def _render_top200_panel():
                         pe_color = '#e8a020'
                     else:
                         pe_color = '#ff5555'
-                    pe_html = f'<span style="color:{pe_color};font-size:.65rem">PE {pe_v:.1f}</span>'
+                    pe_html = f'<span style="color:{pe_color};font-size:.7rem">PE {pe_v:.1f}</span>'
                 out += (
                     f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
                     f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
                     f'<span style="color:{color};font-weight:700;font-family:monospace;'
                     f'min-width:48px">{r["ticker"]}</span>'
                     f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
-                    f'white-space:nowrap;max-width:80px">{r.get("name","")}</span>'
+                    f'white-space:nowrap;max-width:90px">{r.get("name","")}</span>'
                     f'<span style="color:#e8f4fd;font-family:monospace">{r.get("close",0):.2f}</span>'
-                    f'<span style="color:#5a8ab0;font-size:.7rem">{rsi_str}</span>'
                     f'{pe_html}'
-                    f'<span style="color:#7a8899;font-size:.65rem">{sig}</span>'
-                    f'<span style="color:{color};font-size:.65rem;background:{color}22;'
+                    f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
+                    f'<span style="color:{color};font-size:.7rem;background:{color}22;'
                     f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
                     f'</div>'
                 )
@@ -4743,7 +4740,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 52  # v9.9j：TOP 200 顯示全部 + P/E 欄位 2026-04-28 21:00
+_RESULTS_VERSION = 53  # v9.9k：TOP 200 移除 RSI 顯示 2026-04-28 21:15
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
