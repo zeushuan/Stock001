@@ -22,6 +22,36 @@ DATA = Path('data_cache')
 # 用 baseline + POS（簡化版，US 沒 IND/DXY/VWAPEXEC 資料）
 MODE = 'P5_T1T3+POS'
 
+# 🆕 排除 ETF（TOP 200 只應該是真實公司股票）
+US_ETF_EXCLUDE = {
+    # 大盤 / 寬基
+    'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT',
+    'EFA','AGG','LQD','HYG','IEF','SHY','BIL',
+    # 商品 / 貴金屬
+    'GLD','SLV','USO','UNG','UCO','SCO','BOIL','KOLD','UNL',
+    'IAU','PALL','PPLT','DBA','DBC','GSG','DBO','DBE',
+    # 區域 / 國家
+    'EEM','EWJ','EWZ','EWY','FXI','MCHI','INDA','EWG','EWU','EWC',
+    'EWA','EWT','EWS','EWH','EWP','EWQ','EWI','EWN','EWL','EWO',
+    # 產業 SPDR
+    'XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLRE','XLC',
+    'XOP','XBI','XME','XHB','XRT','XPH','XAR','XSD','XSW','XTL',
+    # 半導體 / 科技 / 生技
+    'SMH','SOXX','IBB','XHE','SCHB','VGT','VHT','VFH','VIS','VDE',
+    'VNQ','VOX','VPU','VAW','VCR','VDC','VYM',
+    # ARK 系列
+    'ARKK','ARKQ','ARKW','ARKG','ARKF','ARKX',
+    # 槓桿 / 反向
+    'TQQQ','SQQQ','SOXL','SOXS','UPRO','SPXU','SVXY','UVXY','VXX','VIXY',
+    'NUGT','DUST','JNUG','JDST','GUSH','DRIP','LABU','LABD','TMF','TMV',
+    'TNA','TZA','UDOW','SDOW','SPXL','SPXS','UWM','TWM','URTY','SRTY',
+    'YINN','YANG','EDC','EDZ','BOND','RWM','SH','SDS','SSO','QID','QLD',
+    # 債券
+    'AGGY','SCHO','SCHR','SCHZ','VCIT','VCSH','VCLT','MBB','MUB','HYS',
+    # 主題
+    'JETS','MOON','JEPI','JEPQ','SCHD','DIVO','VOOV','VOOG','SPLG','SPLV',
+}
+
 WINDOWS = [
     ('FULL',  '2020-01-02', '2026-04-25'),
     ('TRAIN', '2020-01-02', '2024-05-31'),
@@ -64,8 +94,10 @@ def classify(d):
 
 
 def main():
-    universe = sorted([t for t in US_TOP if (DATA / f'{t}.parquet').exists()])
-    print(f"US universe (有資料): {len(universe)} 檔\n")
+    universe = sorted([t for t in US_TOP
+                       if (DATA / f'{t}.parquet').exists()
+                       and t not in US_ETF_EXCLUDE])
+    print(f"US universe (有資料 + 排除 ETF): {len(universe)} 檔\n")
 
     # ─── Step 1: 回測 3 期 ─────────────────────────────
     print("Step 1: 跑 P5_T1T3+POS 回測（FULL/TRAIN/TEST）...")
