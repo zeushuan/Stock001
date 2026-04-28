@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.7b"
-APP_UPDATED   = "2026-04-28 14:50"
+APP_VERSION   = "v9.7c"
+APP_UPDATED   = "2026-04-28 15:10"
 APP_NOTES     = (
-    "🆕 完整指標表格上方加入圖示說明區（⭐/⚠️ + P/E 顏色 + ▼▲ 動量）｜ "
-    "🆕 ⚖️ 券資比區塊：軋空潛力評估 + 60 日動量｜ "
-    "🆕 📅 今日推薦動作 + ⭐ VWAPEXEC 適用分級｜ "
-    "🆕 P5+VWAPEXEC 加碼策略：TEST 期 Δ +0.123 ⭐"
+    "🎨 卡片配色：可進場🟢/應出倉🔴/持倉中🔵 + 卡片底下顯示 ticker 代碼 chips｜ "
+    "🆕 移除 3 欄推薦區塊（資訊量過多）｜ "
+    "🆕 完整指標表格上方圖示說明區｜ "
+    "🆕 ⚖️ 券資比區塊（軋空潛力 + 60 日動量）"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -59,10 +59,25 @@ html,body,[class*="css"]{font-family:'IBM Plex Sans',sans-serif;}
 .tv-header h1{font-family:'IBM Plex Mono',monospace;font-size:1.3rem;font-weight:600;color:#e8f4fd;margin:0;letter-spacing:.04em;}
 .tv-header .sub{font-size:.75rem;color:#5a8ab0;margin-top:2px;}
 .cards-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1.4rem;}
-.card{flex:1;min-width:140px;background:#0d1b2e;border:1px solid #1e3a5f;border-radius:10px;padding:14px 16px;text-align:center;}
-.card .c-label{font-size:.7rem;color:#5a8ab0;letter-spacing:.08em;text-transform:uppercase;}
+.card{flex:1;min-width:160px;background:#0d1b2e;border:1px solid #1e3a5f;border-radius:10px;padding:12px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;}
+.card .c-label{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;}
 .card .c-value{font-size:1.6rem;font-weight:700;margin-top:2px;}
-.card.buy .c-value{color:#3b9eff;}.card.sell .c-value{color:#ff4d4d;}.card.neu .c-value{color:#8899aa;}.card.total .c-value{color:#f0f4ff;}
+.card.total{background:#0d1b2e;}
+.card.total .c-label{color:#5a8ab0;} .card.total .c-value{color:#f0f4ff;}
+/* 🆕 進場：綠 */
+.card.entry{background:#0a1e10;border-color:#3dbb6a55;}
+.card.entry .c-label{color:#3dbb6a;} .card.entry .c-value{color:#3dbb6a;}
+/* 🆕 出場：紅 */
+.card.exit{background:#1a0808;border-color:#ff555555;}
+.card.exit .c-label{color:#ff7777;} .card.exit .c-value{color:#ff7777;}
+/* 🆕 持倉：藍 */
+.card.hold{background:#0a1830;border-color:#5a8ab055;}
+.card.hold .c-label{color:#7abadd;} .card.hold .c-value{color:#7abadd;}
+/* 觀望：灰 */
+.card.neu{background:#0d1b2e;}
+.card.neu .c-label{color:#7a8899;} .card.neu .c-value{color:#7a8899;}
+/* 舊 buy / sell 對齊（avoid breaking other usages）*/
+.card.buy .c-value{color:#3dbb6a;}.card.sell .c-value{color:#ff7777;}
 .res-table{width:100%;border-collapse:collapse;font-size:.82rem;}
 .res-table th{background:#0a1628;color:#5a8ab0;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;padding:8px 10px;text-align:center;border-bottom:2px solid #1e3a5f;white-space:nowrap;}
 .res-table td{padding:7px 10px;text-align:center;border-bottom:1px solid #0f1f33;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:.78rem;}
@@ -4309,7 +4324,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 39  # v9.7b：完整指標表格圖示說明區 2026-04-28 14:50
+_RESULTS_VERSION = 40  # v9.7c：卡片配色 + ticker chips + 移除 3 欄區塊 2026-04-28 15:10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5016,136 +5031,56 @@ if error_msgs:
 
 total      = len(results)
 ok         = sum(1 for r in results if not r[3])
-# 🆕 改為 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望
-entry_count = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'ENTRY')
-exit_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'EXIT')
-hold_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'HOLD')
-wait_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'WAIT')
+# 🆕 改為 v8 操作分類 + 收集 ticker 清單
+_entry_tks = []; _exit_tks = []; _hold_tks = []; _wait_tks = []
+for r in results:
+    if r[3] or not r[2]: continue
+    a = classify_action(r[2])
+    if   a == 'ENTRY': _entry_tks.append(r[0])
+    elif a == 'EXIT':  _exit_tks.append(r[0])
+    elif a == 'HOLD':  _hold_tks.append(r[0])
+    elif a == 'WAIT':  _wait_tks.append(r[0])
+entry_count = len(_entry_tks)
+exit_count  = len(_exit_tks)
+hold_count  = len(_hold_tks)
+wait_count  = len(_wait_tks)
+
+
+def _tickers_chips(tks, max_show=8, color='#a8cce8'):
+    """卡片底下顯示 ticker 代碼（最多 max_show 個，超過用 +N more）"""
+    if not tks:
+        return '<div style="font-size:.62rem;color:#3a5a7a;margin-top:4px">—</div>'
+    show = tks[:max_show]
+    more = len(tks) - len(show)
+    chips = ''.join(
+        f'<span style="display:inline-block;padding:1px 4px;background:#0a1830;'
+        f'color:{color};font-size:.62rem;font-family:\'IBM Plex Mono\',monospace;'
+        f'border-radius:3px;margin:2px 2px 0 0">{t}</span>'
+        for t in show
+    )
+    if more > 0:
+        chips += (f'<span style="font-size:.6rem;color:#5a7a99;margin-left:2px">+{more}</span>')
+    return f'<div style="margin-top:4px;line-height:1.5">{chips}</div>'
+
 
 st.markdown(f"""
 <div class="cards-row">
   <div class="card total"><div class="c-label">抓取完成</div>
     <div class="c-value">{ok}<span style="font-size:1rem;color:#3a5a7a">/{total}</span></div></div>
-  <div class="card buy"><div class="c-label">可進場</div><div class="c-value">{entry_count}</div></div>
-  <div class="card sell"><div class="c-label">應出倉</div><div class="c-value">{exit_count}</div></div>
-  <div class="card neu" style="border-color:#3dbb6a55"><div class="c-label" style="color:#3dbb6a">持倉中</div><div class="c-value" style="color:#3dbb6a">{hold_count}</div></div>
-  <div class="card neu"><div class="c-label" style="color:#7a8899">觀望</div><div class="c-value" style="color:#7a8899">{wait_count}</div></div>
+  <div class="card entry"><div class="c-label">可進場</div>
+    <div class="c-value">{entry_count}</div>{_tickers_chips(_entry_tks, color='#3dbb6a')}</div>
+  <div class="card exit"><div class="c-label">應出倉</div>
+    <div class="c-value">{exit_count}</div>{_tickers_chips(_exit_tks, color='#ff7777')}</div>
+  <div class="card hold"><div class="c-label">持倉中</div>
+    <div class="c-value">{hold_count}</div>{_tickers_chips(_hold_tks, color='#7abadd')}</div>
+  <div class="card neu"><div class="c-label">觀望</div>
+    <div class="c-value">{wait_count}</div></div>
   <div class="card total"><div class="c-label">{'歷史日期' if st.session_state.get('fetch_end_date') else '更新時間'}</div>
     <div class="c-value" style="font-size:{'0.78rem' if st.session_state.get('fetch_end_date') else '.95rem'};color:{'#f0a030' if st.session_state.get('fetch_end_date') else '#f0f4ff'}">{st.session_state.get('fetch_end_date') or datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
 
 platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
-
-# 🆕 📅 今日推薦動作（基於 v8 操作分類 + VWAPEXEC 適用分級）─────────
-def _entry_score(d, tier_info):
-    """進場分數：適用度 + 訊號強度 + 估值健康"""
-    score = 50
-    tier = tier_info.get('tier')
-    if tier == 'TOP':  score += 30
-    elif tier == 'OK': score += 10
-    elif tier == 'NA': score -= 30
-    # T1 黃金交叉新鮮度
-    cd = d.get('ema20_cross_days')
-    if cd and 0 < cd <= 5:    score += 15
-    elif cd and cd <= 10:     score += 8
-    # RSI 拉回深度（T3）
-    rsi = d.get('rsi')
-    if rsi and rsi < 45:      score += 10
-    elif rsi and rsi < 50:    score += 5
-    # ADX 趨勢強度
-    adx = d.get('adx')
-    if adx and adx >= 30:     score += 8
-    # PER 動量（盈餘上修）
-    per_chg = d.get('per_60d_chg_pct')
-    if per_chg is not None and per_chg <= -10: score += 7
-    return score
-
-
-def _exit_score(d, tier_info):
-    """出倉分數：訊號緊迫度"""
-    score = 50
-    rsi = d.get('rsi')
-    ema20 = d.get('ema20')
-    ema60 = d.get('ema60')
-    close = d.get('close')
-    if ema20 and ema60:
-        gap = (ema20 - ema60) / ema60 * 100
-        if gap < 1.0:   score += 30   # EMA 死叉迫近
-        elif gap < 3.0: score += 15
-    if rsi and rsi > 75: score += 20   # 高 RSI
-    elif rsi and rsi > 70: score += 10
-    return score
-
-
-_recos_entry = []
-_recos_exit  = []
-_recos_hold  = []
-for r in results:
-    if r[3] or not r[2]: continue   # error or no data
-    t, d = r[0], r[2]
-    name = d.get('name', t)
-    action = classify_action(d)
-    tier_info = get_vwap_tier(t)
-    if action == 'ENTRY':
-        _recos_entry.append((t, name, d, tier_info, _entry_score(d, tier_info)))
-    elif action == 'EXIT':
-        _recos_exit.append((t, name, d, tier_info, _exit_score(d, tier_info)))
-    elif action == 'HOLD' and tier_info.get('tier') == 'TOP':
-        _recos_hold.append((t, name, d, tier_info, _entry_score(d, tier_info) - 30))
-
-_recos_entry.sort(key=lambda x: -x[4])
-_recos_exit.sort(key=lambda x: -x[4])
-_recos_hold.sort(key=lambda x: -x[4])
-
-if _recos_entry or _recos_exit or _recos_hold:
-    def _reco_row(t, name, d, tier, score, color):
-        per_v = d.get('per')
-        per_str = f'{per_v:.1f}' if per_v else '—'
-        rsi_v = d.get('rsi')
-        rsi_str = f'{rsi_v:.0f}' if rsi_v else '—'
-        close_v = d.get('close')
-        close_str = f'{close_v:.2f}' if close_v else '—'
-        tier_str = tier.get('tier', '—')
-        delta = tier.get('delta', 0)
-        delta_str = f'{delta:+.0f}%' if delta else ''
-        return (f'<div style="display:flex;gap:6px;padding:4px 8px;font-size:.78rem;'
-                f'border-bottom:1px solid #1a2a3f">'
-                f'<span style="color:{color};font-weight:700;width:50px">{t}</span>'
-                f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{name}</span>'
-                f'<span style="color:#e8f4fd;font-family:monospace">{close_str}</span>'
-                f'<span style="color:#7a8899;width:32px">RSI {rsi_str}</span>'
-                f'<span style="color:#7a8899;width:38px">PE {per_str}</span>'
-                f'<span style="color:#3dbb6a;width:55px">{tier_str} {delta_str}</span>'
-                f'<span style="color:#5a8ab0;width:28px">{int(score)}</span>'
-                f'</div>')
-
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown(
-            f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
-            f'padding:8px 4px"><div style="color:#3dbb6a;font-weight:700;padding:0 8px 6px;'
-            f'font-size:.85rem">🚀 今日可進場 ({len(_recos_entry)})</div>'
-            + ''.join(_reco_row(*it, '#3dbb6a') for it in _recos_entry[:10])
-            + '</div>',
-            unsafe_allow_html=True)
-    with cols[1]:
-        st.markdown(
-            f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
-            f'padding:8px 4px"><div style="color:#ff7777;font-weight:700;padding:0 8px 6px;'
-            f'font-size:.85rem">🚪 今日該出倉 ({len(_recos_exit)})</div>'
-            + ''.join(_reco_row(*it, '#ff7777') for it in _recos_exit[:10])
-            + '</div>',
-            unsafe_allow_html=True)
-    with cols[2]:
-        st.markdown(
-            f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
-            f'padding:8px 4px"><div style="color:#7abadd;font-weight:700;padding:0 8px 6px;'
-            f'font-size:.85rem">📌 強勢持倉 TOP ({len(_recos_hold)})</div>'
-            + ''.join(_reco_row(*it, '#7abadd') for it in _recos_hold[:10])
-            + '</div>',
-            unsafe_allow_html=True)
-    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 st.markdown("#### 完整指標一覽表")
 
