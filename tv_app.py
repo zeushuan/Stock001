@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9q"
-APP_UPDATED   = "2026-04-28 23:50"
+APP_VERSION   = "v9.9r"
+APP_UPDATED   = "2026-04-29 00:30"
 APP_NOTES     = (
-    "🔧 US TOP 200 排除 ETF（374 檔純股票，不含 SLV/SOXL/QQQ 等 130+ ETF）｜ "
-    "🆕 完整 S&P 500 + 中小型熱門 + 中國 ADR｜ "
-    "🚀 TW v2 年化 +110%｜ 🆕 雙市場存自選股｜ 🤖 NLP 規則+BERT"
+    "🔧 P/E 「—」改顯示「虧損」紅標（FinMind PER=0 即代表 EPS≤0）｜ "
+    "🆕 美股無 trailingPE 自動 fallback 到 forwardPE｜ "
+    "🔧 US TOP 200 排除 130+ ETF（純股票）｜ 🚀 TW v2 年化 +110%"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -1152,8 +1152,15 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                     per_v = last_row.get('PER')
                     pbr_v = last_row.get('PBR')
                     div_v = last_row.get('dividend_yield')
-                    if per_v and not pd.isna(per_v):
-                        d['per'] = float(per_v); got_from_cache = True
+                    # FinMind PER=0 表示虧損（EPS ≤ 0）
+                    if per_v is not None and not pd.isna(per_v):
+                        if per_v > 0:
+                            d['per'] = float(per_v); got_from_cache = True
+                            d['per_kind'] = 'TTM'
+                        else:
+                            # PER=0 → 虧損
+                            d['per_kind'] = 'LOSS'
+                            got_from_cache = True   # 不再 fallback yfinance
                     if pbr_v and not pd.isna(pbr_v):
                         d['pbr'] = float(pbr_v)
                     if div_v and not pd.isna(div_v):
@@ -1203,22 +1210,33 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             if not got_from_cache:
                 try:
                     info = yf.Ticker(symbol).info
+                    # 優先 trailingPE，無則 forwardPE（標 F 區分）
                     per_yf = info.get('trailingPE')
                     if per_yf and not pd.isna(per_yf) and 0 < per_yf < 1000:
                         d['per'] = float(per_yf)
+                        d['per_kind'] = 'TTM'
+                    else:
+                        fwd_pe = info.get('forwardPE')
+                        if fwd_pe and not pd.isna(fwd_pe) and 0 < fwd_pe < 1000:
+                            d['per'] = float(fwd_pe)
+                            d['per_kind'] = 'FWD'
+                        else:
+                            # 真正虧損 → 標示 EPS<0
+                            eps_t = info.get('trailingEps')
+                            if eps_t is not None and not pd.isna(eps_t) and eps_t < 0:
+                                d['per_kind'] = 'LOSS'
                     eps_yf = info.get('trailingEps')
-                    if eps_yf and not pd.isna(eps_yf):
+                    if eps_yf is not None and not pd.isna(eps_yf):
                         d['eps_ttm'] = round(float(eps_yf), 2)
                     pbr_yf = info.get('priceToBook')
                     if pbr_yf and not pd.isna(pbr_yf) and 0 < pbr_yf < 100:
                         d['pbr'] = round(float(pbr_yf), 2)
                     div_yf = info.get('trailingAnnualDividendYield') or info.get('dividendYield')
                     if div_yf and not pd.isna(div_yf):
-                        # yfinance 的殖利率可能是 0.025 (=2.5%) 或已是 2.5
                         dv = float(div_yf)
-                        if dv < 1.0:  # 比例
+                        if dv < 1.0:
                             d['div_yield'] = round(dv * 100, 2)
-                        else:  # 已是百分比
+                        else:
                             d['div_yield'] = round(dv, 2)
                 except Exception:
                     pass
@@ -3631,11 +3649,16 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:{chg_color};font-weight:600">{chg_str}</td>')
 
-        # 🆕 P/E 顯示（顏色判定 + 60 日動量箭頭）
+        # 🆕 P/E 顯示（顏色判定 + 60 日動量箭頭 + 虧損標示）
         per_v = d.get('per')
+        per_kind = d.get('per_kind', '')
         per_60d_chg = d.get('per_60d_chg_pct')
         if per_v is None:
-            pe_cell = '<td style="color:#334455;font-size:.78rem;text-align:center">—</td>'
+            if per_kind == 'LOSS':
+                pe_cell = ('<td style="color:#ff7777;font-size:.72rem;text-align:center;'
+                           'font-weight:700" title="EPS ≤ 0 公司虧損中">虧損</td>')
+            else:
+                pe_cell = '<td style="color:#334455;font-size:.78rem;text-align:center">—</td>'
         else:
             if per_v <= 0 or per_v > 100:
                 pe_color = '#ff5555'
@@ -4908,7 +4931,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 59  # v9.9q：US TOP 200 排除 ETF（374 檔純股票） 2026-04-28 23:50
+_RESULTS_VERSION = 60  # v9.9r：P/E 顯示虧損標示 + 美股 forwardPE fallback 2026-04-29 00:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
