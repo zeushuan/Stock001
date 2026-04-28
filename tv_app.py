@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.7c"
-APP_UPDATED   = "2026-04-28 15:10"
+APP_VERSION   = "v9.8"
+APP_UPDATED   = "2026-04-28 15:30"
 APP_NOTES     = (
-    "🎨 卡片配色：可進場🟢/應出倉🔴/持倉中🔵 + 卡片底下顯示 ticker 代碼 chips｜ "
-    "🆕 移除 3 欄推薦區塊（資訊量過多）｜ "
-    "🆕 完整指標表格上方圖示說明區｜ "
-    "🆕 ⚖️ 券資比區塊（軋空潛力 + 60 日動量）"
+    "🆕 📊 今日 Portfolio 推薦面板：嚴格從 TOP 200 tier 篩選進場/出倉/持倉｜ "
+    "🆕 📊 投組模擬器（互動 expander）：選組合 + 投入金額 → 終值 / 年化 / 勝率 / 風險｜ "
+    "🎨 卡片配色：進🟢/出🔴/持🔵 + ticker chips｜ "
+    "🆕 圖示說明區 + ⚖️ 券資比區塊"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4324,7 +4324,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 40  # v9.7c：卡片配色 + ticker chips + 移除 3 欄區塊 2026-04-28 15:10
+_RESULTS_VERSION = 41  # v9.8：Portfolio Sim 面板 + 投組模擬器 expander 2026-04-28 15:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5081,6 +5081,291 @@ st.markdown(f"""
 
 platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
+
+# 🆕 📊 今日 Portfolio 推薦（嚴格依 TOP 200 tier）─────────────────
+_top_entry_picks = []
+_top_exit_picks  = []
+_top_hold_picks  = []
+for r in results:
+    if r[3] or not r[2]: continue
+    t, d = r[0], r[2]
+    name = d.get('name', t)
+    action = classify_action(d)
+    tier_info = get_vwap_tier(t)
+    if tier_info.get('tier') != 'TOP':
+        continue
+    delta_v = tier_info.get('delta', 0)
+    if action == 'ENTRY':
+        _top_entry_picks.append((t, name, d, delta_v))
+    elif action == 'EXIT':
+        _top_exit_picks.append((t, name, d, delta_v))
+    elif action == 'HOLD':
+        _top_hold_picks.append((t, name, d, delta_v))
+
+_top_entry_picks.sort(key=lambda x: -x[3])
+_top_exit_picks.sort(key=lambda x: -x[3])
+_top_hold_picks.sort(key=lambda x: -x[3])
+
+if _top_entry_picks or _top_exit_picks or _top_hold_picks:
+    def _pick_html(picks, max_show=8, accent='#3dbb6a'):
+        if not picks:
+            return '<div style="color:#3a5a7a;font-size:.72rem;padding:4px 8px">— 暫無 —</div>'
+        out = ''
+        for t, name, d, delta in picks[:max_show]:
+            close = d.get('close')
+            close_str = f'{close:.2f}' if close else '—'
+            rsi = d.get('rsi')
+            rsi_str = f'RSI {rsi:.0f}' if rsi else ''
+            per = d.get('per')
+            pe_str = f'PE {per:.1f}' if per else ''
+            cd = d.get('ema20_cross_days')
+            cd_str = ''
+            if cd is not None and 0 < cd <= 10:
+                cd_str = f'<span style="color:#5a8ab0;font-size:.62rem">T1 {cd}d</span>　'
+            elif rsi is not None and rsi < 50:
+                cd_str = f'<span style="color:#5a8ab0;font-size:.62rem">T3 拉回</span>　'
+            out += (
+                f'<div style="display:flex;align-items:baseline;gap:6px;'
+                f'padding:5px 10px;font-size:.78rem;border-bottom:1px solid #1a2a3f">'
+                f'<span style="color:{accent};font-weight:700;font-family:monospace;'
+                f'min-width:48px">{t}</span>'
+                f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
+                f'white-space:nowrap;max-width:90px">{name}</span>'
+                f'<span style="color:#e8f4fd;font-family:monospace;font-size:.74rem">{close_str}</span>'
+                f'<span style="color:#7a8899;font-size:.7rem">{rsi_str}</span>'
+                f'<span style="color:#7a8899;font-size:.7rem">{pe_str}</span>'
+                f'{cd_str}'
+                f'<span style="color:#3dbb6a;font-size:.65rem;background:#0a3a1f;'
+                f'padding:1px 5px;border-radius:3px">Δ {delta:+.0f}%</span>'
+                f'</div>'
+            )
+        if len(picks) > max_show:
+            out += (f'<div style="text-align:center;padding:5px;color:#5a8ab0;font-size:.7rem">'
+                    f'＋{len(picks)-max_show} 檔在表格內</div>')
+        return out
+
+    # Header with explanation
+    st.markdown(
+        '<div style="background:#0a1a2a;border:1px solid #3dbb6a55;border-radius:10px;'
+        'padding:10px 14px;margin:8px 0;display:flex;align-items:center;gap:14px;'
+        'flex-wrap:wrap">'
+        '<div style="font-size:1.05rem;font-weight:700;color:#3dbb6a">📊 今日 Portfolio 推薦</div>'
+        f'<div style="color:#7abadd;font-size:.78rem">'
+        f'進場 <b>{len(_top_entry_picks)}</b>　│　'
+        f'出倉 <b>{len(_top_exit_picks)}</b>　│　'
+        f'持倉 <b>{len(_top_hold_picks)}</b></div>'
+        '<div style="color:#7a8899;font-size:.72rem;flex:1">'
+        '嚴格從 ⭐ <b style="color:#3dbb6a">TOP 200 tier</b> 篩選'
+        '（v8+P5+VWAPEXEC 適用清單，預期年化 ~52%）'
+        '</div></div>',
+        unsafe_allow_html=True
+    )
+
+    # 三欄
+    cols = st.columns(3)
+    with cols[0]:
+        st.markdown(
+            '<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+            'padding:6px 4px;margin-bottom:8px">'
+            '<div style="color:#3dbb6a;font-weight:700;padding:0 8px 4px;font-size:.85rem">'
+            f'🚀 進場（{len(_top_entry_picks)}）</div>'
+            + _pick_html(_top_entry_picks, accent='#3dbb6a')
+            + '</div>', unsafe_allow_html=True)
+    with cols[1]:
+        st.markdown(
+            '<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+            'padding:6px 4px;margin-bottom:8px">'
+            '<div style="color:#ff7777;font-weight:700;padding:0 8px 4px;font-size:.85rem">'
+            f'🚪 出倉（{len(_top_exit_picks)}）</div>'
+            + _pick_html(_top_exit_picks, accent='#ff7777')
+            + '</div>', unsafe_allow_html=True)
+    with cols[2]:
+        st.markdown(
+            '<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+            'padding:6px 4px;margin-bottom:8px">'
+            '<div style="color:#7abadd;font-weight:700;padding:0 8px 4px;font-size:.85rem">'
+            f'📌 持倉中（{len(_top_hold_picks)}）</div>'
+            + _pick_html(_top_hold_picks, accent='#7abadd')
+            + '</div>', unsafe_allow_html=True)
+
+# 🆕 📊 Portfolio Simulator —————————————————————————————————
+with st.expander("📊 投組模擬器（基於 1028 檔 22 個月 out-of-sample 結果）", expanded=False):
+    @st.cache_data(ttl=86400)
+    def _load_portfolio_data():
+        """載入 portfolio simulation 基礎資料"""
+        import json as _json
+        try:
+            from pathlib import Path as _P
+            with open(_P(__file__).parent / 'full_market_results.json', encoding='utf-8') as f:
+                data = _json.load(f)
+            with open(_P(__file__).parent / 'vwap_applicable.json', encoding='utf-8') as f:
+                tier_data = _json.load(f)
+            vwap_test = data.get('B VWAPEXEC|TEST', {})
+            base_test = data.get('A baseline|TEST', {})
+            pnl = dict(zip(vwap_test['tickers'], vwap_test['pnl_pcts']))
+            base_pnl = dict(zip(base_test['tickers'], base_test['pnl_pcts']))
+            return pnl, base_pnl, tier_data
+        except Exception:
+            return {}, {}, {}
+
+    _pnl_t, _base_t, _tier_d = _load_portfolio_data()
+
+    if not _pnl_t:
+        st.markdown('<div style="color:#7a8899;padding:8px">portfolio 資料尚未產生（需 full_market_results.json）</div>',
+                    unsafe_allow_html=True)
+    else:
+        import numpy as np
+        # 上方：說明
+        st.markdown(
+            '<div style="font-size:.8rem;color:#5a8ab0;line-height:1.7;padding:6px 0">'
+            '基於回測 1028 檔 × 22 月（2024.6-2026.4）TEST 期 out-of-sample 報酬。'
+            '<b style="color:#f0a030">⚠️ Top N 是事後 cherry-pick</b>，未來無法複製；'
+            '實務可用是 <b style="color:#3dbb6a">⭐ TOP 200 tier</b>（前向確定的清單）。'
+            '</div>', unsafe_allow_html=True
+        )
+
+        # 互動：投入金額 + 組合選擇
+        col_a, col_b, col_c = st.columns([1, 1.2, 1.5])
+        with col_a:
+            inv_amount = st.number_input("投入金額（萬）",
+                                          min_value=10, max_value=10000,
+                                          value=100, step=10, key="pf_amt")
+        with col_b:
+            combo_choice = st.selectbox(
+                "組合策略",
+                ["⭐ TOP 200 tier（前向可用）",
+                 "全市場 1028 檔（無篩選）",
+                 "Top 50（事後 cherry-pick）",
+                 "Top 100（事後 cherry-pick）",
+                 "Tier OK 675 檔",
+                 "Tier NA 153 檔（不適用）"],
+                key="pf_combo")
+        with col_c:
+            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:.7rem;color:#7a8899;line-height:1.6">'
+                '對照：22 個月 0050 BH ≈ <b style="color:#3dbb6a">+90%</b>'
+                '（年化 +49%）'
+                '</div>', unsafe_allow_html=True)
+
+        # 計算組合報酬
+        deltas = []
+        for t in _pnl_t:
+            if t in _base_t:
+                deltas.append((t, _pnl_t[t] - _base_t[t], _pnl_t[t]))
+        deltas.sort(key=lambda x: -x[1])
+
+        if combo_choice.startswith("⭐ TOP"):
+            picks = [_pnl_t[t] for t, info in _tier_d.items()
+                     if info.get('tier') == 'TOP' and t in _pnl_t]
+            label = "TOP 200"
+        elif "全市場" in combo_choice:
+            picks = list(_pnl_t.values())
+            label = "全市場"
+        elif "Top 50" in combo_choice:
+            picks = [d[2] for d in deltas[:50]]
+            label = "Top 50（事後）"
+        elif "Top 100" in combo_choice:
+            picks = [d[2] for d in deltas[:100]]
+            label = "Top 100（事後）"
+        elif "OK" in combo_choice:
+            picks = [_pnl_t[t] for t, info in _tier_d.items()
+                     if info.get('tier') == 'OK' and t in _pnl_t]
+            label = "OK"
+        else:
+            picks = [_pnl_t[t] for t, info in _tier_d.items()
+                     if info.get('tier') == 'NA' and t in _pnl_t]
+            label = "NA"
+
+        if picks:
+            arr = np.array(picks)
+            avg_ret = arr.mean() / 100
+            initial = inv_amount * 10000
+            end_val = initial * (1 + avg_ret)
+            years = 22 / 12
+            ann = ((end_val/initial)**(1/years) - 1) * 100 if years > 0 else 0
+            win_rate = (arr > 0).mean() * 100
+            worst = arr.min()
+            best = arr.max()
+            std = arr.std()
+
+            color_main = '#3dbb6a' if avg_ret > 0 else '#ff7777'
+
+            # 結果卡片
+            st.markdown(
+                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;'
+                f'margin:12px 0">'
+                # 終值
+                f'<div style="background:#0a1e10;border:1px solid {color_main}55;'
+                f'border-radius:8px;padding:14px;text-align:center">'
+                f'<div style="color:#5a8ab0;font-size:.7rem">22 月終值</div>'
+                f'<div style="color:{color_main};font-size:1.4rem;font-weight:700">'
+                f'{end_val/10000:,.1f} 萬</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">初始 {inv_amount} 萬</div>'
+                f'</div>'
+                # 22 月報酬
+                f'<div style="background:#0a1830;border:1px solid #5a8ab055;'
+                f'border-radius:8px;padding:14px;text-align:center">'
+                f'<div style="color:#5a8ab0;font-size:.7rem">22 月報酬</div>'
+                f'<div style="color:{color_main};font-size:1.4rem;font-weight:700">'
+                f'{avg_ret*100:+.1f}%</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">{label}</div>'
+                f'</div>'
+                # 年化
+                f'<div style="background:#0a1830;border:1px solid #5a8ab055;'
+                f'border-radius:8px;padding:14px;text-align:center">'
+                f'<div style="color:#5a8ab0;font-size:.7rem">年化報酬</div>'
+                f'<div style="color:{color_main};font-size:1.4rem;font-weight:700">'
+                f'{ann:+.1f}%</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">CAGR</div>'
+                f'</div>'
+                # 勝率
+                f'<div style="background:#0a1830;border:1px solid #5a8ab055;'
+                f'border-radius:8px;padding:14px;text-align:center">'
+                f'<div style="color:#5a8ab0;font-size:.7rem">個股勝率</div>'
+                f'<div style="color:#3dbb6a;font-size:1.4rem;font-weight:700">'
+                f'{win_rate:.1f}%</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">n={len(picks)}</div>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True)
+
+            # 風險細節
+            st.markdown(
+                f'<div style="background:#080f1c;border:1px solid #1e3a5f;border-radius:8px;'
+                f'padding:8px 14px;font-size:.78rem;color:#a8cce8">'
+                f'📈 最佳個股 <b style="color:#3dbb6a">+{best:.0f}%</b> ｜ '
+                f'📉 最差個股 <b style="color:#ff7777">{worst:.1f}%</b> ｜ '
+                f'波動 σ <b>{std:.0f}%</b> ｜ '
+                f'Sharpe~ <b>{(avg_ret*100/std if std else 0):.3f}</b>'
+                f'</div>',
+                unsafe_allow_html=True)
+
+            # 警示框
+            if 'cherry-pick' in combo_choice or 'Top 50' in combo_choice or 'Top 100' in combo_choice:
+                st.markdown(
+                    '<div style="background:#2a1a05;border:1px solid #f0a030;border-radius:8px;'
+                    'padding:8px 14px;margin-top:8px;font-size:.78rem;color:#f0a030">'
+                    '⚠️ <b>事後 cherry-pick 警告</b>：此結果是「歷史最佳 N 檔」回推，'
+                    '實際操作不可能事先知道。建議參考但不可作為前向預期。'
+                    '</div>',
+                    unsafe_allow_html=True)
+            elif 'NA' in combo_choice:
+                st.markdown(
+                    '<div style="background:#2a0808;border:1px solid #ff5555;border-radius:8px;'
+                    'padding:8px 14px;margin-top:8px;font-size:.78rem;color:#ff7777">'
+                    '⚠️ <b>NA tier 警告</b>：此 153 檔 VWAPEXEC 反而傷害，'
+                    '不建議使用 P5+VWAPEXEC 策略。'
+                    '</div>',
+                    unsafe_allow_html=True)
+            elif 'TOP 200' in combo_choice:
+                st.markdown(
+                    '<div style="background:#0a2a18;border:1px solid #3dbb6a;border-radius:8px;'
+                    'padding:8px 14px;margin-top:8px;font-size:.78rem;color:#3dbb6a">'
+                    '✅ <b>前向可用</b>：TOP 200 tier 是事先確定的 200 檔清單，'
+                    '實際操作可實踐。預期年化 ~52%（含適度 alpha）。'
+                    '</div>',
+                    unsafe_allow_html=True)
 
 st.markdown("#### 完整指標一覽表")
 
