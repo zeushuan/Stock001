@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.6"
-APP_UPDATED   = "2026-04-28 11:00"
+APP_VERSION   = "v9.6a"
+APP_UPDATED   = "2026-04-28 12:00"
 APP_NOTES     = (
-    "🆕 估值參考區塊：EPS / PER / PBR / 殖利率（自動著色）｜ "
-    "🆕 PER 動量偵測：60 日變化 ≤ -15% → 盈餘上修信號（綠）｜ "
-    "🆕 PER 相對自己 90 日中位的偏離度｜ "
-    "🆕 全市場 PER cache 抓取（FinMind 公開 API）"
+    "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望｜ "
+    "🆕 估值參考：EPS / PER / PBR / 殖利率｜ "
+    "🆕 PER 動量偵測（60 日變化 → 盈餘修正信號）｜ "
+    "🆕 全市場 PER cache（1036/1058 檔）"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -3006,6 +3006,72 @@ def jcell(val, judg):
     cls = {"買入":"j-buy","賣出":"j-sell"}.get(judg, "j-neutral")
     return f'<td class="{cls}">{val}</td>'
 
+def classify_action(d: dict) -> str:
+    """
+    🆕 v8 操作分類（每檔股票歸類為四種狀態之一）
+    回傳：'ENTRY' / 'EXIT' / 'HOLD' / 'WAIT'
+
+    ENTRY (可進場): 多頭 + ADX≥22 + (T1 黃金交叉 ≤ 10 天 OR T3 RSI<50 拉回) OR T4 反彈條件達成
+    EXIT  (應出倉): 多頭中但出現出場訊號（高 RSI、EMA 死叉迫近、深度乖離等）
+    HOLD  (持倉中): 多頭 + ADX≥22 但無新進場訊號（安全持倉或注意觀察）
+    WAIT  (觀望中): 空頭 / 假多頭 / 資料不足 / EMA 死叉等
+    """
+    ema20      = d.get("ema20")
+    ema60      = d.get("ema60")
+    adx        = d.get("adx")
+    rsi        = d.get("rsi")
+    rsi_prev   = d.get("rsi_prev")
+    rsi_prev2  = d.get("rsi_prev2")
+    atr14      = d.get("atr14")
+    close      = d.get("close")
+    cross_days = d.get("ema20_cross_days")
+
+    if ema20 is None or ema60 is None:
+        return 'WAIT'
+
+    is_bull = ema20 > ema60
+    adx_ok  = (adx is not None and adx >= 22)
+
+    # 空頭：唯一進場 = T4 反彈
+    if not is_bull:
+        t4_rising = (rsi is not None and rsi < 32 and
+                     rsi_prev is not None and rsi > rsi_prev and
+                     rsi_prev2 is not None and rsi_prev > rsi_prev2)
+        if t4_rising:
+            return 'ENTRY'  # T4 條件達成
+        return 'WAIT'
+
+    # 多頭但 ADX 不足
+    if not adx_ok:
+        return 'WAIT'
+
+    # 多頭 + ADX≥22：判斷進場 / 出倉 / 持倉
+    # 出場訊號優先（保守起見）
+    rel_atr = (atr14 / close * 100) if (atr14 and close and close > 0) else 0
+    is_high_vol = rel_atr > 3.5
+    ema_gap_pct = (ema20 - ema60) / ema60 * 100 if ema60 else None
+    ema_danger  = ema_gap_pct is not None and ema_gap_pct < 1.0   # EMA 即將死叉
+
+    if is_high_vol:
+        # 飆股模式：只看 EMA 距離
+        if ema_danger:
+            return 'EXIT'
+    else:
+        # 穩健股：EMA 死叉迫近 OR (ADX<25 + RSI>75)
+        rsi_triggered = (adx is not None and adx < 25 and rsi is not None and rsi > 75)
+        if rsi_triggered or ema_danger:
+            return 'EXIT'
+
+    # 進場觸發
+    t1_ok = (cross_days is not None and 0 < cross_days <= 10)
+    t3_ok = (rsi is not None and rsi < 50)
+    if t1_ok or t3_ok:
+        return 'ENTRY'
+
+    # 否則為持倉中（安全持倉 / 等待 T3 拉回）
+    return 'HOLD'
+
+
 def get_exit_signal(d: dict) -> tuple:
     """
     ④出場獲利 輕量版：回傳 (status_label, badge_inline_style) 供表格使用。
@@ -4076,7 +4142,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 32  # v9.6：EPS/PER/PBR + PER 動量 UI 整合 2026-04-28 11:00
+_RESULTS_VERSION = 33  # v9.6a：市場掃描卡片改 v8 操作分類 2026-04-28 12:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -4783,17 +4849,20 @@ if error_msgs:
 
 total      = len(results)
 ok         = sum(1 for r in results if not r[3])
-buy_count  = sum(1 for r in results if not r[3] and r[6][3] in ("買入","強力買入"))
-sell_count = sum(1 for r in results if not r[3] and r[6][3] in ("賣出","強力賣出"))
-neu_count  = sum(1 for r in results if not r[3] and r[6][3] == "中立")
+# 🆕 改為 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望
+entry_count = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'ENTRY')
+exit_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'EXIT')
+hold_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'HOLD')
+wait_count  = sum(1 for r in results if not r[3] and classify_action(r[2]) == 'WAIT')
 
 st.markdown(f"""
 <div class="cards-row">
   <div class="card total"><div class="c-label">抓取完成</div>
     <div class="c-value">{ok}<span style="font-size:1rem;color:#3a5a7a">/{total}</span></div></div>
-  <div class="card buy"><div class="c-label">整體偏買入</div><div class="c-value">{buy_count}</div></div>
-  <div class="card sell"><div class="c-label">整體偏賣出</div><div class="c-value">{sell_count}</div></div>
-  <div class="card neu"><div class="c-label">中立</div><div class="c-value">{neu_count}</div></div>
+  <div class="card buy"><div class="c-label">可進場</div><div class="c-value">{entry_count}</div></div>
+  <div class="card sell"><div class="c-label">應出倉</div><div class="c-value">{exit_count}</div></div>
+  <div class="card neu" style="border-color:#3dbb6a55"><div class="c-label" style="color:#3dbb6a">持倉中</div><div class="c-value" style="color:#3dbb6a">{hold_count}</div></div>
+  <div class="card neu"><div class="c-label" style="color:#7a8899">觀望</div><div class="c-value" style="color:#7a8899">{wait_count}</div></div>
   <div class="card total"><div class="c-label">{'歷史日期' if st.session_state.get('fetch_end_date') else '更新時間'}</div>
     <div class="c-value" style="font-size:{'0.78rem' if st.session_state.get('fetch_end_date') else '.95rem'};color:{'#f0a030' if st.session_state.get('fetch_end_date') else '#f0f4ff'}">{st.session_state.get('fetch_end_date') or datetime.now().strftime("%H:%M")}</div></div>
 </div>""", unsafe_allow_html=True)
