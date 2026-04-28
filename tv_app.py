@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.8"
-APP_UPDATED   = "2026-04-28 15:30"
+APP_VERSION   = "v9.8a"
+APP_UPDATED   = "2026-04-28 15:50"
 APP_NOTES     = (
-    "🆕 📊 今日 Portfolio 推薦面板：嚴格從 TOP 200 tier 篩選進場/出倉/持倉｜ "
-    "🆕 📊 投組模擬器（互動 expander）：選組合 + 投入金額 → 終值 / 年化 / 勝率 / 風險｜ "
-    "🎨 卡片配色：進🟢/出🔴/持🔵 + ticker chips｜ "
-    "🆕 圖示說明區 + ⚖️ 券資比區塊"
+    "🔧 Portfolio 推薦擴大到全 TOP 200（不再受限使用者搜尋範圍）｜ "
+    "🆕 📊 今日 Portfolio 推薦面板（從 data_cache 直接讀，不需 yfinance live）｜ "
+    "🆕 📊 投組模擬器（互動 expander）｜ "
+    "🎨 卡片配色：進🟢/出🔴/持🔵 + ticker chips"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4324,7 +4324,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 41  # v9.8：Portfolio Sim 面板 + 投組模擬器 expander 2026-04-28 15:30
+_RESULTS_VERSION = 42  # v9.8a：Portfolio 推薦擴大全 TOP 200 + 從 data_cache 讀 2026-04-28 15:50
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5082,29 +5082,104 @@ st.markdown(f"""
 platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
 
-# 🆕 📊 今日 Portfolio 推薦（嚴格依 TOP 200 tier）─────────────────
-_top_entry_picks = []
-_top_exit_picks  = []
-_top_hold_picks  = []
-for r in results:
-    if r[3] or not r[2]: continue
-    t, d = r[0], r[2]
-    name = d.get('name', t)
-    action = classify_action(d)
-    tier_info = get_vwap_tier(t)
-    if tier_info.get('tier') != 'TOP':
-        continue
-    delta_v = tier_info.get('delta', 0)
-    if action == 'ENTRY':
-        _top_entry_picks.append((t, name, d, delta_v))
-    elif action == 'EXIT':
-        _top_exit_picks.append((t, name, d, delta_v))
-    elif action == 'HOLD':
-        _top_hold_picks.append((t, name, d, delta_v))
+# 🆕 📊 今日 Portfolio 推薦（嚴格依 TOP 200 tier，從 data_cache 全市場掃）
+@st.cache_data(ttl=3600)
+def _scan_top200_signals():
+    """從 data_cache 直接讀全 TOP 200 個股的最新指標 + 分類動作。
+    比起依賴 results（僅含使用者搜尋），這個函式掃整個 TOP 200 清單。
+    使用 data_cache parquet（已含 e20/e60/rsi/adx 等指標），快速。
+    """
+    import pandas as _pd
+    import numpy as _np
+    from pathlib import Path as _P
+    tier_data = _load_vwap_applicable()
+    top_tickers = [t for t, info in tier_data.items() if info.get('tier') == 'TOP']
 
-_top_entry_picks.sort(key=lambda x: -x[3])
-_top_exit_picks.sort(key=lambda x: -x[3])
-_top_hold_picks.sort(key=lambda x: -x[3])
+    # 載入 stock 名稱映射
+    name_map = {}
+    try:
+        sj = _P(__file__).parent / 'tw_stock_list.json'
+        if sj.exists():
+            import json as _json
+            with open(sj, encoding='utf-8') as _f:
+                _data = _json.load(_f)
+            if isinstance(_data, dict):
+                if 'tickers' in _data:
+                    _data = _data['tickers']
+                for k, v in _data.items():
+                    if isinstance(v, dict):
+                        name_map[k] = v.get('name', '')
+    except Exception:
+        pass
+
+    # 概念股名稱備援
+    if not name_map:
+        for t in top_tickers:
+            name_map[t] = ''
+
+    entry, exit_, hold = [], [], []
+    for t in top_tickers:
+        try:
+            cache_path = _P(__file__).parent / 'data_cache' / f'{t}.parquet'
+            if not cache_path.exists():
+                continue
+            df = _pd.read_parquet(cache_path)
+            if df is None or len(df) < 30:
+                continue
+            last_idx = -1
+            close = float(df['Close'].iloc[last_idx])
+
+            # 建構 d dict (符合 classify_action 介面)
+            ema20 = float(df['e20'].iloc[last_idx]) if 'e20' in df.columns and not _pd.isna(df['e20'].iloc[last_idx]) else None
+            ema60 = float(df['e60'].iloc[last_idx]) if 'e60' in df.columns and not _pd.isna(df['e60'].iloc[last_idx]) else None
+            rsi = float(df['rsi'].iloc[last_idx]) if 'rsi' in df.columns and not _pd.isna(df['rsi'].iloc[last_idx]) else None
+            rsi_prev = float(df['rsi'].iloc[last_idx-1]) if len(df) >= 2 and 'rsi' in df.columns and not _pd.isna(df['rsi'].iloc[last_idx-1]) else None
+            rsi_prev2 = float(df['rsi'].iloc[last_idx-2]) if len(df) >= 3 and 'rsi' in df.columns and not _pd.isna(df['rsi'].iloc[last_idx-2]) else None
+            adx = float(df['adx'].iloc[last_idx]) if 'adx' in df.columns and not _pd.isna(df['adx'].iloc[last_idx]) else None
+            atr14 = float(df['atr'].iloc[last_idx]) if 'atr' in df.columns and not _pd.isna(df['atr'].iloc[last_idx]) else None
+
+            # 計算 ema20_cross_days
+            cross_days = None
+            if 'e20' in df.columns and 'e60' in df.columns and len(df) >= 30:
+                e20s = df['e20'].values
+                e60s = df['e60'].values
+                cur_bull = e20s[last_idx] > e60s[last_idx] if not (_np.isnan(e20s[last_idx]) or _np.isnan(e60s[last_idx])) else None
+                if cur_bull is not None:
+                    for k in range(1, min(60, len(df))):
+                        if _np.isnan(e20s[last_idx-k]) or _np.isnan(e60s[last_idx-k]):
+                            continue
+                        prev_bull = e20s[last_idx-k] > e60s[last_idx-k]
+                        if prev_bull != cur_bull:
+                            cross_days = k if cur_bull else -k
+                            break
+
+            d = {
+                'close': close,
+                'ema20': ema20, 'ema60': ema60,
+                'rsi': rsi, 'rsi_prev': rsi_prev, 'rsi_prev2': rsi_prev2,
+                'adx': adx, 'atr14': atr14,
+                'ema20_cross_days': cross_days,
+            }
+            action = classify_action(d)
+            tier_info = tier_data.get(t, {})
+            delta_v = tier_info.get('delta', 0)
+            row = (t, name_map.get(t, t), d, delta_v)
+            if action == 'ENTRY':
+                entry.append(row)
+            elif action == 'EXIT':
+                exit_.append(row)
+            elif action == 'HOLD':
+                hold.append(row)
+        except Exception:
+            continue
+
+    entry.sort(key=lambda x: -x[3])
+    exit_.sort(key=lambda x: -x[3])
+    hold.sort(key=lambda x: -x[3])
+    return entry, exit_, hold
+
+
+_top_entry_picks, _top_exit_picks, _top_hold_picks = _scan_top200_signals()
 
 if _top_entry_picks or _top_exit_picks or _top_hold_picks:
     def _pick_html(picks, max_show=8, accent='#3dbb6a'):
