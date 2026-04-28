@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9c"
-APP_UPDATED   = "2026-04-28 18:00"
+APP_VERSION   = "v9.9d"
+APP_UPDATED   = "2026-04-28 18:30"
 APP_NOTES     = (
-    "🆕 NLP v3：移除 SnowNLP（電商不準），改純規則 200+ 金融字典｜ "
-    "🆕 短語優先匹配（爆發商機 > 商機）+ 否定處理（不漲→負）+ regex 數字｜ "
-    "🔧 版本切換清 _scan_top200_signals 快取（TOP 200 推薦立即更新）｜ "
+    "🆕 完整指標一覽表 + 個股詳細整合：每行 = 可開合 expander｜ "
+    "🆕 NLP v3 純規則 200+ 金融字典（移除 SnowNLP）｜ "
+    "🔧 標籤更新：「純規則 200+ 金融字典」(取代「SnowNLP + 金融校正」)｜ "
     "🚀 OTC 加速 + Portfolio 全 TOP 200 + 投組模擬器"
 )
 APP_VALIDATIONS = (
@@ -3829,7 +3829,7 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") 
                     f'padding:1px 8px;border-radius:4px;font-size:.7rem;font-weight:700">'
                     f'{avg:+.2f} {avg_label}</span>'
                     f'<span style="color:#5a8ab0;font-size:.65rem">'
-                    f'（{sent["n"]} 篇平均，SnowNLP + 金融校正）</span>'
+                    f'（{sent["n"]} 篇平均，純規則 200+ 金融字典）</span>'
                     f'</div>'
                     f'{rows_html}'
                     f'</div>'
@@ -4611,7 +4611,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 46  # v9.9c：NLP v3 純規則 + cache 清除完整 2026-04-28 18:00
+_RESULTS_VERSION = 47  # v9.9d：表格 + 詳細整合（每行 expander） + 標籤更新 2026-04-28 18:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5765,26 +5765,84 @@ st.markdown(
     '<span><span style="color:#ff5555">▲▲</span> = 60 日 PER 大漲（盈餘下修風險）</span>'
     '</div>',
     unsafe_allow_html=True)
-st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
+# 🆕 v9.9d：表格 + 詳細整合 — 每檔股票 = 1 個 expander
+# 表頭 row（fake table header）
+st.markdown(
+    '<div style="display:grid;grid-template-columns:18px 50px 80px 70px 80px 60px 110px 100px 1fr;'
+    'gap:6px;padding:6px 14px;background:#0a1628;border:1px solid #1e3a5f;'
+    'border-radius:8px 8px 0 0;font-size:.7rem;color:#5a8ab0;font-weight:700;'
+    'text-transform:uppercase;letter-spacing:.05em;align-items:center">'
+    '<span></span>'
+    '<span>代號</span>'
+    '<span>名稱</span>'
+    '<span style="text-align:right">現價</span>'
+    '<span style="text-align:right">漲跌幅</span>'
+    '<span style="text-align:right">P/E</span>'
+    '<span>操作建議</span>'
+    '<span>④出場</span>'
+    '<span>概念股</span>'
+    '</div>', unsafe_allow_html=True)
 
-st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)
 for item in results:
     ticker, market, d, error = item[0], item[1], item[2], item[3]
-    groups      = item[4]   # (g_trend, g_position, g_momentum, g_aux)
-    group_summs = item[5]   # (ts, ps, ms, xs)
-    tsumm       = item[6]   # (tb, ts_, tn_, verdict)
+    groups      = item[4]
+    group_summs = item[5]
+    tsumm       = item[6]
     cap         = item[7]
     _, _, _, tr_ = tsumm
     name  = d.get("name", ticker) if d else ticker
-    label = f"{ticker}  {name}" if name and name != ticker else ticker
-    _rlabel_exp, _ = get_rec_label(d, ticker) if (d and not error) else ("無資料", "")
-    title = f"{label}  {_rlabel_exp}" if not error else f"{label}  —  無資料"
-    with st.expander(title, expanded=False):
-        if error or not d:
+
+    # ── 構建類表格的 expander 標題 ─────────────────
+    if error or not d:
+        # 錯誤行
+        title = f"  {ticker}     {name if name != ticker else '—':<10}     —          —          —    無資料"
+        with st.expander(title, expanded=False):
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
                         unsafe_allow_html=True)
-        else:
-            # 新聞情感已整合進 render_detail（位於「當前策略風格」下方、「收盤價」上方）
+        continue
+
+    # 取資料
+    close_v = d.get('close', 0) or 0
+    chg_pct = d.get('change_pct')
+    per_v = d.get('per')
+    _rlabel_exp, _ = get_rec_label(d, ticker)
+    _xlabel, _ = get_exit_signal(d)
+
+    # tier 徽章
+    vw_tier = get_vwap_tier(ticker)
+    tier_str = ''
+    if vw_tier.get('tier') == 'TOP':
+        tier_str = '⭐'
+    elif vw_tier.get('tier') == 'NA':
+        tier_str = '⚠️'
+    else:
+        tier_str = '  '
+
+    # 漲跌幅
+    if chg_pct is not None:
+        chg_arrow = '▲' if chg_pct >= 0 else '▼'
+        chg_str = f"{chg_arrow}{abs(chg_pct):.2f}%"
+    else:
+        chg_str = '—'
+
+    # PE
+    pe_str = f"{per_v:.1f}" if per_v else '—'
+
+    # 概念股
+    concepts = _get_concepts(ticker, max_n=2)
+    concept_inline = ' / '.join(concepts) if concepts else '—'
+    if len(concept_inline) > 18:
+        concept_inline = concept_inline[:18] + '…'
+
+    # 構建標題（用 monospace 對齊欄位）
+    title = (
+        f"{tier_str}  {ticker:<5}   {name[:6]:<6}   "
+        f"{close_v:>8.2f}   {chg_str:>9}   PE {pe_str:>5}   "
+        f"{_rlabel_exp[:10]:<10}  {_xlabel[:8]:<8}  {concept_inline}"
+    )
+
+    with st.expander(title, expanded=False):
+        # 新聞情感已整合進 render_detail（位於「當前策略風格」下方、「收盤價」上方）
             st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap, market=market),
                         unsafe_allow_html=True)
 
