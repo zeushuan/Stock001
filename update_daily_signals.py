@@ -49,6 +49,15 @@ def main():
                 if isinstance(v, dict):
                     name_map[k] = v.get('name', '')
 
+    # 🆕 fallback：twstock 補漏（如 5439 不在 tw_stock_list）
+    try:
+        import twstock
+        for k, info in twstock.codes.items():
+            if (k not in name_map or not name_map.get(k)) and hasattr(info, 'name'):
+                name_map[k] = info.name
+    except Exception:
+        pass
+
     entry, exit_, hold, wait = [], [], [], []
     last_dates = []
     for t in top200:
