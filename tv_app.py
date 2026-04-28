@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9o"
-APP_UPDATED   = "2026-04-28 23:00"
+APP_VERSION   = "v9.9p"
+APP_UPDATED   = "2026-04-28 23:30"
 APP_NOTES     = (
-    "🆕 🇺🇸 US TOP 100 即時掃描 panel（212 檔 baseline 回測 + 多因子分級）｜ "
-    "🆕 美股「可進場」也加 💾 存自選股｜ "
-    "🚀 TW TOP 200 多因子 v2 年化 +110%｜ 🤖 NLP 規則+BERT"
+    "🆕 🇺🇸 US TOP 200 擴大至 444 檔回測（S&P 500 完整 + ETF + 中小型熱門）｜ "
+    "🚀 TW TOP 200 多因子 v2 年化 +110%｜ "
+    "🆕 雙市場可進場「💾 存自選股」｜ 🤖 NLP 規則+BERT"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4908,7 +4908,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 57  # v9.9o：US TOP 100 panel + 多因子分級 2026-04-28 23:00
+_RESULTS_VERSION = 58  # v9.9p：US 擴大 444 檔 → TOP 200 篩選 2026-04-28 23:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

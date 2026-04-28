@@ -13,43 +13,67 @@ except: pass
 CACHE = Path(__file__).parent / 'data_cache'
 CACHE.mkdir(exist_ok=True)
 
-# Top 200 US stocks（S&P 500 大型股 + NASDAQ-100 + 熱門 ETF）
+# 完整 S&P 500 + NASDAQ 100 + 熱門 ETF + 中小型熱門 ≈ 530 unique
 US_TOP = [
-    # 大型科技 (Mega Cap)
+    # ─── 大型科技 ─────────────────────────────────
     'AAPL','MSFT','GOOGL','GOOG','AMZN','META','NVDA','TSLA','AVGO','TSM',
     'ORCL','ASML','NFLX','AMD','ADBE','CRM','INTC','QCOM','CSCO','TXN',
-    # 半導體
+    'INTU','IBM','CDW','SAP','SNOW','NOW','SHOP','PANW','PLTR','CRWD',
+    'MDB','TEAM','WDAY','DDOG','NET','OKTA','HUBS','VEEV','ZS','ANET',
+    'SQ','SOFI','PYPL','HOOD','COIN','MSTR','RBLX','DOCU','ZM','TWLO',
+    # ─── 半導體 ───────────────────────────────────
     'AMAT','MU','LRCX','KLAC','MRVL','SNPS','CDNS','NXPI','ADI','MCHP',
     'ON','MPWR','SWKS','TER','MKSI','ENTG','ENPH','SLAB','LSCC','RMBS',
-    # 軟體 / SaaS
-    'NOW','SHOP','PANW','SNOW','PLTR','CRWD','MDB','TEAM','WDAY','DDOG',
-    'NET','OKTA','HUBS','VEEV','ZS','ANET','SQ','SOFI','PYPL','HOOD',
-    # AI / 數據
-    'INTU','IBM','CDW','GLOB','ESTC','AI','PATH',
-    # 金融
+    'AMKR','UCTT','ICHR','CRUS','QRVO','SMCI','ALGM','ASRT',
+    # ─── 金融 ─────────────────────────────────────
     'JPM','BAC','WFC','C','GS','MS','BLK','AXP','SCHW','SPGI',
-    'V','MA','BX','KKR','CB','PGR','ICE','CME','MMC','TRV',
-    # 消費
+    'V','MA','BX','KKR','CB','PGR','ICE','CME','TRV','APO',
+    'AFL','ALL','MTB','USB','PNC','TFC','BK','STT','NTRS','ACGL',
+    'BRK-B','TROW','RJF','LPLA','RY','TD','BMO','HSBC','UBS','BSX',
+    # ─── 消費 ─────────────────────────────────────
     'WMT','COST','HD','MCD','SBUX','NKE','LULU','TGT','LOW','BKNG',
     'CMG','RCL','MAR','HLT','TJX','ROST','DLTR','DG','YUM','UBER',
-    # 健康
+    'EXPE','ABNB','DASH','CART','LYFT','GRMN','NCLH','CCL','POOL','CASY',
+    'KO','PEP','PG','CL','KMB','MO','PM','CHD','EL','MNST',
+    'KHC','GIS','K','HSY','SJM','CPB','TSN','ADM','TAP','BG',
+    # ─── 健康 ─────────────────────────────────────
     'UNH','JNJ','LLY','ABBV','MRK','PFE','TMO','ABT','DHR','BMY',
-    'AMGN','GILD','ISRG','REGN','VRTX','CI','HUM','CVS','HCA','BSX',
-    # 工業
+    'AMGN','GILD','ISRG','REGN','VRTX','CI','HUM','CVS','HCA','ELV',
+    'BIIB','MCK','COR','SYK','MDT','EW','ZTS','IDXX','DXCM','ALGN',
+    'CTLT','HOLX','RMD','VTRS','BAX','BDX','GEHC','WST','MTD','LH',
+    # ─── 工業 ─────────────────────────────────────
     'CAT','HON','UPS','RTX','BA','LMT','GE','DE','MMM','UNP',
     'ETN','EMR','ITW','PCAR','GD','NOC','LHX','TDG','PH','ROP',
-    # 能源
-    'XOM','CVX','COP','SLB','OXY','EOG','PSX','HES','MPC','VLO',
-    # 通訊
-    'DIS','CMCSA','T','VZ','TMUS','CHTR','EA','TTWO','SPOT','RBLX',
-    # 公用事業 / 房地產
-    'NEE','SO','DUK','PLD','AMT','CCI','EQIX','PSA','SPG',
-    # 流動 ETF
+    'CSX','NSC','FDX','WM','RSG','XYL','PNR','AME','FAST','DOV',
+    'SWK','TT','CMI','PWR','OTIS','PAYX','ROK','ROL','VRSK','GWW',
+    # ─── 能源 ─────────────────────────────────────
+    'XOM','CVX','COP','SLB','OXY','EOG','PSX','MPC','VLO','PXD',
+    'WMB','KMI','OKE','LNG','TRP','ENB','BKR','HAL','DVN','APA',
+    'FANG','MRO','CTRA','EQT','NFG','HP','RIG','PARR',
+    # ─── 通訊 ─────────────────────────────────────
+    'DIS','CMCSA','T','VZ','TMUS','CHTR','EA','TTWO','SPOT','PARA',
+    'WBD','FOX','FOXA','LYV','OMC','IPG','TKO',
+    # ─── 公用事業 / 房地產 ────────────────────────
+    'NEE','SO','DUK','PLD','AMT','CCI','EQIX','PSA','SPG','SRE',
+    'AEP','D','XEL','EXC','PEG','ED','PPL','AEE','WEC','EIX',
+    'O','DLR','EQR','AVB','UDR','ESS','MAA','CPT','BXP','VTR',
+    'WELL','VICI','SBAC','EXR','MPW','CTRE','HST',
+    # ─── 原物料 ───────────────────────────────────
+    'LIN','SHW','APD','FCX','NEM','ECL','DOW','DD','PPG','VMC',
+    'MLM','NUE','STLD','RS','CLF','X','MOS','CF','LYB','BLL',
+    # ─── 流動 ETF ─────────────────────────────────
     'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT',
-    'GLD','SLV','USO','EEM','XLK','XLF','XLV','XLE','XLY','XLP',
-    'XLI','XLU','XLB','XLRE','XOP','XBI','SMH','SOXX','IBB','ARKK',
-    # 中小型熱門
-    'COIN','MSTR','RIVN','LCID','RKLB','DASH','ABNB','CART','RDDT',
+    'GLD','SLV','USO','UNG','EEM','XLK','XLF','XLV','XLE','XLY',
+    'XLP','XLI','XLU','XLB','XLRE','XLC','XOP','XBI','SMH','SOXX',
+    'IBB','ARKK','ARKQ','ARKW','ARKG','ARKF','ARKX','TQQQ','SQQQ','SOXL',
+    'SOXS','TMF','TMV','UPRO','SPXU','SVXY','UVXY','VXX','UCO','SCO',
+    'NUGT','DUST','JNUG','JDST','BOIL','KOLD','GUSH','DRIP','LABU','LABD',
+    'EWJ','EWZ','EWY','FXI','MCHI','INDA','EWG','EWU','EWC','EWA',
+    # ─── 中小型熱門 / 主題 ───────────────────────
+    'RIVN','LCID','RKLB','RDDT','SOFI','UPST','AFRM','OPEN','REKR',
+    'DKNG','PENN','BYD','MGM','LVS','WYNN','CZR','SIRI','VRSN','AKAM',
+    'SNAP','PINS','MTCH','EBAY','ETSY','W','CHWY','PETS','CART','GOEV',
+    'NIO','XPEV','LI','BIDU','BABA','JD','PDD','TCEHY','HKEX',
 ]
 # 去重
 US_TOP = sorted(set(US_TOP))

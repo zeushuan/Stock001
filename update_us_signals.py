@@ -128,8 +128,8 @@ def main():
               f"{r['pnl_test']:>+9.1f} {r['liquidity']:>14,}")
 
     # ─── Step 4: 分級 ──────────────────────────────────
-    n_top = min(100, n // 2)  # US 規模較小，TOP 100 就好
-    n_na = max(20, n // 10)
+    n_top = min(200, n // 2)  # US TOP 200（>= 400 檔可選）
+    n_na = max(40, n // 10)
     tier_dict = {}
     for i, r in enumerate(rows):
         if i < n_top: tier = 'TOP'

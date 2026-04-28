@@ -1,7 +1,7 @@
 {
   "updated_at": "2026-04-27",
-  "computed_at": "2026-04-28 20:03:37",
-  "top_total": 100,
+  "computed_at": "2026-04-28 20:28:48",
+  "top_total": 200,
   "entry": [
     {
       "ticker": "MCHP",
@@ -23,6 +23,18 @@
       "ema20_cross_days": 10,
       "delta": 34.9,
       "sig": "T1 10d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "TQQQ",
+      "name": "TQQQ",
+      "close": 62.64,
+      "rsi": 75.0,
+      "ema20_cross_days": 7,
+      "delta": 34.9,
+      "sig": "T1 7d",
       "pe": null,
       "pbr": null,
       "div": null
@@ -76,6 +88,18 @@
       "div": null
     },
     {
+      "ticker": "NSC",
+      "name": "NSC",
+      "close": 318.89,
+      "rsi": 70.7,
+      "ema20_cross_days": 5,
+      "delta": 17.3,
+      "sig": "T1 5d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "BAC",
       "name": "BAC",
       "close": 52.63,
@@ -95,6 +119,18 @@
       "ema20_cross_days": 8,
       "delta": 16.9,
       "sig": "T1 8d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "UPRO",
+      "name": "UPRO",
+      "close": 127.59,
+      "rsi": 70.1,
+      "ema20_cross_days": 6,
+      "delta": 16.7,
+      "sig": "T1 6d",
       "pe": null,
       "pbr": null,
       "div": null
@@ -170,9 +206,45 @@
       "pe": null,
       "pbr": null,
       "div": null
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVDA",
+      "close": 216.61,
+      "rsi": 76.3,
+      "ema20_cross_days": 9,
+      "delta": -4.1,
+      "sig": "T1 9d",
+      "pe": null,
+      "pbr": null,
+      "div": null
     }
   ],
   "exit": [
+    {
+      "ticker": "CMI",
+      "name": "CMI",
+      "close": 660.78,
+      "rsi": 75.1,
+      "ema20_cross_days": 14,
+      "delta": 49.3,
+      "sig": "RSI>75/EMA死叉",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "FOXA",
+      "name": "FOXA",
+      "close": 63.86,
+      "rsi": 58.1,
+      "ema20_cross_days": 4,
+      "delta": 26.1,
+      "sig": "T1 4d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
     {
       "ticker": "ORCL",
       "name": "ORCL",
@@ -181,6 +253,30 @@
       "ema20_cross_days": 3,
       "delta": 25.2,
       "sig": "T1 3d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "FOX",
+      "name": "FOX",
+      "close": 57.12,
+      "rsi": 56.9,
+      "ema20_cross_days": 4,
+      "delta": 17.9,
+      "sig": "T1 4d",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "EXC",
+      "name": "EXC",
+      "close": 46.59,
+      "rsi": 40.9,
+      "ema20_cross_days": 51,
+      "delta": 7.0,
+      "sig": "T3 RSI41",
       "pe": null,
       "pbr": null,
       "div": null
@@ -212,6 +308,18 @@
       "div": null
     },
     {
+      "ticker": "AMKR",
+      "name": "AMKR",
+      "close": 75.62,
+      "rsi": 77.0,
+      "ema20_cross_days": null,
+      "delta": 306.3,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "TER",
       "name": "TER",
       "close": 402.0,
@@ -236,6 +344,30 @@
       "div": null
     },
     {
+      "ticker": "SOXL",
+      "name": "SOXL",
+      "close": 123.39,
+      "rsi": 82.0,
+      "ema20_cross_days": 13,
+      "delta": 148.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "PARR",
+      "name": "PARR",
+      "close": 64.35,
+      "rsi": 57.4,
+      "ema20_cross_days": 55,
+      "delta": 107.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "CSCO",
       "name": "CSCO",
       "close": 88.26,
@@ -248,12 +380,60 @@
       "div": null
     },
     {
+      "ticker": "APA",
+      "name": "APA",
+      "close": 38.43,
+      "rsi": 52.3,
+      "ema20_cross_days": null,
+      "delta": 103.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "CASY",
+      "name": "CASY",
+      "close": 804.5,
+      "rsi": 76.3,
+      "ema20_cross_days": null,
+      "delta": 91.1,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "AMD",
       "name": "AMD",
       "close": 334.63,
       "rsi": 80.2,
       "ema20_cross_days": 13,
       "delta": 88.6,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "PWR",
+      "name": "PWR",
+      "close": 637.28,
+      "rsi": 71.5,
+      "ema20_cross_days": null,
+      "delta": 85.4,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "TD",
+      "name": "TD",
+      "close": 105.64,
+      "rsi": 71.2,
+      "ema20_cross_days": null,
+      "delta": 72.1,
       "sig": "—",
       "pe": null,
       "pbr": null,
@@ -284,12 +464,36 @@
       "div": null
     },
     {
+      "ticker": "BMO",
+      "name": "BMO",
+      "close": 152.37,
+      "rsi": 68.2,
+      "ema20_cross_days": 14,
+      "delta": 63.9,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "ENTG",
       "name": "ENTG",
       "close": 156.44,
       "rsi": 75.9,
       "ema20_cross_days": null,
       "delta": 62.1,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "ICHR",
+      "name": "ICHR",
+      "close": 70.68,
+      "rsi": 76.5,
+      "ema20_cross_days": null,
+      "delta": 58.6,
       "sig": "—",
       "pe": null,
       "pbr": null,
@@ -356,6 +560,30 @@
       "div": null
     },
     {
+      "ticker": "ASRT",
+      "name": "ASRT",
+      "close": 18.04,
+      "rsi": 62.6,
+      "ema20_cross_days": null,
+      "delta": 34.5,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "UCTT",
+      "name": "UCTT",
+      "close": 81.09,
+      "rsi": 68.6,
+      "ema20_cross_days": null,
+      "delta": 33.6,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "LSCC",
       "name": "LSCC",
       "close": 119.23,
@@ -380,12 +608,60 @@
       "div": null
     },
     {
+      "ticker": "CSX",
+      "name": "CSX",
+      "close": 45.46,
+      "rsi": 70.2,
+      "ema20_cross_days": null,
+      "delta": 31.5,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "SLB",
       "name": "SLB",
       "close": 55.23,
       "rsi": 64.4,
       "ema20_cross_days": null,
       "delta": 31.4,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "SBAC",
+      "name": "SBAC",
+      "close": 215.0,
+      "rsi": 57.3,
+      "ema20_cross_days": 13,
+      "delta": 28.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "STT",
+      "name": "STT",
+      "close": 154.02,
+      "rsi": 78.1,
+      "ema20_cross_days": 15,
+      "delta": 28.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "FDX",
+      "name": "FDX",
+      "close": 387.89,
+      "rsi": 60.2,
+      "ema20_cross_days": null,
+      "delta": 27.1,
       "sig": "—",
       "pe": null,
       "pbr": null,
@@ -404,12 +680,84 @@
       "div": null
     },
     {
+      "ticker": "VRSN",
+      "name": "VRSN",
+      "close": 267.9,
+      "rsi": 55.1,
+      "ema20_cross_days": 22,
+      "delta": 23.6,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "RY",
+      "name": "RY",
+      "close": 176.67,
+      "rsi": 64.0,
+      "ema20_cross_days": 12,
+      "delta": 22.1,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "GRMN",
+      "name": "GRMN",
+      "close": 257.33,
+      "rsi": 55.6,
+      "ema20_cross_days": 48,
+      "delta": 18.5,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "ALGM",
+      "name": "ALGM",
+      "close": 43.47,
+      "rsi": 72.4,
+      "ema20_cross_days": 12,
+      "delta": 18.2,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
       "ticker": "TGT",
       "name": "TGT",
       "close": 129.72,
       "rsi": 64.0,
       "ema20_cross_days": null,
       "delta": 16.9,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "HST",
+      "name": "HST",
+      "close": 20.88,
+      "rsi": 61.0,
+      "ema20_cross_days": null,
+      "delta": 15.0,
+      "sig": "—",
+      "pe": null,
+      "pbr": null,
+      "div": null
+    },
+    {
+      "ticker": "DLR",
+      "name": "DLR",
+      "close": 196.34,
+      "rsi": 61.8,
+      "ema20_cross_days": 59,
+      "delta": 14.4,
       "sig": "—",
       "pe": null,
       "pbr": null,
@@ -452,5 +800,5 @@
       "div": null
     }
   ],
-  "wait_count": 63
+  "wait_count": 134
 }
