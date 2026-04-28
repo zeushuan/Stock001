@@ -64,6 +64,9 @@ margin_cache/
 # FinMind 新聞快取（regeneratable）
 news_cache/
 
+# 1m VWAP cache（regeneratable，僅 30 檔測試用）
+vwap_cache_1m/
+
 # 跨年度結果 CSV（regeneratable）
 yr*_*.csv
 features.csv
