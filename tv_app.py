@@ -8,13 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9e"
-APP_UPDATED   = "2026-04-28 19:00"
+APP_VERSION   = "v9.9f"
+APP_UPDATED   = "2026-04-28 19:30"
 APP_NOTES     = (
-    "🤖 NLP 升級：規則 70% + Erlangshen BERT 30% 混合評分（替換 SnowNLP）｜ "
-    "🆕 純金融規則 200+ 字典 + 否定處理 + regex 數字模式｜ "
-    "🔧 完整指標一覽表回到原本 HTML 表格風格｜ "
-    "🚀 OTC 加速 + Portfolio 全 TOP 200 + 投組模擬器"
+    "🆕 首頁立即顯示 TOP 200 今日掃描（無需先輸入股票，每天自動更新）｜ "
+    "🤖 NLP：規則 70% + Erlangshen BERT 30% 混合｜ "
+    "🆕 純金融規則 200+ 字典｜ 🚀 OTC 加速 + Portfolio + 投組模擬器"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4647,7 +4646,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 48  # v9.9e：規則+Erlangshen BERT 混合 NLP 2026-04-28 19:00
+_RESULTS_VERSION = 49  # v9.9f：首頁立即顯示 TOP 200 今日掃描 2026-04-28 19:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5341,11 +5340,81 @@ if fetch_btn:
 # 從 session_state 讀取（保持結果在模型切換時不消失）
 if "results" not in st.session_state:
     st.markdown("""
-<div style="text-align:center;padding:60px 20px">
-  <div style="font-size:3rem;margin-bottom:16px">📈</div>
-  <div style="font-size:1rem;color:#3a6a9a">在左側輸入股票代號，點擊「開始抓取資料」</div>
-  <div style="font-size:.78rem;color:#1e3a5f;margin-top:8px">支援台股（含反/槓桿 ETF）· NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
+<div style="text-align:center;padding:30px 20px 12px">
+  <div style="font-size:2rem;margin-bottom:8px">📈</div>
+  <div style="font-size:.95rem;color:#3a6a9a">在左側輸入股票代號，點擊「開始抓取資料」</div>
+  <div style="font-size:.72rem;color:#1e3a5f;margin-top:4px">支援台股 · NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
 </div>""", unsafe_allow_html=True)
+
+    # 🆕 首頁也顯示 TOP 200 今日掃描（不需先掃股）
+    try:
+        _e, _x, _h = _scan_top200_signals()
+        if _e or _x or _h:
+            st.markdown("---")
+            st.markdown(
+                f'<div style="background:#0a1a2a;border:1px solid #3dbb6a55;border-radius:10px;'
+                f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
+                f'<div style="font-size:1.1rem;font-weight:700;color:#3dbb6a">📊 今日 TOP 200 即時掃描</div>'
+                f'<div style="color:#7abadd;font-size:.85rem">'
+                f'🚀 進場 <b>{len(_e)}</b>　│　🚪 出倉 <b>{len(_x)}</b>　│　📌 持倉 <b>{len(_h)}</b></div>'
+                f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
+                f'每天自動掃描 ⭐ TOP 200 適用清單，無需先輸入股票代號</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            def _quick_row(picks, color, label, max_n=10):
+                if not picks:
+                    return f'<div style="color:#3a5a7a;font-size:.72rem;padding:6px">— 暫無 —</div>'
+                out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
+                       f'padding:4px 8px 6px">{label} ({len(picks)})</div>')
+                for t, name, d, delta in picks[:max_n]:
+                    rsi = d.get('rsi')
+                    rsi_str = f'RSI {rsi:.0f}' if rsi else ''
+                    cd = d.get('ema20_cross_days')
+                    type_str = ''
+                    if cd is not None and 0 < cd <= 10:
+                        type_str = f'T1 {cd}d'
+                    elif rsi is not None and rsi < 50:
+                        type_str = f'T3'
+                    out += (
+                        f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
+                        f'border-bottom:1px solid #1a2a3f">'
+                        f'<span style="color:{color};font-weight:700;font-family:monospace;'
+                        f'min-width:48px">{t}</span>'
+                        f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
+                        f'white-space:nowrap;max-width:90px">{name}</span>'
+                        f'<span style="color:#e8f4fd;font-family:monospace">{d.get("close",0):.2f}</span>'
+                        f'<span style="color:#5a8ab0;font-size:.7rem">{rsi_str}</span>'
+                        f'<span style="color:#7a8899;font-size:.65rem">{type_str}</span>'
+                        f'<span style="color:#3dbb6a;font-size:.65rem;background:#0a3a1f;'
+                        f'padding:1px 5px;border-radius:3px">+{delta:.0f}%</span>'
+                        f'</div>'
+                    )
+                if len(picks) > max_n:
+                    out += (f'<div style="text-align:center;padding:4px;color:#5a8ab0;font-size:.7rem">'
+                            f'＋{len(picks)-max_n} 檔</div>')
+                return out
+
+            cols = st.columns(3)
+            with cols[0]:
+                st.markdown(
+                    f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+                    f'padding:6px 4px">{_quick_row(_e, "#3dbb6a", "🚀 可進場", max_n=15)}</div>',
+                    unsafe_allow_html=True)
+            with cols[1]:
+                st.markdown(
+                    f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+                    f'padding:6px 4px">{_quick_row(_x, "#ff7777", "🚪 應出倉", max_n=15)}</div>',
+                    unsafe_allow_html=True)
+            with cols[2]:
+                st.markdown(
+                    f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+                    f'padding:6px 4px">{_quick_row(_h, "#7abadd", "📌 持倉中", max_n=15)}</div>',
+                    unsafe_allow_html=True)
+    except Exception as _e:
+        pass
+
     st.stop()
 
 results    = st.session_state["results"]

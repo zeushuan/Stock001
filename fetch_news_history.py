@@ -143,26 +143,25 @@ def main():
         print("❌ 未設定 FINMIND_TOKEN")
         return
 
-    # 🆕 全市場（從 data_cache 讀，4 位數）
-    DATA_DIR = Path(__file__).parent / 'data_cache'
-    universe = sorted([p.stem for p in DATA_DIR.glob('*.parquet')
-                       if p.stem and p.stem[0].isdigit() and len(p.stem) == 4])
+    # 🆕 v2 範圍：TOP 200 tier 為主（FAST MVP）
+    with open('vwap_applicable.json', encoding='utf-8') as f:
+        tier_data = json.load(f)
+    universe = sorted([t for t, info in tier_data.items() if info.get('tier') == 'TOP'])
 
-    # 過濾掉已快取
     have = set(p.stem for p in CACHE_DIR.glob('*.parquet'))
     todo = [t for t in universe if t not in have]
 
-    # 日期範圍：近 60 個交易日（約 3 個月，先做快速 MVP）
+    # 🆕 v2 日期：縮至 30 個交易日（快速 MVP）
     end_date = datetime.now()
     dates = []
     cur = end_date
-    while len(dates) < 60:
+    while len(dates) < 30:
         if cur.weekday() < 5:
             dates.append(cur.strftime('%Y-%m-%d'))
         cur -= timedelta(days=1)
     dates.reverse()
 
-    print(f"全市場: {len(universe)} 檔 / 待抓 {len(todo)}")
+    print(f"TOP 200 tier: {len(universe)} 檔 / 待抓 {len(todo)}")
     print(f"日期範圍: {dates[0]} ~ {dates[-1]} ({len(dates)} 交易日)")
     print(f"Tokens: {len(tokens)}（每 thread 1.5s/call）")
     print(f"預估 calls: {len(todo) * len(dates)} / 預估時間: "
