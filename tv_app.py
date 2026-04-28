@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9m"
-APP_UPDATED   = "2026-04-28 22:00"
+APP_VERSION   = "v9.9n"
+APP_UPDATED   = "2026-04-28 22:30"
 APP_NOTES     = (
-    "🚀 TOP 200 排序改用多因子綜合分數（報酬 30% + 穩定 40% + 流動性 20% + RR 10%）｜ "
-    "🚀 Portfolio 22 月年化從 +52% 提升至 +110%（v1 vs v2）｜ "
-    "🆕 「可進場」存成自選股｜🔧 P/E 顏色｜🤖 NLP 規則+BERT"
+    "🆕 TOP 200 三欄改成可收合 expander（持倉中預設收合，節省版面）｜ "
+    "🚀 多因子綜合分數年化 +110% (v2)｜ 🆕 P/E 顏色 + 存自選股｜ "
+    "🤖 NLP 規則+BERT｜ 🚀 Portfolio + 投組模擬器"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4283,11 +4283,14 @@ def _render_top200_panel():
         )
 
         def _row_html(rows, color, label, max_n=999):
-            """max_n=999 預設顯示全部（先前限 15 檔遭使用者反映）"""
+            """max_n=999 預設顯示全部（先前限 15 檔遭使用者反映）
+            label='' 時不顯示頂部標題（用於 expander 內，標題已在 expander label）"""
             if not rows:
                 return f'<div style="color:#3a5a7a;font-size:.72rem;padding:6px">— 暫無 —</div>'
-            out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
-                   f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
+            out = ''
+            if label:
+                out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
+                       f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
             for r in rows[:max_n]:
                 sig = r.get('sig', '')
                 # 🆕 P/E（顏色判定）
@@ -4327,10 +4330,11 @@ def _render_top200_panel():
 
         cols = st.columns(3)
         with cols[0]:
-            st.markdown(
-                f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
-                f'padding:6px 4px">{_row_html(_e_raw, "#3dbb6a", "🚀 可進場")}</div>',
-                unsafe_allow_html=True)
+            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=True):
+                st.markdown(
+                    f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+                    f'padding:6px 4px">{_row_html(_e_raw, "#3dbb6a", "")}</div>',
+                    unsafe_allow_html=True)
             # 🆕 v9.9l：存成自選股清單（按鈕在進場欄下方）
             if _e_raw:
                 _save_cols = st.columns([3, 1])
@@ -4383,15 +4387,18 @@ def _render_top200_panel():
                         st.success(f"✅ 已存「{_wl_name}」（{len(_e_raw)} 檔）")
                         st.rerun()
         with cols[1]:
-            st.markdown(
-                f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
-                f'padding:6px 4px">{_row_html(_x_raw, "#ff7777", "🚪 應出倉")}</div>',
-                unsafe_allow_html=True)
+            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=True):
+                st.markdown(
+                    f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+                    f'padding:6px 4px">{_row_html(_x_raw, "#ff7777", "")}</div>',
+                    unsafe_allow_html=True)
         with cols[2]:
-            st.markdown(
-                f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
-                f'padding:6px 4px">{_row_html(_h_raw, "#7abadd", "📌 持倉中")}</div>',
-                unsafe_allow_html=True)
+            # 持倉中 預設收合（通常較多，避免畫面太長）
+            with st.expander(f"📌 持倉中 ({len(_h_raw)})", expanded=False):
+                st.markdown(
+                    f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+                    f'padding:6px 4px">{_row_html(_h_raw, "#7abadd", "")}</div>',
+                    unsafe_allow_html=True)
     except Exception:
         pass
 
@@ -4791,7 +4798,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 55  # v9.9m：TOP 200 多因子綜合分數（v2，年化提升 +52→+110%） 2026-04-28 22:00
+_RESULTS_VERSION = 56  # v9.9n：TOP 200 三欄改可收合 expander 2026-04-28 22:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
