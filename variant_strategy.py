@@ -340,6 +340,8 @@ def _decode_mode(mode: str) -> dict:
         use_BSGUARD    = 'BSGUARD' in parts,      # 危險窗暫停 T1/T3 進場
         use_BSEXIT     = 'BSEXIT' in parts,       # 危險窗加速出場（ATR×1.5）
         use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
+        # 🆕 動態 ATR 停損（保護獲利）
+        use_DYNSTOP    = 'DYNSTOP' in parts,      # 持倉 > 30d 且獲利 > 20% → ATR×1.5（trailing）
     )
 
     # 🆕 解析 VWAPDEV{N} / VWAPBAND{N} / PEMAX{N} / PEMIN{N} / DIV{N} / PBR{N}
@@ -627,6 +629,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_BSGUARD    = flags.get('use_BSGUARD', False)
     use_BSEXIT     = flags.get('use_BSEXIT', False)
     use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
+    use_DYNSTOP    = flags.get('use_DYNSTOP', False)
 
     # 黑天鵝危險日清單（一次性載入）
     bs_danger_set = None
@@ -1452,7 +1455,19 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
             else:
                 cur_ex = ex_fn
 
-            hit_stop = (stop_p is not None) and (pr[i] < stop_p)
+            # 🆕 DYNSTOP：動態 ATR 停損（持倉 > 30d 且獲利 > 20% → ATR×1.5 trailing）
+            eff_stop_p = stop_p
+            if use_DYNSTOP and stop_p is not None:
+                holding_days = (dates[i] - p['ed']).days
+                cur_profit_pct = (pr[i] - ep) / ep * 100 if ep > 0 else 0
+                if holding_days > 30 and cur_profit_pct > 20:
+                    cur_atr = atr[i] if not np.isnan(atr[i]) else p.get('atr_at_entry', 0)
+                    if cur_atr > 0:
+                        tight_stop = pr[i] - cur_atr * 1.5
+                        # Trail only (don't lower the stop)
+                        eff_stop_p = max(stop_p, tight_stop)
+
+            hit_stop = (eff_stop_p is not None) and (pr[i] < eff_stop_p)
             do_exit_std = hit_stop or cur_ex(i)
 
             # C3 EMA20 連 5 天下彎 → 出場（限非高波動 + 已浮動獲利）
