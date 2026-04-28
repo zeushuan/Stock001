@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9"
-APP_UPDATED   = "2026-04-28 16:30"
+APP_VERSION   = "v9.9a"
+APP_UPDATED   = "2026-04-28 17:00"
 APP_NOTES     = (
-    "🆕 📰 新聞情感分析：SnowNLP + 30+ 金融關鍵字校正（每篇分數 + 平均）｜ "
-    "🆕 📊 Portfolio 推薦擴大全 TOP 200 + 投組模擬器｜ "
-    "🆕 個股表格 P/E + 動量 + tier 徽章｜ "
-    "🎨 卡片配色：進🟢/出🔴/持🔵"
+    "🚀 速度優化：881 檔 OTC 上櫃股清單，跳過 .TW fallback（直接 .TWO 抓）｜ "
+    "🎨 新聞情感移到「當前策略風格」下、「收盤價」上｜ "
+    "🆕 SnowNLP + 金融關鍵字情感｜ "
+    "🆕 Portfolio 推薦全 TOP 200 + 投組模擬器"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -162,7 +162,27 @@ def get_yf_symbol(ticker: str) -> str:
     """將使用者輸入代號轉換為 yfinance 查詢格式"""
     if ticker in SYMBOL_ALIASES:
         return SYMBOL_ALIASES[ticker]
-    return ticker + ".TW" if is_tw_stock(ticker) else ticker
+    if is_tw_stock(ticker):
+        # 🆕 OTC 上櫃股直接用 .TWO（避免 .TW fallback 浪費時間）
+        if ticker in _OTC_TICKERS:
+            return ticker + ".TWO"
+        return ticker + ".TW"
+    return ticker
+
+
+# 🆕 OTC 上櫃股清單（加速 fetch — 跳過 .TW 失敗 retry）
+@st.cache_data
+def _load_otc_tickers():
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        p = _P(__file__).parent / 'otc_tickers.json'
+        if p.exists():
+            return set(_json.load(open(p, encoding='utf-8')))
+    except Exception:
+        pass
+    return set()
+_OTC_TICKERS = _load_otc_tickers()
 
 
 # 🆕 VWAPEXEC 適用清單（從 build_applicable_list.py 產出）
@@ -3516,7 +3536,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             f'<th style="background:#060c18;min-width:140px">概念股</th>'
             f'</tr></thead><tbody>{rows}</tbody></table></div>')
 
-def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
+def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
     g_trend, g_position, g_momentum, g_aux = groups
     ts_s, ps_s, ms_s, xs_s = group_summs
     tb, ts_, tn_, tr_ = tsumm
@@ -3606,7 +3626,61 @@ def render_detail(ticker, d, groups, group_summs, tsumm, cap) -> str:
 
     # K 線型態已移至 get_operation_advice 內部（標題下、①市場環境上）
 
-    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{summary_row}{sections}</div>'
+    # 🆕 新聞情感（在「當前策略風格」之後、「收盤價」之前）
+    sent_html = ""
+    if market:
+        try:
+            sent = get_news_sentiment(ticker, market)
+            if sent['n'] > 0:
+                avg = sent['avg_score']
+                if avg > 0.3:
+                    avg_color, avg_label = '#3dbb6a', '🟢 偏正面'
+                elif avg > 0.05:
+                    avg_color, avg_label = '#88c8a8', '🟢 微正面'
+                elif avg < -0.3:
+                    avg_color, avg_label = '#ff5555', '🔴 偏負面'
+                elif avg < -0.05:
+                    avg_color, avg_label = '#e8a020', '🟠 微負面'
+                else:
+                    avg_color, avg_label = '#7a8899', '⚪ 中性'
+
+                rows_html = ''
+                for i, (title, s, link, pub) in enumerate(sent['headlines']):
+                    if s > 0.2:    s_color = '#3dbb6a'
+                    elif s > 0.05: s_color = '#88c8a8'
+                    elif s < -0.2: s_color = '#ff5555'
+                    elif s < -0.05:s_color = '#e8a020'
+                    else:          s_color = '#7a8899'
+                    pub_str = f'<span style="color:#3a5a7a;font-size:.65rem;margin-left:6px">{pub}</span>' if pub else ''
+                    rows_html += (
+                        f'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0;'
+                        f'border-bottom:1px solid #0f1f33">'
+                        f'<span style="background:{s_color}22;color:{s_color};font-size:.62rem;'
+                        f'font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;'
+                        f'min-width:46px;text-align:center">{s:+.2f}</span>'
+                        f'<a href="{link}" target="_blank" '
+                        f'style="color:#c8dff0;font-size:.74rem;text-decoration:none;line-height:1.5;'
+                        f'flex:1;overflow:hidden">{title}</a>{pub_str}</div>'
+                    )
+
+                sent_html = (
+                    f'<div style="background:#0a1628;border:1px solid #1a2f48;'
+                    f'border-radius:8px;padding:8px 12px;margin-bottom:10px">'
+                    f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+                    f'<span style="color:#7abadd;font-size:.78rem;font-weight:700">📰 新聞情感</span>'
+                    f'<span style="background:{avg_color}33;color:{avg_color};'
+                    f'padding:1px 8px;border-radius:4px;font-size:.7rem;font-weight:700">'
+                    f'{avg:+.2f} {avg_label}</span>'
+                    f'<span style="color:#5a8ab0;font-size:.65rem">'
+                    f'（{sent["n"]} 篇平均，SnowNLP + 金融校正）</span>'
+                    f'</div>'
+                    f'{rows_html}'
+                    f'</div>'
+                )
+        except Exception:
+            pass
+
+    return f'<div style="padding:4px 8px">{advice_html}{concept_html}{sent_html}{summary_row}{sections}</div>'
 
 # ─────────────────────────────────────────────────────────────────
 # EXCEL EXPORT  （四群組版）
@@ -4380,7 +4454,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 43  # v9.9：新聞情感分析（SnowNLP + 金融關鍵字） 2026-04-28 16:30
+_RESULTS_VERSION = 44  # v9.9a：881 OTC 加速 + 新聞情感重定位 2026-04-28 17:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5545,60 +5619,9 @@ for item in results:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
                         unsafe_allow_html=True)
         else:
-            st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap),
+            # 新聞情感已整合進 render_detail（位於「當前策略風格」下方、「收盤價」上方）
+            st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap, market=market),
                         unsafe_allow_html=True)
-            # 🆕 新聞 + 情感分析
-            sent = get_news_sentiment(ticker, market)
-            if sent['n'] > 0:
-                avg = sent['avg_score']
-                if avg > 0.3:
-                    avg_color, avg_label = '#3dbb6a', '🟢 偏正面'
-                elif avg > 0.05:
-                    avg_color, avg_label = '#88c8a8', '🟢 微正面'
-                elif avg < -0.3:
-                    avg_color, avg_label = '#ff5555', '🔴 偏負面'
-                elif avg < -0.05:
-                    avg_color, avg_label = '#e8a020', '🟠 微負面'
-                else:
-                    avg_color, avg_label = '#7a8899', '⚪ 中性'
-
-                news_html = (
-                    f'<div class="section-title" style="margin-top:12px;'
-                    f'display:flex;align-items:baseline;gap:8px">'
-                    f'<span>📰 新聞情感</span>'
-                    f'<span style="background:{avg_color}33;color:{avg_color};'
-                    f'padding:1px 8px;border-radius:4px;font-size:.7rem;font-weight:700">'
-                    f'{avg:+.2f} {avg_label}</span>'
-                    f'<span style="color:#5a8ab0;font-size:.7rem;font-weight:400">'
-                    f'（{sent["n"]} 篇平均，SnowNLP + 金融關鍵字校正）</span>'
-                    f'</div>'
-                )
-                for i, (title, s, link, pub) in enumerate(sent['headlines']):
-                    if s > 0.2:
-                        s_color = '#3dbb6a'
-                    elif s > 0.05:
-                        s_color = '#88c8a8'
-                    elif s < -0.2:
-                        s_color = '#ff5555'
-                    elif s < -0.05:
-                        s_color = '#e8a020'
-                    else:
-                        s_color = '#7a8899'
-                    pub_str  = f'<span style="color:#3a5a7a;font-size:.68rem">{pub}</span>' if pub else ""
-                    news_html += (
-                        f'<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;'
-                        f'border-bottom:1px solid #0f1f33">'
-                        f'<span style="color:#3b9eff;font-size:.72rem;font-weight:700;flex-shrink:0">{i+1}</span>'
-                        f'<span style="background:{s_color}22;color:{s_color};font-size:.65rem;'
-                        f'font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;'
-                        f'min-width:48px;text-align:center">{s:+.2f}</span>'
-                        f'<a href="{link}" target="_blank" '
-                        f'style="color:#c8dff0;font-size:.78rem;text-decoration:none;line-height:1.5;'
-                        f'flex:1" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#c8dff0\'">'
-                        f'{title}</a>{pub_str}</div>'
-                    )
-                st.markdown(f'<div style="padding:4px 8px 8px">{news_html}</div>',
-                            unsafe_allow_html=True)
 
             # ── 歷史區間 Excel ────────────────────────────────────────
             st.markdown(
