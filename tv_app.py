@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.6a"
-APP_UPDATED   = "2026-04-28 12:00"
+APP_VERSION   = "v9.6b"
+APP_UPDATED   = "2026-04-28 12:30"
 APP_NOTES     = (
+    "🆕 個股表格新增 P/E 欄（顏色 + 60 日動量箭頭 ▼=盈餘上修 / ▲=下修風險）｜ "
     "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望｜ "
-    "🆕 估值參考：EPS / PER / PBR / 殖利率｜ "
-    "🆕 PER 動量偵測（60 日變化 → 盈餘修正信號）｜ "
+    "🆕 估值參考：EPS / PER / PBR / 殖利率 + 60 日動量｜ "
     "🆕 全市場 PER cache（1036/1058 檔）"
 )
 APP_VALIDATIONS = (
@@ -3216,6 +3216,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td class="ticker-cell"><a href="{tv_url_err}" target="_blank" style="color:#e8f4fd;text-decoration:none;">{ticker}</a></td>'
                      f'<td style="color:#a8cce8;font-size:.78rem">—</td>'
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
+                     f'<td class="j-na">—</td>'
                      f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td>'
                      f'<td>{err_concept_html}</td></tr>')
             continue
@@ -3234,6 +3235,39 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
 
         price_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:#e8f4fd">{price_str}</td>')
         chg_cell   = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;color:{chg_color};font-weight:600">{chg_str}</td>')
+
+        # 🆕 P/E 顯示（顏色判定 + 60 日動量箭頭）
+        per_v = d.get('per')
+        per_60d_chg = d.get('per_60d_chg_pct')
+        if per_v is None:
+            pe_cell = '<td style="color:#334455;font-size:.78rem;text-align:center">—</td>'
+        else:
+            if per_v <= 0 or per_v > 100:
+                pe_color = '#ff5555'
+            elif per_v < 10:
+                pe_color = '#3dbb6a'
+            elif per_v <= 20:
+                pe_color = '#3dbb6a'
+            elif per_v <= 30:
+                pe_color = '#c8b87a'
+            elif per_v <= 50:
+                pe_color = '#e8a020'
+            else:
+                pe_color = '#ff5555'
+            # 動量箭頭：60 日 PE 顯著降 → 🔻 (盈餘上修)；顯著升 → 🔺
+            arrow = ''
+            if per_60d_chg is not None:
+                if per_60d_chg <= -15:
+                    arrow = ' <span style="color:#3dbb6a;font-size:.7rem" title="60d PER 大降，盈餘上修">▼▼</span>'
+                elif per_60d_chg <= -5:
+                    arrow = ' <span style="color:#3dbb6a;font-size:.7rem" title="60d PER 微降">▼</span>'
+                elif per_60d_chg >= 15:
+                    arrow = ' <span style="color:#ff5555;font-size:.7rem" title="60d PER 大漲，盈餘下修風險">▲▲</span>'
+                elif per_60d_chg >= 5:
+                    arrow = ' <span style="color:#e8a020;font-size:.7rem" title="60d PER 微升">▲</span>'
+            pe_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
+                       f'color:{pe_color};font-weight:600;text-align:right">'
+                       f'{per_v:.1f}{arrow}</td>')
 
         _rlabel, _rbadge = get_rec_label(d, ticker)
         _xlabel, _xbadge = get_exit_signal(d)
@@ -3268,11 +3302,12 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td class="ticker-cell">{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
+                 f'{price_cell}{chg_cell}{pe_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
 
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
+            f'<th title="本益比（顏色：綠合理 / 黃合理偏高 / 橘偏高 / 紅虧損或過熱；▼=PER 60日下降=盈餘上修)">P/E</th>'
             f'<th style="background:#060c18;min-width:140px">操作建議</th>'
             f'<th style="background:#060c18;min-width:120px">④出場獲利</th>'
             f'<th style="background:#060c18;min-width:140px">概念股</th>'
@@ -4142,7 +4177,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 33  # v9.6a：市場掃描卡片改 v8 操作分類 2026-04-28 12:00
+_RESULTS_VERSION = 34  # v9.6b：個股表格 P/E 欄 + 動量箭頭 2026-04-28 12:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
