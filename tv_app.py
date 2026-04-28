@@ -15,9 +15,10 @@ APP_NOTES     = (
     "🆕 T3 信心度旗標：5 指標命中數（close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線）"
 )
 APP_VALIDATIONS = (
-    "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
-    "TEST out-of-sample Δ +1.684 確認非過擬合 ｜ "
-    "POS+IND+DXY 純技術面 RR 1.03 仍是 baseline"
+    "P5+VWAPEXEC TEST 22月勝率 56.2% / RR 0.611（baseline 41% / 0.223）2.7×提升 ｜ "
+    "T3 信心度旗標 高分 4-5 全市場 6 年 RR 0.059 vs 低分 0.039（+50%）｜ "
+    "T4 反彈唯一全市場全期穩定 RR 0.103 ｜ "
+    "TOP 200 篩選帶來 7× RR 提升（必要前置）"
 )
 
 import numpy as np

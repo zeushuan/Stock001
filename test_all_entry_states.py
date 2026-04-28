@@ -49,7 +49,7 @@ def compute_t3_conf(close_v, e5_now, e20_now, e5_5d, e20_5d):
 def analyze_one(ticker):
     df = dl.load_from_cache(ticker)
     if df is None or len(df) < 280: return None
-    test_df = df[df.index >= '2024-06-01'].copy()
+    test_df = df[df.index >= '2020-01-01'].copy()
     if len(test_df) < 50: return None
 
     test_df['e5'] = ta.trend.ema_indicator(test_df['Close'], window=5)
@@ -142,6 +142,8 @@ def analyze_one(ticker):
 def metrics(arr):
     if not arr: return None
     a = np.array(arr)
+    a = a[~np.isnan(a)]   # 過濾 NaN（下市股 / 缺資料）
+    if len(a) == 0: return None
     return {'n': len(a), 'mean': a.mean(),
             'win': (a > 0).mean() * 100, 'worst': a.min(),
             'best': a.max(),
@@ -181,7 +183,7 @@ def main():
         rows.append((key, m))
 
     print("=" * 100)
-    print(f"📊 所有進場狀態勝率與績效（30 天，TOP 200，TEST 期）")
+    print(f"📊 所有進場狀態勝率與績效（30 天持有，2020-至今 6 年，全市場）")
     print("=" * 100)
     print(f"{'狀態':<25} {'樣本':>7} {'勝率%':>8} {'均報%':>9} {'最差%':>9} "
           f"{'最佳%':>9} {'RR':>7}")
