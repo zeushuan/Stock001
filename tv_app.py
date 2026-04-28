@@ -8,12 +8,11 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9t"
-APP_UPDATED   = "2026-04-29 02:00"
+APP_VERSION   = "v9.9u"
+APP_UPDATED   = "2026-04-29 02:30"
 APP_NOTES     = (
-    "🆕 T3 信心度旗標：5 個指標命中數（close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線）｜ "
-    "🆕 ●○ 視覺化於 表格 + 個股詳細 + TOP 200 panel｜ "
-    "🔧 移除 T3 天數顯示（保留 T1/T4 天數）"
+    "🔧 T3 信心度只在 T3 訊號時顯示（T1/飆股/T4 不再混雜 T3 ●○）｜ "
+    "🆕 T3 信心度旗標：5 指標命中數（close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線）"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -2794,10 +2793,12 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'{"　← 可進場" if t3_ok else ""}</span></div>'
         )
 
-        # 🆕 v9.9t：T3 信心度（5 個指標命中數）
+        # 🆕 v9.9t：T3 信心度（5 個指標命中數）— 只在 T3 拉回（RSI<50）時顯示
+        # T1（黃金交叉）/ 飆股（強趨勢+新交叉）狀態下，T3 信心度不適用
         _t3_conf = d.get('t3_confidence', 0) or 0
         _t3_hits = d.get('t3_confidence_hits', []) or []
-        if _t3_conf >= 0:
+        _t3_relevant = t3_ok or (rsi is not None and 50 <= rsi < 65)  # T3 觸發或等待中
+        if _t3_relevant:
             # 5 個檢查項：close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線都升
             _checks = [
                 ('close > EMA20',      'close>EMA20'  in _t3_hits),
@@ -3823,9 +3824,11 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
 
         _rlabel, _rbadge = get_rec_label(d, ticker)
         _xlabel, _xbadge = get_exit_signal(d)
-        # 🆕 v9.9t：操作建議旁加 T3 信心度
+        # 🆕 v9.9u：T3 信心度只顯示於 T3 相關標籤（T1/飆股/T4/觀望不顯示）
+        _is_t3_label = 'T3' in _rlabel
         _conf_score = d.get('t3_confidence', 0) or 0
-        _conf_html = render_confidence_dots(_conf_score) if _conf_score > 0 else ''
+        _conf_html = (render_confidence_dots(_conf_score)
+                      if _is_t3_label and _conf_score > 0 else '')
         tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
                     f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
                     f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span>'
@@ -4455,9 +4458,10 @@ def _render_top200_panel():
                        f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
             for r in rows[:max_n]:
                 sig = r.get('sig', '')
-                # 🆕 T3 信心度 ●○ 顯示
+                # 🆕 T3 信心度 ●○ — 只在 T3 訊號顯示（T1/飆股不顯示）
                 conf = r.get('t3_confidence', 0) or 0
-                if conf > 0:
+                is_t3 = sig.startswith('T3') or 'T3' in sig
+                if conf > 0 and is_t3:
                     conf_html = (
                         f'<span style="font-size:.65rem;letter-spacing:1px;'
                         f'font-family:monospace" title="T3 信心度 {conf}/5">'
@@ -5082,7 +5086,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 62  # v9.9t：T3 信心度旗標 ●○ + 移除 T3 天數 2026-04-29 02:00
+_RESULTS_VERSION = 63  # v9.9u：T3 信心度只在 T3 訊號顯示 2026-04-29 02:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
