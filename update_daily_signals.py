@@ -79,6 +79,23 @@ def main():
             'atr14': float(df['atr'].iloc[last]) if 'atr' in df.columns and not np.isnan(df['atr'].iloc[last]) else None,
             'ema20_cross_days': cd,
         }
+
+        # 🆕 PE / PBR / 殖利率（從 per_cache）
+        pe_v = pbr_v = div_v = None
+        per_path = Path('per_cache') / f'{t}.parquet'
+        if per_path.exists():
+            try:
+                pe_df = pd.read_parquet(per_path)
+                if not pe_df.empty:
+                    last_per = pe_df.iloc[-1]
+                    if 'PER' in pe_df.columns and not pd.isna(last_per.get('PER')):
+                        pe_v = round(float(last_per['PER']), 1)
+                    if 'PBR' in pe_df.columns and not pd.isna(last_per.get('PBR')):
+                        pbr_v = round(float(last_per['PBR']), 2)
+                    if 'dividend_yield' in pe_df.columns and not pd.isna(last_per.get('dividend_yield')):
+                        div_v = round(float(last_per['dividend_yield']), 2)
+            except Exception:
+                pass
         action = classify(d)
         delta = tier_data[t].get('delta', 0)
         # 訊號類型描述
@@ -98,6 +115,9 @@ def main():
             'ema20_cross_days': cd,
             'delta': round(delta, 1),
             'sig': sig,
+            'pe': pe_v,
+            'pbr': pbr_v,
+            'div': div_v,
         }
         if action == 'ENTRY': entry.append(row)
         elif action == 'EXIT': exit_.append(row)
