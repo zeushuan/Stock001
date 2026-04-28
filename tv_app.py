@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9l"
-APP_UPDATED   = "2026-04-28 21:30"
+APP_VERSION   = "v9.9m"
+APP_UPDATED   = "2026-04-28 22:00"
 APP_NOTES     = (
-    "🆕 「可進場」欄下方加入「💾 存成自選股」按鈕（一鍵把 N 檔進場股加入自選清單）｜ "
-    "🔧 TOP 200 三欄移除 RSI（資訊精簡）+ P/E 顏色判定 + 顯示全部不限 15 檔｜ "
-    "🤖 NLP 規則+BERT 混合｜ 🚀 Portfolio + 投組模擬器"
+    "🚀 TOP 200 排序改用多因子綜合分數（報酬 30% + 穩定 40% + 流動性 20% + RR 10%）｜ "
+    "🚀 Portfolio 22 月年化從 +52% 提升至 +110%（v1 vs v2）｜ "
+    "🆕 「可進場」存成自選股｜🔧 P/E 顏色｜🤖 NLP 規則+BERT"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4791,7 +4791,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 54  # v9.9l：TOP 200 進場欄加「💾 存成自選股」按鈕 2026-04-28 21:30
+_RESULTS_VERSION = 55  # v9.9m：TOP 200 多因子綜合分數（v2，年化提升 +52→+110%） 2026-04-28 22:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

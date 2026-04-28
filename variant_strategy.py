@@ -346,6 +346,10 @@ def _decode_mode(mode: str) -> dict:
         ms_min        = None,                     # MSRATIO{N}：券資比 ≥ N%（軋空潛力）
         ms_max        = None,                     # MSCAP{N}：券資比 ≤ N%（避開過熱）
         ms_mom        = None,                     # MSMOM{N}：券資比 60d 內升 N% 以上
+        # 🆕 集保戶外資持股（shareholding_cache 必要）
+        foreign_min   = None,                     # FORN{N}：外資持股 ≥ N% 才進場
+        foreign_max   = None,                     # FORNCAP{N}：外資持股 ≤ N% 避開
+        foreign_mom   = None,                     # FORNUP{N}：外資持股 60d 上升 N% 才進場
     )
 
     # 🆕 解析 VWAPDEV{N} / VWAPBAND{N} / PEMAX{N} / PEMIN{N} / DIV{N} / PBR{N}
@@ -382,6 +386,15 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('MSMOM') and len(part) > 5:
             try: flags['ms_mom'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('FORNCAP') and len(part) > 7:
+            try: flags['foreign_max'] = float(part[7:])
+            except ValueError: pass
+        elif part.startswith('FORNUP') and len(part) > 6:
+            try: flags['foreign_mom'] = float(part[6:])
+            except ValueError: pass
+        elif part.startswith('FORN') and len(part) > 4 and part[4].isdigit():
+            try: flags['foreign_min'] = float(part[4:])
             except ValueError: pass
 
     # 解析金字塔模式 P{th}_{signals}
@@ -646,6 +659,24 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     ms_min         = flags.get('ms_min')
     ms_max         = flags.get('ms_max')
     ms_mom         = flags.get('ms_mom')
+    foreign_min    = flags.get('foreign_min')
+    foreign_max    = flags.get('foreign_max')
+    foreign_mom    = flags.get('foreign_mom')
+
+    # 🆕 集保外資持股 cache 預載
+    foreign_arr = None
+    needs_for = (foreign_min is not None or foreign_max is not None or foreign_mom is not None)
+    if needs_for and ticker:
+        try:
+            from pathlib import Path as _P
+            fp = _P(__file__).parent / 'shareholding_cache' / f'{ticker}.parquet'
+            if fp.exists():
+                f_df = pd.read_parquet(fp)
+                if 'foreign_pct' in f_df.columns:
+                    foreign_arr = f_df['foreign_pct'].reindex(df.index, method='nearest',
+                                                                tolerance=pd.Timedelta('7D')).values
+        except Exception:
+            pass
 
     # 🆕 券資比 cache 預載（margin_cache）
     ms_arr = None
