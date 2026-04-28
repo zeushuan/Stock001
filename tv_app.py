@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9r"
-APP_UPDATED   = "2026-04-29 00:30"
+APP_VERSION   = "v9.9s"
+APP_UPDATED   = "2026-04-29 01:00"
 APP_NOTES     = (
-    "🔧 P/E 「—」改顯示「虧損」紅標（FinMind PER=0 即代表 EPS≤0）｜ "
-    "🆕 美股無 trailingPE 自動 fallback 到 forwardPE｜ "
-    "🔧 US TOP 200 排除 130+ ETF（純股票）｜ 🚀 TW v2 年化 +110%"
+    "🔧 操作建議精簡：T1/T3/T4 顯示天數（如「T1 3D 進場」「T3 5D 拉回」「T4 2D 反彈」）｜ "
+    "🔧 「② 趨勢EMA（飆股）」→ 「飆股」｜ 移除 ⑦ 編號｜ "
+    "🔧 P/E 顯示「虧損」紅標 + 美股 forwardPE fallback"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -1005,6 +1005,36 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             idx = -(n+1)
             return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
 
+        # 🆕 T3 拉回天數：RSI 連續低於 50 的天數
+        def _t3_pullback_days(rsi_series):
+            try:
+                arr = rsi_series.dropna().values
+                if len(arr) == 0 or arr[-1] >= 50: return 0
+                # 倒數，看連續 < 50 多少天
+                cnt = 0
+                for v in reversed(arr):
+                    if v < 50: cnt += 1
+                    else: break
+                return cnt if cnt > 0 else 0
+            except Exception:
+                return 0
+
+        # 🆕 T4 反彈天數：RSI < 32 且連續上升的天數
+        def _t4_rising_days(rsi_series):
+            try:
+                arr = rsi_series.dropna().values
+                if len(arr) < 3 or arr[-1] >= 32: return 0
+                # 從最後一天往前數連續上升
+                cnt = 1  # 包含當天
+                for i in range(len(arr) - 1, 0, -1):
+                    if arr[i] > arr[i-1] and arr[i] < 32:
+                        cnt += 1
+                    else:
+                        break
+                return cnt
+            except Exception:
+                return 0
+
         close_val = last(c)
         prev_close_val = prev(c)
         change_pct = ((close_val - prev_close_val) / prev_close_val * 100
@@ -1049,6 +1079,9 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "rsi":          last(rsi_s),
             "rsi_prev":     prev(rsi_s),
             "rsi_prev2":    prev(rsi_s, 2),             # T4連續2天上升判斷用
+            # 🆕 T3/T4 天數計算
+            "t3_pullback_days": _t3_pullback_days(rsi_s),  # RSI<50 連續多少天
+            "t4_rising_days":   _t4_rising_days(rsi_s),    # RSI<32 且上升多少天
             "atr14":        last(atr_s),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
@@ -3581,9 +3614,14 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
                   rsi_prev is not None and rsi > rsi_prev and
                   rsi_prev2 is not None and rsi_prev > rsi_prev2)
 
+    # 🆕 v9.9s：精簡格式 + T1/T3/T4 顯示天數
+    t3_days = d.get('t3_pullback_days', 0) or 0
+    t4_days = d.get('t4_rising_days', 0) or 0
+
     if not is_bull:
         if _t4_rising:
-            return ("T4 空頭反彈",          "background:#2a1500;color:#ff9944;border:1px solid #ff994455")
+            t4_str = f"T4 {t4_days}D 反彈" if t4_days else "T4 反彈"
+            return (t4_str,                  "background:#2a1500;color:#ff9944;border:1px solid #ff994455")
         else:
             return ("不操作 — 等待訊號",    "background:#0a1020;color:#7a8899;border:1px solid #7a889944")
     elif not adx_ok:
@@ -3594,20 +3632,24 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
         _is_pullback = (rsi is not None and rsi < 50)
         _is_hot      = (rsi is not None and rsi >= 70)
 
+        t1_str = f"T1 {cross_days}D 進場" if cross_days else "T1 進場"
+        t3_str = f"T3 {t3_days}D 拉回" if t3_days else "T3 拉回"
+
         if _is_strong and _is_fresh:
-            return ("② 趨勢EMA（飆股）",    "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
+            return ("飆股",                 "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
         elif _is_strong and _is_pullback:
-            return ("⑦T3 強趨勢拉回",       "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return (f"T3 {t3_days}D 強趨勢拉回" if t3_days else "T3 強趨勢拉回",
+                    "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif _is_strong and not _is_pullback and not _is_hot:
-            return ("⑦T3 等待拉回",         "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
+            return ("T3 等待拉回",           "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
         elif not _is_strong and _is_fresh:
-            return ("⑦T1 穩健進場",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return (t1_str,                 "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif not _is_strong and _is_pullback:
-            return ("⑦T3 拉回進場",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return (t3_str,                 "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif _is_hot:
             return ("等待回調 — 不追高",     "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
         else:
-            return ("⑦ 等待T3 拉回",         "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
+            return ("等待 T3 拉回",          "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
 
 
 def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}",
@@ -4931,7 +4973,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 60  # v9.9r：P/E 顯示虧損標示 + 美股 forwardPE fallback 2026-04-29 00:30
+_RESULTS_VERSION = 61  # v9.9s：操作建議精簡 + T1/T3/T4 顯示天數 2026-04-29 01:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
