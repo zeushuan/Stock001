@@ -316,11 +316,33 @@ def _decode_mode(mode: str) -> dict:
         use_VWAP_EXIT  = 'VWAPEXIT' in parts,     # 只在 close > 當日 VWAP 才出場
         # VWAPEXEC 隔離驗證：停損出場用市價（不套 VWAP），其他出場仍用 max(close, VWAP)
         use_VWAP_NOSTOP = 'VWAPNOSTOP' in parts,  # 與 VWAPEXEC 並用：hit_stop 時跳過 VWAP
+        # 🆕 VWAP 進階變體（2026-04-28）
+        # VWAPDEV{N}：偏離度 ≥ N% 才進場（更嚴格的 VWAPENTRY）
+        # VWAPBAND{N}：close ≤ VWAP - N × (day_range/4) 才進場（VWAP-Nσ 通道）
+        # STRONGCL：前日 close 位於日內高點 70% 以上才進場（強勢追勢）
+        # WEAKCL：前日 close 位於日內低點 30% 以下才進場（逢低）
+        vwap_dev_pct  = None,                     # VWAPDEV{N}：偏離 N% 才進場
+        vwap_band_n   = None,                     # VWAPBAND{N}：N σ 通道
+        use_STRONGCL  = 'STRONGCL' in parts,
+        use_WEAKCL    = 'WEAKCL' in parts,
         # 黑天鵝防護（讀 black_swans.json 的 danger_dates）
         use_BSGUARD    = 'BSGUARD' in parts,      # 危險窗暫停 T1/T3 進場
         use_BSEXIT     = 'BSEXIT' in parts,       # 危險窗加速出場（ATR×1.5）
         use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
     )
+
+    # 🆕 解析 VWAPDEV{N} / VWAPBAND{N}
+    for part in parts:
+        if part.startswith('VWAPDEV') and len(part) > 7:
+            try:
+                flags['vwap_dev_pct'] = float(part[7:])
+            except ValueError:
+                pass
+        elif part.startswith('VWAPBAND') and len(part) > 8:
+            try:
+                flags['vwap_band_n'] = float(part[8:])
+            except ValueError:
+                pass
 
     # 解析金字塔模式 P{th}_{signals}
     for part in parts:
@@ -544,6 +566,10 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_VWAP_EXEC  = flags.get('use_VWAP_EXEC', False)
     use_VWAP_EXIT  = flags.get('use_VWAP_EXIT', False)
     use_VWAP_NOSTOP = flags.get('use_VWAP_NOSTOP', False)
+    vwap_dev_pct   = flags.get('vwap_dev_pct')
+    vwap_band_n    = flags.get('vwap_band_n')
+    use_STRONGCL   = flags.get('use_STRONGCL', False)
+    use_WEAKCL     = flags.get('use_WEAKCL', False)
     use_BSGUARD    = flags.get('use_BSGUARD', False)
     use_BSEXIT     = flags.get('use_BSEXIT', False)
     use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
@@ -837,9 +863,15 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     else:
         vol = None
 
-    # 🆕 VWAP 預載（盤中執行優化）
+    # 🆕 VWAP 預載（盤中執行優化 + 進階變體）
     vwap_arr = None
-    if (use_VWAP_ENTRY or use_VWAP_EXEC or use_VWAP_EXIT) and ticker:
+    vwap_high_arr = None  # HighOfDay
+    vwap_low_arr  = None  # LowOfDay
+    vwap_close_arr = None  # 日內 close
+    needs_vwap = (use_VWAP_ENTRY or use_VWAP_EXEC or use_VWAP_EXIT
+                  or vwap_dev_pct is not None or vwap_band_n is not None
+                  or use_STRONGCL or use_WEAKCL)
+    if needs_vwap and ticker:
         try:
             from pathlib import Path as _P
             vwap_path = _P(__file__).parent / 'vwap_cache' / f'{ticker}.parquet'
@@ -849,6 +881,15 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                 vw_aligned = vw_df['VWAP'].reindex(df.index, method='nearest',
                                                     tolerance=pd.Timedelta('1D'))
                 vwap_arr = vw_aligned.values
+                if 'HighOfDay' in vw_df.columns:
+                    vwap_high_arr = vw_df['HighOfDay'].reindex(df.index, method='nearest',
+                                                               tolerance=pd.Timedelta('1D')).values
+                if 'LowOfDay' in vw_df.columns:
+                    vwap_low_arr = vw_df['LowOfDay'].reindex(df.index, method='nearest',
+                                                              tolerance=pd.Timedelta('1D')).values
+                if 'Close' in vw_df.columns:
+                    vwap_close_arr = vw_df['Close'].reindex(df.index, method='nearest',
+                                                             tolerance=pd.Timedelta('1D')).values
         except Exception:
             vwap_arr = None
 
@@ -1010,6 +1051,50 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
             if cur_vwap is not None and not np.isnan(cur_vwap):
                 if pr[i] >= cur_vwap:
                     return False, False
+
+        # 🆕 VWAPDEV{N}：偏離 ≥ N% 才進場（更嚴格的 VWAPENTRY）
+        if vwap_dev_pct is not None and vwap_arr is not None:
+            cur_vwap = vwap_arr[i] if i < len(vwap_arr) else None
+            if cur_vwap is not None and not np.isnan(cur_vwap) and cur_vwap > 0:
+                dev = (cur_vwap - pr[i]) / cur_vwap * 100  # close 比 VWAP 低多少 %
+                if dev < vwap_dev_pct:
+                    return False, False
+
+        # 🆕 VWAPBAND{N}：close ≤ VWAP - N × (day_range/4) 才進場
+        # （day_range/4 ≈ daily σ；N=1 表示 1σ 通道）
+        if vwap_band_n is not None and vwap_arr is not None and vwap_high_arr is not None and vwap_low_arr is not None:
+            if i < len(vwap_arr):
+                cur_vwap = vwap_arr[i]
+                cur_h = vwap_high_arr[i]
+                cur_l = vwap_low_arr[i]
+                if (not np.isnan(cur_vwap) and not np.isnan(cur_h)
+                        and not np.isnan(cur_l) and cur_h > cur_l):
+                    sigma = (cur_h - cur_l) / 4.0
+                    threshold = cur_vwap - vwap_band_n * sigma
+                    if pr[i] > threshold:
+                        return False, False
+
+        # 🆕 STRONGCL：前日 close 位於日內 70% 以上才進場（強勢追勢）
+        if use_STRONGCL and vwap_high_arr is not None and vwap_low_arr is not None and vwap_close_arr is not None:
+            if i >= 1 and i-1 < len(vwap_arr):
+                ph = vwap_high_arr[i-1]
+                pl = vwap_low_arr[i-1]
+                pc = vwap_close_arr[i-1]
+                if not (np.isnan(ph) or np.isnan(pl) or np.isnan(pc)) and ph > pl:
+                    strength = (pc - pl) / (ph - pl)
+                    if strength < 0.70:
+                        return False, False
+
+        # 🆕 WEAKCL：前日 close 位於日內 30% 以下才進場（逢低）
+        if use_WEAKCL and vwap_high_arr is not None and vwap_low_arr is not None and vwap_close_arr is not None:
+            if i >= 1 and i-1 < len(vwap_arr):
+                ph = vwap_high_arr[i-1]
+                pl = vwap_low_arr[i-1]
+                pc = vwap_close_arr[i-1]
+                if not (np.isnan(ph) or np.isnan(pl) or np.isnan(pc)) and ph > pl:
+                    strength = (pc - pl) / (ph - pl)
+                    if strength > 0.30:
+                        return False, False
 
         # 🆕 毛利率 YoY 上升才進場（MARGUP）
         if use_MARGUP and margup_ok_arr is not None:
