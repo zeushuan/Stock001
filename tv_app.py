@@ -8,12 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.5e"
-APP_UPDATED   = "2026-04-27 19:00"
+APP_VERSION   = "v9.6"
+APP_UPDATED   = "2026-04-28 11:00"
 APP_NOTES     = (
-    "🎨 VWAP 提示視覺強化：警告型也用警告框（黃色 + 加粗 VWAP 數值）｜ "
-    "🆕 VWAP 三段式建議：② 進場 + ③ 停損 + ④ 出場獲利｜ "
-    "🆕 NOSTOP 隔離驗證：停損 VWAP 僅占 4-13% 提升｜🆕 Cloud 讀 st.secrets"
+    "🆕 估值參考區塊：EPS / PER / PBR / 殖利率（自動著色）｜ "
+    "🆕 PER 動量偵測：60 日變化 ≤ -15% → 盈餘上修信號（綠）｜ "
+    "🆕 PER 相對自己 90 日中位的偏離度｜ "
+    "🆕 全市場 PER cache 抓取（FinMind 公開 API）"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -827,6 +828,44 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                         vw_df = compute_daily_vwap(last_day)
                         if vw_df is not None and not vw_df.empty:
                             d['vwap_today'] = float(vw_df['VWAP'].iloc[-1])
+        except Exception:
+            pass
+
+        # 🆕 EPS / PER / PBR / 殖利率（FinMind per_cache）— 僅台股
+        try:
+            if is_tw:
+                from pathlib import Path as _P
+                tk = ticker.replace('.TW', '').replace('.TWO', '')
+                pe_path = _P(__file__).parent / 'per_cache' / f'{tk}.parquet'
+                if pe_path.exists():
+                    pe_df = pd.read_parquet(pe_path)
+                    if not pe_df.empty:
+                        last_row = pe_df.iloc[-1]
+                        per_v = last_row.get('PER')
+                        pbr_v = last_row.get('PBR')
+                        div_v = last_row.get('dividend_yield')
+                        if per_v and not pd.isna(per_v):
+                            d['per'] = float(per_v)
+                        if pbr_v and not pd.isna(pbr_v):
+                            d['pbr'] = float(pbr_v)
+                        if div_v and not pd.isna(div_v):
+                            d['div_yield'] = float(div_v)
+                        # 推算 EPS = close / PER
+                        if per_v and not pd.isna(per_v) and per_v > 0:
+                            close_v = d.get('close')
+                            if close_v:
+                                d['eps_ttm'] = round(close_v / per_v, 2)
+                        # 🆕 PER 動量（60 日下降代表盈餘上修）
+                        if len(pe_df) >= 60:
+                            pe_60d = pe_df['PER'].iloc[-60]
+                            pe_now = per_v
+                            if pe_60d and pe_now and not pd.isna(pe_60d) and not pd.isna(pe_now) and pe_60d > 0:
+                                d['per_60d_chg_pct'] = round((pe_now - pe_60d) / pe_60d * 100, 1)
+                        # 🆕 PER 相對自己歷史（vs 90 日中位）
+                        if len(pe_df) >= 90:
+                            pe_med90 = float(pe_df['PER'].iloc[-90:].dropna().median()) if len(pe_df['PER'].iloc[-90:].dropna()) else None
+                            if pe_med90 and per_v:
+                                d['per_vs_med90'] = round((per_v - pe_med90) / pe_med90 * 100, 1)
         except Exception:
             pass
 
@@ -2153,8 +2192,87 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         env_tag   = "多頭市場"
         env_desc  = f"{cross_info}EMA20 &gt; EMA60｜ADX {adx_str} ≥ 22（趨勢有效）"
 
+    # ── 🆕 估值參考（EPS/PER/PBR/殖利率 + PER 動量） ─────────────
+    val_rows = []
+    per_v = d.get('per')
+    pbr_v = d.get('pbr')
+    div_v = d.get('div_yield')
+    eps_v = d.get('eps_ttm')
+    per_60d_chg = d.get('per_60d_chg_pct')      # PER 60 日變化 %
+    per_vs_med90 = d.get('per_vs_med90')         # PER 相對 90 日中位 %
+
+    if per_v is not None or pbr_v is not None:
+        # PER 顏色判定
+        if per_v is None:
+            pe_color = '#7a8899'; pe_label = '—'
+        elif per_v <= 0 or per_v > 100:
+            pe_color = '#ff5555'; pe_label = '虧損 / 過高'
+        elif per_v < 10:
+            pe_color = '#3dbb6a'; pe_label = '偏低（價值/警訊）'
+        elif per_v <= 20:
+            pe_color = '#3dbb6a'; pe_label = '合理偏低'
+        elif per_v <= 30:
+            pe_color = '#c8b87a'; pe_label = '合理'
+        elif per_v <= 50:
+            pe_color = '#e8a020'; pe_label = '偏高（成長股）'
+        else:
+            pe_color = '#ff5555'; pe_label = '過熱'
+
+        per_str = f'{per_v:.1f}' if per_v else '—'
+        pbr_str = f'{pbr_v:.2f}' if pbr_v else '—'
+        div_str = f'{div_v:.2f}%' if div_v else '—'
+        eps_str = f'{eps_v:.2f}' if eps_v else '—'
+
+        val_rows.append(
+            f'<div style="background:#0a1a2a;border-left:3px solid {pe_color};'
+            f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+            f'<span style="color:#8ab8d8;font-size:.78rem;font-weight:700">'
+            f'💰 估值參考</span>　'
+            f'<span style="color:#c8d8e8;font-size:.82rem">'
+            f'EPS(TTM) <b style="color:#fff">{eps_str}</b>　│　'
+            f'PER <b style="color:{pe_color}">{per_str}</b> '
+            f'<span style="color:#7a8899">({pe_label})</span>　│　'
+            f'PBR <b>{pbr_str}</b>　│　'
+            f'殖利率 <b>{div_str}</b>'
+            f'</span></div>'
+        )
+
+        # PER 動量（盈餘上修信號）
+        if per_60d_chg is not None:
+            if per_60d_chg < -15:
+                mom_color = '#3dbb6a'
+                mom_label = '🔻 PER 顯著下降 → 盈餘上修中（強多頭信號）'
+            elif per_60d_chg < -5:
+                mom_color = '#c8b87a'
+                mom_label = '↘ PER 緩降 → 盈餘溫和上修'
+            elif per_60d_chg > 15:
+                mom_color = '#ff5555'
+                mom_label = '🔺 PER 擴張 → 盈餘下修風險（小心）'
+            elif per_60d_chg > 5:
+                mom_color = '#e8a020'
+                mom_label = '↗ PER 緩升 → 估值偏熱'
+            else:
+                mom_color = None
+                mom_label = None
+
+            if mom_color:
+                rel_str = ''
+                if per_vs_med90 is not None:
+                    rel_str = (f'　│　vs 90日中位 '
+                               f'<b style="color:{"#3dbb6a" if per_vs_med90 < 0 else "#e8a020"}">'
+                               f'{per_vs_med90:+.1f}%</b>')
+                val_rows.append(
+                    f'<div style="background:#0a1a2a;border-left:3px solid {mom_color};'
+                    f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                    f'<span style="color:{mom_color};font-size:.82rem">'
+                    f'<b>📊 PER 動量</b>　60 日變化 '
+                    f'<b>{per_60d_chg:+.1f}%</b>　│　{mom_label}'
+                    f'{rel_str}'
+                    f'</span></div>'
+                )
+
     # ── ② 進場判斷（三觸發，僅多頭+ADX≥22 有效）────────────────
-    entry_rows  = []
+    entry_rows  = list(val_rows)  # 估值放在進場判斷頭部
     t1_ok = t3_ok = t2_ok = False
 
     if is_bull and adx_ok:
@@ -3958,7 +4076,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 31  # v9.5e：VWAP 提示視覺強化（警告型黃色框 + 數值加粗） 2026-04-27 19:00
+_RESULTS_VERSION = 32  # v9.6：EPS/PER/PBR + PER 動量 UI 整合 2026-04-28 11:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

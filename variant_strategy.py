@@ -325,24 +325,49 @@ def _decode_mode(mode: str) -> dict:
         vwap_band_n   = None,                     # VWAPBAND{N}：N σ 通道
         use_STRONGCL  = 'STRONGCL' in parts,
         use_WEAKCL    = 'WEAKCL' in parts,
+        # 🆕 EPS / P/E 估值過濾（2026-04-28，需要 per_cache）
+        use_PEPOS    = 'PEPOS' in parts,         # PER > 0（過濾虧損公司）
+        pe_max       = None,                      # PEMAX{N}：PER ≤ N
+        pe_min       = None,                      # PEMIN{N}：PER ≥ N
+        use_PEMID    = 'PEMID' in parts,         # 10 < PER < 30
+        div_min      = None,                      # DIV{N}：殖利率 ≥ N%
+        pbr_max      = None,                      # PBR{N}：PBR ≤ N
+        # PER 進階（動態 / 動量 / 相對）
+        pe_mom_pct   = None,                      # PEMOM{N}：PER 60 日內降 N% 以上（盈餘上修信號）
+        pe_rel_pct   = None,                      # PEREL{N}：PER 比 90 日中位數低 N%（個股相對便宜）
+        use_PEAVG    = 'PEAVG' in parts,         # PER < 自己 90 日平均（簡化版相對）
         # 黑天鵝防護（讀 black_swans.json 的 danger_dates）
         use_BSGUARD    = 'BSGUARD' in parts,      # 危險窗暫停 T1/T3 進場
         use_BSEXIT     = 'BSEXIT' in parts,       # 危險窗加速出場（ATR×1.5）
         use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
     )
 
-    # 🆕 解析 VWAPDEV{N} / VWAPBAND{N}
+    # 🆕 解析 VWAPDEV{N} / VWAPBAND{N} / PEMAX{N} / PEMIN{N} / DIV{N} / PBR{N}
     for part in parts:
         if part.startswith('VWAPDEV') and len(part) > 7:
-            try:
-                flags['vwap_dev_pct'] = float(part[7:])
-            except ValueError:
-                pass
+            try: flags['vwap_dev_pct'] = float(part[7:])
+            except ValueError: pass
         elif part.startswith('VWAPBAND') and len(part) > 8:
-            try:
-                flags['vwap_band_n'] = float(part[8:])
-            except ValueError:
-                pass
+            try: flags['vwap_band_n'] = float(part[8:])
+            except ValueError: pass
+        elif part.startswith('PEMAX') and len(part) > 5:
+            try: flags['pe_max'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('PEMIN') and len(part) > 5:
+            try: flags['pe_min'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('DIV') and len(part) > 3 and part[3].isdigit():
+            try: flags['div_min'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('PBR') and len(part) > 3 and part[3].isdigit():
+            try: flags['pbr_max'] = float(part[3:])
+            except ValueError: pass
+        elif part.startswith('PEMOM') and len(part) > 5:
+            try: flags['pe_mom_pct'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('PEREL') and len(part) > 5:
+            try: flags['pe_rel_pct'] = float(part[5:])
+            except ValueError: pass
 
     # 解析金字塔模式 P{th}_{signals}
     for part in parts:
@@ -570,6 +595,35 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     vwap_band_n    = flags.get('vwap_band_n')
     use_STRONGCL   = flags.get('use_STRONGCL', False)
     use_WEAKCL     = flags.get('use_WEAKCL', False)
+    use_PEPOS      = flags.get('use_PEPOS', False)
+    pe_max         = flags.get('pe_max')
+    pe_min         = flags.get('pe_min')
+    use_PEMID      = flags.get('use_PEMID', False)
+    div_min        = flags.get('div_min')
+    pbr_max        = flags.get('pbr_max')
+    pe_mom_pct     = flags.get('pe_mom_pct')
+    pe_rel_pct     = flags.get('pe_rel_pct')
+    use_PEAVG      = flags.get('use_PEAVG', False)
+
+    # 🆕 PER / PBR 預載（per_cache）
+    pe_arr = pbr_arr = div_arr = None
+    needs_pe = (use_PEPOS or pe_max is not None or pe_min is not None
+                or use_PEMID or div_min is not None or pbr_max is not None
+                or pe_mom_pct is not None or pe_rel_pct is not None or use_PEAVG)
+    if needs_pe and ticker:
+        try:
+            from pathlib import Path as _P
+            pe_path = _P(__file__).parent / 'per_cache' / f'{ticker}.parquet'
+            if pe_path.exists():
+                pe_df = pd.read_parquet(pe_path)
+                pe_arr = pe_df['PER'].reindex(df.index, method='nearest',
+                                               tolerance=pd.Timedelta('5D')).values
+                pbr_arr = pe_df['PBR'].reindex(df.index, method='nearest',
+                                                tolerance=pd.Timedelta('5D')).values
+                div_arr = pe_df['dividend_yield'].reindex(df.index, method='nearest',
+                                                           tolerance=pd.Timedelta('5D')).values
+        except Exception:
+            pass
     use_BSGUARD    = flags.get('use_BSGUARD', False)
     use_BSEXIT     = flags.get('use_BSEXIT', False)
     use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
@@ -1095,6 +1149,62 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                     strength = (pc - pl) / (ph - pl)
                     if strength > 0.30:
                         return False, False
+
+        # 🆕 PER / PBR / 殖利率 過濾（基本面估值）
+        if pe_arr is not None and i < len(pe_arr):
+            cur_pe = pe_arr[i]
+            cur_pbr = pbr_arr[i] if pbr_arr is not None else None
+            cur_div = div_arr[i] if div_arr is not None else None
+            # PEPOS：PER > 0（過濾虧損）— FinMind 對虧損公司 PER 為 NaN 或極大
+            if use_PEPOS:
+                if cur_pe is None or np.isnan(cur_pe) or cur_pe <= 0 or cur_pe > 200:
+                    return False, False
+            if pe_max is not None:
+                if cur_pe is None or np.isnan(cur_pe) or cur_pe > pe_max:
+                    return False, False
+            if pe_min is not None:
+                if cur_pe is None or np.isnan(cur_pe) or cur_pe < pe_min:
+                    return False, False
+            if use_PEMID:
+                if cur_pe is None or np.isnan(cur_pe) or cur_pe < 10 or cur_pe > 30:
+                    return False, False
+            if div_min is not None and cur_div is not None:
+                if np.isnan(cur_div) or cur_div < div_min:
+                    return False, False
+            if pbr_max is not None and cur_pbr is not None:
+                if np.isnan(cur_pbr) or cur_pbr > pbr_max:
+                    return False, False
+            # 進階：PER 動量（盈餘上修偵測）— 比 60 日前下降 N%
+            if pe_mom_pct is not None and i >= 60:
+                pe_60d_ago = pe_arr[i-60]
+                if (cur_pe is not None and not np.isnan(cur_pe)
+                        and pe_60d_ago is not None and not np.isnan(pe_60d_ago)
+                        and pe_60d_ago > 0):
+                    drop_pct = (pe_60d_ago - cur_pe) / pe_60d_ago * 100
+                    if drop_pct < pe_mom_pct:
+                        return False, False
+                else:
+                    return False, False
+            # 進階：PER 相對自己 90 日中位數
+            if pe_rel_pct is not None and i >= 90:
+                window = pe_arr[i-90:i]
+                valid = window[~np.isnan(window) & (window > 0)]
+                if len(valid) >= 30:
+                    median90 = np.median(valid)
+                    if cur_pe is None or np.isnan(cur_pe) or cur_pe > median90 * (1 - pe_rel_pct/100):
+                        return False, False
+                else:
+                    return False, False
+            # 進階：PER < 自己 90 日平均（簡化版）
+            if use_PEAVG and i >= 90:
+                window = pe_arr[i-90:i]
+                valid = window[~np.isnan(window) & (window > 0)]
+                if len(valid) >= 30:
+                    avg90 = np.mean(valid)
+                    if cur_pe is None or np.isnan(cur_pe) or cur_pe >= avg90:
+                        return False, False
+                else:
+                    return False, False
 
         # 🆕 毛利率 YoY 上升才進場（MARGUP）
         if use_MARGUP and margup_ok_arr is not None:
