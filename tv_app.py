@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.6c"
-APP_UPDATED   = "2026-04-28 13:00"
+APP_VERSION   = "v9.6d"
+APP_UPDATED   = "2026-04-28 13:30"
 APP_NOTES     = (
+    "🔧 修正 OTC 上櫃股「無資料」bug：閾值 20→100 rows 強制 .TWO fallback（如 4169 泰宗）｜ "
     "🔧 P/E 加 yfinance fallback（雲端 / 美股 / cache 缺檔都能取得）｜ "
     "🆕 個股表格 P/E 欄（顏色 + 60 日動量箭頭）｜ "
-    "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望｜ "
-    "🆕 估值參考：EPS / PER / PBR / 殖利率 + 60 日動量"
+    "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -582,14 +582,17 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         _end_str = _start_str = None   # 使用 period 模式
 
     def _try_tw_download(sym):
-        """嘗試下載台股資料，回傳 DataFrame 或 None"""
+        """嘗試下載台股資料，回傳 DataFrame 或 None
+        修正：閾值 20 → 100。20 rows 對 indicator 計算太少（需 200+ 日暖機）
+        且會誤觸 .TW（上市）剛好給 20 行卻沒觸發 .TWO fallback 的 bug。
+        """
+        MIN_ROWS = 100
         if _start_str:
-            # 指定日期模式
             raw = yf.download(
                 sym, start=_start_str, end=_end_str, interval="1d",
                 progress=False, auto_adjust=False, multi_level_index=False,
             )
-            if raw is not None and len(raw) >= 20:
+            if raw is not None and len(raw) >= MIN_ROWS:
                 _c = raw.get("Close", raw.get("close", pd.Series()))
                 if not _c.dropna().empty:
                     return raw
@@ -600,7 +603,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                 progress=False, auto_adjust=_adj,
                 multi_level_index=False,
             )
-            if raw is not None and len(raw) >= 20:
+            if raw is not None and len(raw) >= MIN_ROWS:
                 _c = raw.get("Close", raw.get("close", pd.Series()))
                 if not _c.dropna().empty:
                     return raw
@@ -4201,7 +4204,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 35  # v9.6c：P/E 加 yfinance fallback（雲端 / 美股可取得） 2026-04-28 13:00
+_RESULTS_VERSION = 36  # v9.6d：修正 OTC 上櫃股閾值 bug（4169 等泰宗類無資料） 2026-04-28 13:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
