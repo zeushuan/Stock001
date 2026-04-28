@@ -8,11 +8,11 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9k"
-APP_UPDATED   = "2026-04-28 21:15"
+APP_VERSION   = "v9.9l"
+APP_UPDATED   = "2026-04-28 21:30"
 APP_NOTES     = (
-    "🔧 TOP 200 三欄移除 RSI 顯示（資訊精簡）｜ "
-    "🆕 每檔保留 P/E（綠/黃/橘/紅）+ 訊號類型（T1/T3/出場原因）+ Δ%｜ "
+    "🆕 「可進場」欄下方加入「💾 存成自選股」按鈕（一鍵把 N 檔進場股加入自選清單）｜ "
+    "🔧 TOP 200 三欄移除 RSI（資訊精簡）+ P/E 顏色判定 + 顯示全部不限 15 檔｜ "
     "🤖 NLP 規則+BERT 混合｜ 🚀 Portfolio + 投組模擬器"
 )
 APP_VALIDATIONS = (
@@ -4331,6 +4331,57 @@ def _render_top200_panel():
                 f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
                 f'padding:6px 4px">{_row_html(_e_raw, "#3dbb6a", "🚀 可進場")}</div>',
                 unsafe_allow_html=True)
+            # 🆕 v9.9l：存成自選股清單（按鈕在進場欄下方）
+            if _e_raw:
+                _save_cols = st.columns([3, 1])
+                with _save_cols[0]:
+                    _wl_name = st.text_input(
+                        "自選股名稱",
+                        value=f"TOP200進場_{_updated}",
+                        key="top200_save_name",
+                        label_visibility="collapsed",
+                        placeholder="自選股名稱",
+                    )
+                with _save_cols[1]:
+                    if st.button("💾 存", key="top200_save_btn",
+                                 use_container_width=True,
+                                 help=f"把這 {len(_e_raw)} 檔可進場股票存成自選股清單"):
+                        # 載入現有 watchlists（雙軌：localStorage + 檔案）
+                        try:
+                            from streamlit_local_storage import LocalStorage as _LS
+                            _ls = _LS()
+                        except Exception:
+                            _ls = None
+                        _wl_path = _P(__file__).parent / 'watchlists.json'
+
+                        wls = {}
+                        if _ls:
+                            try:
+                                v = _ls.getItem("stock001_watchlists")
+                                if v:
+                                    wls = _json.loads(v) if isinstance(v, str) else v
+                            except Exception:
+                                pass
+                        if not wls and _wl_path.exists():
+                            try:
+                                wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                            except Exception:
+                                pass
+
+                        # 新增清單
+                        tickers_str = "\n".join(r['ticker'] for r in _e_raw)
+                        wls[_wl_name] = tickers_str
+                        # 儲存
+                        text = _json.dumps(wls, ensure_ascii=False, indent=2)
+                        if _ls:
+                            try: _ls.setItem("stock001_watchlists", text)
+                            except: pass
+                        try:
+                            _wl_path.write_text(text, encoding='utf-8')
+                        except Exception:
+                            pass
+                        st.success(f"✅ 已存「{_wl_name}」（{len(_e_raw)} 檔）")
+                        st.rerun()
         with cols[1]:
             st.markdown(
                 f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
@@ -4740,7 +4791,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 53  # v9.9k：TOP 200 移除 RSI 顯示 2026-04-28 21:15
+_RESULTS_VERSION = 54  # v9.9l：TOP 200 進場欄加「💾 存成自選股」按鈕 2026-04-28 21:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
