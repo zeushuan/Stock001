@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.6b"
-APP_UPDATED   = "2026-04-28 12:30"
+APP_VERSION   = "v9.6c"
+APP_UPDATED   = "2026-04-28 13:00"
 APP_NOTES     = (
-    "🆕 個股表格新增 P/E 欄（顏色 + 60 日動量箭頭 ▼=盈餘上修 / ▲=下修風險）｜ "
+    "🔧 P/E 加 yfinance fallback（雲端 / 美股 / cache 缺檔都能取得）｜ "
+    "🆕 個股表格 P/E 欄（顏色 + 60 日動量箭頭）｜ "
     "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望｜ "
-    "🆕 估值參考：EPS / PER / PBR / 殖利率 + 60 日動量｜ "
-    "🆕 全市場 PER cache（1036/1058 檔）"
+    "🆕 估值參考：EPS / PER / PBR / 殖利率 + 60 日動量"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -831,41 +831,65 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         except Exception:
             pass
 
-        # 🆕 EPS / PER / PBR / 殖利率（FinMind per_cache）— 僅台股
+        # 🆕 EPS / PER / PBR / 殖利率（優先 FinMind per_cache，否則 yfinance fallback）
         try:
-            if is_tw:
-                from pathlib import Path as _P
-                tk = ticker.replace('.TW', '').replace('.TWO', '')
-                pe_path = _P(__file__).parent / 'per_cache' / f'{tk}.parquet'
-                if pe_path.exists():
-                    pe_df = pd.read_parquet(pe_path)
-                    if not pe_df.empty:
-                        last_row = pe_df.iloc[-1]
-                        per_v = last_row.get('PER')
-                        pbr_v = last_row.get('PBR')
-                        div_v = last_row.get('dividend_yield')
-                        if per_v and not pd.isna(per_v):
-                            d['per'] = float(per_v)
-                        if pbr_v and not pd.isna(pbr_v):
-                            d['pbr'] = float(pbr_v)
-                        if div_v and not pd.isna(div_v):
-                            d['div_yield'] = float(div_v)
-                        # 推算 EPS = close / PER
-                        if per_v and not pd.isna(per_v) and per_v > 0:
-                            close_v = d.get('close')
-                            if close_v:
-                                d['eps_ttm'] = round(close_v / per_v, 2)
-                        # 🆕 PER 動量（60 日下降代表盈餘上修）
-                        if len(pe_df) >= 60:
-                            pe_60d = pe_df['PER'].iloc[-60]
-                            pe_now = per_v
-                            if pe_60d and pe_now and not pd.isna(pe_60d) and not pd.isna(pe_now) and pe_60d > 0:
-                                d['per_60d_chg_pct'] = round((pe_now - pe_60d) / pe_60d * 100, 1)
-                        # 🆕 PER 相對自己歷史（vs 90 日中位）
-                        if len(pe_df) >= 90:
-                            pe_med90 = float(pe_df['PER'].iloc[-90:].dropna().median()) if len(pe_df['PER'].iloc[-90:].dropna()) else None
+            from pathlib import Path as _P
+            tk = ticker.replace('.TW', '').replace('.TWO', '').replace('.', '')
+            pe_path = _P(__file__).parent / 'per_cache' / f'{tk}.parquet'
+            got_from_cache = False
+            if is_tw and pe_path.exists():
+                pe_df = pd.read_parquet(pe_path)
+                if not pe_df.empty:
+                    last_row = pe_df.iloc[-1]
+                    per_v = last_row.get('PER')
+                    pbr_v = last_row.get('PBR')
+                    div_v = last_row.get('dividend_yield')
+                    if per_v and not pd.isna(per_v):
+                        d['per'] = float(per_v); got_from_cache = True
+                    if pbr_v and not pd.isna(pbr_v):
+                        d['pbr'] = float(pbr_v)
+                    if div_v and not pd.isna(div_v):
+                        d['div_yield'] = float(div_v)
+                    if per_v and not pd.isna(per_v) and per_v > 0:
+                        close_v = d.get('close')
+                        if close_v:
+                            d['eps_ttm'] = round(close_v / per_v, 2)
+                    # PER 60 日動量
+                    if len(pe_df) >= 60:
+                        pe_60d = pe_df['PER'].iloc[-60]
+                        if pe_60d and per_v and not pd.isna(pe_60d) and not pd.isna(per_v) and pe_60d > 0:
+                            d['per_60d_chg_pct'] = round((per_v - pe_60d) / pe_60d * 100, 1)
+                    # PER 相對 90 日中位
+                    if len(pe_df) >= 90:
+                        pe_med90_arr = pe_df['PER'].iloc[-90:].dropna()
+                        if len(pe_med90_arr) > 0:
+                            pe_med90 = float(pe_med90_arr.median())
                             if pe_med90 and per_v:
                                 d['per_vs_med90'] = round((per_v - pe_med90) / pe_med90 * 100, 1)
+
+            # 🆕 yfinance fallback（雲端 / 美股 / per_cache 缺檔時）
+            if not got_from_cache:
+                try:
+                    info = yf.Ticker(symbol).info
+                    per_yf = info.get('trailingPE')
+                    if per_yf and not pd.isna(per_yf) and 0 < per_yf < 1000:
+                        d['per'] = float(per_yf)
+                    eps_yf = info.get('trailingEps')
+                    if eps_yf and not pd.isna(eps_yf):
+                        d['eps_ttm'] = round(float(eps_yf), 2)
+                    pbr_yf = info.get('priceToBook')
+                    if pbr_yf and not pd.isna(pbr_yf) and 0 < pbr_yf < 100:
+                        d['pbr'] = round(float(pbr_yf), 2)
+                    div_yf = info.get('trailingAnnualDividendYield') or info.get('dividendYield')
+                    if div_yf and not pd.isna(div_yf):
+                        # yfinance 的殖利率可能是 0.025 (=2.5%) 或已是 2.5
+                        dv = float(div_yf)
+                        if dv < 1.0:  # 比例
+                            d['div_yield'] = round(dv * 100, 2)
+                        else:  # 已是百分比
+                            d['div_yield'] = round(dv, 2)
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -4177,7 +4201,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 34  # v9.6b：個股表格 P/E 欄 + 動量箭頭 2026-04-28 12:30
+_RESULTS_VERSION = 35  # v9.6c：P/E 加 yfinance fallback（雲端 / 美股可取得） 2026-04-28 13:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
