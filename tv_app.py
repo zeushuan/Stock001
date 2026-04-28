@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9n"
-APP_UPDATED   = "2026-04-28 22:30"
+APP_VERSION   = "v9.9o"
+APP_UPDATED   = "2026-04-28 23:00"
 APP_NOTES     = (
-    "🆕 TOP 200 三欄改成可收合 expander（持倉中預設收合，節省版面）｜ "
-    "🚀 多因子綜合分數年化 +110% (v2)｜ 🆕 P/E 顏色 + 存自選股｜ "
-    "🤖 NLP 規則+BERT｜ 🚀 Portfolio + 投組模擬器"
+    "🆕 🇺🇸 US TOP 100 即時掃描 panel（212 檔 baseline 回測 + 多因子分級）｜ "
+    "🆕 美股「可進場」也加 💾 存自選股｜ "
+    "🚀 TW TOP 200 多因子 v2 年化 +110%｜ 🤖 NLP 規則+BERT"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4405,6 +4405,116 @@ def _render_top200_panel():
 
 _render_top200_panel()
 
+
+# 🆕 v9.9o：美股 TOP 100 panel
+def _render_us_top_panel():
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        sig_path = _P(__file__).parent / 'us_top200_signals.json'
+        if not sig_path.exists():
+            return
+        sig_data = _json.load(open(sig_path, encoding='utf-8'))
+        _e_raw = sig_data.get('entry', [])
+        _x_raw = sig_data.get('exit', [])
+        _h_raw = sig_data.get('hold', [])
+        _updated = sig_data.get('updated_at', '?')
+        _tot = sig_data.get('top_total', 100)
+        if not (_e_raw or _x_raw or _h_raw):
+            return
+
+        st.markdown(
+            f'<div style="background:#0a1a2a;border:1px solid #5a8ab055;border-radius:10px;'
+            f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd">🇺🇸 US TOP {_tot} 即時掃描</div>'
+            f'<div style="color:#a8cce8;font-size:.85rem">'
+            f'🚀 進場 <b>{len(_e_raw)}</b>　│　🚪 出倉 <b>{len(_x_raw)}</b>　│　📌 持倉 <b>{len(_h_raw)}</b></div>'
+            f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
+            f'P5_T1T3+POS（無 VWAPEXEC）　│　資料 {_updated}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        def _us_row_html(rows):
+            if not rows:
+                return f'<div style="color:#3a5a7a;font-size:.72rem;padding:6px">— 暫無 —</div>'
+            out = ''
+            for r in rows:
+                sig = r.get('sig', '')
+                out += (
+                    f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
+                    f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
+                    f'<span style="font-weight:700;font-family:monospace;'
+                    f'min-width:60px;color:#e8f4fd">{r["ticker"]}</span>'
+                    f'<span style="color:#a8cce8;font-family:monospace;flex:1">{r.get("close",0):.2f}</span>'
+                    f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
+                    f'<span style="font-size:.7rem;background:#0a3a1f;color:#3dbb6a;'
+                    f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
+                    f'</div>'
+                )
+            return out
+
+        cols = st.columns(3)
+        with cols[0]:
+            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=True):
+                st.markdown(
+                    f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+                    f'padding:6px 4px">{_us_row_html(_e_raw)}</div>',
+                    unsafe_allow_html=True)
+            if _e_raw:
+                _us_save = st.columns([3, 1])
+                with _us_save[0]:
+                    _us_name = st.text_input(
+                        "美股自選名稱",
+                        value=f"US_進場_{_updated}",
+                        key="us_save_name",
+                        label_visibility="collapsed",
+                    )
+                with _us_save[1]:
+                    if st.button("💾 存", key="us_save_btn", use_container_width=True):
+                        try:
+                            from streamlit_local_storage import LocalStorage as _LS
+                            _ls = _LS()
+                        except Exception:
+                            _ls = None
+                        _wl_path = _P(__file__).parent / 'watchlists.json'
+                        wls = {}
+                        if _ls:
+                            try:
+                                v = _ls.getItem("stock001_watchlists")
+                                if v: wls = _json.loads(v) if isinstance(v, str) else v
+                            except Exception: pass
+                        if not wls and _wl_path.exists():
+                            try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                            except Exception: pass
+                        wls[_us_name] = "\n".join(r['ticker'] for r in _e_raw)
+                        text = _json.dumps(wls, ensure_ascii=False, indent=2)
+                        if _ls:
+                            try: _ls.setItem("stock001_watchlists", text)
+                            except: pass
+                        try: _wl_path.write_text(text, encoding='utf-8')
+                        except: pass
+                        st.success(f"✅ 已存「{_us_name}」({len(_e_raw)} 檔)")
+                        st.rerun()
+        with cols[1]:
+            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=True):
+                st.markdown(
+                    f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+                    f'padding:6px 4px">{_us_row_html(_x_raw)}</div>',
+                    unsafe_allow_html=True)
+        with cols[2]:
+            with st.expander(f"📌 持倉中 ({len(_h_raw)})", expanded=False):
+                st.markdown(
+                    f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+                    f'padding:6px 4px">{_us_row_html(_h_raw)}</div>',
+                    unsafe_allow_html=True)
+    except Exception:
+        pass
+
+
+_render_us_top_panel()
+
+
 # 🆕 市場廣度警報（D 路徑）
 _breadth = _get_market_breadth()
 if _breadth.get('has_data'):
@@ -4798,7 +4908,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 56  # v9.9n：TOP 200 三欄改可收合 expander 2026-04-28 22:30
+_RESULTS_VERSION = 57  # v9.9o：US TOP 100 panel + 多因子分級 2026-04-28 23:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
