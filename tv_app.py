@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.8a"
-APP_UPDATED   = "2026-04-28 15:50"
+APP_VERSION   = "v9.9"
+APP_UPDATED   = "2026-04-28 16:30"
 APP_NOTES     = (
-    "🔧 Portfolio 推薦擴大到全 TOP 200（不再受限使用者搜尋範圍）｜ "
-    "🆕 📊 今日 Portfolio 推薦面板（從 data_cache 直接讀，不需 yfinance live）｜ "
-    "🆕 📊 投組模擬器（互動 expander）｜ "
-    "🎨 卡片配色：進🟢/出🔴/持🔵 + ticker chips"
+    "🆕 📰 新聞情感分析：SnowNLP + 30+ 金融關鍵字校正（每篇分數 + 平均）｜ "
+    "🆕 📊 Portfolio 推薦擴大全 TOP 200 + 投組模擬器｜ "
+    "🆕 個股表格 P/E + 動量 + tier 徽章｜ "
+    "🎨 卡片配色：進🟢/出🔴/持🔵"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -567,6 +567,62 @@ def fetch_news(ticker: str, market: str) -> list:
         return result if result else _fetch_news_google(ticker, market)
     except Exception:
         return _fetch_news_google(ticker, market)
+
+
+# ── 🆕 金融領域情感字典（覆寫 SnowNLP 基底分數）────────────────
+_FIN_POS_KEYWORDS = {
+    '大漲': 0.30, '創新高': 0.30, '飆漲': 0.30, '突破': 0.20, '上漲': 0.15,
+    '看好': 0.20, '看多': 0.20, '加碼': 0.15, '增持': 0.15, '推薦': 0.15,
+    '利多': 0.25, '利好': 0.25, '訂單滿載': 0.30, '需求強勁': 0.25,
+    '業績亮眼': 0.30, '業績超標': 0.30, '財報優': 0.25, '獲利成長': 0.20,
+    '營收成長': 0.20, '受惠': 0.15, '搶單': 0.20, '報喜': 0.20, 'AI 概念': 0.10,
+    '強勁': 0.15, '強漲': 0.20, '盈餘上修': 0.25, '上修': 0.20,
+}
+_FIN_NEG_KEYWORDS = {
+    '大跌': -0.30, '崩跌': -0.35, '重挫': -0.30, '暴跌': -0.30, '下跌': -0.15,
+    '看壞': -0.20, '看空': -0.20, '減碼': -0.15, '降評': -0.15, '不推': -0.15,
+    '利空': -0.25, '警訊': -0.20, '警告': -0.20, '衰退': -0.25, '虧損': -0.25,
+    '財報差': -0.25, '獲利衰退': -0.25, '營收下滑': -0.25, '裁員': -0.20,
+    '違約': -0.30, '掏空': -0.30, '破產': -0.35, '下修': -0.20, '失利': -0.20,
+    '失守': -0.20, '跌破': -0.20, '恐慌': -0.25, '崩盤': -0.35, '空頭': -0.20,
+}
+
+
+def _score_news_title(title: str) -> float:
+    """混合：SnowNLP 基底 + 金融關鍵字加成。
+    回傳 -1 ~ +1（負/中/正）"""
+    if not title: return 0.0
+    try:
+        from snownlp import SnowNLP
+        base_01 = float(SnowNLP(title).sentiments)  # 0-1
+        score = (base_01 - 0.5) * 0.6   # 縮成 -0.3 ~ +0.3
+    except Exception:
+        score = 0.0
+    # 領域字典加成
+    for kw, w in _FIN_POS_KEYWORDS.items():
+        if kw in title:
+            score += w
+    for kw, w in _FIN_NEG_KEYWORDS.items():
+        if kw in title:
+            score += w
+    return max(-1.0, min(1.0, score))
+
+
+@st.cache_data(ttl=1800)
+def get_news_sentiment(ticker: str, market: str) -> dict:
+    """為個股新聞算情感分數。
+    回傳：{ avg_score: float, n: int, headlines: [(title, score, link), ...] }"""
+    news = fetch_news(ticker, market)
+    if not news:
+        return {'avg_score': 0.0, 'n': 0, 'headlines': []}
+    headlines = []
+    for n in news:
+        title = n.get('title', '')
+        link = n.get('link', '')
+        s = _score_news_title(title)
+        headlines.append((title, s, link, n.get('publisher', '')))
+    avg = sum(h[1] for h in headlines) / len(headlines)
+    return {'avg_score': round(avg, 3), 'n': len(headlines), 'headlines': headlines}
 
 
 def _fetch_news_google(ticker: str, market: str) -> list:
@@ -4324,7 +4380,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 42  # v9.8a：Portfolio 推薦擴大全 TOP 200 + 從 data_cache 讀 2026-04-28 15:50
+_RESULTS_VERSION = 43  # v9.9：新聞情感分析（SnowNLP + 金融關鍵字） 2026-04-28 16:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5491,19 +5547,55 @@ for item in results:
         else:
             st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap),
                         unsafe_allow_html=True)
-            news = fetch_news(ticker, market)
-            if news:
-                news_html = '<div class="section-title" style="margin-top:12px">最新新聞</div>'
-                for i, n in enumerate(news):
-                    pub  = f'<span style="color:#3a5a7a;font-size:.68rem">{n["publisher"]}</span>' if n.get("publisher") else ""
+            # 🆕 新聞 + 情感分析
+            sent = get_news_sentiment(ticker, market)
+            if sent['n'] > 0:
+                avg = sent['avg_score']
+                if avg > 0.3:
+                    avg_color, avg_label = '#3dbb6a', '🟢 偏正面'
+                elif avg > 0.05:
+                    avg_color, avg_label = '#88c8a8', '🟢 微正面'
+                elif avg < -0.3:
+                    avg_color, avg_label = '#ff5555', '🔴 偏負面'
+                elif avg < -0.05:
+                    avg_color, avg_label = '#e8a020', '🟠 微負面'
+                else:
+                    avg_color, avg_label = '#7a8899', '⚪ 中性'
+
+                news_html = (
+                    f'<div class="section-title" style="margin-top:12px;'
+                    f'display:flex;align-items:baseline;gap:8px">'
+                    f'<span>📰 新聞情感</span>'
+                    f'<span style="background:{avg_color}33;color:{avg_color};'
+                    f'padding:1px 8px;border-radius:4px;font-size:.7rem;font-weight:700">'
+                    f'{avg:+.2f} {avg_label}</span>'
+                    f'<span style="color:#5a8ab0;font-size:.7rem;font-weight:400">'
+                    f'（{sent["n"]} 篇平均，SnowNLP + 金融關鍵字校正）</span>'
+                    f'</div>'
+                )
+                for i, (title, s, link, pub) in enumerate(sent['headlines']):
+                    if s > 0.2:
+                        s_color = '#3dbb6a'
+                    elif s > 0.05:
+                        s_color = '#88c8a8'
+                    elif s < -0.2:
+                        s_color = '#ff5555'
+                    elif s < -0.05:
+                        s_color = '#e8a020'
+                    else:
+                        s_color = '#7a8899'
+                    pub_str  = f'<span style="color:#3a5a7a;font-size:.68rem">{pub}</span>' if pub else ""
                     news_html += (
                         f'<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;'
                         f'border-bottom:1px solid #0f1f33">'
                         f'<span style="color:#3b9eff;font-size:.72rem;font-weight:700;flex-shrink:0">{i+1}</span>'
-                        f'<a href="{n["link"]}" target="_blank" '
+                        f'<span style="background:{s_color}22;color:{s_color};font-size:.65rem;'
+                        f'font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;'
+                        f'min-width:48px;text-align:center">{s:+.2f}</span>'
+                        f'<a href="{link}" target="_blank" '
                         f'style="color:#c8dff0;font-size:.78rem;text-decoration:none;line-height:1.5;'
                         f'flex:1" onmouseover="this.style.color=\'#fff\'" onmouseout="this.style.color=\'#c8dff0\'">'
-                        f'{n["title"]}</a>{pub}</div>'
+                        f'{title}</a>{pub_str}</div>'
                     )
                 st.markdown(f'<div style="padding:4px 8px 8px">{news_html}</div>',
                             unsafe_allow_html=True)
