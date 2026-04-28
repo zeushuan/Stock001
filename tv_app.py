@@ -8,11 +8,11 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9g"
-APP_UPDATED   = "2026-04-28 20:00"
+APP_VERSION   = "v9.9h"
+APP_UPDATED   = "2026-04-28 20:30"
 APP_NOTES     = (
-    "🔧 TOP 200 推薦改用預先計算的 top200_signals.json（雲端可用，不需 data_cache）｜ "
-    "🆕 update_daily_signals.py：每天本機跑一次更新｜ "
+    "🔧 TOP 200 推薦移至「健壯性驗證」下方，永遠顯示（不再隨掃股而消失）｜ "
+    "🆕 update_daily_signals.py：每天本機跑更新 top200_signals.json｜ "
     "🤖 NLP 規則+BERT 混合 + 純金融字典 200+｜ 🚀 OTC 加速 + Portfolio"
 )
 APP_VALIDATIONS = (
@@ -4253,6 +4253,85 @@ st.markdown(f"""
   🔬 <b style="color:#7aaac8">健壯性驗證</b>：{APP_VALIDATIONS}
 </div>""", unsafe_allow_html=True)
 
+
+# 🆕 v9.9h：TOP 200 即時掃描（永遠顯示在頂部，不受 results 影響）
+def _render_top200_panel():
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        sig_path = _P(__file__).parent / 'top200_signals.json'
+        if not sig_path.exists():
+            return
+        sig_data = _json.load(open(sig_path, encoding='utf-8'))
+        _e_raw = sig_data.get('entry', [])
+        _x_raw = sig_data.get('exit', [])
+        _h_raw = sig_data.get('hold', [])
+        _updated = sig_data.get('updated_at', '?')
+        if not (_e_raw or _x_raw or _h_raw):
+            return
+
+        st.markdown(
+            f'<div style="background:#0a1a2a;border:1px solid #3dbb6a55;border-radius:10px;'
+            f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#3dbb6a">📊 今日 TOP 200 即時掃描</div>'
+            f'<div style="color:#7abadd;font-size:.85rem">'
+            f'🚀 進場 <b>{len(_e_raw)}</b>　│　🚪 出倉 <b>{len(_x_raw)}</b>　│　📌 持倉 <b>{len(_h_raw)}</b></div>'
+            f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
+            f'⭐ TOP 200 適用清單　│　資料 {_updated}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        def _row_html(rows, color, label, max_n=15):
+            if not rows:
+                return f'<div style="color:#3a5a7a;font-size:.72rem;padding:6px">— 暫無 —</div>'
+            out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
+                   f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
+            for r in rows[:max_n]:
+                rsi = r.get('rsi')
+                rsi_str = f'RSI {rsi:.0f}' if rsi else ''
+                sig = r.get('sig', '')
+                out += (
+                    f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
+                    f'border-bottom:1px solid #1a2a3f">'
+                    f'<span style="color:{color};font-weight:700;font-family:monospace;'
+                    f'min-width:48px">{r["ticker"]}</span>'
+                    f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
+                    f'white-space:nowrap;max-width:90px">{r.get("name","")}</span>'
+                    f'<span style="color:#e8f4fd;font-family:monospace">{r.get("close",0):.2f}</span>'
+                    f'<span style="color:#5a8ab0;font-size:.7rem">{rsi_str}</span>'
+                    f'<span style="color:#7a8899;font-size:.65rem">{sig}</span>'
+                    f'<span style="color:{color};font-size:.65rem;background:{color}22;'
+                    f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
+                    f'</div>'
+                )
+            if len(rows) > max_n:
+                out += (f'<div style="text-align:center;padding:4px;color:#5a8ab0;font-size:.7rem">'
+                        f'＋{len(rows)-max_n} 檔</div>')
+            return out
+
+        cols = st.columns(3)
+        with cols[0]:
+            st.markdown(
+                f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+                f'padding:6px 4px">{_row_html(_e_raw, "#3dbb6a", "🚀 可進場")}</div>',
+                unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown(
+                f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+                f'padding:6px 4px">{_row_html(_x_raw, "#ff7777", "🚪 應出倉")}</div>',
+                unsafe_allow_html=True)
+        with cols[2]:
+            st.markdown(
+                f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+                f'padding:6px 4px">{_row_html(_h_raw, "#7abadd", "📌 持倉中")}</div>',
+                unsafe_allow_html=True)
+    except Exception:
+        pass
+
+
+_render_top200_panel()
+
 # 🆕 市場廣度警報（D 路徑）
 _breadth = _get_market_breadth()
 if _breadth.get('has_data'):
@@ -4646,7 +4725,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 50  # v9.9g：TOP 200 改讀 top200_signals.json（雲端可用） 2026-04-28 20:00
+_RESULTS_VERSION = 51  # v9.9h：TOP 200 移至「健壯性驗證」下方永遠顯示 2026-04-28 20:30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5345,99 +5424,7 @@ if "results" not in st.session_state:
   <div style="font-size:.95rem;color:#3a6a9a">在左側輸入股票代號，點擊「開始抓取資料」</div>
   <div style="font-size:.72rem;color:#1e3a5f;margin-top:4px">支援台股 · NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
 </div>""", unsafe_allow_html=True)
-
-    # 🆕 首頁也顯示 TOP 200 今日掃描（讀預先計算的 top200_signals.json）
-    try:
-        from pathlib import Path as _P
-        import json as _json
-        sig_path = _P(__file__).parent / 'top200_signals.json'
-        if sig_path.exists():
-            sig_data = _json.load(open(sig_path, encoding='utf-8'))
-            _e_raw = sig_data.get('entry', [])
-            _x_raw = sig_data.get('exit', [])
-            _h_raw = sig_data.get('hold', [])
-            _updated = sig_data.get('updated_at', '?')
-            # 轉成 (ticker, name, d, delta) tuple 格式
-            def _to_tuple(rows):
-                return [(r['ticker'], r['name'],
-                         {'close': r.get('close'), 'rsi': r.get('rsi'),
-                          'ema20_cross_days': r.get('ema20_cross_days')},
-                         r.get('delta', 0))
-                        for r in rows]
-            _e = _to_tuple(_e_raw)
-            _x = _to_tuple(_x_raw)
-            _h = _to_tuple(_h_raw)
-        else:
-            # 本地 fallback：直接掃 data_cache（雲端沒這資源）
-            _e, _x, _h = _scan_top200_signals()
-            _updated = '即時計算'
-
-        if _e or _x or _h:
-            st.markdown("---")
-            st.markdown(
-                f'<div style="background:#0a1a2a;border:1px solid #3dbb6a55;border-radius:10px;'
-                f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
-                f'<div style="font-size:1.1rem;font-weight:700;color:#3dbb6a">📊 今日 TOP 200 即時掃描</div>'
-                f'<div style="color:#7abadd;font-size:.85rem">'
-                f'🚀 進場 <b>{len(_e)}</b>　│　🚪 出倉 <b>{len(_x)}</b>　│　📌 持倉 <b>{len(_h)}</b></div>'
-                f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
-                f'⭐ TOP 200 適用清單　│　資料 {_updated}</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-            def _quick_row(picks, color, label, max_n=10):
-                if not picks:
-                    return f'<div style="color:#3a5a7a;font-size:.72rem;padding:6px">— 暫無 —</div>'
-                out = (f'<div style="color:{color};font-size:.85rem;font-weight:700;'
-                       f'padding:4px 8px 6px">{label} ({len(picks)})</div>')
-                for t, name, d, delta in picks[:max_n]:
-                    rsi = d.get('rsi')
-                    rsi_str = f'RSI {rsi:.0f}' if rsi else ''
-                    cd = d.get('ema20_cross_days')
-                    type_str = ''
-                    if cd is not None and 0 < cd <= 10:
-                        type_str = f'T1 {cd}d'
-                    elif rsi is not None and rsi < 50:
-                        type_str = f'T3'
-                    out += (
-                        f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
-                        f'border-bottom:1px solid #1a2a3f">'
-                        f'<span style="color:{color};font-weight:700;font-family:monospace;'
-                        f'min-width:48px">{t}</span>'
-                        f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
-                        f'white-space:nowrap;max-width:90px">{name}</span>'
-                        f'<span style="color:#e8f4fd;font-family:monospace">{d.get("close",0):.2f}</span>'
-                        f'<span style="color:#5a8ab0;font-size:.7rem">{rsi_str}</span>'
-                        f'<span style="color:#7a8899;font-size:.65rem">{type_str}</span>'
-                        f'<span style="color:#3dbb6a;font-size:.65rem;background:#0a3a1f;'
-                        f'padding:1px 5px;border-radius:3px">+{delta:.0f}%</span>'
-                        f'</div>'
-                    )
-                if len(picks) > max_n:
-                    out += (f'<div style="text-align:center;padding:4px;color:#5a8ab0;font-size:.7rem">'
-                            f'＋{len(picks)-max_n} 檔</div>')
-                return out
-
-            cols = st.columns(3)
-            with cols[0]:
-                st.markdown(
-                    f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
-                    f'padding:6px 4px">{_quick_row(_e, "#3dbb6a", "🚀 可進場", max_n=15)}</div>',
-                    unsafe_allow_html=True)
-            with cols[1]:
-                st.markdown(
-                    f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
-                    f'padding:6px 4px">{_quick_row(_x, "#ff7777", "🚪 應出倉", max_n=15)}</div>',
-                    unsafe_allow_html=True)
-            with cols[2]:
-                st.markdown(
-                    f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
-                    f'padding:6px 4px">{_quick_row(_h, "#7abadd", "📌 持倉中", max_n=15)}</div>',
-                    unsafe_allow_html=True)
-    except Exception as _e:
-        pass
-
+    # TOP 200 已移到健壯性驗證下方（永遠顯示），這裡不重複
     st.stop()
 
 results    = st.session_state["results"]
