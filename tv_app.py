@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9f"
-APP_UPDATED   = "2026-04-28 19:30"
+APP_VERSION   = "v9.9g"
+APP_UPDATED   = "2026-04-28 20:00"
 APP_NOTES     = (
-    "🆕 首頁立即顯示 TOP 200 今日掃描（無需先輸入股票，每天自動更新）｜ "
-    "🤖 NLP：規則 70% + Erlangshen BERT 30% 混合｜ "
-    "🆕 純金融規則 200+ 字典｜ 🚀 OTC 加速 + Portfolio + 投組模擬器"
+    "🔧 TOP 200 推薦改用預先計算的 top200_signals.json（雲端可用，不需 data_cache）｜ "
+    "🆕 update_daily_signals.py：每天本機跑一次更新｜ "
+    "🤖 NLP 規則+BERT 混合 + 純金融字典 200+｜ 🚀 OTC 加速 + Portfolio"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -4646,7 +4646,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 49  # v9.9f：首頁立即顯示 TOP 200 今日掃描 2026-04-28 19:30
+_RESULTS_VERSION = 50  # v9.9g：TOP 200 改讀 top200_signals.json（雲端可用） 2026-04-28 20:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5346,9 +5346,32 @@ if "results" not in st.session_state:
   <div style="font-size:.72rem;color:#1e3a5f;margin-top:4px">支援台股 · NASDAQ · NYSE · 任何 Yahoo Finance 代號</div>
 </div>""", unsafe_allow_html=True)
 
-    # 🆕 首頁也顯示 TOP 200 今日掃描（不需先掃股）
+    # 🆕 首頁也顯示 TOP 200 今日掃描（讀預先計算的 top200_signals.json）
     try:
-        _e, _x, _h = _scan_top200_signals()
+        from pathlib import Path as _P
+        import json as _json
+        sig_path = _P(__file__).parent / 'top200_signals.json'
+        if sig_path.exists():
+            sig_data = _json.load(open(sig_path, encoding='utf-8'))
+            _e_raw = sig_data.get('entry', [])
+            _x_raw = sig_data.get('exit', [])
+            _h_raw = sig_data.get('hold', [])
+            _updated = sig_data.get('updated_at', '?')
+            # 轉成 (ticker, name, d, delta) tuple 格式
+            def _to_tuple(rows):
+                return [(r['ticker'], r['name'],
+                         {'close': r.get('close'), 'rsi': r.get('rsi'),
+                          'ema20_cross_days': r.get('ema20_cross_days')},
+                         r.get('delta', 0))
+                        for r in rows]
+            _e = _to_tuple(_e_raw)
+            _x = _to_tuple(_x_raw)
+            _h = _to_tuple(_h_raw)
+        else:
+            # 本地 fallback：直接掃 data_cache（雲端沒這資源）
+            _e, _x, _h = _scan_top200_signals()
+            _updated = '即時計算'
+
         if _e or _x or _h:
             st.markdown("---")
             st.markdown(
@@ -5358,7 +5381,7 @@ if "results" not in st.session_state:
                 f'<div style="color:#7abadd;font-size:.85rem">'
                 f'🚀 進場 <b>{len(_e)}</b>　│　🚪 出倉 <b>{len(_x)}</b>　│　📌 持倉 <b>{len(_h)}</b></div>'
                 f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
-                f'每天自動掃描 ⭐ TOP 200 適用清單，無需先輸入股票代號</div>'
+                f'⭐ TOP 200 適用清單　│　資料 {_updated}</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
