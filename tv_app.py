@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.6d"
-APP_UPDATED   = "2026-04-28 13:30"
+APP_VERSION   = "v9.7"
+APP_UPDATED   = "2026-04-28 14:00"
 APP_NOTES     = (
-    "🔧 修正 OTC 上櫃股「無資料」bug：閾值 20→100 rows 強制 .TWO fallback（如 4169 泰宗）｜ "
-    "🔧 P/E 加 yfinance fallback（雲端 / 美股 / cache 缺檔都能取得）｜ "
-    "🆕 個股表格 P/E 欄（顏色 + 60 日動量箭頭）｜ "
-    "🆕 市場掃描卡片改 v8 操作分類：可進場 / 應出倉 / 持倉中 / 觀望"
+    "🆕 📅 今日推薦動作：可進場 Top 10 / 該出倉 Top 10 / 強勢持倉 Top 10（自動評分）｜ "
+    "🆕 ⭐ VWAPEXEC 適用分級：TOP 200 / OK / NA（從 1028 檔回測 Δ）｜ "
+    "🆕 P5+VWAPEXEC 加碼策略：TEST 期 Δ +0.123 ⭐ 新突破｜ "
+    "🆕 個股表格 P/E + 動量箭頭 + 操作分類｜🔧 OTC 上櫃股 bug 修復"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -148,6 +148,28 @@ def get_yf_symbol(ticker: str) -> str:
     if ticker in SYMBOL_ALIASES:
         return SYMBOL_ALIASES[ticker]
     return ticker + ".TW" if is_tw_stock(ticker) else ticker
+
+
+# 🆕 VWAPEXEC 適用清單（從 build_applicable_list.py 產出）
+@st.cache_data(ttl=3600)
+def _load_vwap_applicable():
+    """載入 VWAPEXEC 適用分級：{ticker: {tier: 'TOP'/'OK'/'NA', delta: float}}"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        p = _P(__file__).parent / 'vwap_applicable.json'
+        if p.exists():
+            with open(p, encoding='utf-8') as f:
+                return _json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def get_vwap_tier(ticker: str) -> dict:
+    """取得 VWAPEXEC 適用分級（tier + delta）"""
+    data = _load_vwap_applicable()
+    return data.get(ticker, {})
 
 # ── TradingView 圖表連結對照（ticker → TV symbol） ───────────────
 TV_CHART_MAP = {
@@ -3325,8 +3347,28 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                        if concepts else '<span style="color:#334455;font-size:.7rem">—</span>'
         concept_cell = (f'<td style="max-width:220px;line-height:1.7">{concept_html}</td>')
 
+        # 🆕 VWAPEXEC 適用分級徽章
+        vw_tier = get_vwap_tier(ticker)
+        tier_badge = ''
+        _delta_v = vw_tier.get('delta', 0)
+        if vw_tier.get('tier') == 'TOP':
+            _title = f"VWAPEXEC TOP 200 — 歷史 Δ {_delta_v:+.0f}%"
+            tier_badge = (
+                f'<span title="{_title}" '
+                f'style="display:inline-block;padding:1px 5px;background:#0a3a1f;color:#3dbb6a;'
+                f'border-radius:3px;font-size:.65rem;font-weight:700;margin-right:4px">⭐</span>'
+            )
+        elif vw_tier.get('tier') == 'NA':
+            _title = f"VWAPEXEC 不適用 — Δ {_delta_v:+.0f}%"
+            tier_badge = (
+                f'<span title="{_title}" '
+                f'style="display:inline-block;padding:1px 5px;background:#3a0a0a;color:#ff8888;'
+                f'border-radius:3px;font-size:.65rem;font-weight:700;margin-right:4px">⚠️</span>'
+            )
+        # OK tier 不顯示徽章（保持簡潔）
+
         rows += (f'<tr>'
-                 f'<td class="ticker-cell">{ticker_link}</td>'
+                 f'<td class="ticker-cell">{tier_badge}{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
                  f'{price_cell}{chg_cell}{pe_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
@@ -4204,7 +4246,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 36  # v9.6d：修正 OTC 上櫃股閾值 bug（4169 等泰宗類無資料） 2026-04-28 13:30
+_RESULTS_VERSION = 37  # v9.7：每日推薦 + VWAPEXEC 適用分級 + P5 加碼突破 2026-04-28 14:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -4931,6 +4973,116 @@ st.markdown(f"""
 
 platform_url_tpl = "https://www.perplexity.ai/search?q={prompt}"
 selected_platform = "Perplexity"
+
+# 🆕 📅 今日推薦動作（基於 v8 操作分類 + VWAPEXEC 適用分級）─────────
+def _entry_score(d, tier_info):
+    """進場分數：適用度 + 訊號強度 + 估值健康"""
+    score = 50
+    tier = tier_info.get('tier')
+    if tier == 'TOP':  score += 30
+    elif tier == 'OK': score += 10
+    elif tier == 'NA': score -= 30
+    # T1 黃金交叉新鮮度
+    cd = d.get('ema20_cross_days')
+    if cd and 0 < cd <= 5:    score += 15
+    elif cd and cd <= 10:     score += 8
+    # RSI 拉回深度（T3）
+    rsi = d.get('rsi')
+    if rsi and rsi < 45:      score += 10
+    elif rsi and rsi < 50:    score += 5
+    # ADX 趨勢強度
+    adx = d.get('adx')
+    if adx and adx >= 30:     score += 8
+    # PER 動量（盈餘上修）
+    per_chg = d.get('per_60d_chg_pct')
+    if per_chg is not None and per_chg <= -10: score += 7
+    return score
+
+
+def _exit_score(d, tier_info):
+    """出倉分數：訊號緊迫度"""
+    score = 50
+    rsi = d.get('rsi')
+    ema20 = d.get('ema20')
+    ema60 = d.get('ema60')
+    close = d.get('close')
+    if ema20 and ema60:
+        gap = (ema20 - ema60) / ema60 * 100
+        if gap < 1.0:   score += 30   # EMA 死叉迫近
+        elif gap < 3.0: score += 15
+    if rsi and rsi > 75: score += 20   # 高 RSI
+    elif rsi and rsi > 70: score += 10
+    return score
+
+
+_recos_entry = []
+_recos_exit  = []
+_recos_hold  = []
+for r in results:
+    if r[3] or not r[2]: continue   # error or no data
+    t, d = r[0], r[2]
+    name = d.get('name', t)
+    action = classify_action(d)
+    tier_info = get_vwap_tier(t)
+    if action == 'ENTRY':
+        _recos_entry.append((t, name, d, tier_info, _entry_score(d, tier_info)))
+    elif action == 'EXIT':
+        _recos_exit.append((t, name, d, tier_info, _exit_score(d, tier_info)))
+    elif action == 'HOLD' and tier_info.get('tier') == 'TOP':
+        _recos_hold.append((t, name, d, tier_info, _entry_score(d, tier_info) - 30))
+
+_recos_entry.sort(key=lambda x: -x[4])
+_recos_exit.sort(key=lambda x: -x[4])
+_recos_hold.sort(key=lambda x: -x[4])
+
+if _recos_entry or _recos_exit or _recos_hold:
+    def _reco_row(t, name, d, tier, score, color):
+        per_v = d.get('per')
+        per_str = f'{per_v:.1f}' if per_v else '—'
+        rsi_v = d.get('rsi')
+        rsi_str = f'{rsi_v:.0f}' if rsi_v else '—'
+        close_v = d.get('close')
+        close_str = f'{close_v:.2f}' if close_v else '—'
+        tier_str = tier.get('tier', '—')
+        delta = tier.get('delta', 0)
+        delta_str = f'{delta:+.0f}%' if delta else ''
+        return (f'<div style="display:flex;gap:6px;padding:4px 8px;font-size:.78rem;'
+                f'border-bottom:1px solid #1a2a3f">'
+                f'<span style="color:{color};font-weight:700;width:50px">{t}</span>'
+                f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{name}</span>'
+                f'<span style="color:#e8f4fd;font-family:monospace">{close_str}</span>'
+                f'<span style="color:#7a8899;width:32px">RSI {rsi_str}</span>'
+                f'<span style="color:#7a8899;width:38px">PE {per_str}</span>'
+                f'<span style="color:#3dbb6a;width:55px">{tier_str} {delta_str}</span>'
+                f'<span style="color:#5a8ab0;width:28px">{int(score)}</span>'
+                f'</div>')
+
+    cols = st.columns(3)
+    with cols[0]:
+        st.markdown(
+            f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
+            f'padding:8px 4px"><div style="color:#3dbb6a;font-weight:700;padding:0 8px 6px;'
+            f'font-size:.85rem">🚀 今日可進場 ({len(_recos_entry)})</div>'
+            + ''.join(_reco_row(*it, '#3dbb6a') for it in _recos_entry[:10])
+            + '</div>',
+            unsafe_allow_html=True)
+    with cols[1]:
+        st.markdown(
+            f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
+            f'padding:8px 4px"><div style="color:#ff7777;font-weight:700;padding:0 8px 6px;'
+            f'font-size:.85rem">🚪 今日該出倉 ({len(_recos_exit)})</div>'
+            + ''.join(_reco_row(*it, '#ff7777') for it in _recos_exit[:10])
+            + '</div>',
+            unsafe_allow_html=True)
+    with cols[2]:
+        st.markdown(
+            f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
+            f'padding:8px 4px"><div style="color:#7abadd;font-weight:700;padding:0 8px 6px;'
+            f'font-size:.85rem">📌 強勢持倉 TOP ({len(_recos_hold)})</div>'
+            + ''.join(_reco_row(*it, '#7abadd') for it in _recos_hold[:10])
+            + '</div>',
+            unsafe_allow_html=True)
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 st.markdown("#### 完整指標一覽表")
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
