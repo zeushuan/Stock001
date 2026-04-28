@@ -8,12 +8,12 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9s"
-APP_UPDATED   = "2026-04-29 01:00"
+APP_VERSION   = "v9.9t"
+APP_UPDATED   = "2026-04-29 02:00"
 APP_NOTES     = (
-    "🔧 操作建議精簡：T1/T3/T4 顯示天數（如「T1 3D 進場」「T3 5D 拉回」「T4 2D 反彈」）｜ "
-    "🔧 「② 趨勢EMA（飆股）」→ 「飆股」｜ 移除 ⑦ 編號｜ "
-    "🔧 P/E 顯示「虧損」紅標 + 美股 forwardPE fallback"
+    "🆕 T3 信心度旗標：5 個指標命中數（close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線）｜ "
+    "🆕 ●○ 視覺化於 表格 + 個股詳細 + TOP 200 panel｜ "
+    "🔧 移除 T3 天數顯示（保留 T1/T4 天數）"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -976,6 +976,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         bb      = ta.volatility.BollingerBands(c, 20, 2)
         ema13   = ta.trend.EMAIndicator(c, 13).ema_indicator()
         ichi    = ta.trend.IchimokuIndicator(h, l, 9, 26, 52)
+        ema5_s  = ta.trend.EMAIndicator(c, 5).ema_indicator()
         ema20_s = ta.trend.EMAIndicator(c, 20).ema_indicator()
         ema60_s = ta.trend.EMAIndicator(c, 60).ema_indicator()
         sma200_s= ta.trend.SMAIndicator(c, 200).sma_indicator()
@@ -1004,6 +1005,34 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         def prev(s, n=1):
             idx = -(n+1)
             return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
+
+        # 🆕 T3 信心度：5 個指標加總（每命中 1 分）
+        def _t3_confidence(close_now, ema5_now, ema20_now,
+                           ema5_5d_ago, ema20_5d_ago):
+            score = 0
+            hits = []
+            try:
+                # C1: close > EMA20
+                if close_now is not None and ema20_now is not None and close_now > ema20_now:
+                    score += 1; hits.append('close>EMA20')
+                # C3: EMA20 5d 斜率為正
+                if ema20_now is not None and ema20_5d_ago is not None and ema20_now > ema20_5d_ago:
+                    score += 1; hits.append('EMA20上升')
+                # E5: EMA5 5d 斜率為正
+                e5_up = (ema5_now is not None and ema5_5d_ago is not None and ema5_now > ema5_5d_ago)
+                if e5_up:
+                    score += 1; hits.append('EMA5上升')
+                # E5>E20: 多頭排列
+                if ema5_now is not None and ema20_now is not None and ema5_now > ema20_now:
+                    score += 1; hits.append('EMA5>EMA20')
+                # 雙均線都升
+                e20_up = (ema20_now is not None and ema20_5d_ago is not None
+                          and ema20_now > ema20_5d_ago)
+                if e5_up and e20_up:
+                    score += 1; hits.append('雙均線都升')
+            except Exception:
+                pass
+            return score, hits
 
         # 🆕 T3 拉回天數：RSI 連續低於 50 的天數
         def _t3_pullback_days(rsi_series):
@@ -1082,6 +1111,10 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             # 🆕 T3/T4 天數計算
             "t3_pullback_days": _t3_pullback_days(rsi_s),  # RSI<50 連續多少天
             "t4_rising_days":   _t4_rising_days(rsi_s),    # RSI<32 且上升多少天
+            # 🆕 EMA5 + T3 信心度（v9.9t）
+            "ema5":         last(ema5_s),
+            "ema5_5d_ago":  prev(ema5_s, 5),
+            "ema20_5d_ago": prev(ema20_s, 5),
             "atr14":        last(atr_s),
             "stoch_k":      last(stoch_k_s),
             "stoch_d":      last(stoch_d_s),
@@ -1275,6 +1308,17 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                     pass
         except Exception:
             pass
+
+        # 🆕 v9.9t：T3 信心度計算
+        try:
+            score, hits = _t3_confidence(
+                d.get('close'), d.get('ema5'), d.get('ema20'),
+                d.get('ema5_5d_ago'), d.get('ema20_5d_ago'))
+            d['t3_confidence'] = score
+            d['t3_confidence_hits'] = hits
+        except Exception:
+            d['t3_confidence'] = 0
+            d['t3_confidence_hits'] = []
 
         return d
     except Exception as e:
@@ -2750,6 +2794,40 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'{"　← 可進場" if t3_ok else ""}</span></div>'
         )
 
+        # 🆕 v9.9t：T3 信心度（5 個指標命中數）
+        _t3_conf = d.get('t3_confidence', 0) or 0
+        _t3_hits = d.get('t3_confidence_hits', []) or []
+        if _t3_conf >= 0:
+            # 5 個檢查項：close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線都升
+            _checks = [
+                ('close > EMA20',      'close>EMA20'  in _t3_hits),
+                ('EMA20 5 日上升',     'EMA20上升'    in _t3_hits),
+                ('EMA5 5 日上升',      'EMA5上升'     in _t3_hits),
+                ('EMA5 > EMA20（多頭排列）', 'EMA5>EMA20' in _t3_hits),
+                ('EMA5+EMA20 都上升',  '雙均線都升'   in _t3_hits),
+            ]
+            _check_rows = ''
+            for label, hit in _checks:
+                ic = '✅' if hit else '⬜'
+                col = '#3dbb6a' if hit else '#5a7a99'
+                _check_rows += (
+                    f'<div style="font-size:.7rem;color:{col};padding:1px 0">'
+                    f'{ic} {label}</div>')
+
+            if _t3_conf >= 4:    _conf_color = '#3dbb6a'; _conf_label = '高信心 ✨'
+            elif _t3_conf >= 2:  _conf_color = '#c8b87a'; _conf_label = '中信心'
+            else:                _conf_color = '#7a8899'; _conf_label = '低信心 ⚠️'
+
+            entry_rows.append(
+                f'<div style="display:flex;gap:6px;align-items:baseline;margin-top:3px">'
+                f'<span style="background:#0a1628;border-radius:3px;padding:0 5px;'
+                f'font-size:.65rem;color:#7a9ab0;white-space:nowrap">📊 T3 信心度</span>'
+                f'<span style="color:{_conf_color};font-weight:700">'
+                f'{render_confidence_dots(_t3_conf, color_filled=_conf_color, size=".82rem")} '
+                f'{_t3_conf}/5　{_conf_label}</span></div>'
+                f'<div style="margin:2px 0 4px 12px;line-height:1.5">{_check_rows}</div>'
+            )
+
         # （v7 已移除 T2 強制進場；多頭中段顯示等待 T3 拉回）
         if rsi is not None and 50 <= rsi < 65 and not t1_ok and not t3_ok:
             to50 = f"{rsi - 50:.1f}"
@@ -3573,6 +3651,23 @@ def get_exit_signal(d: dict) -> tuple:
         return ("安全持倉",       "background:#0a1e10;color:#3dbb6a;border:1px solid #3dbb6a44")
 
 
+def render_confidence_dots(score: int, max_score: int = 5,
+                            color_filled: str = '#3dbb6a',
+                            color_empty: str = '#3a5a7a',
+                            size: str = '.7rem') -> str:
+    """T3 信心度視覺化：● + ⚪
+    score 0-5（每命中 1 分）
+    """
+    if score is None: score = 0
+    score = max(0, min(score, max_score))
+    filled = '●' * score
+    empty = '○' * (max_score - score)
+    return (f'<span title="T3 信心度 {score}/{max_score}" '
+            f'style="font-size:{size};letter-spacing:1px;font-family:monospace">'
+            f'<span style="color:{color_filled}">{filled}</span>'
+            f'<span style="color:{color_empty}">{empty}</span></span>')
+
+
 def get_rec_label(d: dict, ticker: str = "") -> tuple:
     """
     ④推薦策略 輕量版：回傳 (rec_name, badge_inline_style) 供表格「操作建議」欄使用。
@@ -3614,8 +3709,7 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
                   rsi_prev is not None and rsi > rsi_prev and
                   rsi_prev2 is not None and rsi_prev > rsi_prev2)
 
-    # 🆕 v9.9s：精簡格式 + T1/T3/T4 顯示天數
-    t3_days = d.get('t3_pullback_days', 0) or 0
+    # 🆕 v9.9s：精簡格式 + T1/T4 顯示天數（T3 不顯示天數）
     t4_days = d.get('t4_rising_days', 0) or 0
 
     if not is_bull:
@@ -3633,19 +3727,17 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
         _is_hot      = (rsi is not None and rsi >= 70)
 
         t1_str = f"T1 {cross_days}D 進場" if cross_days else "T1 進場"
-        t3_str = f"T3 {t3_days}D 拉回" if t3_days else "T3 拉回"
 
         if _is_strong and _is_fresh:
             return ("飆股",                 "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
         elif _is_strong and _is_pullback:
-            return (f"T3 {t3_days}D 強趨勢拉回" if t3_days else "T3 強趨勢拉回",
-                    "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return ("T3 強趨勢拉回",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif _is_strong and not _is_pullback and not _is_hot:
             return ("T3 等待拉回",           "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
         elif not _is_strong and _is_fresh:
             return (t1_str,                 "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif not _is_strong and _is_pullback:
-            return (t3_str,                 "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return ("T3 拉回進場",           "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif _is_hot:
             return ("等待回調 — 不追高",     "background:#1a1805;color:#c8b87a;border:1px solid #c8b87a44")
         else:
@@ -3731,9 +3823,14 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
 
         _rlabel, _rbadge = get_rec_label(d, ticker)
         _xlabel, _xbadge = get_exit_signal(d)
+        # 🆕 v9.9t：操作建議旁加 T3 信心度
+        _conf_score = d.get('t3_confidence', 0) or 0
+        _conf_html = render_confidence_dots(_conf_score) if _conf_score > 0 else ''
         tot_cell = (f'<td style="background:#060c18;font-size:.82rem;font-weight:700;line-height:1.6">'
                     f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
-                    f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span></td>')
+                    f'font-size:.76rem;white-space:nowrap;{_rbadge}">{_rlabel}</span>'
+                    f'{("&nbsp;" + _conf_html) if _conf_html else ""}'
+                    f'</td>')
         exit_cell = (f'<td style="background:#060c18;font-size:.82rem;line-height:1.6">'
                      f'<span style="display:inline-block;padding:2px 7px;border-radius:4px;'
                      f'font-size:.76rem;white-space:nowrap;{_xbadge}">{_xlabel}</span></td>')
@@ -4358,6 +4455,17 @@ def _render_top200_panel():
                        f'padding:4px 8px 6px">{label} ({len(rows)})</div>')
             for r in rows[:max_n]:
                 sig = r.get('sig', '')
+                # 🆕 T3 信心度 ●○ 顯示
+                conf = r.get('t3_confidence', 0) or 0
+                if conf > 0:
+                    conf_html = (
+                        f'<span style="font-size:.65rem;letter-spacing:1px;'
+                        f'font-family:monospace" title="T3 信心度 {conf}/5">'
+                        f'<span style="color:#3dbb6a">{"●"*conf}</span>'
+                        f'<span style="color:#3a5a7a">{"○"*(5-conf)}</span>'
+                        f'</span>')
+                else:
+                    conf_html = ''
                 # 🆕 P/E（顏色判定）
                 pe_v = r.get('pe')
                 if pe_v is None:
@@ -4384,6 +4492,7 @@ def _render_top200_panel():
                     f'<span style="color:#e8f4fd;font-family:monospace">{r.get("close",0):.2f}</span>'
                     f'{pe_html}'
                     f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
+                    f'{conf_html}'
                     f'<span style="color:{color};font-size:.7rem;background:{color}22;'
                     f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
                     f'</div>'
@@ -4973,7 +5082,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 61  # v9.9s：操作建議精簡 + T1/T3/T4 顯示天數 2026-04-29 01:00
+_RESULTS_VERSION = 62  # v9.9t：T3 信心度旗標 ●○ + 移除 T3 天數 2026-04-29 02:00
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

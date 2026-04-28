@@ -68,6 +68,13 @@ def main():
         last = -1
 
         e20s, e60s = df['e20'].values, df['e60'].values
+        # 🆕 EMA5（補在 data_cache 沒有的情況）
+        if 'e5' in df.columns:
+            e5s = df['e5'].values
+        else:
+            import ta as _ta
+            e5s = _ta.trend.EMAIndicator(df['Close'], 5).ema_indicator().values
+
         cd = None
         if not (np.isnan(e20s[last]) or np.isnan(e60s[last])):
             cur_bull = e20s[last] > e60s[last]
@@ -76,6 +83,28 @@ def main():
                 if (e20s[last-k] > e60s[last-k]) != cur_bull:
                     cd = k if cur_bull else -k
                     break
+
+        # 🆕 T3 信心度（5 個指標）
+        t3_score = 0
+        t3_hits = []
+        if len(df) >= 6:
+            close_v = float(df['Close'].iloc[last])
+            e5_now = e5s[last] if not np.isnan(e5s[last]) else None
+            e20_now = e20s[last] if not np.isnan(e20s[last]) else None
+            e5_5d = e5s[last-5] if len(e5s) > 5 and not np.isnan(e5s[last-5]) else None
+            e20_5d = e20s[last-5] if len(e20s) > 5 and not np.isnan(e20s[last-5]) else None
+            if e20_now is not None and close_v > e20_now:
+                t3_score += 1; t3_hits.append('close>EMA20')
+            if e20_now is not None and e20_5d is not None and e20_now > e20_5d:
+                t3_score += 1; t3_hits.append('EMA20上升')
+            e5_up = (e5_now is not None and e5_5d is not None and e5_now > e5_5d)
+            if e5_up:
+                t3_score += 1; t3_hits.append('EMA5上升')
+            if e5_now is not None and e20_now is not None and e5_now > e20_now:
+                t3_score += 1; t3_hits.append('EMA5>EMA20')
+            e20_up = (e20_now is not None and e20_5d is not None and e20_now > e20_5d)
+            if e5_up and e20_up:
+                t3_score += 1; t3_hits.append('雙均線都升')
 
         d = {
             'close': float(df['Close'].iloc[last]),
@@ -127,6 +156,8 @@ def main():
             'pe': pe_v,
             'pbr': pbr_v,
             'div': div_v,
+            't3_confidence': t3_score,
+            't3_confidence_hits': t3_hits,
         }
         if action == 'ENTRY': entry.append(row)
         elif action == 'EXIT': exit_.append(row)
