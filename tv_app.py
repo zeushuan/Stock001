@@ -8,13 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.7"
-APP_UPDATED   = "2026-04-28 14:00"
+APP_VERSION   = "v9.7b"
+APP_UPDATED   = "2026-04-28 14:50"
 APP_NOTES     = (
-    "🆕 📅 今日推薦動作：可進場 Top 10 / 該出倉 Top 10 / 強勢持倉 Top 10（自動評分）｜ "
-    "🆕 ⭐ VWAPEXEC 適用分級：TOP 200 / OK / NA（從 1028 檔回測 Δ）｜ "
-    "🆕 P5+VWAPEXEC 加碼策略：TEST 期 Δ +0.123 ⭐ 新突破｜ "
-    "🆕 個股表格 P/E + 動量箭頭 + 操作分類｜🔧 OTC 上櫃股 bug 修復"
+    "🆕 完整指標表格上方加入圖示說明區（⭐/⚠️ + P/E 顏色 + ▼▲ 動量）｜ "
+    "🆕 ⚖️ 券資比區塊：軋空潛力評估 + 60 日動量｜ "
+    "🆕 📅 今日推薦動作 + ⭐ VWAPEXEC 適用分級｜ "
+    "🆕 P5+VWAPEXEC 加碼策略：TEST 期 Δ +0.123 ⭐"
 )
 APP_VALIDATIONS = (
     "VWAP 是 5 年研究首個三段（FULL/TRAIN/TEST）全部正向的真 alpha ｜ "
@@ -891,6 +891,30 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                             pe_med90 = float(pe_med90_arr.median())
                             if pe_med90 and per_v:
                                 d['per_vs_med90'] = round((per_v - pe_med90) / pe_med90 * 100, 1)
+
+            # 🆕 券資比（margin_cache）— 僅台股
+            if is_tw:
+                ms_path = _P(__file__).parent / 'margin_cache' / f'{tk}.parquet'
+                if ms_path.exists():
+                    ms_df = pd.read_parquet(ms_path)
+                    if not ms_df.empty:
+                        last = ms_df.iloc[-1]
+                        ms_now = last.get('msratio')
+                        if ms_now is not None and not pd.isna(ms_now):
+                            d['msratio'] = round(float(ms_now), 2)
+                        if 'margin_balance' in ms_df.columns:
+                            mb = last.get('margin_balance')
+                            if mb is not None and not pd.isna(mb):
+                                d['margin_balance'] = int(mb)
+                        if 'short_balance' in ms_df.columns:
+                            sb = last.get('short_balance')
+                            if sb is not None and not pd.isna(sb):
+                                d['short_balance'] = int(sb)
+                        # 60 日動量
+                        if len(ms_df) >= 60:
+                            ms_60d = ms_df['msratio'].iloc[-60]
+                            if ms_60d and ms_now and not pd.isna(ms_60d) and not pd.isna(ms_now) and ms_60d > 0:
+                                d['msratio_60d_chg_pct'] = round((ms_now - ms_60d) / ms_60d * 100, 1)
 
             # 🆕 yfinance fallback（雲端 / 美股 / per_cache 缺檔時）
             if not got_from_cache:
@@ -2319,6 +2343,45 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                     f'{rel_str}'
                     f'</span></div>'
                 )
+
+    # 🆕 券資比 區塊（軋空潛力 / 過熱警告）
+    msratio = d.get('msratio')
+    ms_60d_chg = d.get('msratio_60d_chg_pct')
+    margin_b = d.get('margin_balance')
+    short_b = d.get('short_balance')
+    if msratio is not None:
+        if msratio < 5:
+            ms_color, ms_label = '#7a8899', '低（多頭主導）'
+        elif msratio < 15:
+            ms_color, ms_label = '#3dbb6a', '中（健康）'
+        elif msratio < 30:
+            ms_color, ms_label = '#c8b87a', '中高（軋空潛力）'
+        elif msratio < 50:
+            ms_color, ms_label = '#e8a020', '高（強軋空候選）'
+        else:
+            ms_color, ms_label = '#ff5555', '極高（過熱 / 風險）'
+
+        chg_str = ''
+        if ms_60d_chg is not None:
+            if ms_60d_chg >= 50:
+                chg_color = '#3dbb6a'
+                chg_str = f'　│　60d <b style="color:{chg_color}">+{ms_60d_chg:.0f}% 🔥 空方加碼</b>'
+            elif ms_60d_chg >= 20:
+                chg_str = f'　│　60d <b>+{ms_60d_chg:.0f}%</b>'
+            elif ms_60d_chg <= -30:
+                chg_str = f'　│　60d <b style="color:#7a8899">{ms_60d_chg:+.0f}% 空方退場</b>'
+        bal_str = ''
+        if margin_b and short_b:
+            bal_str = f'　│　融資 {margin_b:,} / 融券 {short_b:,}'
+
+        val_rows.append(
+            f'<div style="background:#0a1a2a;border-left:3px solid {ms_color};'
+            f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+            f'<span style="color:{ms_color};font-size:.82rem">'
+            f'<b>⚖️ 券資比</b>　<b style="font-size:.95rem">{msratio:.2f}%</b>'
+            f' <span style="color:#7a8899">({ms_label})</span>{chg_str}{bal_str}'
+            f'</span></div>'
+        )
 
     # ── ② 進場判斷（三觸發，僅多頭+ADX≥22 有效）────────────────
     entry_rows  = list(val_rows)  # 估值放在進場判斷頭部
@@ -4246,7 +4309,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 37  # v9.7：每日推薦 + VWAPEXEC 適用分級 + P5 加碼突破 2026-04-28 14:00
+_RESULTS_VERSION = 39  # v9.7b：完整指標表格圖示說明區 2026-04-28 14:50
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -5085,6 +5148,33 @@ if _recos_entry or _recos_exit or _recos_hold:
     st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 
 st.markdown("#### 完整指標一覽表")
+
+# 🆕 圖示說明區
+st.markdown(
+    '<div style="background:#080f1c;border:1px solid #1e3a5f;border-radius:8px;'
+    'padding:8px 14px;margin:4px 0 10px;font-size:.74rem;color:#7abadd;'
+    'display:flex;flex-wrap:wrap;gap:14px;align-items:center">'
+    '<b style="color:#5a8ab0">圖示說明：</b>'
+    '<span><span style="display:inline-block;padding:1px 5px;background:#0a3a1f;color:#3dbb6a;'
+    'border-radius:3px;font-size:.65rem;font-weight:700">⭐</span>'
+    '<span style="color:#a8cce8">　= VWAPEXEC TOP 200（歷史 Δ 顯著正向，最該用 VWAP 限價）</span></span>'
+    '<span><span style="display:inline-block;padding:1px 5px;background:#3a0a0a;color:#ff8888;'
+    'border-radius:3px;font-size:.65rem;font-weight:700">⚠️</span>'
+    '<span style="color:#a8cce8">　= VWAPEXEC NA（Δ ≤ 0，VWAP 反而傷害，避開）</span></span>'
+    '<span style="color:#7a8899">（無徽章 = OK 一般適用 / 不在歷史測試樣本）</span>'
+    '</div>'
+    '<div style="background:#080f1c;border:1px solid #1e3a5f;border-radius:8px;'
+    'padding:8px 14px;margin-bottom:10px;font-size:.74rem;color:#7abadd;'
+    'display:flex;flex-wrap:wrap;gap:14px;align-items:center">'
+    '<b style="color:#5a8ab0">P/E 顏色：</b>'
+    '<span><span style="color:#3dbb6a">綠</span> &lt; 20 合理偏低</span>'
+    '<span><span style="color:#c8b87a">黃</span> 20-30 合理</span>'
+    '<span><span style="color:#e8a020">橘</span> 30-50 偏高（成長股）</span>'
+    '<span><span style="color:#ff5555">紅</span> &gt; 50 或虧損 過熱</span>'
+    '<span><span style="color:#3dbb6a">▼▼</span> = 60 日 PER 大降（盈餘上修信號）</span>'
+    '<span><span style="color:#ff5555">▲▲</span> = 60 日 PER 大漲（盈餘下修風險）</span>'
+    '</div>',
+    unsafe_allow_html=True)
 st.markdown(render_table(results, platform_url_tpl, selected_platform), unsafe_allow_html=True)
 
 st.markdown("<br>#### 個股指標詳細", unsafe_allow_html=True)

@@ -342,6 +342,10 @@ def _decode_mode(mode: str) -> dict:
         use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
         # 🆕 動態 ATR 停損（保護獲利）
         use_DYNSTOP    = 'DYNSTOP' in parts,      # 持倉 > 30d 且獲利 > 20% → ATR×1.5（trailing）
+        # 🆕 券資比過濾（margin_cache 必要）
+        ms_min        = None,                     # MSRATIO{N}：券資比 ≥ N%（軋空潛力）
+        ms_max        = None,                     # MSCAP{N}：券資比 ≤ N%（避開過熱）
+        ms_mom        = None,                     # MSMOM{N}：券資比 60d 內升 N% 以上
     )
 
     # 🆕 解析 VWAPDEV{N} / VWAPBAND{N} / PEMAX{N} / PEMIN{N} / DIV{N} / PBR{N}
@@ -369,6 +373,15 @@ def _decode_mode(mode: str) -> dict:
             except ValueError: pass
         elif part.startswith('PEREL') and len(part) > 5:
             try: flags['pe_rel_pct'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('MSRATIO') and len(part) > 7:
+            try: flags['ms_min'] = float(part[7:])
+            except ValueError: pass
+        elif part.startswith('MSCAP') and len(part) > 5:
+            try: flags['ms_max'] = float(part[5:])
+            except ValueError: pass
+        elif part.startswith('MSMOM') and len(part) > 5:
+            try: flags['ms_mom'] = float(part[5:])
             except ValueError: pass
 
     # 解析金字塔模式 P{th}_{signals}
@@ -630,6 +643,23 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_BSEXIT     = flags.get('use_BSEXIT', False)
     use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
     use_DYNSTOP    = flags.get('use_DYNSTOP', False)
+    ms_min         = flags.get('ms_min')
+    ms_max         = flags.get('ms_max')
+    ms_mom         = flags.get('ms_mom')
+
+    # 🆕 券資比 cache 預載（margin_cache）
+    ms_arr = None
+    needs_ms = (ms_min is not None or ms_max is not None or ms_mom is not None)
+    if needs_ms and ticker:
+        try:
+            from pathlib import Path as _P
+            ms_path = _P(__file__).parent / 'margin_cache' / f'{ticker}.parquet'
+            if ms_path.exists():
+                ms_df = pd.read_parquet(ms_path)
+                ms_arr = ms_df['msratio'].reindex(df.index, method='nearest',
+                                                   tolerance=pd.Timedelta('5D')).values
+        except Exception:
+            pass
 
     # 黑天鵝危險日清單（一次性載入）
     bs_danger_set = None
@@ -1205,6 +1235,26 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                 if len(valid) >= 30:
                     avg90 = np.mean(valid)
                     if cur_pe is None or np.isnan(cur_pe) or cur_pe >= avg90:
+                        return False, False
+                else:
+                    return False, False
+
+        # 🆕 券資比過濾（軋空潛力 / 避開過熱）
+        if ms_arr is not None and i < len(ms_arr):
+            cur_ms = ms_arr[i]
+            if ms_min is not None:
+                if cur_ms is None or np.isnan(cur_ms) or cur_ms < ms_min:
+                    return False, False
+            if ms_max is not None:
+                if cur_ms is None or np.isnan(cur_ms) or cur_ms > ms_max:
+                    return False, False
+            if ms_mom is not None and i >= 60:
+                ms_60d = ms_arr[i-60]
+                if (cur_ms is not None and not np.isnan(cur_ms)
+                        and ms_60d is not None and not np.isnan(ms_60d)
+                        and ms_60d > 0):
+                    rise_pct = (cur_ms - ms_60d) / ms_60d * 100
+                    if rise_pct < ms_mom:
                         return False, False
                 else:
                     return False, False
