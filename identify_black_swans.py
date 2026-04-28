@@ -168,14 +168,36 @@ def main():
     print(f"\n⚠️ 危險窗 (trigger 起 21 日內) 占歷史 {coverage:.1f}% 的交易日")
     print(f"   ({len(danger_days)} / {total_days} 個交易日)")
 
+    # 🆕 POST10：trigger 結束日 +1~+10 BD（EDA 證實是「假反彈」最差期）
+    post10_days = set()
+    # 🆕 POST30：trigger 結束日 +11~+30 BD（EDA 證實是 T4 反彈黃金期）
+    post30_days = set()
+    for e in events:
+        end_ts = pd.Timestamp(e['end'])
+        post10_range = pd.bdate_range(end_ts + pd.tseries.offsets.BDay(1),
+                                       end_ts + pd.tseries.offsets.BDay(10))
+        for d in post10_range:
+            post10_days.add(d.date())
+        post30_range = pd.bdate_range(end_ts + pd.tseries.offsets.BDay(11),
+                                       end_ts + pd.tseries.offsets.BDay(30))
+        for d in post30_range:
+            post30_days.add(d.date())
+    print(f"\n🆕 POST10 (trigger end +1~+10 BD): {len(post10_days)} 日 "
+          f"({len(post10_days)/total_days*100:.1f}%)")
+    print(f"🆕 POST30 (trigger end +11~+30 BD): {len(post30_days)} 日 "
+          f"({len(post30_days)/total_days*100:.1f}%)")
+
     # 寫進 JSON 給 variant 用
     out2 = {
         'events': out,
         'danger_dates': sorted(d.isoformat() for d in danger_days),
+        'post10_dates': sorted(d.isoformat() for d in post10_days),
+        'post30_dates': sorted(d.isoformat() for d in post30_days),
     }
     with open('black_swans.json', 'w', encoding='utf-8') as f:
         json.dump(out2, f, indent=2, ensure_ascii=False)
-    print(f"\n✅ 寫入 black_swans.json (events={len(out)}, danger_dates={len(danger_days)})")
+    print(f"\n✅ 寫入 black_swans.json (events={len(out)}, danger={len(danger_days)}, "
+          f"post10={len(post10_days)}, post30={len(post30_days)})")
 
 
 if __name__ == '__main__':

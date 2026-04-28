@@ -340,6 +340,8 @@ def _decode_mode(mode: str) -> dict:
         use_BSGUARD    = 'BSGUARD' in parts,      # 危險窗暫停 T1/T3 進場
         use_BSEXIT     = 'BSEXIT' in parts,       # 危險窗加速出場（ATR×1.5）
         use_BSPOSHALF  = 'BSPOSHALF' in parts,    # 危險窗部位減半
+        # 🆕 v9.10 EDA 後的細節變體
+        use_BSPOST10   = 'BSPOST10' in parts,     # POST10 假反彈期暫停 T1/T3 進場（事件結束+1~+10 BD）
         # 🆕 動態 ATR 停損（保護獲利）
         use_DYNSTOP    = 'DYNSTOP' in parts,      # 持倉 > 30d 且獲利 > 20% → ATR×1.5（trailing）
         # 🆕 券資比過濾（margin_cache 必要）
@@ -655,6 +657,7 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
     use_BSGUARD    = flags.get('use_BSGUARD', False)
     use_BSEXIT     = flags.get('use_BSEXIT', False)
     use_BSPOSHALF  = flags.get('use_BSPOSHALF', False)
+    use_BSPOST10   = flags.get('use_BSPOST10', False)
     use_DYNSTOP    = flags.get('use_DYNSTOP', False)
     ms_min         = flags.get('ms_min')
     ms_max         = flags.get('ms_max')
@@ -694,7 +697,8 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
 
     # 黑天鵝危險日清單（一次性載入）
     bs_danger_set = None
-    if use_BSGUARD or use_BSEXIT or use_BSPOSHALF:
+    bs_post10_set = None
+    if use_BSGUARD or use_BSEXIT or use_BSPOSHALF or use_BSPOST10:
         try:
             from pathlib import Path as _P
             import json as _json
@@ -703,8 +707,10 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
                 with open(bs_path, encoding='utf-8') as _f:
                     bs_data = _json.load(_f)
                 bs_danger_set = set(bs_data.get('danger_dates', []))
+                bs_post10_set = set(bs_data.get('post10_dates', []))
         except Exception:
             bs_danger_set = None
+            bs_post10_set = None
 
     # 🆕 載入此股的毛利率 YoY 訊號（vs 一年前同季）
     margup_ok_arr = None
@@ -1634,6 +1640,12 @@ def _run_v7_strategy(df, flags, is_inverse_etf=False, ticker=None):
         if use_BSGUARD and bs_danger_set is not None:
             cur_date_str = pd.Timestamp(dates[i]).strftime('%Y-%m-%d')
             if cur_date_str in bs_danger_set:
+                skip_entry = True
+        # 🆕 BSPOST10：POST10 假反彈期（事件結束+1~+10 BD）暫停 T1/T3 進場
+        # EDA 證實此期所有訊號 RR 最低（飆股 -0.027、T4 -0.023 兩者皆負）
+        if use_BSPOST10 and bs_post10_set is not None:
+            cur_date_str = pd.Timestamp(dates[i]).strftime('%Y-%m-%d')
+            if cur_date_str in bs_post10_set:
                 skip_entry = True
         if not skip_entry:
             ok, is_t1 = e7_en(i)
