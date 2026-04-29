@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10n"
+APP_VERSION   = "v9.10o"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2575,9 +2575,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         _active_mode  = _active_style.get('mode', '')
     except Exception:
         _active_mode = ''
-    # 風險偏好分類
-    _is_conservative_style = any(k in _active_mode for k in
-                                 ('POS+IND+DXY', 'POS+DXY', 'WRSI+WADX'))
+    # 風險偏好分類（v9.10n 修正：⭐ 最佳 不視為保守）
+    # 「最佳」風格：含 VWAPEXEC（TW 最佳）或 ADX18（US 最佳）的調校版
+    # 這兩個風格 RR 高，足以承受飆股，不該被歸保守觸發警告
+    _is_best_style = ('VWAPEXEC' in _active_mode) or \
+                     ('ADX18' in _active_mode and 'P10' in _active_mode)
+    _is_conservative_style = (
+        not _is_best_style and
+        any(k in _active_mode for k in ('POS+IND+DXY', 'POS+DXY', 'WRSI+WADX'))
+    )
     # 主動「進攻」/「平衡」style：只有 POS（無 DXY/IND）或純 P0_T1T3
     _is_aggressive_style = _active_mode in ('P0_T1T3', 'P0_T1T3+POS') or \
                            ('+RL' in _active_mode)
@@ -5470,7 +5476,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 76  # v9.10n：策略風格加 TW/US 最佳選項 + TEST RR 數字 + 不匹配警告 2026-04-29
+_RESULTS_VERSION = 77  # v9.10o：⭐ 最佳風格不再誤觸發「保守 vs 高風險」警告 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
