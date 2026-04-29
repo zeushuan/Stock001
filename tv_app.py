@@ -8,16 +8,19 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.9u"
-APP_UPDATED   = "2026-04-29 02:30"
+APP_VERSION   = "v9.10"
+APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
-    "🔧 T3 信心度只在 T3 訊號時顯示（T1/飆股/T4 不再混雜 T3 ●○）｜ "
-    "🆕 T3 信心度旗標：5 指標命中數（close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線）"
+    "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
+    "Walk-Forward 7 年驗證 — 危機年大勝 SPY (2020 +99pp / 2022 +10pp)、平穩牛市跟不上 ｜ "
+    "Momentum 12-1 + v8 組合（事後極限 RR 1.229 / 50/50 配資 0.661）｜ "
+    "產業 RR：能源 9.93 / 半導體 5.18 / 軟體 2.38 — 集中度極高"
 )
 APP_VALIDATIONS = (
     "P5+VWAPEXEC TEST 22月勝率 56.2% / RR 0.611（baseline 41% / 0.223）2.7×提升 ｜ "
     "T3 信心度旗標 高分 4-5 全市場 6 年 RR 0.059 vs 低分 0.039（+50%）｜ "
     "T4 反彈唯一全市場全期穩定 RR 0.103 ｜ "
+    "🇺🇸 美股最佳 P10+POS+ADX18 高流動 555 檔 TEST RR 0.496 / 勝率 55% (vs P5+POS 0.348 +43%) ｜ "
     "TOP 200 篩選帶來 7× RR 提升（必要前置）"
 )
 
@@ -4609,7 +4612,7 @@ def _render_us_top_panel():
             f'<div style="color:#a8cce8;font-size:.85rem">'
             f'🚀 進場 <b>{len(_e_raw)}</b>　│　🚪 出倉 <b>{len(_x_raw)}</b>　│　📌 持倉 <b>{len(_h_raw)}</b></div>'
             f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
-            f'P5_T1T3+POS（無 VWAPEXEC）　│　資料 {_updated}</div>'
+            f'P10_T1T3+POS+ADX18 高流動 ADV≥$104M（v9.10 美股最佳 RR 0.496）　│　資料 {_updated}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -5087,7 +5090,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 63  # v9.9u：T3 信心度只在 T3 訊號顯示 2026-04-29 02:30
+_RESULTS_VERSION = 64  # v9.10：美股 P10+POS+ADX18 高流動 / RR 0.496 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

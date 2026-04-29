@@ -1,9 +1,14 @@
-"""US TOP 200 完整流程
-==========================
-1. 跑 P5_T1T3+POS（v8 baseline，無 IND/DXY/VWAPEXEC，因 US 無對應資料）
+"""US TOP 200 完整流程（v9.10 更新）
+======================================
+策略：v8 P10+POS+ADX18（2026-04-29 美股研究最佳，TEST RR 0.496 / 勝率 55.3%）
+
+1. 跑 P10_T1T3+POS+ADX18（高流動 tier 局部最佳）
 2. 計算多因子分數（同 v2）
 3. 輸出 us_top200_signals.json + us_applicable.json
 4. 計算今日訊號（ENTRY/EXIT/HOLD）
+
+universe：us_full_tickers.json（NYSE+NASDAQ 全 5,629 檔）∩ data_cache，
+          篩選 ADV ≥ $104M 高流動 tier
 """
 import sys, json, time
 from pathlib import Path
@@ -19,8 +24,9 @@ from fetch_us_universe import US_TOP
 
 DATA = Path('data_cache')
 
-# 用 baseline + POS（簡化版，US 沒 IND/DXY/VWAPEXEC 資料）
-MODE = 'P5_T1T3+POS'
+# v9.10：美股最佳變體（高流動 tier TEST RR 0.496，比 P5+POS 0.348 改善 +43%）
+# US 沒 IND/DXY/VWAPEXEC 資料，但加 ADX18 寬鬆趨勢過濾與 P10 加碼門檻
+MODE = 'P10_T1T3+POS+ADX18'
 
 # 🆕 排除 ETF（TOP 200 只應該是真實公司股票）
 US_ETF_EXCLUDE = {
@@ -94,13 +100,36 @@ def classify(d):
 
 
 def main():
-    universe = sorted([t for t in US_TOP
-                       if (DATA / f'{t}.parquet').exists()
-                       and t not in US_ETF_EXCLUDE])
-    print(f"US universe (有資料 + 排除 ETF): {len(universe)} 檔\n")
+    # v9.10：universe 改用 us_full_tickers.json（NYSE+NASDAQ 全 5,629 檔）
+    full_path = Path('us_full_tickers.json')
+    if full_path.exists():
+        meta = json.loads(full_path.read_text(encoding='utf-8'))
+        full_tickers = set(meta['tickers'])
+        # 高流動 tier：ADV ≥ $104M（從 us_full_results 得 p75）
+        MIN_ADV = 104_000_000
+        candidates = [t for t in sorted(full_tickers)
+                      if (DATA / f'{t}.parquet').exists()
+                      and t not in US_ETF_EXCLUDE]
+        universe = []
+        for t in candidates:
+            try:
+                df = pd.read_parquet(DATA / f'{t}.parquet')
+                if len(df) < 60: continue
+                adv = (df['Close'].tail(60) * df['Volume'].tail(60)).mean()
+                if adv >= MIN_ADV:
+                    universe.append(t)
+            except: continue
+        print(f"US universe (us_full_tickers ∩ data_cache, 高流動 ADV≥${MIN_ADV/1e6:.0f}M): "
+              f"{len(universe)} 檔\n")
+    else:
+        # Fallback：US_TOP 列表
+        universe = sorted([t for t in US_TOP
+                           if (DATA / f'{t}.parquet').exists()
+                           and t not in US_ETF_EXCLUDE])
+        print(f"US universe (US_TOP fallback, 排除 ETF): {len(universe)} 檔\n")
 
     # ─── Step 1: 回測 3 期 ─────────────────────────────
-    print("Step 1: 跑 P5_T1T3+POS 回測（FULL/TRAIN/TEST）...")
+    print(f"Step 1: 跑 {MODE} 回測（FULL/TRAIN/TEST）...")
     pnl = {win: {} for win, _, _ in WINDOWS}
     t0 = time.time()
     for win_name, start, end in WINDOWS:
