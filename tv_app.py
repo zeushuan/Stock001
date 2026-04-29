@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10l"
+APP_VERSION   = "v9.10m"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4743,6 +4743,16 @@ def _render_top200_panel():
                 # 🆕 v9.10g：safe formatting，避免 None 拋 exception
                 _close_v = r.get("close", 0) or 0
                 _delta_v = r.get("delta", 0) or 0
+                # 🆕 v9.10m：delta = 60 日動量，用顏色區分漲跌
+                if _delta_v >= 5:
+                    _delta_color, _delta_bg = '#3dbb6a', '#0a3a1f'  # 強綠
+                elif _delta_v >= 0:
+                    _delta_color, _delta_bg = '#7abadd', '#0a2030'  # 弱藍
+                elif _delta_v >= -10:
+                    _delta_color, _delta_bg = '#e8a020', '#1a1408'  # 橙
+                else:
+                    _delta_color, _delta_bg = '#ff5555', '#2a0808'  # 紅
+                _delta_str = f'{_delta_v:+.0f}%' if abs(_delta_v) < 1000 else f'{_delta_v:+.0f}%'
                 out += (
                     f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
                     f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
@@ -4754,8 +4764,8 @@ def _render_top200_panel():
                     f'{pe_html}'
                     f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
                     f'{conf_html}'
-                    f'<span style="color:{color};font-size:.7rem;background:{color}22;'
-                    f'padding:1px 5px;border-radius:3px">+{_delta_v:.0f}%</span>'
+                    f'<span style="color:{_delta_color};font-size:.7rem;background:{_delta_bg};'
+                    f'padding:1px 5px;border-radius:3px" title="60日動量">{_delta_str}</span>'
                     f'</div>'
                 )
             if len(rows) > max_n:
@@ -4924,22 +4934,30 @@ def _render_us_top_panel():
             out = ''
             for r in rows:
                 sig = r.get('sig', '')
-                # 🆕 safe formatting
                 _close_v = r.get("close", 0) or 0
                 _delta_v = r.get("delta", 0) or 0
                 _name = r.get("name", "") or ""
+                # 🆕 v9.10m：delta = 60 日動量，用顏色區分
+                if _delta_v >= 5:
+                    _dc, _dbg = '#3dbb6a', '#0a3a1f'
+                elif _delta_v >= 0:
+                    _dc, _dbg = '#7abadd', '#0a2030'
+                elif _delta_v >= -10:
+                    _dc, _dbg = '#e8a020', '#1a1408'
+                else:
+                    _dc, _dbg = '#ff5555', '#2a0808'
+                _dstr = f'{_delta_v:+.0f}%'
                 out += (
                     f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
                     f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
                     f'<span style="font-weight:700;font-family:monospace;'
                     f'min-width:60px;color:#e8f4fd">{r.get("ticker", "?")}</span>'
-                    # 🆕 v9.10h：加公司名稱顯示
                     f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
                     f'white-space:nowrap;max-width:130px;font-size:.72rem">{_name}</span>'
                     f'<span style="color:#a8cce8;font-family:monospace">{_close_v:.2f}</span>'
                     f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
-                    f'<span style="font-size:.7rem;background:#0a3a1f;color:#3dbb6a;'
-                    f'padding:1px 5px;border-radius:3px">+{_delta_v:.0f}%</span>'
+                    f'<span style="font-size:.7rem;background:{_dbg};color:{_dc};'
+                    f'padding:1px 5px;border-radius:3px" title="60日動量">{_dstr}</span>'
                     f'</div>'
                 )
             return out
@@ -5402,7 +5420,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 74  # v9.10l：T1 條件研究實作（US 跌深反彈/高波動 + TW 強勢延續/RSI過熱反轉）2026-04-29
+_RESULTS_VERSION = 75  # v9.10m：個股 row delta 改為 60 日動量（取代雲端 0%）+ 漲跌色階 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

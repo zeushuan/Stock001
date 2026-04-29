@@ -186,13 +186,24 @@ def _process(df_dict, classify_fn, name_map=None):
         # ticker 顯示去 .TW/.TWO
         display_ticker = ticker.replace('.TW', '').replace('.TWO', '')
 
+        # 🆕 v9.10m：用「60 日價格動量」當 delta（取代 0）
+        # 雲端版沒 backtest，但 60d 動量是有意義的近期表現指標
+        if len(close_arr) >= 60:
+            close_60d_ago = close_arr[-60]
+            if close_60d_ago > 0:
+                mom_60d = (close_arr[-1] - close_60d_ago) / close_60d_ago * 100
+            else:
+                mom_60d = 0
+        else:
+            mom_60d = 0
+
         row = {
             'ticker': display_ticker,
             'name': name_map.get(display_ticker, display_ticker),
             'close': round(d['close'], 2),
             'rsi': round(rsi_v, 1) if rsi_v else None,
             'ema20_cross_days': cd,
-            'delta': 0,  # 雲端版沒回測 delta，給 0
+            'delta': round(mom_60d, 1),  # 60 日價格動量 (%)
             'sig': sig,
             't3_confidence': t3_score,
             't3_confidence_hits': t3_hits,
