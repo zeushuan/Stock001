@@ -13,6 +13,8 @@ except: pass
 
 
 def classify(d):
+    """v9.10：對齊回測 MODE 'P5_T1T3+POS+IND+DXY+VWAPEXEC'
+    台股使用 ADX≥22 預設閾值（與美股 ADX18 不同）"""
     e20 = d.get('ema20'); e60 = d.get('ema60')
     if e20 is None or e60 is None: return 'WAIT'
     is_bull = e20 > e60
@@ -21,6 +23,7 @@ def classify(d):
         t4 = (rsi and rsi < 32 and rsi_p and rsi > rsi_p and rsi_p2 and rsi_p > rsi_p2)
         return 'ENTRY' if t4 else 'WAIT'
     adx = d.get('adx')
+    # 台股 ADX≥22（對應 P5+VWAPEXEC 預設）
     if not (adx and adx >= 22): return 'WAIT'
     atr14 = d.get('atr14'); close = d.get('close')
     rel_atr = atr14/close*100 if (atr14 and close) else 0
@@ -169,6 +172,14 @@ def main():
     entry.sort(key=lambda x: -x['delta'])
     exit_.sort(key=lambda x: -x['delta'])
     hold.sort(key=lambda x: -x['delta'])
+
+    # 🆕 fail-safe：如果沒處理到任何 ticker（雲端沒 data_cache 的情況）
+    # 不覆蓋已存在的 JSON，避免破壞 commit 在 repo 內的最新版
+    if not last_dates:
+        print("\n❌ 沒有可處理的 ticker（data_cache 不存在或所有 ticker 都跳過）")
+        print("   雲端環境請在本機跑後 commit JSON 至 repo")
+        print("   保留現有 top200_signals.json 不覆蓋")
+        return
 
     out = {
         'updated_at': max(last_dates) if last_dates else 'unknown',

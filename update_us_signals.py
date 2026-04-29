@@ -78,6 +78,7 @@ def _run_one(args):
 
 
 def classify(d):
+    """🆕 v9.10：對齊回測 MODE 'P10_T1T3+POS+ADX18' 的 ADX18 寬鬆趨勢過濾"""
     e20, e60 = d.get('ema20'), d.get('ema60')
     if e20 is None or e60 is None: return 'WAIT'
     is_bull = e20 > e60
@@ -86,7 +87,8 @@ def classify(d):
         t4 = (rsi and rsi < 32 and rsi_p and rsi > rsi_p and rsi_p2 and rsi_p > rsi_p2)
         return 'ENTRY' if t4 else 'WAIT'
     adx = d.get('adx')
-    if not (adx and adx >= 22): return 'WAIT'
+    # 🆕 美股用 ADX18 寬鬆閾值（對應 P10+POS+ADX18 局部最佳）
+    if not (adx and adx >= 18): return 'WAIT'
     atr14, close = d.get('atr14'), d.get('close')
     rel_atr = atr14/close*100 if (atr14 and close) else 0
     gap = (e20-e60)/e60*100 if e60 else None
@@ -266,6 +268,13 @@ def main():
     entry.sort(key=lambda x: -x['delta'])
     exit_.sort(key=lambda x: -x['delta'])
     hold.sort(key=lambda x: -x['delta'])
+
+    # 🆕 fail-safe：雲端沒 data_cache 時不覆蓋已存在的 JSON
+    if not last_dates:
+        print("\n❌ 沒有可處理的 US ticker（data_cache 不存在或所有 ticker 都跳過）")
+        print("   雲端環境請在本機跑後 commit JSON 至 repo")
+        print("   保留現有 us_top200_signals.json 不覆蓋")
+        return
 
     out = {
         'updated_at': max(last_dates) if last_dates else 'unknown',

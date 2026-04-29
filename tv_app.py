@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10"
+APP_VERSION   = "v9.10b"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -21,7 +21,12 @@ APP_VALIDATIONS = (
     "T3 信心度旗標 高分 4-5 全市場 6 年 RR 0.059 vs 低分 0.039（+50%）｜ "
     "T4 反彈唯一全市場全期穩定 RR 0.103 ｜ "
     "🇺🇸 美股最佳 P10+POS+ADX18 高流動 555 檔 TEST RR 0.496 / 勝率 55% (vs P5+POS 0.348 +43%) ｜ "
-    "TOP 200 篩選帶來 7× RR 提升（必要前置）"
+    "TOP 200 篩選帶來 7× RR 提升（必要前置）｜ "
+    "📊 真實 Portfolio CAGR：🇹🇼 TW 等權 +18.4%/y vs TWII +36.6% → 輸 -18pp（吃不到台積電集中度）｜ "
+    "🇺🇸 US 高流動 +23.3%/y vs SPY +17.2% → 勝 +6.1pp ⭐（唯一真實 alpha）｜ "
+    "🌏 跨市場 50/50 TEST CAGR +20.8% vs Bench +26.9% → 輸 -6pp ｜ "
+    "📅 TW Walk-Forward 7 年：6/7 年正 RR / σ 0.325（高變動但穩）— 勝在熊市與標準牛、輸 AI 暴力牛 ｜ "
+    "🪙 v8 不適用加密貨幣（20 主流幣 TEST 全變體負 RR / 輸 BTC -19pp）"
 )
 
 import numpy as np
@@ -3677,6 +3682,10 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
     """
     ④推薦策略 輕量版：回傳 (rec_name, badge_inline_style) 供表格「操作建議」欄使用。
     與 get_operation_advice() 使用完全相同的決策樹邏輯，確保兩者一致。
+
+    🆕 v9.10：自動偵測 TW vs US ticker 用不同閾值
+      - TW（4 位數字）: ADX≥22 / 加碼門檻 P5（5%）/ V7 預設
+      - US（純大寫字母 / -USD crypto）: ADX≥18 / 加碼門檻 P10（10%）/ 美股研究最佳
     """
     ema20      = d.get("ema20")
     ema60      = d.get("ema60")
@@ -3691,8 +3700,14 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
 
     _tk_upper  = ticker.upper().replace(".TW", "").replace(".TWO", "")
     _is_inverse = _tk_upper in _INVERSE_ETF_TICKERS
+    # 🆕 偵測 TW / US / Crypto
+    _tk_clean = _tk_upper.replace('-USD', '').replace('-', '')
+    _is_us = _tk_clean.isalpha() and _tk_clean.isupper() and not _is_inverse
+    _is_crypto = _tk_upper.endswith('-USD')
     is_bull    = ema20 > ema60
-    adx_ok     = (adx is not None and adx >= 22)
+    # 🆕 美股用 ADX18，台股用 ADX22（依美股研究最佳變體 P10+POS+ADX18）
+    _adx_th    = 18 if (_is_us or _is_crypto) else 22
+    adx_ok     = (adx is not None and adx >= _adx_th)
 
     if _is_inverse:
         # 反向ETF：自身趨勢判斷，只用T1/T3（v7 已移除 T2）
@@ -4436,13 +4451,27 @@ def _signal_age_days(updated_str):
         return 99, True
 
 
+def _is_cloud_env():
+    """偵測是否在雲端環境（沒 data_cache）"""
+    from pathlib import Path as _P
+    dc = _P(__file__).parent / 'data_cache'
+    if not dc.exists(): return True
+    # 抽樣：data_cache 有 < 100 個 parquet → 視為雲端
+    n = sum(1 for _ in dc.glob('*.parquet'))
+    return n < 100
+
+
 def _trigger_update_signals(script_name):
     """跑指定的 update 腳本，回傳 True 表示成功
-    用 sys.executable 確保跟 streamlit 同一個 python 環境
-    （fix Streamlit Cloud 找不到 pandas 的問題）"""
+    用 sys.executable 確保跟 streamlit 同一個 python 環境"""
     import subprocess as _sp
     import sys as _sys
     from pathlib import Path as _P
+    # 雲端環境提前阻擋
+    if _is_cloud_env():
+        return False, ("CLOUD_NO_DATA_CACHE: 雲端沒 data_cache（230MB 不能 push）。"
+                       "請在本機跑 update 腳本後 commit JSON 至 GitHub，"
+                       "雲端 Streamlit 會自動載入新版。")
     try:
         proj = _P(__file__).parent
         result = _sp.run([_sys.executable, str(proj / script_name)],
@@ -4468,25 +4497,32 @@ def _render_top200_panel():
         _updated = sig_data.get('updated_at', '?')
         age_days, is_stale = _signal_age_days(_updated)
 
-        # 🆕 過期警示 + 一鍵更新
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            if is_stale:
+        # 🆕 過期警示 + 一鍵更新（雲端環境不顯示按鈕）
+        is_cloud = _is_cloud_env()
+        if is_stale or _updated == 'unknown':
+            if is_cloud:
                 st.warning(
-                    f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
-                    f"請點右側按鈕立即更新")
-        with col2:
-            if st.button("🔄 立即更新", key="refresh_top200",
-                         help="跑 update_daily_signals.py 重新生成訊號（約 2-5 分鐘）",
-                         use_container_width=True):
-                with st.spinner("正在更新 TOP 200 訊號…（約 2-5 分鐘）"):
-                    ok, msg = _trigger_update_signals('update_daily_signals.py')
-                if ok:
-                    st.success("✅ 更新完成，重新載入頁面")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.error(f"❌ 更新失敗：{msg}")
+                    f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）｜ "
+                    f"☁️ 雲端版本無法自更新（沒 data_cache）— "
+                    f"請等管理員在本機跑 `python update_daily_signals.py` 後 push 至 repo")
+            else:
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    st.warning(
+                        f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                        f"請點右側按鈕立即更新")
+                with col2:
+                    if st.button("🔄 立即更新", key="refresh_top200",
+                                 help="跑 update_daily_signals.py 重新生成（約 2-5 分鐘）",
+                                 use_container_width=True):
+                        with st.spinner("正在更新 TOP 200 訊號…（約 2-5 分鐘）"):
+                            ok, msg = _trigger_update_signals('update_daily_signals.py')
+                        if ok:
+                            st.success("✅ 更新完成")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error(f"❌ 更新失敗：{msg}")
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -4662,25 +4698,32 @@ def _render_us_top_panel():
         _tot = sig_data.get('top_total', 100)
         age_days, is_stale = _signal_age_days(_updated)
 
-        # 🆕 過期警示 + 一鍵更新
-        col1, col2 = st.columns([5, 1])
-        with col1:
-            if is_stale:
+        # 🆕 過期警示 + 一鍵更新（雲端環境不顯示按鈕）
+        is_cloud = _is_cloud_env()
+        if is_stale or _updated == 'unknown':
+            if is_cloud:
                 st.warning(
-                    f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
-                    f"請點右側按鈕立即更新")
-        with col2:
-            if st.button("🔄 立即更新 US", key="refresh_us_top",
-                         help="跑 update_us_signals.py 重新生成（約 3-8 分鐘）",
-                         use_container_width=True):
-                with st.spinner("正在更新 US 訊號…（約 3-8 分鐘）"):
-                    ok, msg = _trigger_update_signals('update_us_signals.py')
-                if ok:
-                    st.success("✅ 更新完成")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.error(f"❌ 失敗：{msg}")
+                    f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）｜ "
+                    f"☁️ 雲端版本無法自更新（沒 data_cache）— "
+                    f"請等管理員在本機跑 `python update_us_signals.py` 後 push 至 repo")
+            else:
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    st.warning(
+                        f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                        f"請點右側按鈕立即更新")
+                with col2:
+                    if st.button("🔄 立即更新 US", key="refresh_us_top",
+                                 help="跑 update_us_signals.py 重新生成（約 3-8 分鐘）",
+                                 use_container_width=True):
+                        with st.spinner("正在更新 US 訊號…（約 3-8 分鐘）"):
+                            ok, msg = _trigger_update_signals('update_us_signals.py')
+                        if ok:
+                            st.success("✅ 更新完成")
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error(f"❌ 失敗：{msg}")
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -5173,7 +5216,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 64  # v9.10：美股 P10+POS+ADX18 高流動 / RR 0.496 2026-04-29
+_RESULTS_VERSION = 65  # v9.10b：TW/US 自動偵測閾值 + 雲端按鈕修復 + 4 個新發現 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
