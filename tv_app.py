@@ -4437,12 +4437,15 @@ def _signal_age_days(updated_str):
 
 
 def _trigger_update_signals(script_name):
-    """跑指定的 update 腳本，回傳 True 表示成功"""
+    """跑指定的 update 腳本，回傳 True 表示成功
+    用 sys.executable 確保跟 streamlit 同一個 python 環境
+    （fix Streamlit Cloud 找不到 pandas 的問題）"""
     import subprocess as _sp
+    import sys as _sys
     from pathlib import Path as _P
     try:
         proj = _P(__file__).parent
-        result = _sp.run(['python', str(proj / script_name)],
+        result = _sp.run([_sys.executable, str(proj / script_name)],
                          cwd=str(proj), capture_output=True, text=True,
                          timeout=600, encoding='utf-8', errors='replace')
         return result.returncode == 0, result.stdout[-500:] + result.stderr[-500:]
