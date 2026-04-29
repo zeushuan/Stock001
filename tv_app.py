@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10d"
+APP_VERSION   = "v9.10f"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4531,8 +4531,7 @@ def _trigger_update_signals(script_name, market='tw'):
 
 
 def _render_top200_panel():
-    # 🆕 v9.10d：先顯示上次更新結果（如有）
-    _show_update_result_if_any()
+    # （v9.10e bug 修復：result 顯示移到全頁面頂端，避免兩個 panel 重複 button key）
     try:
         from pathlib import Path as _P
         import json as _json
@@ -4565,13 +4564,21 @@ def _render_top200_panel():
                     spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
                                   else "正在更新 TOP 200 訊號…（約 2-5 分鐘）"
                     import datetime as _dt
-                    with st.spinner(spinner_msg):
-                        ok, msg = _trigger_update_signals(
-                            'update_daily_signals.py', market='tw')
-                    # 存到 session state 讓 rerun 後仍能看到結果
-                    st.session_state['_last_update_result'] = (
-                        'tw', ok, msg,
-                        _dt.datetime.now().strftime('%H:%M:%S'))
+                    import traceback as _tb
+                    ts = _dt.datetime.now().strftime('%H:%M:%S')
+                    # 🛡 全外層 try/except 防止 exception 吞掉 result
+                    try:
+                        with st.spinner(spinner_msg):
+                            ok, msg = _trigger_update_signals(
+                                'update_daily_signals.py', market='tw')
+                        st.session_state['_last_update_result'] = (
+                            'tw', ok, msg, ts)
+                    except Exception as _e:
+                        st.session_state['_last_update_result'] = (
+                            'tw', False,
+                            f"Outer exception: {type(_e).__name__}: {_e}\n\n"
+                            f"{_tb.format_exc()}",
+                            ts)
                     st.cache_data.clear()
                     st.rerun()
 
@@ -4728,6 +4735,8 @@ def _render_top200_panel():
         pass
 
 
+# 🆕 v9.10e：在所有 panel 之前統一顯示更新結果（只呼叫一次避免 duplicate key）
+_show_update_result_if_any()
 _render_top200_panel()
 
 
@@ -4767,12 +4776,20 @@ def _render_us_top_panel():
                     spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
                                   else "正在更新 US 訊號…（約 3-8 分鐘）"
                     import datetime as _dt
-                    with st.spinner(spinner_msg):
-                        ok, msg = _trigger_update_signals(
-                            'update_us_signals.py', market='us')
-                    st.session_state['_last_update_result'] = (
-                        'us', ok, msg,
-                        _dt.datetime.now().strftime('%H:%M:%S'))
+                    import traceback as _tb
+                    ts = _dt.datetime.now().strftime('%H:%M:%S')
+                    try:
+                        with st.spinner(spinner_msg):
+                            ok, msg = _trigger_update_signals(
+                                'update_us_signals.py', market='us')
+                        st.session_state['_last_update_result'] = (
+                            'us', ok, msg, ts)
+                    except Exception as _e:
+                        st.session_state['_last_update_result'] = (
+                            'us', False,
+                            f"Outer exception: {type(_e).__name__}: {_e}\n\n"
+                            f"{_tb.format_exc()}",
+                            ts)
                     st.cache_data.clear()
                     st.rerun()
 
@@ -5267,7 +5284,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 67  # v9.10d：雲端 in-process 呼叫（避開 subprocess 容器限制）+ log 顯示 2026-04-29
+_RESULTS_VERSION = 68  # v9.10f：result 顯示位置修復 + 外層 try/except 確保不丟失錯誤 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
