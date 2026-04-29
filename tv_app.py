@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10m"
+APP_VERSION   = "v9.10n"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -3468,14 +3468,40 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     style_badge_html = ""
     if style_info_local:
+        # 🆕 v9.10n：偵測 ticker 與策略的市場匹配
+        _style_mode = style_info_local.get('mode', '')
+        _style_is_tw = ('VWAPEXEC' in _style_mode or 'IND' in _style_mode
+                        or 'DXY' in _style_mode or 'WRSI' in _style_mode
+                        or 'WADX' in _style_mode)
+        _style_is_us_only = ('ADX18' in _style_mode and not _style_is_tw)
+        _ticker_label = ('🇹🇼 TW' if not (_is_us or _is_crypto)
+                         else ('🇺🇸 US' if _is_us else '🪙 Crypto'))
+
+        # 不匹配警告
+        warn_html = ""
+        if (_is_us or _is_crypto) and _style_is_tw:
+            warn_html = (
+                f'<div style="margin-top:4px;color:#ff7755;font-size:.68rem">'
+                f'⚠️ 此風格用 TW 跨市場過濾（IND/DXY/VWAPEXEC），'
+                f'對 {_ticker_label} 個股無效或產生極少訊號。'
+                f'建議改選 <b>⭐ US 最佳 (P10+POS+ADX18)</b></div>'
+            )
+        elif not (_is_us or _is_crypto) and _style_is_us_only:
+            warn_html = (
+                f'<div style="margin-top:4px;color:#ff7755;font-size:.68rem">'
+                f'⚠️ 此風格針對 US 高流動股調校（ADX18），'
+                f'對 🇹🇼 TW 個股可能不是最佳。'
+                f'建議改選 <b>⭐ TW 最佳 (P5+VWAPEXEC)</b></div>'
+            )
+
         style_badge_html = (
             f'<div style="background:{style_info_local["color"]}22;'
             f'border-left:3px solid {style_info_local["color"]};'
             f'border-radius:4px;padding:4px 10px;margin-top:6px;font-size:.7rem">'
             f'{style_info_local["icon"]} 當前策略風格：'
             f'<b style="color:{style_info_local["color"]}">{style_info_local["mode"]}</b>'
-            f'　獲利 +{style_info_local["mean"]:.0f}% ｜ 風報比 {style_info_local["sharpe"]:.2f}'
-            f'</div>'
+            f'　TEST 均報 +{style_info_local["mean"]:.1f}% ｜ TEST RR {style_info_local["sharpe"]:.3f}'
+            f'{warn_html}</div>'
         )
 
     # ── ✨ 接近條件預警（即使尚未觸發 T1/T3/停損也提示）──
@@ -5256,7 +5282,10 @@ with st.sidebar:
         selected_end_date = ""
 
     # ── 策略風格 ──
+    # 🆕 v9.10n：加入 TW/US 真正最佳選項，並提示哪個對應哪個市場
     _STRATEGY_OPTIONS = [
+        "⭐ TW 最佳 (P5+VWAPEXEC)",      # 🆕 TW 真正最佳
+        "⭐ US 最佳 (P10+POS+ADX18)",    # 🆕 US 真正最佳
         "🛡️ 極致風控 (IND+DXY)",
         "🛟 超低風險 (五重保護)",
         "🌊 保守 (POS+DXY)",
@@ -5267,7 +5296,9 @@ with st.sidebar:
     strategy_style = st.selectbox(
         "🎯 策略風格", options=_STRATEGY_OPTIONS, index=0,
         key="strategy_style",
-        help="從六檔回測驗證的策略風格中選擇，影響操作建議與市場掃描的篩選邏輯"
+        help=("⭐ TW 最佳：搜台股 (4 位數) 用此｜"
+              "⭐ US 最佳：搜美股 (英文 ticker) 用此｜"
+              "其他 6 個是早期風格（TEST 期 RR 都不到 0.25）")
     )
 
     st.markdown("<div style='margin:10px 0'></div>", unsafe_allow_html=True)
@@ -5331,61 +5362,80 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 各風格對應的描述（提到外層供策略 selectbox 與市場掃描共用）
+    # 各風格對應的描述（v9.10n 更新：加 TW/US 最佳 + TEST 期實測數字）
+    # 數字來源：test_strategy_styles_compare.py 全市場 6 年回測（2026-04-29）
+    # mean = TEST 22 月平均報酬 / sharpe = TEST RR
     _style_meta = {
+        # 🆕 真正最佳（TEST out-of-sample 實測）
+        "⭐ TW 最佳 (P5+VWAPEXEC)": dict(
+            mode="P5_T1T3+POS+IND+DXY+VWAPEXEC",
+            color="#ffd700",
+            icon="⭐",
+            mean=39.3, low=-64.4, sharpe=0.611, sigma=8.0,
+            note="🇹🇼 全 1042 檔 TEST 22 月 RR 0.611（勝率 56% / 中位 +2.3%）｜真正最佳｜配 TOP 200 tier 年化 +110%｜需 vwap_cache (5-min bar)",
+        ),
+        "⭐ US 最佳 (P10+POS+ADX18)": dict(
+            mode="P10_T1T3+POS+ADX18",
+            color="#ffd700",
+            icon="⭐",
+            mean=49.5, low=-99.9, sharpe=0.496, sigma=10.0,
+            note="🇺🇸 高流動 555 檔 TEST 22 月 RR 0.496（勝率 55% / 中位 +3.2%）｜vs SPY +6pp 真實 alpha｜需 ADV ≥ $104M 篩選",
+        ),
+        # 早期風格（保留，TEST RR 標記顯示衰退）
         "🛟 超低風險 (五重保護)": dict(
             mode="P0_T1T3+POS+IND+DXY+WRSI+WADX",
             color="#ff6dc8",
             icon="🛟",
-            mean=83.04, low=-88.3, sharpe=0.94, sigma=8.50,
-            note="五重保護：POS+產業跨市場+DXY+週RSI+週ADX。最低風險僅 -88（史上最低），適合資金規模大需嚴控下檔",
+            mean=27.0, low=-111.9, sharpe=0.241, sigma=8.50,
+            note="🇹🇼 only｜TEST RR 0.241｜五重保護：POS+產業跨市場+DXY+週RSI+週ADX。最低風險僅 -88（史上最低）",
         ),
         "🤖 RL 智能加碼": dict(
             mode="P0_T1T3+RL",
             color="#10c0c0",
             icon="🤖",
-            mean=153.03, low=-227, sharpe=0.67, sigma=11.5,
-            note="Tabular Q-Learning 訓練 199,886 樣本，學到「累積<0 不加碼、SPX多頭+RSI30-50 加碼」等規則。獲利 +153% 略高於純 POS，自動發現的智能規則",
+            mean=29.2, low=-152.5, sharpe=0.191, sigma=11.5,
+            note="🇹🇼 TEST RR 0.191｜🇺🇸 TEST RR 0.324｜Q-Learning 自動加碼。US 表現勝 TW 1.7×",
         ),
         "🛡️ 極致風控 (IND+DXY)": dict(
             mode="P0_T1T3+POS+IND+DXY",
             color="#9d6dff",
             icon="🛡️",
-            mean=122.25, low=-118.7, sharpe=1.03, sigma=7.89,
-            note="產業 specific 跨市場 + 全局 DXY。風報比 1.03 全部最佳！半導體配 SOX、景氣循環配 HG、其他配 DXY",
+            mean=31.2, low=-139.6, sharpe=0.223, sigma=7.89,
+            note="🇹🇼 only｜TEST RR 0.223｜產業 specific 跨市場 + DXY。FULL 6 年 RR 1.20 但 TEST 大幅衰退",
         ),
         "🌊 保守 (POS+DXY)":  dict(
             mode="P0_T1T3+POS+DXY",
             color="#3dbb6a",
             icon="🌊",
-            mean=120.51, low=-122, sharpe=0.99, sigma=7.67,
-            note="弱美元才進場 + 累積為正才加碼。2022 熊市 -0.46% 保護有效，跨年度 σ 最穩",
+            mean=27.6, low=-139.6, sharpe=0.198, sigma=7.67,
+            note="🇹🇼 only｜TEST RR 0.198｜弱美元 + 累積為正加碼。2022 熊市保護有效",
         ),
         "⚖️ 平衡 (POS)": dict(
             mode="P0_T1T3+POS",
             color="#3b9eff",
             icon="⚖️",
-            mean=141.68, low=-166, sharpe=0.85, sigma=8.89,
-            note="累積已實現損益為正才加碼，跨年度穩定，獲利與保護平衡",
+            mean=15.8, low=-176.0, sharpe=0.090, sigma=8.89,
+            note="🇹🇼 TEST RR 0.090（最差）｜🇺🇸 TEST RR 0.341｜美股表現勝台股 3.8×（無 VWAPEXEC 時 TW 表現差）",
         ),
         "🚀 進攻 (P0_T1T3)": dict(
             mode="P0_T1T3",
             color="#f0c030",
             icon="🚀",
-            mean=197.48, low=-290, sharpe=0.68, sigma=12.7,
-            note="不限門檻 T1+T3 加碼，最大化獲利但變動大",
+            mean=42.0, low=-187.7, sharpe=0.224, sigma=12.7,
+            note="🇹🇼 TEST RR 0.224｜🇺🇸 TEST RR 0.324｜不限門檻最大化獲利但變動大",
         ),
     }
     style_info = _style_meta[strategy_style]
+    # 🆕 v9.10n：sharpe 重新定義為 TEST RR（更有意義的指標）
     st.markdown(
         f'<div style="background:#0a1628;border:1px solid {style_info["color"]}55;'
         f'border-radius:6px;padding:8px 12px;margin-top:6px;font-size:.68rem;line-height:1.5">'
         f'<div style="color:{style_info["color"]};font-weight:700;margin-bottom:3px">'
         f'{style_info["icon"]} {style_info["mode"]}</div>'
         f'<div style="color:#7aaac8">'
-        f'均值 <b style="color:{style_info["color"]}">+{style_info["mean"]:.0f}%</b> ｜ '
-        f'最差 <b style="color:#ff5555">{style_info["low"]:+.0f}%</b><br>'
-        f'風報比 <b style="color:#f0c030">{style_info["sharpe"]:.2f}</b> ｜ '
+        f'TEST 均報 <b style="color:{style_info["color"]}">+{style_info["mean"]:.1f}%</b> ｜ '
+        f'最差 <b style="color:#ff5555">{style_info["low"]:+.1f}%</b><br>'
+        f'TEST RR <b style="color:#f0c030">{style_info["sharpe"]:.3f}</b> ｜ '
         f'跨年σ <b style="color:#7abadd">{style_info["sigma"]:.1f}</b><br>'
         f'<span style="color:#5a8ab0;font-size:.67rem">{style_info["note"]}</span>'
         f'</div></div>',
@@ -5420,7 +5470,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 75  # v9.10m：個股 row delta 改為 60 日動量（取代雲端 0%）+ 漲跌色階 2026-04-29
+_RESULTS_VERSION = 76  # v9.10n：策略風格加 TW/US 最佳選項 + TEST RR 數字 + 不匹配警告 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
