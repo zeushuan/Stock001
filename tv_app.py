@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10h"
+APP_VERSION   = "v9.10i"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2602,8 +2602,19 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</div>'
         )
 
+    # 🆕 v9.10i：偵測 US vs TW，套用各自最佳閾值
+    _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
+    _tk_clean = _tk_upper.replace('-USD', '').replace('-', '')
+    _is_us = _tk_clean.isalpha() and _tk_clean.isupper() and \
+             _tk_upper not in _INVERSE_ETF_TICKERS
+    _is_crypto = _tk_upper.endswith('-USD')
+    # 美股 / 加密：ADX 18（依美股研究 P10+POS+ADX18 RR 0.496 局部最佳）
+    # 台股：ADX 22（依台股 P5+VWAPEXEC 預設）
+    _adx_th = 18 if (_is_us or _is_crypto) else 22
+    _market_tag = '🇺🇸 US' if _is_us else ('🪙 Crypto' if _is_crypto else '🇹🇼 TW')
+
     is_bull  = ema20 > ema60
-    adx_ok   = (adx is not None and adx >= 22)   # v3改良④：18→22 防假多頭
+    adx_ok   = (adx is not None and adx >= _adx_th)
     rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
 
@@ -2638,8 +2649,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     elif not adx_ok:
         env_color, env_icon = "#e8a020", "⚠️"
         env_tag   = "假多頭警告"
-        env_desc  = (f"EMA20 &gt; EMA60，但 ADX {adx_str} &lt; 22，趨勢強度不足。"
-                     f"回測驗證：00737 型假多頭進場虧損 -7%，⑦策略設 ADX≥22 前提（v3改良）")
+        env_desc  = (f"EMA20 &gt; EMA60，但 ADX {adx_str} &lt; {_adx_th}，趨勢強度不足"
+                     f"（{_market_tag} 門檻 ADX≥{_adx_th}）")
     else:
         if cross_days is not None and 0 < cross_days <= 10:
             cross_info = f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>｜"
@@ -2649,7 +2660,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             cross_info = ""
         env_color, env_icon = "#3b9eff", "✅"
         env_tag   = "多頭市場"
-        env_desc  = f"{cross_info}EMA20 &gt; EMA60｜ADX {adx_str} ≥ 22（趨勢有效）"
+        env_desc  = f"{cross_info}EMA20 &gt; EMA60｜ADX {adx_str} ≥ {_adx_th}（{_market_tag} 趨勢有效）"
 
     # ── 🆕 估值參考（EPS/PER/PBR/殖利率 + PER 動量） ─────────────
     val_rows = []
@@ -2769,7 +2780,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</span></div>'
         )
 
-    # ── ② 進場判斷（三觸發，僅多頭+ADX≥22 有效）────────────────
+    # ── ② 進場判斷（三觸發，僅多頭+ADX≥門檻 有效；TW=22 / US=18）────
     entry_rows  = list(val_rows)  # 估值放在進場判斷頭部
     t1_ok = t3_ok = t2_ok = False
 
@@ -2870,8 +2881,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     elif is_bull and not adx_ok:
         entry_rows.append(
-            f'<div style="color:#e8a020">ADX {adx_str} &lt; 22，趨勢強度不足，'
-            f'等待 ADX ≥ 22 後進場</div>'
+            f'<div style="color:#e8a020">ADX {adx_str} &lt; {_adx_th}，趨勢強度不足，'
+            f'等待 ADX ≥ {_adx_th} 後進場（{_market_tag}）</div>'
         )
     else:  # 空頭：以 T4 為主要進場通道
         # T4 條件分項顯示（與 T1/T3 一致格式）
@@ -5305,7 +5316,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 70  # v9.10h：US row 加公司名稱 + expander 預設收合 2026-04-29
+_RESULTS_VERSION = 71  # v9.10i：個股 detail 卡片自動套用 TW/US 閾值（ADX 22/18）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
