@@ -4668,7 +4668,7 @@ def _render_top200_panel():
 
         cols = st.columns(3)
         with cols[0]:
-            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=True):
+            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=False):
                 st.markdown(
                     f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
                     f'padding:6px 4px">{_row_html(_e_raw, "#3dbb6a", "")}</div>',
@@ -4725,7 +4725,7 @@ def _render_top200_panel():
                         st.success(f"✅ 已存「{_wl_name}」（{len(_e_raw)} 檔）")
                         st.rerun()
         with cols[1]:
-            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=True):
+            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=False):
                 st.markdown(
                     f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
                     f'padding:6px 4px">{_row_html(_x_raw, "#ff7777", "")}</div>',
@@ -4845,7 +4845,7 @@ def _render_us_top_panel():
 
         cols = st.columns(3)
         with cols[0]:
-            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=True):
+            with st.expander(f"🚀 可進場 ({len(_e_raw)})", expanded=False):
                 st.markdown(
                     f'<div style="background:#0a1e10;border:1px solid #3dbb6a55;border-radius:8px;'
                     f'padding:6px 4px">{_us_row_html(_e_raw)}</div>',
@@ -4886,7 +4886,7 @@ def _render_us_top_panel():
                         st.success(f"✅ 已存「{_us_name}」({len(_e_raw)} 檔)")
                         st.rerun()
         with cols[1]:
-            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=True):
+            with st.expander(f"🚪 應出倉 ({len(_x_raw)})", expanded=False):
                 st.markdown(
                     f'<div style="background:#1a0808;border:1px solid #ff555555;border-radius:8px;'
                     f'padding:6px 4px">{_us_row_html(_x_raw)}</div>',
