@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10f"
+APP_VERSION   = "v9.10g"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4440,13 +4440,16 @@ st.markdown(f"""
 
 # 🆕 v9.9h：TOP 200 即時掃描（永遠顯示在頂部，不受 results 影響）
 # v9.10：加入更新按鈕 + 過期警示（fix 「不會自更新」）
-def _signal_age_days(updated_str):
-    """計算 updated_at 距今幾天，回傳 (days, is_stale)"""
+def _signal_age_days(updated_str, market='tw'):
+    """計算 updated_at 距今幾天，回傳 (days, is_stale)
+    🆕 v9.10g：美股過期門檻放寬到 >2 天（時差 + 假日因素）
+       台股 >1 天即視為過期"""
     import datetime as _dt
+    threshold = 2.0 if market == 'us' else 1.0
     try:
         dt = _dt.datetime.strptime(updated_str.strip()[:10], '%Y-%m-%d')
         diff = (_dt.datetime.now() - dt).total_seconds() / 86400
-        return diff, diff > 1.0
+        return diff, diff > threshold
     except Exception:
         return 99, True
 
@@ -4640,19 +4643,22 @@ def _render_top200_panel():
                     else:
                         pe_color = '#ff5555'
                     pe_html = f'<span style="color:{pe_color};font-size:.7rem">PE {pe_v:.1f}</span>'
+                # 🆕 v9.10g：safe formatting，避免 None 拋 exception
+                _close_v = r.get("close", 0) or 0
+                _delta_v = r.get("delta", 0) or 0
                 out += (
                     f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
                     f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
                     f'<span style="color:{color};font-weight:700;font-family:monospace;'
-                    f'min-width:48px">{r["ticker"]}</span>'
+                    f'min-width:48px">{r.get("ticker", "?")}</span>'
                     f'<span style="color:#a8cce8;flex:1;overflow:hidden;text-overflow:ellipsis;'
                     f'white-space:nowrap;max-width:90px">{r.get("name","")}</span>'
-                    f'<span style="color:#e8f4fd;font-family:monospace">{r.get("close",0):.2f}</span>'
+                    f'<span style="color:#e8f4fd;font-family:monospace">{_close_v:.2f}</span>'
                     f'{pe_html}'
                     f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
                     f'{conf_html}'
                     f'<span style="color:{color};font-size:.7rem;background:{color}22;'
-                    f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
+                    f'padding:1px 5px;border-radius:3px">+{_delta_v:.0f}%</span>'
                     f'</div>'
                 )
             if len(rows) > max_n:
@@ -4731,8 +4737,12 @@ def _render_top200_panel():
                     f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
                     f'padding:6px 4px">{_row_html(_h_raw, "#7abadd", "")}</div>',
                     unsafe_allow_html=True)
-    except Exception:
-        pass
+    except Exception as _panel_err:
+        # 🆕 v9.10g：不再吞 exception — 顯示錯誤給用戶看
+        import traceback as _tb
+        st.error(f"❌ TOP 200 panel render 失敗：{type(_panel_err).__name__}: {_panel_err}")
+        with st.expander("traceback"):
+            st.code(_tb.format_exc())
 
 
 # 🆕 v9.10e：在所有 panel 之前統一顯示更新結果（只呼叫一次避免 duplicate key）
@@ -4756,7 +4766,7 @@ def _render_us_top_panel():
         _h_raw = sig_data.get('hold', [])
         _updated = sig_data.get('updated_at', '?')
         _tot = sig_data.get('top_total', 100)
-        age_days, is_stale = _signal_age_days(_updated)
+        age_days, is_stale = _signal_age_days(_updated, market='us')
 
         # 🆕 過期警示 + 一鍵更新（雲端 yfinance 即時抓取版）
         is_cloud = _is_cloud_env()
@@ -4817,15 +4827,18 @@ def _render_us_top_panel():
             out = ''
             for r in rows:
                 sig = r.get('sig', '')
+                # 🆕 safe formatting
+                _close_v = r.get("close", 0) or 0
+                _delta_v = r.get("delta", 0) or 0
                 out += (
                     f'<div style="display:flex;gap:6px;padding:3px 8px;font-size:.78rem;'
                     f'border-bottom:1px solid #1a2a3f;align-items:baseline">'
                     f'<span style="font-weight:700;font-family:monospace;'
-                    f'min-width:60px;color:#e8f4fd">{r["ticker"]}</span>'
-                    f'<span style="color:#a8cce8;font-family:monospace;flex:1">{r.get("close",0):.2f}</span>'
+                    f'min-width:60px;color:#e8f4fd">{r.get("ticker", "?")}</span>'
+                    f'<span style="color:#a8cce8;font-family:monospace;flex:1">{_close_v:.2f}</span>'
                     f'<span style="color:#7a8899;font-size:.7rem">{sig}</span>'
                     f'<span style="font-size:.7rem;background:#0a3a1f;color:#3dbb6a;'
-                    f'padding:1px 5px;border-radius:3px">+{r.get("delta",0):.0f}%</span>'
+                    f'padding:1px 5px;border-radius:3px">+{_delta_v:.0f}%</span>'
                     f'</div>'
                 )
             return out
@@ -4884,8 +4897,12 @@ def _render_us_top_panel():
                     f'<div style="background:#0a1830;border:1px solid #5a8ab055;border-radius:8px;'
                     f'padding:6px 4px">{_us_row_html(_h_raw)}</div>',
                     unsafe_allow_html=True)
-    except Exception:
-        pass
+    except Exception as _us_err:
+        # 🆕 v9.10g：不再吞 exception
+        import traceback as _tb
+        st.error(f"❌ US TOP panel render 失敗：{type(_us_err).__name__}: {_us_err}")
+        with st.expander("traceback"):
+            st.code(_tb.format_exc())
 
 
 _render_us_top_panel()
@@ -5284,7 +5301,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 68  # v9.10f：result 顯示位置修復 + 外層 try/except 確保不丟失錯誤 2026-04-29
+_RESULTS_VERSION = 69  # v9.10g：個股 row safe formatting + panel 錯誤顯示 + 美股過期門檻>2天 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
