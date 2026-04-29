@@ -4424,25 +4424,78 @@ st.markdown(f"""
 
 
 # 🆕 v9.9h：TOP 200 即時掃描（永遠顯示在頂部，不受 results 影響）
+# v9.10：加入更新按鈕 + 過期警示（fix 「不會自更新」）
+def _signal_age_days(updated_str):
+    """計算 updated_at 距今幾天，回傳 (days, is_stale)"""
+    import datetime as _dt
+    try:
+        dt = _dt.datetime.strptime(updated_str.strip()[:10], '%Y-%m-%d')
+        diff = (_dt.datetime.now() - dt).total_seconds() / 86400
+        return diff, diff > 1.0
+    except Exception:
+        return 99, True
+
+
+def _trigger_update_signals(script_name):
+    """跑指定的 update 腳本，回傳 True 表示成功"""
+    import subprocess as _sp
+    from pathlib import Path as _P
+    try:
+        proj = _P(__file__).parent
+        result = _sp.run(['python', str(proj / script_name)],
+                         cwd=str(proj), capture_output=True, text=True,
+                         timeout=600, encoding='utf-8', errors='replace')
+        return result.returncode == 0, result.stdout[-500:] + result.stderr[-500:]
+    except Exception as e:
+        return False, str(e)
+
+
 def _render_top200_panel():
     try:
         from pathlib import Path as _P
         import json as _json
         sig_path = _P(__file__).parent / 'top200_signals.json'
         if not sig_path.exists():
+            st.warning("⚠️ top200_signals.json 不存在 — 請先跑 `python update_daily_signals.py`")
             return
         sig_data = _json.load(open(sig_path, encoding='utf-8'))
         _e_raw = sig_data.get('entry', [])
         _x_raw = sig_data.get('exit', [])
         _h_raw = sig_data.get('hold', [])
         _updated = sig_data.get('updated_at', '?')
+        age_days, is_stale = _signal_age_days(_updated)
+
+        # 🆕 過期警示 + 一鍵更新
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            if is_stale:
+                st.warning(
+                    f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                    f"請點右側按鈕立即更新")
+        with col2:
+            if st.button("🔄 立即更新", key="refresh_top200",
+                         help="跑 update_daily_signals.py 重新生成訊號（約 2-5 分鐘）",
+                         use_container_width=True):
+                with st.spinner("正在更新 TOP 200 訊號…（約 2-5 分鐘）"):
+                    ok, msg = _trigger_update_signals('update_daily_signals.py')
+                if ok:
+                    st.success("✅ 更新完成，重新載入頁面")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(f"❌ 更新失敗：{msg}")
+
         if not (_e_raw or _x_raw or _h_raw):
             return
 
+        # 主面板（過期時邊框轉橙色）
+        border_color = '#ff9944' if is_stale else '#3dbb6a55'
+        title_color = '#ff9944' if is_stale else '#3dbb6a'
+        age_str = f"⚠️ {age_days:.1f} 天前" if is_stale else "今日"
         st.markdown(
-            f'<div style="background:#0a1a2a;border:1px solid #3dbb6a55;border-radius:10px;'
+            f'<div style="background:#0a1a2a;border:1px solid {border_color};border-radius:10px;'
             f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
-            f'<div style="font-size:1.05rem;font-weight:700;color:#3dbb6a">📊 今日 TOP 200 即時掃描</div>'
+            f'<div style="font-size:1.05rem;font-weight:700;color:{title_color}">📊 {age_str} TOP 200 即時掃描</div>'
             f'<div style="color:#7abadd;font-size:.85rem">'
             f'🚀 進場 <b>{len(_e_raw)}</b>　│　🚪 出倉 <b>{len(_x_raw)}</b>　│　📌 持倉 <b>{len(_h_raw)}</b></div>'
             f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
@@ -4589,12 +4642,14 @@ _render_top200_panel()
 
 
 # 🆕 v9.9o：美股 TOP 100 panel
+# v9.10：加入更新按鈕 + 過期警示
 def _render_us_top_panel():
     try:
         from pathlib import Path as _P
         import json as _json
         sig_path = _P(__file__).parent / 'us_top200_signals.json'
         if not sig_path.exists():
+            st.warning("⚠️ us_top200_signals.json 不存在 — 請跑 `python update_us_signals.py`")
             return
         sig_data = _json.load(open(sig_path, encoding='utf-8'))
         _e_raw = sig_data.get('entry', [])
@@ -4602,13 +4657,38 @@ def _render_us_top_panel():
         _h_raw = sig_data.get('hold', [])
         _updated = sig_data.get('updated_at', '?')
         _tot = sig_data.get('top_total', 100)
+        age_days, is_stale = _signal_age_days(_updated)
+
+        # 🆕 過期警示 + 一鍵更新
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            if is_stale:
+                st.warning(
+                    f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                    f"請點右側按鈕立即更新")
+        with col2:
+            if st.button("🔄 立即更新 US", key="refresh_us_top",
+                         help="跑 update_us_signals.py 重新生成（約 3-8 分鐘）",
+                         use_container_width=True):
+                with st.spinner("正在更新 US 訊號…（約 3-8 分鐘）"):
+                    ok, msg = _trigger_update_signals('update_us_signals.py')
+                if ok:
+                    st.success("✅ 更新完成")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(f"❌ 失敗：{msg}")
+
         if not (_e_raw or _x_raw or _h_raw):
             return
 
+        border_color = '#ff9944' if is_stale else '#5a8ab055'
+        title_color = '#ff9944' if is_stale else '#7abadd'
+        age_str = f"⚠️ {age_days:.1f} 天前" if is_stale else "今日"
         st.markdown(
-            f'<div style="background:#0a1a2a;border:1px solid #5a8ab055;border-radius:10px;'
+            f'<div style="background:#0a1a2a;border:1px solid {border_color};border-radius:10px;'
             f'padding:10px 14px;margin:8px 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
-            f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd">🇺🇸 US TOP {_tot} 即時掃描</div>'
+            f'<div style="font-size:1.05rem;font-weight:700;color:{title_color}">🇺🇸 {age_str} US TOP {_tot} 即時掃描</div>'
             f'<div style="color:#a8cce8;font-size:.85rem">'
             f'🚀 進場 <b>{len(_e_raw)}</b>　│　🚪 出倉 <b>{len(_x_raw)}</b>　│　📌 持倉 <b>{len(_h_raw)}</b></div>'
             f'<div style="color:#7a8899;font-size:.72rem;flex:1">'
