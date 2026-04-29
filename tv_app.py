@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10k"
+APP_VERSION   = "v9.10l"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2806,6 +2806,48 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     entry_rows  = list(val_rows)  # 估值放在進場判斷頭部
     t1_ok = t3_ok = t2_ok = False
 
+    # 🆕 v9.10l：TW 研究發現的「順勢延續」訊號（與 US 相反）
+    if is_bull and not (_is_us or _is_crypto) and adx_ok:
+        # 過度延伸：距 EMA60 > 3 ATR 反而 RR +0.015（強者恆強）
+        if _ema60_atr_dist is not None and _ema60_atr_dist > 3:
+            entry_rows.append(
+                f'<div style="background:#0a1825;border-left:4px solid #5a9acf;'
+                f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                f'<span style="color:#5a9acf;font-weight:700;font-size:.85rem">'
+                f'🚀 強勢延續訊號 ⭐</span><br>'
+                f'<span style="color:#a8c8d8;font-size:.78rem">'
+                f'距 EMA60 <b>{_ema60_atr_dist:.1f} ATR</b>（>3 達標）｜'
+                f'🇹🇼 研究：T1+過度延伸 RR 0.052 vs baseline 0.038 = <b>+0.015（37%）</b>，'
+                f'16265 樣本平均 +2.50%（強者恆強，非過熱避坑）</span></div>'
+            )
+
+    # 🆕 v9.10l：美股研究發現的「跌深反彈」+「高波動 alpha」訊號（最強條件）
+    # 從高點跌≥15%: T1 + 此條件 RR 0.171（baseline 0.025 → +0.146）★★★
+    # 高波動 ATR≥5%: T1 + 此條件 RR 0.107（+0.082）★★
+    if is_bull and (_is_us or _is_crypto):
+        if _drawdown_pct is not None and _drawdown_pct >= 15:
+            entry_rows.append(
+                f'<div style="background:#0a2018;border-left:4px solid #3dbb6a;'
+                f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                f'<span style="color:#3dbb6a;font-weight:700;font-size:.85rem">'
+                f'📉 跌深反彈訊號 ★★★</span><br>'
+                f'<span style="color:#a8d8a8;font-size:.78rem">'
+                f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（≥15% 達標）｜'
+                f'🇺🇸 研究：T1+此條件 RR 0.171 vs baseline 0.025 = <b>+0.146（6.8 倍）</b>，'
+                f'1152 樣本平均報酬 +9.16%</span></div>'
+            )
+        if _is_high_vol:
+            entry_rows.append(
+                f'<div style="background:#1a1408;border-left:4px solid #e8a020;'
+                f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                f'<span style="color:#e8a020;font-weight:700;font-size:.85rem">'
+                f'⚡ 高波動 alpha ★★</span><br>'
+                f'<span style="color:#e8c878;font-size:.78rem">'
+                f'ATR/P <b>{_rel_atr_global:.1f}%</b>（≥5% 達標）｜'
+                f'🇺🇸 研究：T1+此條件 RR 0.107 vs baseline 0.025 = <b>+0.082（4.3 倍）</b>，'
+                f'4528 樣本平均報酬 +8.35%</span></div>'
+            )
+
     if is_bull and adx_ok:
         # T1：黃金交叉（距今 ≤ 10 天）——新多頭啟動，積極進場
         t1_ok = (cross_days is not None and 0 < cross_days <= 10)
@@ -2882,11 +2924,28 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'等待 RSI &lt; 50（再距 {to50} 點）確認 T3 拉回再進場</span></div>'
             )
         elif rsi is not None and rsi >= 65 and not t1_ok:
-            entry_rows.append(
-                f'<div style="color:#7a8899;font-size:.75rem">'
-                f'RSI {rsi_str} ≥ 65，多頭偏熱，{'過熱，不進場' if rsi >= 75 else "等待回落至 RSI &lt; 50 再進場"}'
-                f'</div>'
-            )
+            # 🆕 v9.10l：TW 研究發現 RSI≥70 反而 RR +0.014（強勢延續）→ 改提示而非警告
+            if _is_us or _is_crypto:
+                # 美股維持原警告（US RSI≥70 中性）
+                entry_rows.append(
+                    f'<div style="color:#7a8899;font-size:.75rem">'
+                    f'RSI {rsi_str} ≥ 65，{('過熱，不進場' if rsi >= 75 else "等待回落至 RSI < 50 再進場")}'
+                    f'</div>'
+                )
+            else:
+                # 台股：研究顯示 RSI≥70 強勢延續，提示而非警告
+                if rsi >= 70:
+                    entry_rows.append(
+                        f'<div style="color:#3dbb6a;font-size:.75rem">'
+                        f'⚡ RSI {rsi_str} ≥ 70 — 🇹🇼 研究顯示「強勢延續」反而 RR +0.014，不該避開'
+                        f'</div>'
+                    )
+                else:
+                    entry_rows.append(
+                        f'<div style="color:#7a8899;font-size:.75rem">'
+                        f'RSI {rsi_str} ≥ 65，多頭偏熱，等待回落至 RSI &lt; 50 再進場'
+                        f'</div>'
+                    )
 
         # 🆕 T4 預警：多頭但 EMA20 即將跌破 EMA60（距 < 1 ATR），不亮燈
         if (atr14 is not None and atr14 > 0
@@ -5343,7 +5402,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 73  # v9.10k：T1 cross_days Sweet Spot 標記（TW Day 5-7 / US Day 1-5）2026-04-29
+_RESULTS_VERSION = 74  # v9.10l：T1 條件研究實作（US 跌深反彈/高波動 + TW 強勢延續/RSI過熱反轉）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
