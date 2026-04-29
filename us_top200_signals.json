@@ -1,43 +1,43 @@
 {
   "updated_at": "2026-04-28",
-  "computed_at": "2026-04-29 11:52:07",
+  "computed_at": "2026-04-29 12:09:00",
   "top_total": 200,
   "entry": [
     {
-      "ticker": "CRDO",
-      "name": "CRDO",
-      "close": 165.92,
-      "rsi": 58.9,
-      "ema20_cross_days": 9,
-      "delta": 253.8,
-      "sig": "T1 9d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "EXC",
+      "name": "EXC",
+      "close": 47.04,
+      "rsi": 45.1,
+      "ema20_cross_days": 52,
+      "delta": 0,
+      "sig": "T3 RSI45",
+      "t3_confidence": 0,
+      "t3_confidence_hits": []
     },
     {
-      "ticker": "RMBS",
-      "name": "RMBS",
-      "close": 141.31,
-      "rsi": 67.3,
-      "ema20_cross_days": 10,
-      "delta": 176.7,
-      "sig": "T1 10d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "GRMN",
+      "name": "GRMN",
+      "close": 247.81,
+      "rsi": 44.9,
+      "ema20_cross_days": 49,
+      "delta": 0,
+      "sig": "T3 RSI45",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
     },
     {
-      "ticker": "ALAB",
-      "name": "ALAB",
-      "close": 183.31,
-      "rsi": 61.4,
-      "ema20_cross_days": 9,
-      "delta": 142.5,
-      "sig": "T1 9d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "NFLX",
+      "name": "NFLX",
+      "close": 92.27,
+      "rsi": 41.3,
+      "ema20_cross_days": 32,
+      "delta": 0,
+      "sig": "T3 RSI41",
+      "t3_confidence": 0,
+      "t3_confidence_hits": []
     },
     {
       "ticker": "CAR",
@@ -45,131 +45,137 @@
       "close": 182.01,
       "rsi": 42.5,
       "ema20_cross_days": 20,
-      "delta": 109.4,
+      "delta": 0,
       "sig": "T3 RSI42",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 0,
+      "t3_confidence_hits": []
     },
     {
-      "ticker": "GOOGL",
-      "name": "GOOGL",
-      "close": 350.34,
-      "rsi": 71.7,
-      "ema20_cross_days": 10,
-      "delta": 89.5,
-      "sig": "T1 10d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "BBIO",
+      "name": "BBIO",
+      "close": 69.71,
+      "rsi": 40.8,
+      "ema20_cross_days": 18,
+      "delta": 0,
+      "sig": "T3 RSI41",
+      "t3_confidence": 0,
+      "t3_confidence_hits": []
+    },
+    {
+      "ticker": "RMBS",
+      "name": "RMBS",
+      "close": 111.27,
+      "rsi": 47.7,
+      "ema20_cross_days": 11,
+      "delta": 0,
+      "sig": "T3 RSI48",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "GOOG",
       "name": "GOOG",
-      "close": 348.52,
-      "rsi": 72.5,
-      "ema20_cross_days": 9,
-      "delta": 86.4,
-      "sig": "T1 9d",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "MSTR",
-      "name": "MSTR",
-      "close": 169.2,
-      "rsi": 64.2,
-      "ema20_cross_days": 3,
-      "delta": 43.4,
-      "sig": "T1 3d",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "MS",
-      "name": "MS",
-      "close": 190.18,
-      "rsi": 67.4,
+      "close": 347.5,
+      "rsi": 71.3,
       "ema20_cross_days": 10,
-      "delta": 43.2,
+      "delta": 0,
       "sig": "T1 10d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
-      "ticker": "SYF",
-      "name": "SYF",
-      "close": 76.25,
-      "rsi": 60.8,
-      "ema20_cross_days": 8,
-      "delta": 42.3,
-      "sig": "T1 8d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "GS",
+      "name": "GS",
+      "close": 926.55,
+      "rsi": 59.8,
+      "ema20_cross_days": 10,
+      "delta": 0,
+      "sig": "T1 10d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "NVDA",
       "name": "NVDA",
-      "close": 216.61,
-      "rsi": 76.3,
-      "ema20_cross_days": 9,
-      "delta": 29.9,
-      "sig": "T1 9d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "close": 213.17,
+      "rsi": 71.0,
+      "ema20_cross_days": 10,
+      "delta": 0,
+      "sig": "T1 10d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
-      "ticker": "PSX",
-      "name": "PSX",
-      "close": 164.1,
-      "rsi": 48.7,
-      "ema20_cross_days": null,
-      "delta": 18.3,
-      "sig": "T3 RSI49",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "ALAB",
+      "name": "ALAB",
+      "close": 183.31,
+      "rsi": 61.4,
+      "ema20_cross_days": 9,
+      "delta": 0,
+      "sig": "T1 9d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "BAC",
       "name": "BAC",
-      "close": 52.63,
-      "rsi": 56.7,
-      "ema20_cross_days": 8,
-      "delta": 13.2,
-      "sig": "T1 8d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "close": 52.66,
+      "rsi": 56.9,
+      "ema20_cross_days": 9,
+      "delta": 0,
+      "sig": "T1 9d",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
     },
     {
-      "ticker": "VFC",
-      "name": "VFC",
-      "close": 18.71,
-      "rsi": 47.7,
-      "ema20_cross_days": 8,
-      "delta": 11.7,
-      "sig": "T1 8d",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "NFLX",
-      "name": "NFLX",
-      "close": 91.37,
-      "rsi": 38.9,
-      "ema20_cross_days": 31,
-      "delta": 10.0,
-      "sig": "T3 RSI39",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "CRDO",
+      "name": "CRDO",
+      "close": 165.92,
+      "rsi": 58.9,
+      "ema20_cross_days": 9,
+      "delta": 0,
+      "sig": "T1 9d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "FITB",
@@ -177,519 +183,314 @@
       "close": 50.31,
       "rsi": 58.2,
       "ema20_cross_days": 9,
-      "delta": 3.8,
+      "delta": 0,
       "sig": "T1 9d",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    }
-  ],
-  "exit": [
-    {
-      "ticker": "CMI",
-      "name": "CMI",
-      "close": 660.78,
-      "rsi": 75.1,
-      "ema20_cross_days": 14,
-      "delta": 148.1,
-      "sig": "RSI>75/EMA死叉",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
     },
     {
-      "ticker": "ORCL",
-      "name": "ORCL",
-      "close": 172.96,
-      "rsi": 58.5,
-      "ema20_cross_days": 3,
-      "delta": 85.6,
-      "sig": "T1 3d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "JPM",
+      "name": "JPM",
+      "close": 311.45,
+      "rsi": 58.0,
+      "ema20_cross_days": 9,
+      "delta": 0,
+      "sig": "T1 9d",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "SYF",
+      "name": "SYF",
+      "close": 76.25,
+      "rsi": 60.8,
+      "ema20_cross_days": 8,
+      "delta": 0,
+      "sig": "T1 8d",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "VFC",
+      "name": "VFC",
+      "close": 18.71,
+      "rsi": 47.7,
+      "ema20_cross_days": 8,
+      "delta": 0,
+      "sig": "T1 8d",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "UUUU",
+      "name": "UUUU",
+      "close": 20.59,
+      "rsi": 52.6,
+      "ema20_cross_days": 7,
+      "delta": 0,
+      "sig": "T1 7d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "APLD",
+      "name": "APLD",
+      "close": 32.11,
+      "rsi": 55.4,
+      "ema20_cross_days": 5,
+      "delta": 0,
+      "sig": "T1 5d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "FOXA",
       "name": "FOXA",
-      "close": 63.86,
-      "rsi": 58.1,
-      "ema20_cross_days": 4,
-      "delta": 26.9,
-      "sig": "T1 4d",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "close": 63.15,
+      "rsi": 54.6,
+      "ema20_cross_days": 5,
+      "delta": 0,
+      "sig": "T1 5d",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
     },
     {
-      "ticker": "EXC",
-      "name": "EXC",
-      "close": 46.59,
-      "rsi": 40.9,
-      "ema20_cross_days": 51,
-      "delta": 7.9,
-      "sig": "T3 RSI41",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "ticker": "MSTR",
+      "name": "MSTR",
+      "close": 165.71,
+      "rsi": 61.2,
+      "ema20_cross_days": 4,
+      "delta": 0,
+      "sig": "T1 4d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ORCL",
+      "name": "ORCL",
+      "close": 165.96,
+      "rsi": 52.4,
+      "ema20_cross_days": 4,
+      "delta": 0,
+      "sig": "T1 4d",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "BLK",
+      "name": "BLK",
+      "close": 1049.76,
+      "rsi": 58.0,
+      "ema20_cross_days": 1,
+      "delta": 0,
+      "sig": "T1 1d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AMAT",
+      "name": "AMAT",
+      "close": 381.11,
+      "rsi": 49.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "T3 RSI50",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "DOW",
+      "name": "DOW",
+      "close": 38.01,
+      "rsi": 49.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "T3 RSI50",
+      "t3_confidence": 1,
+      "t3_confidence_hits": [
+        "EMA5上升"
+      ]
+    },
+    {
+      "ticker": "ESLT",
+      "name": "ESLT",
+      "close": 834.05,
+      "rsi": 42.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "T3 RSI42",
+      "t3_confidence": 0,
+      "t3_confidence_hits": []
+    },
+    {
+      "ticker": "XOM",
+      "name": "XOM",
+      "close": 150.56,
+      "rsi": 45.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "T3 RSI46",
+      "t3_confidence": 1,
+      "t3_confidence_hits": [
+        "EMA5上升"
+      ]
     }
   ],
+  "exit": [],
   "hold": [
-    {
-      "ticker": "AXTI",
-      "name": "AXTI",
-      "close": 68.71,
-      "rsi": 52.9,
-      "ema20_cross_days": null,
-      "delta": 9951.7,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "AAOI",
-      "name": "AAOI",
-      "close": 137.26,
-      "rsi": 52.9,
-      "ema20_cross_days": null,
-      "delta": 599.1,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "PL",
-      "name": "PL",
-      "close": 35.03,
-      "rsi": 52.2,
-      "ema20_cross_days": null,
-      "delta": 487.2,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "MU",
-      "name": "MU",
-      "close": 524.56,
-      "rsi": 73.2,
-      "ema20_cross_days": null,
-      "delta": 392.0,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "AMKR",
-      "name": "AMKR",
-      "close": 75.62,
-      "rsi": 77.0,
-      "ema20_cross_days": null,
-      "delta": 306.3,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "FORM",
-      "name": "FORM",
-      "close": 134.18,
-      "rsi": 57.9,
-      "ema20_cross_days": null,
-      "delta": 303.3,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "SEI",
-      "name": "SEI",
-      "close": 74.44,
-      "rsi": 71.0,
-      "ema20_cross_days": null,
-      "delta": 265.6,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "AEHR",
-      "name": "AEHR",
-      "close": 82.43,
-      "rsi": 62.9,
-      "ema20_cross_days": null,
-      "delta": 235.9,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "AMPX",
-      "name": "AMPX",
-      "close": 19.69,
-      "rsi": 54.4,
-      "ema20_cross_days": null,
-      "delta": 230.7,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "TER",
-      "name": "TER",
-      "close": 402.0,
-      "rsi": 68.6,
-      "ema20_cross_days": null,
-      "delta": 222.3,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "ARWR",
-      "name": "ARWR",
-      "close": 70.13,
-      "rsi": 57.3,
-      "ema20_cross_days": 14,
-      "delta": 217.5,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "HUT",
-      "name": "HUT",
-      "close": 72.11,
-      "rsi": 58.7,
-      "ema20_cross_days": 14,
-      "delta": 191.0,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "INTC",
-      "name": "INTC",
-      "close": 84.99,
-      "rsi": 83.3,
-      "ema20_cross_days": null,
-      "delta": 166.2,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "MPWR",
-      "name": "MPWR",
-      "close": 1587.57,
-      "rsi": 76.5,
-      "ema20_cross_days": null,
-      "delta": 115.9,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "APA",
-      "name": "APA",
-      "close": 38.43,
-      "rsi": 52.3,
-      "ema20_cross_days": null,
-      "delta": 103.0,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "FLEX",
-      "name": "FLEX",
-      "close": 87.16,
-      "rsi": 67.8,
-      "ema20_cross_days": null,
-      "delta": 100.8,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "ONTO",
-      "name": "ONTO",
-      "close": 282.39,
-      "rsi": 60.8,
-      "ema20_cross_days": null,
-      "delta": 91.8,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "AVGO",
-      "name": "AVGO",
-      "close": 418.2,
-      "rsi": 74.3,
-      "ema20_cross_days": 11,
-      "delta": 87.8,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "CASY",
-      "name": "CASY",
-      "close": 804.5,
-      "rsi": 76.3,
-      "ema20_cross_days": null,
-      "delta": 79.5,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "PWR",
-      "name": "PWR",
-      "close": 637.28,
-      "rsi": 71.5,
-      "ema20_cross_days": null,
-      "delta": 76.6,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "TD",
-      "name": "TD",
-      "close": 105.64,
-      "rsi": 71.2,
-      "ema20_cross_days": null,
-      "delta": 72.6,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
     {
       "ticker": "STM",
       "name": "STM",
       "close": 49.81,
       "rsi": 82.7,
       "ema20_cross_days": null,
-      "delta": 72.2,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
-      "ticker": "AMD",
-      "name": "AMD",
-      "close": 334.63,
-      "rsi": 80.2,
-      "ema20_cross_days": 13,
-      "delta": 69.5,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "CAT",
-      "name": "CAT",
-      "close": 828.79,
-      "rsi": 69.4,
+      "ticker": "INTC",
+      "name": "INTC",
+      "close": 84.52,
+      "rsi": 82.2,
       "ema20_cross_days": null,
-      "delta": 67.7,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "ENTG",
-      "name": "ENTG",
-      "close": 156.44,
-      "rsi": 75.9,
-      "ema20_cross_days": null,
-      "delta": 57.7,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "MRVL",
-      "name": "MRVL",
-      "close": 158.21,
-      "rsi": 78.2,
-      "ema20_cross_days": 34,
-      "delta": 45.1,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "VRSN",
-      "name": "VRSN",
-      "close": 267.9,
-      "rsi": 55.1,
-      "ema20_cross_days": 22,
-      "delta": 44.3,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "LSCC",
-      "name": "LSCC",
-      "close": 119.23,
-      "rsi": 65.4,
-      "ema20_cross_days": null,
-      "delta": 43.0,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "VAL",
-      "name": "VAL",
-      "close": 101.97,
-      "rsi": 62.6,
-      "ema20_cross_days": null,
-      "delta": 30.2,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "ADI",
-      "name": "ADI",
-      "close": 392.59,
-      "rsi": 71.2,
-      "ema20_cross_days": null,
-      "delta": 27.4,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "RY",
-      "name": "RY",
-      "close": 176.67,
-      "rsi": 64.0,
-      "ema20_cross_days": 12,
-      "delta": 24.1,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "TXN",
-      "name": "TXN",
-      "close": 269.5,
-      "rsi": 76.5,
-      "ema20_cross_days": 13,
-      "delta": 23.9,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "ACLX",
       "name": "ACLX",
       "close": 115.07,
       "rsi": 79.9,
-      "ema20_cross_days": 45,
-      "delta": 22.1,
+      "ema20_cross_days": 46,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
-      "ticker": "FDX",
-      "name": "FDX",
-      "close": 387.89,
-      "rsi": 60.2,
-      "ema20_cross_days": null,
-      "delta": 19.6,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "GRMN",
-      "name": "GRMN",
-      "close": 257.33,
-      "rsi": 55.6,
-      "ema20_cross_days": 48,
-      "delta": 16.7,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "DLR",
-      "name": "DLR",
-      "close": 196.34,
-      "rsi": 61.8,
-      "ema20_cross_days": 59,
-      "delta": 12.6,
-      "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
-    },
-    {
-      "ticker": "TT",
-      "name": "TT",
-      "close": 485.9,
-      "rsi": 68.8,
+      "ticker": "STLD",
+      "name": "STLD",
+      "close": 226.96,
+      "rsi": 77.3,
       "ema20_cross_days": 14,
-      "delta": 9.2,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
-      "ticker": "ANET",
-      "name": "ANET",
-      "close": 172.47,
-      "rsi": 68.5,
-      "ema20_cross_days": 12,
-      "delta": 6.9,
+      "ticker": "AMD",
+      "name": "AMD",
+      "close": 323.21,
+      "rsi": 73.5,
+      "ema20_cross_days": 14,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "TXN",
+      "name": "TXN",
+      "close": 265.0,
+      "rsi": 72.6,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "EWBC",
@@ -697,36 +498,979 @@
       "close": 124.92,
       "rsi": 72.2,
       "ema20_cross_days": 11,
-      "delta": 5.5,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "MRVL",
+      "name": "MRVL",
+      "close": 153.23,
+      "rsi": 71.7,
+      "ema20_cross_days": 35,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "GOOGL",
+      "close": 349.78,
+      "rsi": 71.1,
+      "ema20_cross_days": 11,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "SEI",
+      "name": "SEI",
+      "close": 74.44,
+      "rsi": 71.0,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "TD",
+      "name": "TD",
+      "close": 105.39,
+      "rsi": 69.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "FLEX",
+      "name": "FLEX",
+      "close": 87.16,
+      "rsi": 67.8,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "PWR",
+      "name": "PWR",
+      "close": 630.94,
+      "rsi": 67.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "MS",
+      "name": "MS",
+      "close": 190.36,
+      "rsi": 67.6,
+      "ema20_cross_days": 11,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AMKR",
+      "name": "AMKR",
+      "close": 71.36,
+      "rsi": 67.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "BKR",
+      "name": "BKR",
+      "close": 67.67,
+      "rsi": 66.2,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "MU",
+      "name": "MU",
+      "close": 504.29,
+      "rsi": 66.0,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "RY",
+      "name": "RY",
+      "close": 177.76,
+      "rsi": 66.0,
+      "ema20_cross_days": 13,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "HAL",
+      "name": "HAL",
+      "close": 40.81,
+      "rsi": 65.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "CASY",
+      "name": "CASY",
+      "close": 784.61,
+      "rsi": 65.0,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "CAT",
+      "name": "CAT",
+      "close": 817.87,
+      "rsi": 64.8,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "CMI",
+      "name": "CMI",
+      "close": 642.45,
+      "rsi": 64.7,
+      "ema20_cross_days": 15,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
     },
     {
       "ticker": "BK",
       "name": "BK",
-      "close": 134.47,
-      "rsi": 68.1,
-      "ema20_cross_days": 17,
-      "delta": 4.7,
+      "close": 133.54,
+      "rsi": 64.6,
+      "ema20_cross_days": 18,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
     },
     {
-      "ticker": "STLD",
-      "name": "STLD",
-      "close": 225.04,
-      "rsi": 76.4,
-      "ema20_cross_days": 13,
-      "delta": 3.8,
+      "ticker": "MPWR",
+      "name": "MPWR",
+      "close": 1504.08,
+      "rsi": 64.6,
+      "ema20_cross_days": null,
+      "delta": 0,
       "sig": "—",
-      "pe": null,
-      "pbr": null,
-      "div": null
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ADI",
+      "name": "ADI",
+      "close": 383.26,
+      "rsi": 64.5,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "TT",
+      "name": "TT",
+      "close": 480.75,
+      "rsi": 64.3,
+      "ema20_cross_days": 15,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AEHR",
+      "name": "AEHR",
+      "close": 82.43,
+      "rsi": 62.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "VAL",
+      "name": "VAL",
+      "close": 101.97,
+      "rsi": 62.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AVGO",
+      "name": "AVGO",
+      "close": 399.83,
+      "rsi": 62.2,
+      "ema20_cross_days": 12,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "NVT",
+      "name": "NVT",
+      "close": 138.3,
+      "rsi": 62.2,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "FDX",
+      "name": "FDX",
+      "close": 390.21,
+      "rsi": 61.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "TSM",
+      "name": "TSM",
+      "close": 392.34,
+      "rsi": 61.4,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "C",
+      "name": "C",
+      "close": 128.53,
+      "rsi": 61.3,
+      "ema20_cross_days": 17,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "RIG",
+      "name": "RIG",
+      "close": 6.79,
+      "rsi": 61.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "CTRA",
+      "name": "CTRA",
+      "close": 34.63,
+      "rsi": 61.0,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ONTO",
+      "name": "ONTO",
+      "close": 282.39,
+      "rsi": 60.8,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "DVN",
+      "name": "DVN",
+      "close": 49.48,
+      "rsi": 60.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ANET",
+      "name": "ANET",
+      "close": 165.29,
+      "rsi": 60.4,
+      "ema20_cross_days": 13,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "PRIM",
+      "name": "PRIM",
+      "close": 168.94,
+      "rsi": 60.3,
+      "ema20_cross_days": 19,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "KLAC",
+      "name": "KLAC",
+      "close": 1808.97,
+      "rsi": 59.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ENTG",
+      "name": "ENTG",
+      "close": 144.72,
+      "rsi": 58.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "SU",
+      "name": "SU",
+      "close": 65.19,
+      "rsi": 58.8,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "HUT",
+      "name": "HUT",
+      "close": 72.11,
+      "rsi": 58.7,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "TER",
+      "name": "TER",
+      "close": 380.13,
+      "rsi": 58.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "FORM",
+      "name": "FORM",
+      "close": 134.18,
+      "rsi": 57.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "PR",
+      "name": "PR",
+      "close": 20.91,
+      "rsi": 57.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "DLR",
+      "name": "DLR",
+      "close": 194.58,
+      "rsi": 57.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "LSCC",
+      "name": "LSCC",
+      "close": 113.91,
+      "rsi": 57.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "ARWR",
+      "name": "ARWR",
+      "close": 70.13,
+      "rsi": 57.3,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "VRSN",
+      "name": "VRSN",
+      "close": 270.4,
+      "rsi": 57.1,
+      "ema20_cross_days": 23,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "CTRE",
+      "name": "CTRE",
+      "close": 39.71,
+      "rsi": 57.0,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "VRT",
+      "name": "VRT",
+      "close": 305.03,
+      "rsi": 56.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "MPC",
+      "name": "MPC",
+      "close": 232.59,
+      "rsi": 56.4,
+      "ema20_cross_days": 56,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA5上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "AEIS",
+      "name": "AEIS",
+      "close": 369.08,
+      "rsi": 54.7,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "VLO",
+      "name": "VLO",
+      "close": 240.27,
+      "rsi": 54.6,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AMPX",
+      "name": "AMPX",
+      "close": 19.69,
+      "rsi": 54.4,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "OXY",
+      "name": "OXY",
+      "close": 58.61,
+      "rsi": 53.3,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA5上升"
+      ]
+    },
+    {
+      "ticker": "APA",
+      "name": "APA",
+      "close": 38.65,
+      "rsi": 53.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ]
+    },
+    {
+      "ticker": "AAOI",
+      "name": "AAOI",
+      "close": 137.26,
+      "rsi": 52.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "AXTI",
+      "name": "AXTI",
+      "close": 68.71,
+      "rsi": 52.9,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "LNG",
+      "name": "LNG",
+      "close": 264.98,
+      "rsi": 52.4,
+      "ema20_cross_days": 58,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA5上升"
+      ]
+    },
+    {
+      "ticker": "PL",
+      "name": "PL",
+      "close": 35.03,
+      "rsi": 52.2,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "LRCX",
+      "name": "LRCX",
+      "close": 251.23,
+      "rsi": 51.5,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "AME",
+      "name": "AME",
+      "close": 228.95,
+      "rsi": 51.2,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "RL",
+      "name": "RL",
+      "close": 366.87,
+      "rsi": 50.5,
+      "ema20_cross_days": 14,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ]
+    },
+    {
+      "ticker": "PSX",
+      "name": "PSX",
+      "close": 165.13,
+      "rsi": 50.1,
+      "ema20_cross_days": null,
+      "delta": 0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA5上升"
+      ]
     }
   ],
-  "wait_count": 140
+  "wait_count": 108,
+  "source": "cloud (yfinance live)"
 }

@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10b"
+APP_VERSION   = "v9.10c"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4461,19 +4461,29 @@ def _is_cloud_env():
     return n < 100
 
 
-def _trigger_update_signals(script_name):
-    """跑指定的 update 腳本，回傳 True 表示成功
-    用 sys.executable 確保跟 streamlit 同一個 python 環境"""
+def _trigger_update_signals(script_name, market='tw'):
+    """跑 update 腳本，回傳 True 表示成功
+    🆕 雲端用 update_signals_cloud.py（yfinance 即時抓取，不需 data_cache）
+    🇹🇼 / 🇺🇸 本機用各自完整腳本（含 backtest）"""
     import subprocess as _sp
     import sys as _sys
     from pathlib import Path as _P
-    # 雲端環境提前阻擋
+    proj = _P(__file__).parent
+    # 雲端 → 改用 cloud script + flag
     if _is_cloud_env():
-        return False, ("CLOUD_NO_DATA_CACHE: 雲端沒 data_cache（230MB 不能 push）。"
-                       "請在本機跑 update 腳本後 commit JSON 至 GitHub，"
-                       "雲端 Streamlit 會自動載入新版。")
+        cloud_script = proj / 'update_signals_cloud.py'
+        if not cloud_script.exists():
+            return False, "update_signals_cloud.py 不存在"
+        flag = f'--{market}'
+        try:
+            result = _sp.run([_sys.executable, str(cloud_script), flag],
+                             cwd=str(proj), capture_output=True, text=True,
+                             timeout=300, encoding='utf-8', errors='replace')
+            return result.returncode == 0, result.stdout[-500:] + result.stderr[-500:]
+        except Exception as e:
+            return False, str(e)
+    # 本機 → 跑完整 update（含 backtest）
     try:
-        proj = _P(__file__).parent
         result = _sp.run([_sys.executable, str(proj / script_name)],
                          cwd=str(proj), capture_output=True, text=True,
                          timeout=600, encoding='utf-8', errors='replace')
@@ -4497,32 +4507,32 @@ def _render_top200_panel():
         _updated = sig_data.get('updated_at', '?')
         age_days, is_stale = _signal_age_days(_updated)
 
-        # 🆕 過期警示 + 一鍵更新（雲端環境不顯示按鈕）
+        # 🆕 過期警示 + 一鍵更新（雲端 yfinance 即時抓取版）
         is_cloud = _is_cloud_env()
         if is_stale or _updated == 'unknown':
-            if is_cloud:
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                env_str = '☁️ 雲端 yfinance 即時抓取' if is_cloud else '本機 data_cache'
                 st.warning(
-                    f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）｜ "
-                    f"☁️ 雲端版本無法自更新（沒 data_cache）— "
-                    f"請等管理員在本機跑 `python update_daily_signals.py` 後 push 至 repo")
-            else:
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.warning(
-                        f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
-                        f"請點右側按鈕立即更新")
-                with col2:
-                    if st.button("🔄 立即更新", key="refresh_top200",
-                                 help="跑 update_daily_signals.py 重新生成（約 2-5 分鐘）",
-                                 use_container_width=True):
-                        with st.spinner("正在更新 TOP 200 訊號…（約 2-5 分鐘）"):
-                            ok, msg = _trigger_update_signals('update_daily_signals.py')
-                        if ok:
-                            st.success("✅ 更新完成")
-                            st.cache_data.clear()
-                            st.rerun()
-                        else:
-                            st.error(f"❌ 更新失敗：{msg}")
+                    f"⚠️ TOP 200 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                    f"{env_str}，點右側按鈕立即更新")
+            with col2:
+                btn_label = "🔄 雲端更新" if is_cloud else "🔄 立即更新"
+                btn_help = ("yfinance 抓最新一日 ~10 秒" if is_cloud
+                            else "完整 update 約 2-5 分鐘")
+                if st.button(btn_label, key="refresh_top200",
+                             help=btn_help, use_container_width=True):
+                    spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
+                                  else "正在更新 TOP 200 訊號…（約 2-5 分鐘）"
+                    with st.spinner(spinner_msg):
+                        ok, msg = _trigger_update_signals(
+                            'update_daily_signals.py', market='tw')
+                    if ok:
+                        st.success("✅ 更新完成")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ 更新失敗：{msg}")
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -4698,32 +4708,32 @@ def _render_us_top_panel():
         _tot = sig_data.get('top_total', 100)
         age_days, is_stale = _signal_age_days(_updated)
 
-        # 🆕 過期警示 + 一鍵更新（雲端環境不顯示按鈕）
+        # 🆕 過期警示 + 一鍵更新（雲端 yfinance 即時抓取版）
         is_cloud = _is_cloud_env()
         if is_stale or _updated == 'unknown':
-            if is_cloud:
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                env_str = '☁️ 雲端 yfinance 即時抓取' if is_cloud else '本機 data_cache'
                 st.warning(
-                    f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）｜ "
-                    f"☁️ 雲端版本無法自更新（沒 data_cache）— "
-                    f"請等管理員在本機跑 `python update_us_signals.py` 後 push 至 repo")
-            else:
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.warning(
-                        f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
-                        f"請點右側按鈕立即更新")
-                with col2:
-                    if st.button("🔄 立即更新 US", key="refresh_us_top",
-                                 help="跑 update_us_signals.py 重新生成（約 3-8 分鐘）",
-                                 use_container_width=True):
-                        with st.spinner("正在更新 US 訊號…（約 3-8 分鐘）"):
-                            ok, msg = _trigger_update_signals('update_us_signals.py')
-                        if ok:
-                            st.success("✅ 更新完成")
-                            st.cache_data.clear()
-                            st.rerun()
-                        else:
-                            st.error(f"❌ 失敗：{msg}")
+                    f"⚠️ US TOP 訊號已過期 **{age_days:.1f} 天**（最後更新 {_updated}）— "
+                    f"{env_str}，點右側按鈕立即更新")
+            with col2:
+                btn_label = "🔄 雲端更新 US" if is_cloud else "🔄 立即更新 US"
+                btn_help = ("yfinance 抓最新一日 ~10 秒" if is_cloud
+                            else "完整 update 約 3-8 分鐘")
+                if st.button(btn_label, key="refresh_us_top",
+                             help=btn_help, use_container_width=True):
+                    spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
+                                  else "正在更新 US 訊號…（約 3-8 分鐘）"
+                    with st.spinner(spinner_msg):
+                        ok, msg = _trigger_update_signals(
+                            'update_us_signals.py', market='us')
+                    if ok:
+                        st.success("✅ 更新完成")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ 失敗：{msg}")
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -5216,7 +5226,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 65  # v9.10b：TW/US 自動偵測閾值 + 雲端按鈕修復 + 4 個新發現 2026-04-29
+_RESULTS_VERSION = 66  # v9.10c：雲端可自更新（yfinance 即時抓取）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
