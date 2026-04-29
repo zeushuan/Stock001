@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10i"
+APP_VERSION   = "v9.10j"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2954,6 +2954,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             )
 
     # 進場動作標籤
+    # 🆕 v9.10j：即將死叉時否決進場訊號（避免「進場 + 即將出場」矛盾）
+    _entry_blocked_by_dc = (is_bull and _imminent_dc and (t1_ok or t3_ok))
     if not is_bull:
         if _t4_rising:
             action_label, action_bg, action_fg = "T4反彈條件達成 🟡", "#2a1500", "#ff9944"
@@ -2961,6 +2963,9 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             action_label, action_bg, action_fg = "空頭不交易",         "#1a0505", "#ff5555"
     elif not adx_ok:
         action_label, action_bg, action_fg = "假多頭暫不操作", "#1a1200", "#e8a020"
+    elif _entry_blocked_by_dc:
+        # 即將死叉：否決進場，建議觀望
+        action_label, action_bg, action_fg = "⛔ 不進場 — 即將死叉", "#2a0a0a", "#ff7755"
     elif t1_ok or t3_ok:
         action_label, action_bg, action_fg = "進場條件達成 ✅", "#0d2a10", "#3dbb6a"
     elif t2_ok:
@@ -5316,7 +5321,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 71  # v9.10i：個股 detail 卡片自動套用 TW/US 閾值（ADX 22/18）2026-04-29
+_RESULTS_VERSION = 72  # v9.10j：即將死叉時否決進場訊號（修進場/出場矛盾 UX）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
