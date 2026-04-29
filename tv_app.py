@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10p"
+APP_VERSION   = "v9.10q"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2827,32 +2827,127 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'16265 樣本平均 +2.50%（強者恆強，非過熱避坑）</span></div>'
             )
 
-    # 🆕 v9.10l：美股研究發現的「跌深反彈」+「高波動 alpha」訊號（最強條件）
-    # 從高點跌≥15%: T1 + 此條件 RR 0.171（baseline 0.025 → +0.146）★★★
-    # 高波動 ATR≥5%: T1 + 此條件 RR 0.107（+0.082）★★
-    if is_bull and (_is_us or _is_crypto):
-        if _drawdown_pct is not None and _drawdown_pct >= 15:
-            entry_rows.append(
-                f'<div style="background:#0a2018;border-left:4px solid #3dbb6a;'
-                f'padding:6px 10px;margin:4px 0;border-radius:3px">'
-                f'<span style="color:#3dbb6a;font-weight:700;font-size:.85rem">'
-                f'📉 跌深反彈訊號 ★★★</span><br>'
-                f'<span style="color:#a8d8a8;font-size:.78rem">'
-                f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（≥15% 達標）｜'
-                f'🇺🇸 研究：T1+此條件 RR 0.171 vs baseline 0.025 = <b>+0.146（6.8 倍）</b>，'
-                f'1152 樣本平均報酬 +9.16%</span></div>'
-            )
-        if _is_high_vol:
-            entry_rows.append(
-                f'<div style="background:#1a1408;border-left:4px solid #e8a020;'
-                f'padding:6px 10px;margin:4px 0;border-radius:3px">'
-                f'<span style="color:#e8a020;font-weight:700;font-size:.85rem">'
-                f'⚡ 高波動 alpha ★★</span><br>'
-                f'<span style="color:#e8c878;font-size:.78rem">'
-                f'ATR/P <b>{_rel_atr_global:.1f}%</b>（≥5% 達標）｜'
-                f'🇺🇸 研究：T1+此條件 RR 0.107 vs baseline 0.025 = <b>+0.082（4.3 倍）</b>，'
-                f'4528 樣本平均報酬 +8.35%</span></div>'
-            )
+    # 🆕 v9.10q：跌深反彈訊號 — 依市場 + 跌幅級距分層
+    # （取代 v9.10l 一律 ≥15% 的簡化邏輯）
+    # TW 研究：跌得越深越強（30-50% RR 0.266 / >50% RR 0.445）
+    # US 研究：30-50% 反而負 RR -0.025（基本面壞）
+    if is_bull and _drawdown_pct is not None and _drawdown_pct >= 15:
+        if not (_is_us or _is_crypto):
+            # 🇹🇼 TW 跌深訊號（級距分層）
+            if _drawdown_pct >= 50:
+                entry_rows.append(
+                    f'<div style="background:#0d1f0d;border-left:4px solid #ffd700;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#ffd700;font-weight:700;font-size:.85rem">'
+                    f'💎 重挫鑽石期 ★★★★</span><br>'
+                    f'<span style="color:#e8d878;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（≥50% 重挫達標）｜'
+                    f'🇹🇼 研究：30 天平均 +23.9% / RR <b>0.445（11.7 倍 baseline）</b>'
+                    f'，極端超賣後反彈最強</span></div>'
+                )
+            elif _drawdown_pct >= 30:
+                entry_rows.append(
+                    f'<div style="background:#0a2018;border-left:4px solid #3dbb6a;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#3dbb6a;font-weight:700;font-size:.85rem">'
+                    f'🔥 深跌黃金期 ★★★</span><br>'
+                    f'<span style="color:#a8d8a8;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（≥30% 深跌達標）｜'
+                    f'🇹🇼 研究：30 天平均 +12.5% / 勝率 82.4% / RR <b>0.266（7 倍 baseline）</b>'
+                    f'，5957 樣本</span></div>'
+                )
+            elif _drawdown_pct >= 20:
+                entry_rows.append(
+                    f'<div style="background:#0d1825;border-left:4px solid #7abadd;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#7abadd;font-weight:700;font-size:.85rem">'
+                    f'📉 中跌反彈訊號 ★★</span><br>'
+                    f'<span style="color:#a8c8d8;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（20-30% 中跌）｜'
+                    f'🇹🇼 研究：勝率 67% / 均報 +7% / RR <b>0.141（3.7 倍 baseline）</b>'
+                    f'，20637 樣本</span></div>'
+                )
+            else:
+                entry_rows.append(
+                    f'<div style="background:#0d1825;border-left:4px solid #5a8ab0;'
+                    f'padding:5px 10px;margin:3px 0;border-radius:3px">'
+                    f'<span style="color:#7a9ab0;font-size:.78rem">'
+                    f'📉 淺跌 {_drawdown_pct:.1f}%（15-20%）｜🇹🇼 RR 0.045 微正</span></div>'
+                )
+        else:
+            # 🇺🇸 US 跌深訊號（注意：30-50% 反向）
+            if 15 <= _drawdown_pct < 20:
+                entry_rows.append(
+                    f'<div style="background:#0a2018;border-left:4px solid #3dbb6a;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#3dbb6a;font-weight:700;font-size:.85rem">'
+                    f'📉 淺跌反彈訊號 ★</span><br>'
+                    f'<span style="color:#a8d8a8;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>（15-20% 淺跌）｜'
+                    f'🇺🇸 研究：勝率 56% / RR 0.043（baseline 0.025 → +0.018）'
+                    f'，越早進越好（Day 0-1 最佳）</span></div>'
+                )
+            elif 20 <= _drawdown_pct < 30:
+                entry_rows.append(
+                    f'<div style="background:#1a1408;border-left:4px solid #e8a020;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#e8a020;font-weight:700;font-size:.85rem">'
+                    f'⚠️ 中跌觀望（20-30%）</span><br>'
+                    f'<span style="color:#e8c878;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>｜'
+                    f'🇺🇸 研究：勝率僅 50% / RR 0.033（中性）'
+                    f'，需配合 RSI<30 + 多頭 才能加分</span></div>'
+                )
+            elif 30 <= _drawdown_pct < 50:
+                entry_rows.append(
+                    f'<div style="background:#2a0a0a;border-left:4px solid #ff5555;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#ff5555;font-weight:700;font-size:.85rem">'
+                    f'🚫 深跌警告 (30-50%)</span><br>'
+                    f'<span style="color:#ff9090;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>｜'
+                    f'🇺🇸 研究：勝率 44% / 均報 <b>-1.95%</b> / RR <b>-0.025（負！）</b>'
+                    f'，機構市場 30%+ 跌幅多為基本面壞，不是逢低買進</span></div>'
+                )
+            else:  # >= 50
+                entry_rows.append(
+                    f'<div style="background:#0a1825;border-left:4px solid #5a9acf;'
+                    f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+                    f'<span style="color:#5a9acf;font-weight:700;font-size:.85rem">'
+                    f'💎 極端反彈（>50%）★</span><br>'
+                    f'<span style="color:#a8c8d8;font-size:.78rem">'
+                    f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>｜'
+                    f'🇺🇸 研究：勝率 38% / 均報 +5.4% / RR 0.065'
+                    f'（極端超賣終究反彈，但勝率偏低）</span></div>'
+                )
+
+    # 🇺🇸 高波動 alpha（v9.10l 保留）
+    if is_bull and (_is_us or _is_crypto) and _is_high_vol:
+        entry_rows.append(
+            f'<div style="background:#1a1408;border-left:4px solid #e8a020;'
+            f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+            f'<span style="color:#e8a020;font-weight:700;font-size:.85rem">'
+            f'⚡ 高波動 alpha ★★</span><br>'
+            f'<span style="color:#e8c878;font-size:.78rem">'
+            f'ATR/P <b>{_rel_atr_global:.1f}%</b>（≥5% 達標）｜'
+            f'🇺🇸 研究：T1+此條件 RR 0.107 vs baseline 0.025 = <b>+0.082（4.3 倍）</b>，'
+            f'4528 樣本平均報酬 +8.35%</span></div>'
+        )
+
+    # 🇹🇼 跌深 + T1 王炸組合（最強）
+    if (is_bull and adx_ok and not (_is_us or _is_crypto)
+            and _drawdown_pct is not None and _drawdown_pct >= 15
+            and cross_days is not None and 0 < cross_days <= 10):
+        entry_rows.append(
+            f'<div style="background:#1a1500;border-left:4px solid #ffd700;'
+            f'padding:6px 10px;margin:4px 0;border-radius:3px">'
+            f'<span style="color:#ffd700;font-weight:700;font-size:.9rem">'
+            f'🎰 王炸組合：跌深 + T1 + 多頭 + ADX 達標 ⭐⭐⭐</span><br>'
+            f'<span style="color:#e8d878;font-size:.78rem">'
+            f'跌 {_drawdown_pct:.1f}% + 黃金交叉 {cross_days} 天前 + ADX {adx_str} ｜'
+            f'🇹🇼 研究：RR <b>0.224</b>（baseline 0.038 → 5.9 倍）'
+            f'，1839 樣本平均 +8.04%</span></div>'
+        )
 
     if is_bull and adx_ok:
         # T1：黃金交叉（距今 ≤ 10 天）——新多頭啟動，積極進場
@@ -5763,7 +5858,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 78  # v9.10p：PDF 完整指標報告（取代 Excel，支援中文 CID 字體）2026-04-29
+_RESULTS_VERSION = 79  # v9.10q：跌深反彈訊號分級（TW 越深越強 / US 30-50% 反向）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
