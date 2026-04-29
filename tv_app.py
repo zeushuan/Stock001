@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10j"
+APP_VERSION   = "v9.10k"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2652,10 +2652,32 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         env_desc  = (f"EMA20 &gt; EMA60，但 ADX {adx_str} &lt; {_adx_th}，趨勢強度不足"
                      f"（{_market_tag} 門檻 ADX≥{_adx_th}）")
     else:
-        if cross_days is not None and 0 < cross_days <= 10:
-            cross_info = f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>｜"
-        elif cross_days is not None and cross_days > 0:
-            cross_info = f"黃金交叉 {cross_days} 天前｜"
+        # 🆕 v9.10k：依市場顯示 Sweet Spot / 早鳥期 標記
+        # （cross_days 研究：TW Day 5-7 sweet spot / US Day 1-5 早鳥期）
+        if cross_days is not None and cross_days > 0:
+            if _is_us or _is_crypto:
+                # 美股 / Crypto：早鳥越早越好
+                if 1 <= cross_days <= 5:
+                    sweet_tag = " <span style='color:#3dbb6a;font-weight:700'>⚡ 早鳥期</span>"
+                elif 6 <= cross_days <= 10:
+                    sweet_tag = " <span style='color:#e8a020'>⚠️ 已過早鳥（衰減 -17%）</span>"
+                else:
+                    sweet_tag = " <span style='color:#7a8899'>（過 T1 窗）</span>"
+            else:
+                # 台股：Day 5-7 sweet spot
+                if 5 <= cross_days <= 7:
+                    sweet_tag = " <span style='color:#3dbb6a;font-weight:700'>⭐ Sweet Spot</span>"
+                elif 1 <= cross_days <= 4:
+                    sweet_tag = " <span style='color:#7abadd'>🌱 偏早（等趨勢確認）</span>"
+                elif 8 <= cross_days <= 15:
+                    sweet_tag = " <span style='color:#7abadd'>仍可進場</span>"
+                else:
+                    sweet_tag = " <span style='color:#7a8899'>（過 T1 窗）</span>"
+            if cross_days <= 10:
+                cross_info = (f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>"
+                              f"{sweet_tag}｜")
+            else:
+                cross_info = f"黃金交叉 {cross_days} 天前{sweet_tag}｜"
         else:
             cross_info = ""
         env_color, env_icon = "#3b9eff", "✅"
@@ -5321,7 +5343,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 72  # v9.10j：即將死叉時否決進場訊號（修進場/出場矛盾 UX）2026-04-29
+_RESULTS_VERSION = 73  # v9.10k：T1 cross_days Sweet Spot 標記（TW Day 5-7 / US Day 1-5）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
