@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10o"
+APP_VERSION   = "v9.10p"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4376,6 +4376,293 @@ def build_excel(results) -> bytes:
     buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
 
+# ─── 🆕 v9.10p：PDF 完整指標報告 ──────────────────────────────
+def build_pdf(results) -> bytes:
+    """產生個股完整指標分析 PDF（圖文並茂）
+    包含：封面 + 每股一頁完整指標 + 操作建議"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm, mm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                     Table, TableStyle, PageBreak)
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    import io as _io
+    from datetime import datetime as _dt
+
+    # 註冊中文字體（CID 內建，雲端可用）
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+        CN_FONT = 'STSong-Light'
+    except Exception:
+        CN_FONT = 'Helvetica'
+
+    buf = _io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             topMargin=1.5*cm, bottomMargin=1.5*cm,
+                             leftMargin=1.5*cm, rightMargin=1.5*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    title_st = ParagraphStyle('Title', parent=styles['Title'],
+                               fontName=CN_FONT, fontSize=20,
+                               textColor=colors.HexColor('#3b9eff'),
+                               alignment=1, spaceAfter=10)
+    h1_st = ParagraphStyle('H1', parent=styles['Heading1'],
+                            fontName=CN_FONT, fontSize=14,
+                            textColor=colors.HexColor('#7abadd'),
+                            spaceBefore=8, spaceAfter=4)
+    h2_st = ParagraphStyle('H2', parent=styles['Heading2'],
+                            fontName=CN_FONT, fontSize=11,
+                            textColor=colors.HexColor('#3dbb6a'),
+                            spaceBefore=6, spaceAfter=3)
+    body_st = ParagraphStyle('Body', parent=styles['Normal'],
+                              fontName=CN_FONT, fontSize=9,
+                              textColor=colors.HexColor('#333333'),
+                              leading=13)
+    small_st = ParagraphStyle('Small', parent=styles['Normal'],
+                               fontName=CN_FONT, fontSize=7,
+                               textColor=colors.HexColor('#666666'))
+
+    # ── 封面 ──
+    story.append(Paragraph("📊 Stock001 個股指標分析報告", title_st))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(Paragraph(
+        f"報告生成: {_dt.now().strftime('%Y-%m-%d %H:%M:%S')}", body_st))
+    story.append(Paragraph(
+        f"涵蓋股票: {len(results)} 支", body_st))
+    story.append(Spacer(1, 0.5*cm))
+
+    # 摘要表
+    summary_rows = [['#', 'Ticker', '名稱', '收盤', 'RSI', 'ADX',
+                      'EMA20/60', '建議']]
+    for i, item in enumerate(results, 1):
+        try:
+            ticker = item[0] if len(item) > 0 else ''
+            d = item[2] if len(item) > 2 and item[2] else None
+            if d is None:
+                summary_rows.append([str(i), ticker, '—', '—', '—', '—', '—', '無資料'])
+                continue
+            name = (d.get('name') or '')[:12]
+            close = d.get('close', 0) or 0
+            rsi = d.get('rsi', 0) or 0
+            adx = d.get('adx', 0) or 0
+            e20 = d.get('ema20', 0) or 0
+            e60 = d.get('ema60', 0) or 0
+            bull = '多頭' if (e20 > e60) else '空頭'
+            try:
+                rec_label, _ = get_rec_label(d, ticker)
+            except Exception:
+                rec_label = '—'
+            summary_rows.append([
+                str(i), ticker, name, f'{close:.2f}',
+                f'{rsi:.1f}', f'{adx:.1f}', bull, rec_label[:14]
+            ])
+        except Exception:
+            continue
+
+    summary_tbl = Table(summary_rows, colWidths=[
+        0.8*cm, 2.2*cm, 4*cm, 1.8*cm, 1.5*cm, 1.5*cm, 1.5*cm, 4*cm])
+    summary_tbl.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), CN_FONT),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0a1830')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+         [colors.white, colors.HexColor('#f5f8fa')]),
+    ]))
+    story.append(Paragraph("📋 個股摘要", h1_st))
+    story.append(summary_tbl)
+    story.append(PageBreak())
+
+    # ── 每股一頁詳細 ──
+    for idx, item in enumerate(results, 1):
+        try:
+            ticker = item[0] if len(item) > 0 else ''
+            market = item[1] if len(item) > 1 else 'TW'
+            d = item[2] if len(item) > 2 else None
+            if d is None: continue
+
+            name = d.get('name', '')
+            close = d.get('close', 0) or 0
+            rsi = d.get('rsi', 0) or 0
+            rsi_prev = d.get('rsi_prev', 0) or 0
+            adx = d.get('adx', 0) or 0
+            ema20 = d.get('ema20', 0) or 0
+            ema60 = d.get('ema60', 0) or 0
+            ema5 = d.get('ema5', 0) or 0
+            ema120 = d.get('ema120', 0) or 0
+            atr14 = d.get('atr14', 0) or 0
+            sma200 = d.get('sma200', 0) or 0
+            cd = d.get('ema20_cross_days', 0) or 0
+            per = d.get('per')
+            pbr = d.get('pbr')
+            div = d.get('div_yield')
+            eps = d.get('eps_ttm')
+            change_pct = d.get('change_pct', 0) or 0
+
+            is_bull = ema20 > ema60
+            adx_th = 18 if (ticker.upper().replace('-USD','').isalpha()
+                             and ticker.upper().isupper()) else 22
+            mkt_tag = ('🇺🇸 US' if (ticker.upper().isalpha()
+                                      and ticker.upper().isupper()
+                                      and not ticker.endswith('-USD'))
+                       else ('🪙 Crypto' if ticker.endswith('-USD')
+                             else '🇹🇼 TW'))
+
+            # 標題
+            story.append(Paragraph(
+                f"#{idx} {ticker} {name}", h1_st))
+            story.append(Paragraph(
+                f"市場: {mkt_tag} ｜ 收盤: <b>{close:.2f}</b> "
+                f"({change_pct:+.2f}%)", body_st))
+            story.append(Spacer(1, 0.2*cm))
+
+            # ① 市場環境
+            story.append(Paragraph("① 市場環境", h2_st))
+            adx_ok = adx >= adx_th
+            env_text = (
+                f"狀態: <b>{'✅ 多頭市場' if is_bull and adx_ok else ('⚠️ 假多頭' if is_bull else '🚫 空頭')}</b><br/>"
+                f"EMA20: {ema20:.2f} ｜ EMA60: {ema60:.2f} "
+                f"({'多' if is_bull else '空'}, 差距 {(ema20-ema60)/ema60*100:+.1f}%)<br/>"
+                f"ADX: <b>{adx:.1f}</b> "
+                f"({'≥' if adx_ok else '<'}{adx_th} {'達標' if adx_ok else '不達標'})<br/>"
+                f"黃金交叉: {cd if cd > 0 else '空頭'} 天前"
+            )
+            if cd and 1 <= cd <= 10:
+                if (ticker.upper().isalpha() and ticker.upper().isupper()):
+                    if 1 <= cd <= 5:
+                        env_text += " ⚡ 早鳥期"
+                    else:
+                        env_text += " ⚠️ 已過早鳥"
+                else:
+                    if 5 <= cd <= 7:
+                        env_text += " ⭐ Sweet Spot"
+            story.append(Paragraph(env_text, body_st))
+            story.append(Spacer(1, 0.2*cm))
+
+            # ② 進場判斷
+            story.append(Paragraph("② 進場判斷", h2_st))
+            t1_ok = is_bull and adx_ok and 0 < cd <= 10
+            t3_ok = is_bull and adx_ok and rsi < 50
+            t4_ok = (not is_bull) and rsi < 32 and rsi > rsi_prev
+            entry_lines = [
+                f"T1 黃金交叉 (≤10d): {'✅' if t1_ok else '☐'} (cross={cd}d)",
+                f"T3 多頭拉回 (RSI<50): {'✅' if t3_ok else '☐'} (RSI={rsi:.1f})",
+                f"T4 空頭反彈 (RSI<32+上升): {'✅' if t4_ok else '☐'}",
+            ]
+            t3_conf = d.get('t3_confidence', 0) or 0
+            if t3_conf > 0:
+                entry_lines.append(
+                    f"T3 信心度: {'●'*t3_conf}{'○'*(5-t3_conf)} {t3_conf}/5")
+            story.append(Paragraph("<br/>".join(entry_lines), body_st))
+            story.append(Spacer(1, 0.2*cm))
+
+            # ③ 出場停損
+            story.append(Paragraph("③ 出場停損", h2_st))
+            atr_mult = 3.0 if adx >= 30 else (
+                2.0 if (not is_bull and t4_ok) else 2.5)
+            stop_p = close - atr14 * atr_mult
+            stop_pct = -atr14 * atr_mult / close * 100 if close > 0 else 0
+            story.append(Paragraph(
+                f"停損價: <b>{stop_p:.2f}</b> "
+                f"(收盤 {close:.2f} − ATR×{atr_mult} {atr14*atr_mult:.2f} "
+                f"= {stop_pct:.1f}%)<br/>"
+                f"ATR 14: {atr14:.2f} ｜ ATR/Price: {atr14/close*100:.2f}%",
+                body_st))
+            story.append(Spacer(1, 0.2*cm))
+
+            # ④ 出場獲利
+            story.append(Paragraph("④ 出場獲利", h2_st))
+            ema_gap = (ema20 - ema60) / ema60 * 100 if ema60 > 0 else 0
+            is_high_vol = atr14 / close * 100 > 3.5 if close > 0 else False
+            if is_high_vol:
+                exit_text = (
+                    "🚀 飆股模式 (ATR/P > 3.5%)<br/>"
+                    f"EMA死叉差距: {ema_gap:.1f}%<br/>"
+                    "RSI 出場: 停用 (飆股 RSI 出場會砍主升段)<br/>"
+                    "持倉到 EMA 死叉為止"
+                )
+            else:
+                exit_text = (
+                    "🛡 穩健股模式 (ATR/P ≤ 3.5%)<br/>"
+                    f"EMA死叉差距: {ema_gap:.1f}%<br/>"
+                    f"RSI 出場: ADX<25 + RSI>75 (現 RSI {rsi:.1f})<br/>"
+                    "持到 EMA 死叉或停損觸發"
+                )
+            story.append(Paragraph(exit_text, body_st))
+            story.append(Spacer(1, 0.2*cm))
+
+            # 估值參考
+            if any(v is not None for v in [eps, per, pbr, div]):
+                story.append(Paragraph("💰 估值參考", h2_st))
+                val_text = []
+                if eps is not None: val_text.append(f"EPS(TTM): {eps:.2f}")
+                if per is not None:
+                    pe_tag = '虧損' if per <= 0 else (
+                        '便宜' if per < 20 else (
+                            '合理' if per <= 30 else (
+                                '偏高' if per <= 50 else '過熱')))
+                    val_text.append(f"PER: {per:.1f} ({pe_tag})")
+                if pbr is not None: val_text.append(f"PBR: {pbr:.2f}")
+                if div is not None: val_text.append(f"殖利率: {div:.2f}%")
+                story.append(Paragraph(" ｜ ".join(val_text), body_st))
+                story.append(Spacer(1, 0.2*cm))
+
+            # ⑤ 推薦策略
+            story.append(Paragraph("⑤ 推薦策略", h2_st))
+            try:
+                rec_label, _ = get_rec_label(d, ticker)
+            except Exception:
+                rec_label = '—'
+            story.append(Paragraph(f"<b>{rec_label}</b>", body_st))
+
+            # 完整指標表
+            story.append(Paragraph("📐 完整指標數值", h2_st))
+            ind_data = [
+                ['指標', '值', '指標', '值'],
+                ['EMA5', f'{ema5:.2f}' if ema5 else '—',
+                 'EMA20', f'{ema20:.2f}'],
+                ['EMA60', f'{ema60:.2f}',
+                 'EMA120', f'{ema120:.2f}' if ema120 else '—'],
+                ['SMA200', f'{sma200:.2f}' if sma200 else '—',
+                 'ATR 14', f'{atr14:.2f}'],
+                ['RSI 14', f'{rsi:.1f}',
+                 'ADX 14', f'{adx:.1f}'],
+                ['cross_days', f'{cd}',
+                 'ATR/Price%', f'{atr14/close*100:.2f}%' if close else '—'],
+            ]
+            ind_tbl = Table(ind_data, colWidths=[3*cm, 3*cm, 3*cm, 3*cm])
+            ind_tbl.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), CN_FONT),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7abadd')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+            ]))
+            story.append(ind_tbl)
+
+            story.append(Spacer(1, 0.3*cm))
+            story.append(Paragraph(
+                "⚠️ 本報告僅供參考，投資需自負風險。"
+                "詳細策略邏輯請見 INDICATORS.md / MANUAL.md",
+                small_st))
+            if idx < len(results):
+                story.append(PageBreak())
+        except Exception as _e:
+            story.append(Paragraph(
+                f"#{idx} {ticker} 產生失敗: {str(_e)[:80]}", small_st))
+            story.append(PageBreak())
+            continue
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 def build_stock_range_excel(ticker: str, market: str,
                              start_date: str, end_date: str) -> bytes:
     """產生單一股票指定時間範圍的 Excel 報告（每個交易日一列）"""
@@ -5476,7 +5763,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 77  # v9.10o：⭐ 最佳風格不再誤觸發「保守 vs 高風險」警告 2026-04-29
+_RESULTS_VERSION = 78  # v9.10p：PDF 完整指標報告（取代 Excel，支援中文 CID 字體）2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -6716,15 +7003,35 @@ for item in results:
 
 
 st.markdown("---")
-_, col2, _ = st.columns([1, 2, 1])
-with col2:
+# 🆕 v9.10p：底部下載按鈕 — PDF 為主、Excel 為備份
+_, col_pdf, col_xls, _ = st.columns([1, 2, 2, 1])
+with col_pdf:
+    try:
+        pdf_bytes = build_pdf(results)
+        pdf_filename = f"Stock001_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+        st.download_button(
+            label="📕  下載 PDF 完整報告",
+            data=pdf_bytes,
+            file_name=pdf_filename,
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+            help="包含每股完整指標 + 操作建議 + 估值參考"
+        )
+    except Exception as _e:
+        st.error(f"PDF 生成失敗：{str(_e)[:100]}")
+with col_xls:
     excel_bytes = build_excel(results)
-    filename = f"Indicators_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
-    st.download_button(label="📥  下載 Excel 報告", data=excel_bytes,
-        file_name=filename,
+    xls_filename = f"Indicators_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    st.download_button(
+        label="📊  Excel 表格（備份）",
+        data=excel_bytes,
+        file_name=xls_filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True)
-    st.markdown(
-        f'<div style="text-align:center;font-size:.7rem;color:#334455;margin-top:6px">'
-        f'{total} 支股票 · {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</div>',
-        unsafe_allow_html=True)
+        use_container_width=True
+    )
+st.markdown(
+    f'<div style="text-align:center;font-size:.7rem;color:#334455;margin-top:6px">'
+    f'{total} 支股票 · {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} · '
+    f'PDF 含每股 1 頁完整分析｜Excel 為原始指標表</div>',
+    unsafe_allow_html=True)
