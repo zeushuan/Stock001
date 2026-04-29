@@ -210,6 +210,16 @@ def update_tw():
     """更新台股 TOP 200 訊號"""
     print("🇹🇼 更新 TW TOP 200 訊號（雲端版）")
     print("=" * 60)
+    # 🆕 診斷資訊
+    import os as _os
+    print(f"  cwd = {_os.getcwd()}")
+    print(f"  __file__ = {__file__}")
+    for f in ['vwap_applicable.json', 'tw_stock_list.json', 'top200_signals.json']:
+        p = Path(f)
+        if p.exists():
+            print(f"  ✓ {f}: {p.stat().st_size} bytes")
+        else:
+            print(f"  ✗ {f}: NOT FOUND")
 
     # 讀 TOP 200 清單
     if not Path('vwap_applicable.json').exists():
@@ -283,6 +293,16 @@ def update_us():
     """更新美股 TOP 100 訊號"""
     print("\n🇺🇸 更新 US TOP 100 訊號（雲端版）")
     print("=" * 60)
+    # 🆕 診斷資訊
+    import os as _os
+    print(f"  cwd = {_os.getcwd()}")
+    print(f"  __file__ = {__file__}")
+    for f in ['us_applicable.json', 'us_top200_signals.json']:
+        p = Path(f)
+        if p.exists():
+            print(f"  ✓ {f}: {p.stat().st_size} bytes")
+        else:
+            print(f"  ✗ {f}: NOT FOUND")
 
     # 讀 TOP 清單（us_applicable.json）
     if not Path('us_applicable.json').exists():

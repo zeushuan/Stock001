@@ -4461,6 +4461,24 @@ def _is_cloud_env():
     return n < 100
 
 
+def _show_update_result_if_any():
+    """如有上次更新結果，顯示在頁面頂部（不會被 rerun 清掉）
+    在 panel 開頭呼叫"""
+    res = st.session_state.get('_last_update_result')
+    if not res: return
+    market, ok, msg, ts = res
+    flag = '🇹🇼' if market == 'tw' else '🇺🇸'
+    if ok:
+        st.success(f"✅ {flag} 更新完成（{ts}）— 訊號已刷新")
+    else:
+        st.error(f"❌ {flag} 更新失敗（{ts}）")
+    with st.expander("📋 完整 log（點擊展開）", expanded=not ok):
+        st.code(msg or "(無輸出)", language='text')
+    if st.button("✕ 清除此訊息", key=f"clr_update_msg_{market}"):
+        del st.session_state['_last_update_result']
+        st.rerun()
+
+
 def _trigger_update_signals(script_name, market='tw'):
     """跑 update，回傳 (ok, msg)
     🆕 v9.10d：雲端直接 import update_signals_cloud 模組呼叫（避開 subprocess 環境問題）
@@ -4513,6 +4531,8 @@ def _trigger_update_signals(script_name, market='tw'):
 
 
 def _render_top200_panel():
+    # 🆕 v9.10d：先顯示上次更新結果（如有）
+    _show_update_result_if_any()
     try:
         from pathlib import Path as _P
         import json as _json
@@ -4544,18 +4564,16 @@ def _render_top200_panel():
                              help=btn_help, use_container_width=True):
                     spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
                                   else "正在更新 TOP 200 訊號…（約 2-5 分鐘）"
+                    import datetime as _dt
                     with st.spinner(spinner_msg):
                         ok, msg = _trigger_update_signals(
                             'update_daily_signals.py', market='tw')
-                    if ok:
-                        st.success("✅ TW 更新完成")
-                        with st.expander("查看更新 log"):
-                            st.code(msg)
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error(f"❌ TW 更新失敗")
-                        st.code(msg)
+                    # 存到 session state 讓 rerun 後仍能看到結果
+                    st.session_state['_last_update_result'] = (
+                        'tw', ok, msg,
+                        _dt.datetime.now().strftime('%H:%M:%S'))
+                    st.cache_data.clear()
+                    st.rerun()
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -4748,18 +4766,15 @@ def _render_us_top_panel():
                              help=btn_help, use_container_width=True):
                     spinner_msg = "雲端 yfinance 抓取中…（~10 秒）" if is_cloud \
                                   else "正在更新 US 訊號…（約 3-8 分鐘）"
+                    import datetime as _dt
                     with st.spinner(spinner_msg):
                         ok, msg = _trigger_update_signals(
                             'update_us_signals.py', market='us')
-                    if ok:
-                        st.success("✅ US 更新完成")
-                        with st.expander("查看更新 log"):
-                            st.code(msg)
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error(f"❌ US 更新失敗")
-                        st.code(msg)
+                    st.session_state['_last_update_result'] = (
+                        'us', ok, msg,
+                        _dt.datetime.now().strftime('%H:%M:%S'))
+                    st.cache_data.clear()
+                    st.rerun()
 
         if not (_e_raw or _x_raw or _h_raw):
             return
