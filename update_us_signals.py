@@ -206,6 +206,21 @@ def main():
 
     # ─── Step 5: 計算今日訊號 ───────────────────────────
     print("\nStep 5: 計算今日 entry/exit/hold ...")
+    # 🆕 v9.10h：載入 US 公司名稱 map
+    us_name_map = {}
+    if Path('us_full_tickers.json').exists():
+        try:
+            full = json.load(open('us_full_tickers.json', encoding='utf-8'))
+            for x in full.get('detail', []):
+                sym = x.get('symbol', '')
+                nm = x.get('name', '')
+                for sep in [' - ', ' Common ', ' Class ', ' Ordinary ']:
+                    if sep in nm:
+                        nm = nm.split(sep)[0]
+                        break
+                if sym: us_name_map[sym] = nm[:40]
+        except Exception: pass
+
     entry, exit_, hold, wait = [], [], [], []
     last_dates = []
     for t in universe:
@@ -247,7 +262,7 @@ def main():
 
             row = {
                 'ticker': t,
-                'name': t,  # US 直接用代號
+                'name': us_name_map.get(t, t),  # 🆕 改用公司名稱
                 'close': round(d['close'], 2),
                 'rsi': round(rsi_v, 1) if rsi_v else None,
                 'ema20_cross_days': cd,

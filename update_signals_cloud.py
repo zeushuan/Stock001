@@ -313,6 +313,24 @@ def update_us():
                      if info.get('tier') == 'TOP'])
     print(f"  US TOP 清單: {len(us_top)} 檔")
 
+    # 🆕 v9.10h：載入 US 公司名稱 map（從 us_full_tickers.json 的 detail）
+    name_map = {}
+    if Path('us_full_tickers.json').exists():
+        try:
+            full = json.load(open('us_full_tickers.json', encoding='utf-8'))
+            for x in full.get('detail', []):
+                sym = x.get('symbol', '')
+                nm = x.get('name', '')
+                # 簡化名稱：取 " - " 或 " Common" 之前
+                for sep in [' - ', ' Common ', ' Class ', ' Ordinary ']:
+                    if sep in nm:
+                        nm = nm.split(sep)[0]
+                        break
+                if sym: name_map[sym] = nm[:40]  # 截斷至 40 字
+        except Exception as e:
+            print(f"  ⚠️ name_map 載入失敗: {e}")
+    print(f"  名稱 map: {len(name_map)} 檔")
+
     # yfinance 抓取
     print(f"\n📥 yfinance 抓取 {len(us_top)} 檔...")
     t0 = time.time()
@@ -320,7 +338,7 @@ def update_us():
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(us_top)}")
 
     # 處理（US 用 _classify_us）
-    entry, exit_, hold, wait, last_dates = _process(df_dict, _classify_us)
+    entry, exit_, hold, wait, last_dates = _process(df_dict, _classify_us, name_map)
 
     if not last_dates:
         print("❌ 處理失敗，保留現有 JSON")
