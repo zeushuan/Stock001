@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10c"
+APP_VERSION   = "v9.10d"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -4462,32 +4462,52 @@ def _is_cloud_env():
 
 
 def _trigger_update_signals(script_name, market='tw'):
-    """跑 update 腳本，回傳 True 表示成功
-    🆕 雲端用 update_signals_cloud.py（yfinance 即時抓取，不需 data_cache）
-    🇹🇼 / 🇺🇸 本機用各自完整腳本（含 backtest）"""
+    """跑 update，回傳 (ok, msg)
+    🆕 v9.10d：雲端直接 import update_signals_cloud 模組呼叫（避開 subprocess 環境問題）
+    🏠 本機跑完整 update_*_signals.py（含 backtest，subprocess）"""
+    from pathlib import Path as _P
+    import traceback as _tb
+    proj = _P(__file__).parent
+
+    # ☁️ 雲端 → 直接 in-process import 呼叫（最可靠）
+    if _is_cloud_env():
+        try:
+            # 動態 import（每次都 reload 確保最新）
+            import importlib, sys as _sys
+            spec_path = proj / 'update_signals_cloud.py'
+            if not spec_path.exists():
+                return False, "update_signals_cloud.py 不存在"
+            # 把 proj 加 sys.path 確保 import 到對的版本
+            if str(proj) not in _sys.path:
+                _sys.path.insert(0, str(proj))
+            if 'update_signals_cloud' in _sys.modules:
+                cloud = importlib.reload(_sys.modules['update_signals_cloud'])
+            else:
+                cloud = importlib.import_module('update_signals_cloud')
+            # 直接呼叫對應函式
+            import io as _io, contextlib as _ct
+            buf = _io.StringIO()
+            with _ct.redirect_stdout(buf), _ct.redirect_stderr(buf):
+                if market == 'tw':
+                    ok = cloud.update_tw()
+                elif market == 'us':
+                    ok = cloud.update_us()
+                else:
+                    return False, f"unknown market: {market}"
+            log = buf.getvalue()
+            return bool(ok), log[-1500:] if log else "(無輸出)"
+        except Exception as e:
+            err = f"Exception: {type(e).__name__}: {e}\n\n{_tb.format_exc()[-1000:]}"
+            return False, err
+
+    # 🏠 本機 → 跑完整 subprocess
     import subprocess as _sp
     import sys as _sys
-    from pathlib import Path as _P
-    proj = _P(__file__).parent
-    # 雲端 → 改用 cloud script + flag
-    if _is_cloud_env():
-        cloud_script = proj / 'update_signals_cloud.py'
-        if not cloud_script.exists():
-            return False, "update_signals_cloud.py 不存在"
-        flag = f'--{market}'
-        try:
-            result = _sp.run([_sys.executable, str(cloud_script), flag],
-                             cwd=str(proj), capture_output=True, text=True,
-                             timeout=300, encoding='utf-8', errors='replace')
-            return result.returncode == 0, result.stdout[-500:] + result.stderr[-500:]
-        except Exception as e:
-            return False, str(e)
-    # 本機 → 跑完整 update（含 backtest）
     try:
         result = _sp.run([_sys.executable, str(proj / script_name)],
                          cwd=str(proj), capture_output=True, text=True,
                          timeout=600, encoding='utf-8', errors='replace')
-        return result.returncode == 0, result.stdout[-500:] + result.stderr[-500:]
+        return result.returncode == 0, result.stdout[-1000:] + result.stderr[-500:]
     except Exception as e:
         return False, str(e)
 
@@ -4528,11 +4548,14 @@ def _render_top200_panel():
                         ok, msg = _trigger_update_signals(
                             'update_daily_signals.py', market='tw')
                     if ok:
-                        st.success("✅ 更新完成")
+                        st.success("✅ TW 更新完成")
+                        with st.expander("查看更新 log"):
+                            st.code(msg)
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error(f"❌ 更新失敗：{msg}")
+                        st.error(f"❌ TW 更新失敗")
+                        st.code(msg)
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -4729,11 +4752,14 @@ def _render_us_top_panel():
                         ok, msg = _trigger_update_signals(
                             'update_us_signals.py', market='us')
                     if ok:
-                        st.success("✅ 更新完成")
+                        st.success("✅ US 更新完成")
+                        with st.expander("查看更新 log"):
+                            st.code(msg)
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error(f"❌ 失敗：{msg}")
+                        st.error(f"❌ US 更新失敗")
+                        st.code(msg)
 
         if not (_e_raw or _x_raw or _h_raw):
             return
@@ -5226,7 +5252,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 66  # v9.10c：雲端可自更新（yfinance 即時抓取）2026-04-29
+_RESULTS_VERSION = 67  # v9.10d：雲端 in-process 呼叫（避開 subprocess 容器限制）+ log 顯示 2026-04-29
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
