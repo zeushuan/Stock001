@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10t"
+APP_VERSION   = "v9.10u"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -365,6 +365,93 @@ def _load_per_stock_wf() -> dict:
         return d.get('all_results', {})
     except Exception:
         return {}
+
+
+# ── 🆕 v9.10u：5 大發現整合 ────────────────────────────────────
+@st.cache_data(ttl=86400, show_spinner=False)
+def _load_clusters() -> dict:
+    """載入 clusters.json — ticker → cluster_id 對應 + cluster 主題"""
+    from pathlib import Path as _P
+    import json as _json
+    p = _P(__file__).parent / 'clusters.json'
+    if not p.exists(): return {}
+    try:
+        d = _json.loads(p.read_text(encoding='utf-8'))
+        ticker_to_cid = {}
+        cluster_themes = {
+            0: ('ABF 載板群', '#ff6dc8'),
+            1: ('大型主流群', '#7abadd'),
+            2: ('航運四雄群', '#3dbb6a'),
+            3: ('PCB 老牌群', '#c8b87a'),
+            4: ('記憶體群', '#9d6dff'),
+            5: ('AI 概念群', '#ffd700'),
+        }
+        for cid_str, info in d.get('clusters', {}).items():
+            cid = int(cid_str)
+            for t in info.get('members', []):
+                ticker_to_cid[t] = cid
+        return {'ticker_to_cid': ticker_to_cid, 'themes': cluster_themes}
+    except Exception:
+        return {}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _get_sector_ranking_recent() -> list:
+    """過去 1 個月各產業平均報酬排名（用 vwap_applicable 中的個股月報酬）
+    回傳 [(sector, monthly_return%, n_stocks), ...] 由強到弱排序"""
+    from pathlib import Path as _P
+    import json as _json
+    # 讀行業
+    industry_map = {}
+    p = _P(__file__).parent / 'tw_universe.txt'
+    if not p.exists(): return []
+    for line in p.read_text(encoding='utf-8').splitlines():
+        if not line or line.startswith('#'): continue
+        parts = line.split('|')
+        if len(parts) >= 5 and parts[4]:
+            industry_map[parts[0].strip()] = parts[4].strip()
+
+    # 用 yfinance 抓近 30 日資料（避免依賴 data_cache）
+    sectors = {}
+    for tk, ind in industry_map.items():
+        sectors.setdefault(ind, []).append(tk)
+
+    # 只跑流動性夠的（取 vwap_applicable）
+    vwap_path = _P(__file__).parent / 'vwap_applicable.json'
+    top_set = set()
+    if vwap_path.exists():
+        try:
+            vp = _json.loads(vwap_path.read_text(encoding='utf-8'))
+            top_set = set(t for t, info in vp.items()
+                          if info.get('tier') in ('TOP', 'OK'))
+        except: pass
+
+    # 對每產業計算月報酬 (用 yfinance batch)
+    out = []
+    for sec, members in sectors.items():
+        members = [t for t in members if t in top_set][:20]  # 每產業最多 20 檔
+        if len(members) < 5: continue
+        rets = []
+        try:
+            yf_tk = [f'{t}.TW' for t in members]
+            df = yf.download(yf_tk, period='1mo', interval='1d',
+                             progress=False, group_by='ticker', threads=True,
+                             auto_adjust=False)
+            if df is None or df.empty: continue
+            for t in yf_tk:
+                try:
+                    sub = df[t] if len(yf_tk) > 1 else df
+                    sub = sub.dropna(how='all')
+                    if len(sub) < 15: continue
+                    ret = (sub['Close'].iloc[-1] - sub['Close'].iloc[0]) / sub['Close'].iloc[0] * 100
+                    rets.append(ret)
+                except: continue
+        except Exception:
+            continue
+        if rets:
+            out.append((sec, float(np.mean(rets)), len(rets)))
+    out.sort(key=lambda x: -x[1])
+    return out
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -2703,6 +2790,25 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _wf = _load_per_stock_wf()
             _t_impact = _impact.get('per_ticker', {}).get(ticker, {}) if _impact else {}
             _t_wf = _wf.get(ticker, {}) if _wf else {}
+
+            # 🆕 v9.10u：個股所屬 Cluster 群組標籤
+            _clu_data = _load_clusters()
+            if _clu_data:
+                _cid = _clu_data.get('ticker_to_cid', {}).get(ticker)
+                if _cid is not None:
+                    _theme = _clu_data.get('themes', {}).get(_cid)
+                    if _theme:
+                        _theme_name, _theme_color = _theme
+                        us_alert_html += (
+                            f'<div style="background:#0d1825;border-left:3px solid '
+                            f'{_theme_color};padding:5px 10px;margin:4px 0;'
+                            f'border-radius:3px;font-size:.78rem">'
+                            f'<span style="color:{_theme_color};font-weight:700">'
+                            f'🎯 群組標籤：{_theme_name}</span>'
+                            f' <span style="color:#7a8899">'
+                            f'（K-means cluster {_cid} / 行為相近主題）</span>'
+                            f'</div>'
+                        )
 
             if _us_data:
                 # 計算預估今日跳空（依 SOX β）
@@ -5660,6 +5766,52 @@ def _render_us_top_panel():
 _render_us_top_panel()
 
 
+# 🆕 v9.10u：產業輪動 Top 5 panel
+def _render_sector_rotation_panel():
+    """顯示過去 1 個月最強 5 個產業（動量延續策略：上月強下月繼續強）"""
+    try:
+        rankings = _get_sector_ranking_recent()
+        if not rankings:
+            return
+        top5 = rankings[:5]
+        bot3 = rankings[-3:]
+        st.markdown(
+            f'<div style="background:#0a1628;border:1px solid #ffd70055;'
+            f'border-radius:10px;padding:10px 14px;margin:8px 0">'
+            f'<div style="display:flex;gap:14px;align-items:center;'
+            f'justify-content:space-between;flex-wrap:wrap;margin-bottom:8px">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#ffd700">'
+            f'🎯 產業輪動 Top 5（動量延續策略）</div>'
+            f'<div style="color:#7a8899;font-size:.72rem">'
+            f'過去 1 月平均月報酬｜回測 6 年總 +400%（vs 等權 +138%）/ Sharpe 1.24</div>'
+            f'</div>'
+            f'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+            + ''.join([
+                f'<div style="background:#1a2030;border:1px solid {("#3dbb6a" if r > 0 else "#ff5555")}55;'
+                f'border-radius:6px;padding:6px 10px;flex:1;min-width:150px">'
+                f'<div style="color:#ffd700;font-weight:700;font-size:.85rem">'
+                f'#{i+1} {sec}</div>'
+                f'<div style="color:{("#3dbb6a" if r > 0 else "#ff5555")};font-size:1.1rem;font-weight:700">'
+                f'{r:+.2f}%</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">{n} 檔平均</div>'
+                f'</div>'
+                for i, (sec, r, n) in enumerate(top5)
+            ])
+            + f'</div>'
+            f'<div style="margin-top:8px;font-size:.7rem;color:#7a8899">'
+            f'⚠️ 弱勢產業（避開）: '
+            + ' ｜ '.join([f'{sec} {r:+.2f}%' for sec, r, n in bot3]) +
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    except Exception:
+        pass
+
+
+_render_sector_rotation_panel()
+
+
 # 🆕 市場廣度警報（D 路徑）
 _breadth = _get_market_breadth()
 if _breadth.get('has_data'):
@@ -6077,7 +6229,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 82  # v9.10t：個股 detail 加美股盤後預警 + 美股連動度 + 衰減/walk-forward 研究 2026-04-30
+_RESULTS_VERSION = 83  # v9.10u：5 大發現整合 — 產業輪動 Top 5 + Cluster 群組 + GitHub Actions 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
