@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10v"
+APP_VERSION   = "v9.10w"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2781,8 +2781,63 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                       and rsi_prev2 is not None and rsi_prev > rsi_prev2)
     _t4_rising = (not is_bull) and _t4_rsi_oversold and _t4_rsi_rising
 
+    # ── 🆕 v9.10w：K 線型態強空頭警報（僅在多頭高位觸發）────────
+    bear_alert_html = ""
+    _kline_patterns = d.get('kline_patterns', []) or []
+    # 找最近 1-2 天內出現的型態
+    _recent_patterns = {p.get('name'): p for p in _kline_patterns
+                         if p.get('days_ago', 99) <= 1}
+    # 條件：多頭 + 高位（距 60d 高 < 10%）
+    _drawdown = d.get('drawdown_pct', 100) or 100
+    _at_top = _drawdown < 10
+    if is_bull and _at_top:
+        # 強空頭警報 1: 空頭吞噬 + RSI≥75 + ADX 下降
+        adx_prev = d.get('adx_prev')
+        adx_falling = (adx is not None and adx_prev is not None and adx < adx_prev)
+        if 'BEAR_ENGULF' in _recent_patterns and rsi is not None and rsi >= 75 and adx_falling:
+            bear_alert_html = (
+                f'<div style="background:#2a0a0a;border:2px solid #ff5555;'
+                f'padding:8px 12px;margin:6px 0;border-radius:6px">'
+                f'<div style="color:#ff5555;font-weight:700;font-size:.9rem">'
+                f'🚨 強空頭警報 ★★★ — 三重條件達成</div>'
+                f'<div style="color:#ff9090;font-size:.78rem;margin-top:3px">'
+                f'• 空頭吞噬 ({_recent_patterns["BEAR_ENGULF"].get("days_ago", 0)} 天前)<br/>'
+                f'• RSI {rsi:.1f} ≥ 75（極度過熱）<br/>'
+                f'• ADX 下降中（趨勢轉弱）<br/>'
+                f'<b>實證：n=30 / 跌機率 60% / 30天均報 -0.24%</b>'
+                f'</div></div>'
+            )
+        # 強空頭警報 2: 三隻烏鴉 + 距 60d 高 < 5% + 量縮
+        vol = d.get('volume') or 0
+        vol_ma20 = d.get('vol_ma20') or 0
+        vol_dry = (vol_ma20 > 0 and vol / vol_ma20 < 0.7)
+        if ('THREE_CROWS' in _recent_patterns and _drawdown < 5 and vol_dry):
+            bear_alert_html = (
+                f'<div style="background:#2a0a0a;border:2px solid #ff3333;'
+                f'padding:8px 12px;margin:6px 0;border-radius:6px">'
+                f'<div style="color:#ff3333;font-weight:700;font-size:.9rem">'
+                f'🚨🚨 極強空頭警報 ★★★★ — 三隻烏鴉 + 高位量縮</div>'
+                f'<div style="color:#ff9090;font-size:.78rem;margin-top:3px">'
+                f'• 三隻烏鴉 ({_recent_patterns["THREE_CROWS"].get("days_ago", 0)} 天前)<br/>'
+                f'• 距 60d 高僅 {_drawdown:.1f}%（極高位）<br/>'
+                f'• 量縮（vol/MA20 = {vol/vol_ma20:.2f}）<br/>'
+                f'<b>實證：n=7 / 跌機率 71% / 30天均報 -1.26%</b>'
+                f'</div></div>'
+            )
+        # 中度警報: 黃昏之星 + RSI≥75
+        elif 'EVENING_STAR' in _recent_patterns and rsi is not None and rsi >= 75:
+            bear_alert_html = (
+                f'<div style="background:#1a1208;border:1px solid #e8a020;'
+                f'padding:6px 10px;margin:5px 0;border-radius:4px">'
+                f'<div style="color:#e8a020;font-weight:700;font-size:.85rem">'
+                f'⚠️ 中度空頭警報 ★★ — 黃昏之星 + 過熱</div>'
+                f'<div style="color:#e8c878;font-size:.75rem;margin-top:2px">'
+                f'黃昏之星 + RSI {rsi:.1f} ≥ 75 ｜ 實證 n=10 / 跌機率 70%'
+                f'</div></div>'
+            )
+
     # ── 🆕 v9.10t：美股盤後預警 + 美股連動度（僅 TW 個股）────────
-    us_alert_html = ""
+    us_alert_html = bear_alert_html  # 把空頭警報先放進來
     if not (_is_us or _is_crypto):
         try:
             _us_data = _get_us_overnight()
@@ -6251,7 +6306,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 84  # v9.10v：產業輪動加 Bottom 5 + 頂部反轉型態實證（顛覆教科書）2026-04-30
+_RESULTS_VERSION = 85  # v9.10w：K 線強空頭警報實作 + 底部反轉型態實證 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
