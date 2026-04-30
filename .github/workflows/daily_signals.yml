@@ -53,47 +53,108 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      # 🆕 C：Discord webhook 通知（只在有 ★★★★★ 強警報時推）
-      - name: Notify Discord on Strong Alerts
-        if: steps.commit.outputs.changed == 'true' && env.DISCORD_WEBHOOK != ''
+      # 🆕 C：多平台強警報通知（Discord / Telegram / LINE Bot）
+      # 用戶設哪個 secret 就推哪個（可同時設多個）
+      - name: Notify Strong Alerts (Multi-channel)
+        if: steps.commit.outputs.changed == 'true'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
           python <<'EOF'
           import json, os, urllib.request
-          urls = ['top200_signals.json', 'us_top200_signals.json']
+
+          # 收集強警報
           msgs = []
-          for f in urls:
+          for f in ['top200_signals.json', 'us_top200_signals.json']:
               try:
                   with open(f, encoding='utf-8') as fp:
                       d = json.load(fp)
                   alerts = d.get('alerts', [])
                   strong = [a for a in alerts if a.get('level') in (5, 4)]
                   if strong:
-                      market = '🇹🇼' if 'top200' in f and 'us' not in f else '🇺🇸'
-                      lines = [f"**{market} {len(strong)} 檔強警報**"]
+                      market = '🇹🇼' if ('us' not in f) else '🇺🇸'
+                      lines = [f"{market} {len(strong)} 檔強警報"]
                       for a in strong[:8]:
-                          star = '★' * (a.get('level') if isinstance(a.get('level'), int) else 4)
+                          lv = a.get('level')
+                          star = '★' * (lv if isinstance(lv, int) else 4)
                           side = '🚀' if a.get('side') == 'bull' else '🚨'
-                          lines.append(f"  {side} {star} {a['ticker']} {a.get('name','')[:10]} — {a['tag']}")
+                          lines.append(f"  {side} {star} {a['ticker']} "
+                                       f"{a.get('name','')[:10]} — {a['tag']}")
                       msgs.append('\n'.join(lines))
               except Exception as e:
                   print(f'parse {f} fail: {e}')
+
           if not msgs:
               print('No strong alerts to notify')
-          else:
-              url = os.environ.get('DISCORD_WEBHOOK', '')
-              if not url:
-                  print('DISCORD_WEBHOOK not set, skip')
-              else:
-                  body = json.dumps({
-                      'content': '\n\n'.join(msgs),
-                      'username': 'Stock001 警報',
-                  }).encode('utf-8')
+              exit(0)
+
+          full_msg = '\n\n'.join(msgs)
+          print(f'Strong alerts:\n{full_msg}')
+
+          # 1) Discord
+          url = os.environ.get('DISCORD_WEBHOOK', '')
+          if url:
+              try:
+                  body = json.dumps({'content': full_msg,
+                                      'username': 'Stock001 警報'}).encode('utf-8')
                   req = urllib.request.Request(url, data=body,
                       headers={'Content-Type': 'application/json'})
                   with urllib.request.urlopen(req, timeout=20) as r:
-                      print(f'Discord webhook status: {r.status}')
+                      print(f'✅ Discord: {r.status}')
+              except Exception as e:
+                  print(f'❌ Discord fail: {e}')
+          else:
+              print('Discord not set')
+
+          # 2) Telegram Bot
+          tg_token = os.environ.get('TELEGRAM_TOKEN', '')
+          tg_chat = os.environ.get('TELEGRAM_CHAT_ID', '')
+          if tg_token and tg_chat:
+              try:
+                  tg_url = f'https://api.telegram.org/bot{tg_token}/sendMessage'
+                  body = json.dumps({
+                      'chat_id': tg_chat,
+                      'text': full_msg,
+                      'parse_mode': 'HTML',
+                  }).encode('utf-8')
+                  req = urllib.request.Request(tg_url, data=body,
+                      headers={'Content-Type': 'application/json'})
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      print(f'✅ Telegram: {r.status}')
+              except Exception as e:
+                  print(f'❌ Telegram fail: {e}')
+          else:
+              print('Telegram not set')
+
+          # 3) LINE Bot Messaging API
+          line_token = os.environ.get('LINE_CHANNEL_TOKEN', '')
+          line_user = os.environ.get('LINE_USER_ID', '')
+          if line_token and line_user:
+              try:
+                  line_url = 'https://api.line.me/v2/bot/message/push'
+                  # LINE 一則訊息 5000 字限制，分段發送
+                  body = json.dumps({
+                      'to': line_user,
+                      'messages': [{
+                          'type': 'text',
+                          'text': full_msg[:4900],
+                      }],
+                  }).encode('utf-8')
+                  req = urllib.request.Request(line_url, data=body,
+                      headers={
+                          'Content-Type': 'application/json',
+                          'Authorization': f'Bearer {line_token}',
+                      })
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      print(f'✅ LINE Bot: {r.status}')
+              except Exception as e:
+                  print(f'❌ LINE Bot fail: {e}')
+          else:
+              print('LINE Bot not set')
           EOF
         continue-on-error: true
 
