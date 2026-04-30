@@ -32,11 +32,13 @@ jobs:
           pip install yfinance pandas numpy ta openpyxl twstock requests
 
       - name: Update TW + US signals (cloud script)
+        id: update
         run: |
-          python update_signals_cloud.py
+          python update_signals_cloud.py 2>&1 | tee /tmp/update.log
         continue-on-error: true
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -45,6 +47,60 @@ jobs:
             git commit -m "auto: 自動更新 TW + US TOP 200 訊號 ($(date +%Y-%m-%d))"
             git push
             echo "✅ Signals updated"
+            echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ No changes to commit"
+            echo "changed=false" >> $GITHUB_OUTPUT
           fi
+
+      # 🆕 C：Discord webhook 通知（只在有 ★★★★★ 強警報時推）
+      - name: Notify Discord on Strong Alerts
+        if: steps.commit.outputs.changed == 'true' && env.DISCORD_WEBHOOK != ''
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python <<'EOF'
+          import json, os, urllib.request
+          urls = ['top200_signals.json', 'us_top200_signals.json']
+          msgs = []
+          for f in urls:
+              try:
+                  with open(f, encoding='utf-8') as fp:
+                      d = json.load(fp)
+                  alerts = d.get('alerts', [])
+                  strong = [a for a in alerts if a.get('level') in (5, 4)]
+                  if strong:
+                      market = '🇹🇼' if 'top200' in f and 'us' not in f else '🇺🇸'
+                      lines = [f"**{market} {len(strong)} 檔強警報**"]
+                      for a in strong[:8]:
+                          star = '★' * (a.get('level') if isinstance(a.get('level'), int) else 4)
+                          side = '🚀' if a.get('side') == 'bull' else '🚨'
+                          lines.append(f"  {side} {star} {a['ticker']} {a.get('name','')[:10]} — {a['tag']}")
+                      msgs.append('\n'.join(lines))
+              except Exception as e:
+                  print(f'parse {f} fail: {e}')
+          if not msgs:
+              print('No strong alerts to notify')
+          else:
+              url = os.environ.get('DISCORD_WEBHOOK', '')
+              if not url:
+                  print('DISCORD_WEBHOOK not set, skip')
+              else:
+                  body = json.dumps({
+                      'content': '\n\n'.join(msgs),
+                      'username': 'Stock001 警報',
+                  }).encode('utf-8')
+                  req = urllib.request.Request(url, data=body,
+                      headers={'Content-Type': 'application/json'})
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      print(f'Discord webhook status: {r.status}')
+          EOF
+        continue-on-error: true
+
+      # 🆕 B：失敗通知（GitHub 內建會 email repo owner，這裡額外印日誌）
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "::error::❌ Daily Signals Update FAILED"
+          echo "::error::請去 https://github.com/${{ github.repository }}/actions 查看 log"
+          tail -100 /tmp/update.log 2>/dev/null || echo "(no log)"

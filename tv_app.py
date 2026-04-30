@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10y"
+APP_VERSION   = "v9.10z"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -5705,6 +5705,83 @@ def _render_top200_panel():
 
 # 🆕 v9.10e：在所有 panel 之前統一顯示更新結果（只呼叫一次避免 duplicate key）
 _show_update_result_if_any()
+
+
+# 🆕 v9.10z：上次更新時間橫幅（讓用戶清楚資料新鮮度）
+def _render_update_status_bar():
+    """顯示 alerts JSON 的時間戳，讓用戶確認資料新鮮度"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        import datetime as _dt
+        proj = _P(__file__).parent
+        rows = []
+        for fname, label, emoji in [
+            ('top200_signals.json', 'TW TOP 200', '🇹🇼'),
+            ('us_top200_signals.json', 'US TOP 100', '🇺🇸'),
+        ]:
+            p = proj / fname
+            if not p.exists(): continue
+            try:
+                d = _json.loads(p.read_text(encoding='utf-8'))
+            except: continue
+            updated = d.get('updated_at', '?')
+            computed = d.get('computed_at', '')
+            n_alerts = len(d.get('alerts', []))
+            n_entry = len(d.get('entry', []))
+            source = d.get('source', '?')
+            # 計算過期天數
+            try:
+                dt = _dt.datetime.strptime(updated[:10], '%Y-%m-%d')
+                age = (_dt.datetime.now() - dt).total_seconds() / 86400
+                age_str = (f'<span style="color:#3dbb6a">{age:.1f}d 前</span>'
+                           if age < 1.5 else
+                           f'<span style="color:#e8a020">⚠️ {age:.1f}d 前</span>'
+                           if age < 3 else
+                           f'<span style="color:#ff5555">🚨 {age:.1f}d 前過期</span>')
+            except:
+                age_str = '<span style="color:#7a8899">unknown</span>'
+            rows.append({
+                'emoji': emoji, 'label': label,
+                'updated': updated, 'computed': computed,
+                'n_alerts': n_alerts, 'n_entry': n_entry,
+                'age_str': age_str, 'source': source,
+            })
+        if not rows: return
+
+        cells = []
+        for r in rows:
+            cells.append(
+                f'<div style="flex:1;min-width:220px;padding:6px 10px;'
+                f'background:#0a1628;border-radius:6px;'
+                f'border:1px solid #5a8ab055">'
+                f'<div style="display:flex;gap:8px;align-items:center">'
+                f'<span style="font-size:1rem">{r["emoji"]}</span>'
+                f'<span style="color:#7abadd;font-weight:700;font-size:.82rem">'
+                f'{r["label"]}</span>'
+                f'<span style="color:#7a8899;font-size:.7rem">資料 {r["updated"]}</span>'
+                f'<span style="font-size:.7rem;margin-left:auto">{r["age_str"]}</span>'
+                f'</div>'
+                f'<div style="color:#a8cce8;font-size:.72rem;margin-top:2px">'
+                f'進場 <b>{r["n_entry"]}</b>檔｜警報 <b>{r["n_alerts"]}</b>檔｜'
+                f'計算 {r["computed"][-8:] if r["computed"] else "?"}'
+                f'</div>'
+                f'</div>'
+            )
+        st.markdown(
+            f'<div style="display:flex;gap:8px;margin:6px 0;flex-wrap:wrap">'
+            + ''.join(cells) +
+            f'</div>'
+            f'<div style="text-align:right;color:#5a7a90;font-size:.65rem;'
+            f'margin-top:-2px">⏰ 自動更新: 台股收盤後 13:30 / 美股盤後 06:00 (台北)'
+            f'｜手動觸發: 各 panel 內按「🔄 更新」按鈕</div>',
+            unsafe_allow_html=True
+        )
+    except Exception:
+        pass
+
+
+_render_update_status_bar()
 _render_top200_panel()
 
 
@@ -6494,7 +6571,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 87  # v9.10y：警報中 panel + 即將觸發（差 1 步條件預警）2026-04-30
+_RESULTS_VERSION = 88  # v9.10z：上次更新時間橫幅 + GitHub Actions 失敗通知 + Discord webhook 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
