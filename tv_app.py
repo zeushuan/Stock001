@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10u"
+APP_VERSION   = "v9.10v"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -5766,22 +5766,23 @@ def _render_us_top_panel():
 _render_us_top_panel()
 
 
-# 🆕 v9.10u：產業輪動 Top 5 panel
+# 🆕 v9.10u：產業輪動 Top 5 / Bottom 5 panel
 def _render_sector_rotation_panel():
-    """顯示過去 1 個月最強 5 個產業（動量延續策略：上月強下月繼續強）"""
+    """顯示過去 1 個月最強 5 + 最弱 5 個產業（動量延續策略）"""
     try:
         rankings = _get_sector_ranking_recent()
         if not rankings:
             return
         top5 = rankings[:5]
-        bot3 = rankings[-3:]
+        bot5 = rankings[-5:][::-1]  # 由最弱開始顯示
+        # Top 5 panel
         st.markdown(
             f'<div style="background:#0a1628;border:1px solid #ffd70055;'
             f'border-radius:10px;padding:10px 14px;margin:8px 0">'
             f'<div style="display:flex;gap:14px;align-items:center;'
             f'justify-content:space-between;flex-wrap:wrap;margin-bottom:8px">'
             f'<div style="font-size:1.05rem;font-weight:700;color:#ffd700">'
-            f'🎯 產業輪動 Top 5（動量延續策略）</div>'
+            f'🎯 產業輪動 Top 5 強勢（動量延續策略）</div>'
             f'<div style="color:#7a8899;font-size:.72rem">'
             f'過去 1 月平均月報酬｜回測 6 年總 +400%（vs 等權 +138%）/ Sharpe 1.24</div>'
             f'</div>'
@@ -5797,12 +5798,33 @@ def _render_sector_rotation_panel():
                 f'</div>'
                 for i, (sec, r, n) in enumerate(top5)
             ])
-            + f'</div>'
-            f'<div style="margin-top:8px;font-size:.7rem;color:#7a8899">'
-            f'⚠️ 弱勢產業（避開）: '
-            + ' ｜ '.join([f'{sec} {r:+.2f}%' for sec, r, n in bot3]) +
+            + f'</div></div>',
+            unsafe_allow_html=True
+        )
+        # 🆕 v9.10v：Bottom 5 弱勢產業 panel
+        st.markdown(
+            f'<div style="background:#1a0a0a;border:1px solid #ff555555;'
+            f'border-radius:10px;padding:10px 14px;margin:8px 0">'
+            f'<div style="display:flex;gap:14px;align-items:center;'
+            f'justify-content:space-between;flex-wrap:wrap;margin-bottom:8px">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#ff7755">'
+            f'⚠️ 產業輪動 Bottom 5 弱勢（避開或反指標）</div>'
+            f'<div style="color:#7a8899;font-size:.72rem">'
+            f'過去 1 月最弱｜動量延續策略避開這些產業</div>'
             f'</div>'
-            f'</div>',
+            f'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+            + ''.join([
+                f'<div style="background:#1a1010;border:1px solid {("#3dbb6a" if r > 0 else "#ff5555")}55;'
+                f'border-radius:6px;padding:6px 10px;flex:1;min-width:150px">'
+                f'<div style="color:#ff7755;font-weight:700;font-size:.85rem">'
+                f'弱 {i+1} {sec}</div>'
+                f'<div style="color:{("#3dbb6a" if r > 0 else "#ff5555")};font-size:1.1rem;font-weight:700">'
+                f'{r:+.2f}%</div>'
+                f'<div style="color:#7a8899;font-size:.7rem">{n} 檔平均</div>'
+                f'</div>'
+                for i, (sec, r, n) in enumerate(bot5)
+            ])
+            + f'</div></div>',
             unsafe_allow_html=True
         )
     except Exception:
@@ -6229,7 +6251,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 83  # v9.10u：5 大發現整合 — 產業輪動 Top 5 + Cluster 群組 + GitHub Actions 2026-04-30
+_RESULTS_VERSION = 84  # v9.10v：產業輪動加 Bottom 5 + 頂部反轉型態實證（顛覆教科書）2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
