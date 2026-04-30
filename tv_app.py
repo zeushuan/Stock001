@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10x"
+APP_VERSION   = "v9.10y"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -5946,6 +5946,137 @@ def _render_sector_rotation_panel():
 _render_sector_rotation_panel()
 
 
+# 🆕 v9.10y：警報中 panel（強訊號 + 即將觸發）
+def _render_alerts_panel():
+    """從 top200_signals.json + us_top200_signals.json 讀 alerts 列表並顯示"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        all_alerts = []
+        for fname, market_tag in [
+            ('top200_signals.json', '🇹🇼'),
+            ('us_top200_signals.json', '🇺🇸'),
+        ]:
+            p = _P(__file__).parent / fname
+            if not p.exists(): continue
+            d = _json.loads(p.read_text(encoding='utf-8'))
+            for a in d.get('alerts', []):
+                a = {**a, 'market': market_tag}
+                all_alerts.append(a)
+        if not all_alerts:
+            return
+
+        bull5 = [a for a in all_alerts if a.get('level') == 5]
+        bull4 = [a for a in all_alerts if a.get('level') == 4 and a.get('side') == 'bull']
+        bull3 = [a for a in all_alerts if a.get('level') == 3 and a.get('side') == 'bull']
+        bear4 = [a for a in all_alerts if a.get('level') == 4 and a.get('side') == 'bear']
+        bear3 = [a for a in all_alerts if a.get('level') == 3 and a.get('side') == 'bear']
+        bear2 = [a for a in all_alerts if a.get('level') == 2 and a.get('side') == 'bear']
+        imm_bull = [a for a in all_alerts if a.get('level') == 'imm_bull']
+        imm_bear = [a for a in all_alerts if a.get('level') == 'imm_bear']
+
+        total_strong = len(bull5) + len(bull4) + len(bull3) + len(bear4) + len(bear3) + len(bear2)
+        total_imm = len(imm_bull) + len(imm_bear)
+        if total_strong == 0 and total_imm == 0:
+            return
+
+        st.markdown(
+            f'<div style="background:#1a0f1f;border:2px solid #ffd70066;'
+            f'border-radius:10px;padding:10px 14px;margin:8px 0">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#ffd700;'
+            f'margin-bottom:6px">'
+            f'🚨 警報中 — 強訊號 {total_strong} 檔｜即將觸發 {total_imm} 檔'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+
+        def _row_html(a):
+            color = '#3dbb6a' if a.get('side') == 'bull' else '#ff5555'
+            stars = ''
+            lv = a.get('level')
+            if lv == 5: stars = '★★★★★'
+            elif lv == 4: stars = '★★★★'
+            elif lv == 3: stars = '★★★'
+            elif lv == 2: stars = '★★'
+            else: stars = '⏰'
+            close_v = a.get('close', 0) or 0
+            return (
+                f'<div style="display:flex;gap:8px;align-items:center;'
+                f'padding:4px 8px;border-bottom:1px solid #2a1830;font-size:.78rem">'
+                f'<span style="font-weight:700;font-family:monospace;'
+                f'min-width:60px;color:{color}">{a.get("market", "")} {a.get("ticker", "?")}</span>'
+                f'<span style="color:#a8cce8;flex:1;overflow:hidden;'
+                f'text-overflow:ellipsis;max-width:140px">{a.get("name", "")[:14]}</span>'
+                f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{close_v:.2f}</span>'
+                f'<span style="color:#ffd700;font-family:monospace;min-width:60px">{stars}</span>'
+                f'<span style="color:{color};flex:1.5;font-size:.72rem">{a.get("tag", "")}</span>'
+                f'<span style="color:#7a8899;font-size:.7rem;flex:1">{a.get("expect", "")}</span>'
+                f'</div>'
+            )
+
+        cols = st.columns(2)
+        strong_groups = [
+            ('🚀🚀 強看多 ★★★★★', bull5, '#3dbb6a'),
+            ('🚀 強看多 ★★★★', bull4, '#3dbb6a'),
+            ('⚡ 中強看多 ★★★', bull3, '#7abadd'),
+            ('🚨🚨 強看空 ★★★★', bear4, '#ff5555'),
+            ('🚨 強看空 ★★★', bear3, '#ff5555'),
+            ('⚠️ 中度看空 ★★', bear2, '#e8a020'),
+        ]
+        with cols[0]:
+            st.markdown(
+                f'<div style="font-weight:700;color:#ffd700;margin-bottom:4px;'
+                f'font-size:.9rem">🎯 強警報觸發中</div>',
+                unsafe_allow_html=True)
+            has_strong = False
+            for label, items, color in strong_groups:
+                if not items: continue
+                has_strong = True
+                st.markdown(
+                    f'<div style="color:{color};font-size:.8rem;font-weight:700;'
+                    f'margin-top:6px">{label} ({len(items)})</div>'
+                    + ''.join(_row_html(a) for a in items[:8]),
+                    unsafe_allow_html=True
+                )
+            if not has_strong:
+                st.markdown(
+                    f'<div style="color:#7a8899;font-size:.78rem;'
+                    f'padding:10px">— 暫無強警報 —</div>',
+                    unsafe_allow_html=True
+                )
+
+        with cols[1]:
+            st.markdown(
+                f'<div style="font-weight:700;color:#e8a020;margin-bottom:4px;'
+                f'font-size:.9rem">⏰ 即將觸發（離條件 1 步）</div>',
+                unsafe_allow_html=True)
+            if imm_bull:
+                st.markdown(
+                    f'<div style="color:#3dbb6a;font-size:.8rem;font-weight:700;'
+                    f'margin-top:6px">🌱 即將看多 ({len(imm_bull)})</div>'
+                    + ''.join(_row_html(a) for a in imm_bull[:10]),
+                    unsafe_allow_html=True
+                )
+            if imm_bear:
+                st.markdown(
+                    f'<div style="color:#ff7755;font-size:.8rem;font-weight:700;'
+                    f'margin-top:6px">⚠️ 即將看空 ({len(imm_bear)})</div>'
+                    + ''.join(_row_html(a) for a in imm_bear[:10]),
+                    unsafe_allow_html=True
+                )
+            if not imm_bull and not imm_bear:
+                st.markdown(
+                    f'<div style="color:#7a8899;font-size:.78rem;'
+                    f'padding:10px">— 暫無即將觸發 —</div>',
+                    unsafe_allow_html=True
+                )
+    except Exception:
+        pass
+
+
+_render_alerts_panel()
+
+
 # 🆕 市場廣度警報（D 路徑）
 _breadth = _get_market_breadth()
 if _breadth.get('has_data'):
@@ -6363,7 +6494,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 86  # v9.10x：K 線強看多警報實作 (倒鎚+RSI≤25+ADX↑ 71% 漲機率 +9.36%) 2026-04-30
+_RESULTS_VERSION = 87  # v9.10y：警報中 panel + 即將觸發（差 1 步條件預警）2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

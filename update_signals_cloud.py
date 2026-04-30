@@ -121,11 +121,112 @@ def _t3_confidence(close, e5, e20, e5_5d, e20_5d):
     return score, hits
 
 
+def _detect_alerts(df, last_idx, ticker_market='tw'):
+    """🆕 v9.10y：偵測強警報 + 即將觸發
+    回傳 list[(level, side, tag, desc)]"""
+    try:
+        from kline_patterns import detect_recent
+    except ImportError:
+        return []
+    if df is None or len(df) < 60: return []
+    alerts = []
+    o = df['Open'].values
+    h = df['High'].values
+    l = df['Low'].values
+    c = df['Close'].values
+    v = df['Volume'].values
+    n = len(df)
+    rsi = df['rsi'].values
+    adx = df['adx'].values
+
+    if last_idx < 0: last_idx = n + last_idx
+    rsi_v = float(rsi[last_idx]) if not np.isnan(rsi[last_idx]) else None
+    adx_v = float(adx[last_idx]) if not np.isnan(adx[last_idx]) else None
+    close_v = float(c[last_idx])
+    if rsi_v is None or adx_v is None: return []
+
+    adx_5d = adx[last_idx-5] if last_idx >= 5 and not np.isnan(adx[last_idx-5]) else adx_v
+    adx_rising = adx_v > adx_5d
+    adx_falling = adx_v < adx_5d
+
+    # 60d high/low + SMA200 + vol_avg
+    h60 = float(h[max(0, last_idx-60):last_idx+1].max()) if last_idx >= 1 else close_v
+    l60 = float(l[max(0, last_idx-60):last_idx+1].min()) if last_idx >= 1 else close_v
+    from_high = (h60 - close_v) / h60 * 100 if h60 > 0 else 99
+    from_low = (close_v - l60) / l60 * 100 if l60 > 0 else 99
+    sma200 = float(np.mean(c[max(0, last_idx-199):last_idx+1])) if last_idx >= 100 else close_v
+    sma200_pct = (close_v / sma200 - 1) * 100 if sma200 > 0 else 0
+    extended_down = sma200_pct < -25
+    vol_avg = float(np.mean(v[max(0, last_idx-59):last_idx+1])) if last_idx >= 30 else 0
+    vol_dry = (vol_avg > 0 and v[last_idx] / vol_avg < 0.7)
+
+    # K 線型態
+    patterns = detect_recent(df.iloc[:last_idx+1], lookback=3)
+    recent = {p['name']: p['days_ago'] for p in patterns if p['days_ago'] <= 1}
+    recent_3d = {p['name']: p['days_ago'] for p in patterns if p['days_ago'] <= 3}
+
+    # ── 看多警報 ──
+    # ★★★★★ 倒鎚 + RSI≤25 + ADX↑
+    if 'INV_HAMMER' in recent and rsi_v <= 25 and adx_rising:
+        alerts.append({'level': 5, 'side': 'bull',
+            'tag': f'倒鎚 + RSI {rsi_v:.0f}≤25 + ADX↑',
+            'expect': '+9.36% 30d (71.4% 漲)'})
+    # 即將觸發：倒鎚 + RSI 26-30 + ADX↑
+    elif 'INV_HAMMER' in recent and 25 < rsi_v <= 30 and adx_rising:
+        alerts.append({'level': 'imm_bull', 'side': 'bull',
+            'tag': f'即將: 倒鎚 + RSI {rsi_v:.0f}（差 {rsi_v-25:.1f} 點到極強）',
+            'expect': 'RSI 再降到≤25 即達 ★★★★★'})
+    elif 'INV_HAMMER' in recent and rsi_v <= 25:  # ADX 沒升
+        alerts.append({'level': 'imm_bull', 'side': 'bull',
+            'tag': f'即將: 倒鎚 + RSI≤25（ADX 未轉強）',
+            'expect': 'ADX 上升即達 ★★★★★'})
+    # ★★★★ 倒鎚 + 跌深
+    elif 'INV_HAMMER' in recent and extended_down:
+        alerts.append({'level': 4, 'side': 'bull',
+            'tag': f'倒鎚 + 距 SMA200 {sma200_pct:+.0f}%',
+            'expect': '+7.85% 30d (64.5% 漲)'})
+    # ★★★ 底部十字星 + RSI≤25 + ADX↑
+    elif 'DOJI' in recent and rsi_v <= 25 and adx_rising and from_low < 10:
+        alerts.append({'level': 3, 'side': 'bull',
+            'tag': f'底部十字星 + RSI {rsi_v:.0f}≤25 + ADX↑',
+            'expect': '+7.02% 30d (67.4% 漲)'})
+
+    # ── 看空警報 ──
+    # ★★★★ 三隻烏鴉 + 距高<5% + 量縮
+    if 'THREE_CROWS' in recent and from_high < 5 and vol_dry:
+        alerts.append({'level': 4, 'side': 'bear',
+            'tag': f'三隻烏鴉 + 距高 {from_high:.1f}% + 量縮',
+            'expect': '-1.26% 30d (71% 跌)'})
+    # 即將：三隻烏鴉 + 距高 5-10% + 量縮
+    elif 'THREE_CROWS' in recent and 5 <= from_high < 10 and vol_dry:
+        alerts.append({'level': 'imm_bear', 'side': 'bear',
+            'tag': f'即將: 三隻烏鴉 + 距高 {from_high:.1f}%（差到 <5%）',
+            'expect': '價再升即達 ★★★★'})
+    # ★★★ 空頭吞噬 + RSI≥75 + ADX↓
+    if 'BEAR_ENGULF' in recent and rsi_v >= 75 and adx_falling:
+        alerts.append({'level': 3, 'side': 'bear',
+            'tag': f'空頭吞噬 + RSI {rsi_v:.0f}≥75 + ADX↓',
+            'expect': '-0.24% 30d (60% 跌)'})
+    # 即將：空頭吞噬 + RSI 70-74 + ADX↓
+    elif 'BEAR_ENGULF' in recent and 70 <= rsi_v < 75 and adx_falling:
+        alerts.append({'level': 'imm_bear', 'side': 'bear',
+            'tag': f'即將: 空頭吞噬 + RSI {rsi_v:.0f}（差 {75-rsi_v:.1f} 點到 75）',
+            'expect': 'RSI 再升即達 ★★★'})
+    # ★★ 黃昏之星 + RSI≥75
+    if 'EVENING_STAR' in recent and rsi_v >= 75:
+        alerts.append({'level': 2, 'side': 'bear',
+            'tag': f'黃昏之星 + RSI {rsi_v:.0f}≥75',
+            'expect': '-0.54% 30d (70% 跌)'})
+
+    return alerts
+
+
 def _process(df_dict, classify_fn, name_map=None):
     """從每股 DataFrame → 計算指標 → 分類 → 產出 row"""
     name_map = name_map or {}
     entry, exit_, hold, wait = [], [], [], []
     last_dates = []
+    all_alerts = []  # 🆕 v9.10y
 
     for ticker, df in df_dict.items():
         df = _calc_ind(df)
@@ -197,6 +298,17 @@ def _process(df_dict, classify_fn, name_map=None):
         else:
             mom_60d = 0
 
+        # 🆕 v9.10y：偵測警報
+        stock_alerts = _detect_alerts(df, last)
+        if stock_alerts:
+            for al in stock_alerts:
+                all_alerts.append({
+                    'ticker': display_ticker,
+                    'name': name_map.get(display_ticker, display_ticker),
+                    'close': round(d['close'], 2),
+                    **al,
+                })
+
         row = {
             'ticker': display_ticker,
             'name': name_map.get(display_ticker, display_ticker),
@@ -207,6 +319,7 @@ def _process(df_dict, classify_fn, name_map=None):
             'sig': sig,
             't3_confidence': t3_score,
             't3_confidence_hits': t3_hits,
+            'alerts': stock_alerts,  # 🆕 警報資料
         }
         if action == 'ENTRY': entry.append(row)
         elif action == 'EXIT': exit_.append(row)
@@ -214,7 +327,7 @@ def _process(df_dict, classify_fn, name_map=None):
         else: wait.append(row)
         last_dates.append(df.index[last].strftime('%Y-%m-%d'))
 
-    return entry, exit_, hold, wait, last_dates
+    return entry, exit_, hold, wait, last_dates, all_alerts
 
 
 def update_tw():
@@ -266,7 +379,7 @@ def update_tw():
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
 
     # 處理
-    entry, exit_, hold, wait, last_dates = _process(df_dict, _classify_tw, name_map)
+    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_tw, name_map)
 
     if not last_dates:
         print("❌ 處理失敗，保留現有 JSON")
@@ -277,6 +390,19 @@ def update_tw():
     exit_.sort(key=lambda x: x.get('rsi') or 0, reverse=True)
     hold.sort(key=lambda x: -(x.get('rsi') or 0))
 
+    # 🆕 v9.10y：警報排序（強警報優先 + 跌深反彈最強）
+    # level: 5 (強看多), 4 (強看多/空), 3, 2, 'imm_bull', 'imm_bear'
+    def _sort_key(a):
+        lv = a['level']
+        if lv == 5: return 0
+        if lv == 4: return 1
+        if lv == 3: return 2
+        if lv == 2: return 3
+        if lv == 'imm_bull': return 4
+        if lv == 'imm_bear': return 5
+        return 6
+    all_alerts.sort(key=_sort_key)
+
     out = {
         'updated_at': max(last_dates),
         'computed_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -285,6 +411,7 @@ def update_tw():
         'exit': exit_,
         'hold': hold,
         'wait_count': len(wait),
+        'alerts': all_alerts,  # 🆕 警報列表
         'source': 'cloud (yfinance live)',
     }
     with open('top200_signals.json', 'w', encoding='utf-8') as f:
@@ -349,7 +476,7 @@ def update_us():
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(us_top)}")
 
     # 處理（US 用 _classify_us）
-    entry, exit_, hold, wait, last_dates = _process(df_dict, _classify_us, name_map)
+    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_us, name_map)
 
     if not last_dates:
         print("❌ 處理失敗，保留現有 JSON")
@@ -359,6 +486,18 @@ def update_us():
     exit_.sort(key=lambda x: x.get('rsi') or 0, reverse=True)
     hold.sort(key=lambda x: -(x.get('rsi') or 0))
 
+    # 🆕 v9.10y：警報排序
+    def _sort_key_us(a):
+        lv = a['level']
+        if lv == 5: return 0
+        if lv == 4: return 1
+        if lv == 3: return 2
+        if lv == 2: return 3
+        if lv == 'imm_bull': return 4
+        if lv == 'imm_bear': return 5
+        return 6
+    all_alerts.sort(key=_sort_key_us)
+
     out = {
         'updated_at': max(last_dates),
         'computed_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -367,6 +506,7 @@ def update_us():
         'exit': exit_,
         'hold': hold,
         'wait_count': len(wait),
+        'alerts': all_alerts,  # 🆕 警報列表
         'source': 'cloud (yfinance live)',
     }
     with open('us_top200_signals.json', 'w', encoding='utf-8') as f:
