@@ -7,6 +7,11 @@ on:
     - cron: '30 5 * * 1-5'    # 台股收盤後（台北 13:30）
     - cron: '0 22 * * 1-5'    # 美股盤後（台北 06:00 隔日）
   workflow_dispatch:           # 也允許手動觸發
+    inputs:
+      force_line_test:
+        description: '強制發送 LINE 測試訊息（即使 0 警報也送）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write              # 允許 push 回 repo
@@ -61,16 +66,18 @@ jobs:
       # 需 GitHub Secrets 設 LINE_CHANNEL_TOKEN + LINE_USER_ID
       # 沒設則 skip，不影響整體流程
       - name: Notify LINE on Strong Alerts
-        if: steps.commit.outputs.changed == 'true'
+        if: steps.commit.outputs.changed == 'true' || inputs.force_line_test == true
         env:
           LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          FORCE_LINE_TEST: ${{ inputs.force_line_test }}
         run: |
           python <<'EOF'
           import json, os, urllib.request
 
           line_token = os.environ.get('LINE_CHANNEL_TOKEN', '')
           line_user = os.environ.get('LINE_USER_ID', '')
+          force_test = os.environ.get('FORCE_LINE_TEST', '') == 'true'
           if not line_token or not line_user:
               print('LINE_CHANNEL_TOKEN / LINE_USER_ID 未設定，跳過')
               exit(0)
@@ -78,6 +85,7 @@ jobs:
           # 收集強警報（level 5/4 + 即將觸發 imm_bull/imm_bear）
           msgs = []
           imm_msgs = []
+          tw_count = us_count = 0
           for f in ['top200_signals.json', 'us_top200_signals.json']:
               try:
                   with open(f, encoding='utf-8') as fp:
@@ -87,6 +95,10 @@ jobs:
                   imminent = [a for a in alerts
                               if a.get('level') in ('imm_bull', 'imm_bear')]
                   market = '🇹🇼' if ('us' not in f) else '🇺🇸'
+                  if 'us' not in f:
+                      tw_count = len(alerts)
+                  else:
+                      us_count = len(alerts)
                   if strong:
                       lines = [f"{market} {len(strong)} 檔強警報"]
                       for a in strong[:8]:
@@ -112,10 +124,23 @@ jobs:
           if imm_msgs: all_parts.append('\n\n'.join(imm_msgs))
 
           if not all_parts:
-              print('No alerts to notify')
-              exit(0)
-
-          full_msg = '📊 Stock001 警報\n\n' + '\n\n'.join(all_parts)
+              if force_test:
+                  # 強制測試模式：0 警報也送一則「連線成功」訊息
+                  full_msg = (
+                      '✅ Stock001 Bot 連線測試成功\n\n'
+                      f'今日 TW 警報: {tw_count} 檔\n'
+                      f'今日 US 警報: {us_count} 檔\n\n'
+                      '若你看到這則訊息，表示：\n'
+                      '  • LINE_CHANNEL_TOKEN 有效\n'
+                      '  • LINE_USER_ID 正確\n'
+                      '  • GitHub Actions → LINE 通道暢通\n\n'
+                      '之後有 ★★★★★ 強警報會自動推送到這裡 🚀'
+                  )
+              else:
+                  print('No alerts to notify')
+                  exit(0)
+          else:
+              full_msg = '📊 Stock001 警報\n\n' + '\n\n'.join(all_parts)
           full_msg = full_msg[:4900]  # LINE 5000 字限制
           print(f'Sending to LINE:\n{full_msg}')
 
