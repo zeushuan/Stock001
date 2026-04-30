@@ -2718,6 +2718,16 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             elif cross_days > 30:
                 _imminent_dc = True
     _knife_dc_zone = _just_dead_cross or _imminent_dc
+    # 🆕 v9.11：把 _entry_blocked_by_dc 提前算（讓後面所有訊號都可以參考）
+    # 注意：此時 t1_ok / t3_ok 還沒算，先用 cross_days/rsi 預估
+    _t1_ok_pre = (cross_days is not None and 0 < cross_days <= 10
+                  and ema20 is not None and ema60 is not None and ema20 > ema60
+                  and adx is not None and adx >= 22)
+    _t3_ok_pre = (rsi is not None and rsi < 50
+                  and ema20 is not None and ema60 is not None and ema20 > ema60
+                  and adx is not None and adx >= 22)
+    _is_bull_pre = ema20 is not None and ema60 is not None and ema20 > ema60
+    _entry_blocked_by_dc = (_is_bull_pre and _imminent_dc and (_t1_ok_pre or _t3_ok_pre))
     _drawdown_pct = ((high60 - close) / high60 * 100) if (high60 and close and high60 > 0) else None
     _knife_drawdown = (_drawdown_pct is not None and _drawdown_pct >= 15)
     _knife_at_lowband = (pct_b_now is not None and pct_b_now < 0.10)
@@ -3201,6 +3211,22 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     entry_rows  = list(val_rows)  # 估值放在進場判斷頭部
     t1_ok = t3_ok = t2_ok = False
 
+    # 🆕 v9.11：阻擋進場警告 — 顯示在最頂部，後續所有訊號失效
+    if _entry_blocked_by_dc:
+        entry_rows.append(
+            f'<div style="background:#2a0a0a;border:2px solid #ff5555;'
+            f'padding:10px 14px;margin:6px 0;border-radius:6px">'
+            f'<div style="color:#ff7755;font-weight:700;font-size:.95rem;'
+            f'margin-bottom:4px">'
+            f'🛑 阻擋進場：即將死叉</div>'
+            f'<div style="color:#ffaaaa;font-size:.78rem;line-height:1.5">'
+            f'EMA20 距 EMA60 已縮到 1 ATR 以內 + 多頭超過 30 天，'
+            f'隨時可能死叉。<b>下方所有「可進場」「進場建議」「立即進場」訊號全部失效，</b>'
+            f'此時若進場將陷入「進場 → 立刻死叉 → 出場」的尷尬。<br>'
+            f'<b style="color:#ffd070">建議：等死叉發生後再評估，或改觀察 T4 反彈條件</b>'
+            f'</div></div>'
+        )
+
     # 🆕 v9.10l：TW 研究發現的「順勢延續」訊號（與 US 相反）
     if is_bull and not (_is_us or _is_crypto) and adx_ok:
         # 過度延伸：距 EMA60 > 3 ATR 反而 RR +0.015（強者恆強）
@@ -3341,30 +3367,41 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if is_bull and adx_ok:
         # T1：黃金交叉（距今 ≤ 10 天）——新多頭啟動，積極進場
         t1_ok = (cross_days is not None and 0 < cross_days <= 10)
-        t1c   = "#3dbb6a" if t1_ok else "#4a6070"
+        # 🆕 v9.11：被 dc 阻擋時，t1_ok 顯示為「條件成立但已否決」
+        t1c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t1_ok else "#4a6070"
         t1d   = f"{cross_days} 天前" if (cross_days and cross_days > 0) else "尚未發生"
+        if t1_ok and _entry_blocked_by_dc:
+            t1_action = '　<s style="color:#7a8899">← 積極進場</s> <b style="color:#ff7755">（已被即將死叉否決）</b>'
+        elif t1_ok:
+            t1_action = "　← 積極進場"
+        else:
+            t1_action = ""
         entry_rows.append(
             f'<div style="display:flex;gap:6px;align-items:baseline">'
             f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
             f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T1 黃金交叉</span>'
-            f'<span style="color:{t1c}">{"✅" if t1_ok else "⬜"} {t1d}'
-            f'{"　← 積極進場" if t1_ok else ""}</span></div>'
+            f'<span style="color:{t1c}">{"✅" if t1_ok else "⬜"} {t1d}{t1_action}</span></div>'
         )
 
         # T3：多頭拉回 RSI < 50——停損後再入場 / 回調機會
         t3_ok = (rsi is not None and rsi < 50)
-        t3c   = "#3dbb6a" if t3_ok else "#4a6070"
+        t3c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t3_ok else "#4a6070"
         if rsi is not None:
             t3_gap = f"（還差 {50 - rsi:.1f} 點）" if not t3_ok else ""
         else:
             t3_gap = ""
+        if t3_ok and _entry_blocked_by_dc:
+            t3_action = '　<s style="color:#7a8899">← 可進場</s> <b style="color:#ff7755">（已被即將死叉否決）</b>'
+        elif t3_ok:
+            t3_action = "　← 可進場"
+        else:
+            t3_action = ""
         entry_rows.append(
             f'<div style="display:flex;gap:6px;align-items:baseline">'
             f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
             f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T3 多頭拉回</span>'
             f'<span style="color:{t3c}">{"✅" if t3_ok else "⬜"} RSI {rsi_str}'
-            f' {"< 50 拉回到位" if t3_ok else f"≥ 50，等待拉回{t3_gap}"}'
-            f'{"　← 可進場" if t3_ok else ""}</span></div>'
+            f' {"< 50 拉回到位" if t3_ok else f"≥ 50，等待拉回{t3_gap}"}{t3_action}</span></div>'
         )
 
         # 🆕 v9.9t：T3 信心度（5 個指標命中數）— 只在 T3 拉回（RSI<50）時顯示
@@ -3541,17 +3578,29 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if vwap_today and close:
         vwap_pct = (close - vwap_today) / vwap_today * 100
         if close < vwap_today:
-            # 進場有利：綠色強調框
-            entry_rows.append(
-                f'<div style="background:#08131f;border-left:3px solid #3dbb6a;'
-                f'padding:6px 10px;margin:5px 0;border-radius:3px">'
-                f'<span style="color:#3dbb6a;font-size:.85rem">'
-                f'<b>📈 VWAP 進場建議</b>　收盤 {close:.2f} 低於 VWAP '
-                f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
-                f'(<b>-{abs(vwap_pct):.1f}%</b>)，進場成本佳；'
-                f'<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
-                f'</span></div>'
-            )
+            if _entry_blocked_by_dc:
+                # 🆕 v9.11：被即將死叉阻擋 → 改成中性顯示（不建議進場）
+                entry_rows.append(
+                    f'<div style="background:#1a1208;border-left:3px solid #7a8899;'
+                    f'padding:6px 10px;margin:5px 0;border-radius:3px;opacity:.6">'
+                    f'<span style="color:#7a8899;font-size:.78rem">'
+                    f'<s>📈 VWAP 進場建議</s>（已被即將死叉否決）　'
+                    f'收盤 {close:.2f} 低於 VWAP {vwap_today:.2f} '
+                    f'(-{abs(vwap_pct):.1f}%)，<b>但此刻不建議進場</b>'
+                    f'</span></div>'
+                )
+            else:
+                # 進場有利：綠色強調框
+                entry_rows.append(
+                    f'<div style="background:#08131f;border-left:3px solid #3dbb6a;'
+                    f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+                    f'<span style="color:#3dbb6a;font-size:.85rem">'
+                    f'<b>📈 VWAP 進場建議</b>　收盤 {close:.2f} 低於 VWAP '
+                    f'<b style="font-size:.95rem">{vwap_today:.2f}</b> '
+                    f'(<b>-{abs(vwap_pct):.1f}%</b>)，進場成本佳；'
+                    f'<b>盤中可在 ≤ {vwap_today:.2f} 掛買單</b>'
+                    f'</span></div>'
+                )
         else:
             # close ≥ VWAP：警告框（黃色），明顯但非綠/紅
             entry_rows.append(
@@ -3567,23 +3616,55 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     # 進場動作標籤
     # 🆕 v9.10j：即將死叉時否決進場訊號（避免「進場 + 即將出場」矛盾）
+    # 🆕 v9.11：加 action_reason 顯示原因（建議進場/不建議進場/等待 + 為什麼）
     _entry_blocked_by_dc = (is_bull and _imminent_dc and (t1_ok or t3_ok))
     if not is_bull:
         if _t4_rising:
-            action_label, action_bg, action_fg = "T4反彈條件達成 🟡", "#2a1500", "#ff9944"
+            action_label = "🟡 T4 反彈條件達成（空頭中）"
+            action_reason = (f"原因：EMA20 < EMA60（空頭排列）但 RSI {rsi_str} < 32 + "
+                              f"連續上升 → T4 反彈訊號，可短線觀察")
+            action_bg, action_fg = "#2a1500", "#ff9944"
         else:
-            action_label, action_bg, action_fg = "空頭不交易",         "#1a0505", "#ff5555"
+            action_label = "❌ 不建議進場（空頭趨勢）"
+            action_reason = f"原因：EMA20 < EMA60（空頭排列），RSI {rsi_str}，趨勢未確立多頭"
+            action_bg, action_fg = "#1a0505", "#ff5555"
     elif not adx_ok:
-        action_label, action_bg, action_fg = "假多頭暫不操作", "#1a1200", "#e8a020"
+        adx_th = 18 if (_is_us or _is_crypto) else 22
+        action_label = "⚠️ 不建議進場（假多頭）"
+        action_reason = (f"原因：EMA20 > EMA60 但 ADX {adx_str} < {adx_th}，"
+                          f"趨勢強度不足，可能是震盪市場的假多頭")
+        action_bg, action_fg = "#1a1200", "#e8a020"
     elif _entry_blocked_by_dc:
-        # 即將死叉：否決進場，建議觀望
-        action_label, action_bg, action_fg = "⛔ 不進場 — 即將死叉", "#2a0a0a", "#ff7755"
+        gap_atr = (ema20 - ema60) / atr14 if atr14 and atr14 > 0 else 0
+        action_label = "🛑 不建議進場（即將死叉）"
+        action_reason = (f"原因：雖 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} 天前 等進場條件成立，"
+                          f"但 EMA20 距 EMA60 僅 {gap_atr:.2f} ATR + 多頭已 {cross_days} 天，"
+                          f"隨時可能死叉。等死叉發生後再評估")
+        action_bg, action_fg = "#2a0a0a", "#ff7755"
     elif t1_ok or t3_ok:
-        action_label, action_bg, action_fg = "進場條件達成 ✅", "#0d2a10", "#3dbb6a"
+        if t1_ok and t3_ok:
+            trigger = f"T1 黃金交叉 {cross_days} 天前 + T3 RSI {rsi_str}<50 拉回"
+        elif t1_ok:
+            trigger = f"T1 黃金交叉 {cross_days} 天前"
+        else:
+            trigger = f"T3 RSI {rsi_str}<50 拉回到位"
+        action_label = "✅ 建議進場"
+        action_reason = (f"原因：多頭排列 + ADX {adx_str} 達標 + {trigger}")
+        action_bg, action_fg = "#0d2a10", "#3dbb6a"
     elif t2_ok:
-        action_label, action_bg, action_fg = "可觀察進場",     "#1a1a05", "#c8b87a"
+        action_label = "🟡 可觀察進場（次要訊號）"
+        action_reason = "原因：多頭排列 + ADX 達標但無 T1/T3 主訊號，可觀察等待主訊號確認"
+        action_bg, action_fg = "#1a1a05", "#c8b87a"
+    elif rsi is not None and rsi >= 70:
+        action_label = "⏸ 等待拉回（RSI 過熱）"
+        action_reason = (f"原因：多頭健康但 RSI {rsi_str} ≥ 70 偏熱，"
+                          f"等回落至 RSI < 50 出現 T3 拉回再進場")
+        action_bg, action_fg = "#0a1628", "#7a9ab0"
     else:
-        action_label, action_bg, action_fg = "等待拉回",       "#0a1628", "#7a9ab0"
+        action_label = "⏸ 等待拉回（多頭中段）"
+        action_reason = (f"原因：多頭排列 + ADX {adx_str} 達標，但 RSI {rsi_str} 在 50-70 中段，"
+                          f"等 T3 拉回（RSI<50）出現再進場")
+        action_bg, action_fg = "#0a1628", "#7a9ab0"
 
     # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
@@ -3800,7 +3881,20 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         _adx_rising  = (d.get("adx_prev") is not None and adx is not None
                         and adx > d.get("adx_prev", adx))
 
-        if _is_strong and _is_fresh:
+        # 🆕 v9.11：被即將死叉阻擋 → 整段推薦策略改成「不進場」訊息
+        if _entry_blocked_by_dc:
+            _rec_name   = "🛑 不進場 — 即將死叉"
+            _rec_color  = "#ff7755"
+            _rec_badge  = "background:#2a0a0a;color:#ff7755;border:1px solid #ff775566"
+            _rec_reason = (f"雖然 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} 天前 等進場條件成立，"
+                           f"但 EMA20 距 EMA60 僅 {(ema20-ema60)/atr14:.2f} ATR + 多頭已 {cross_days} 天，"
+                           f"隨時可能死叉。此時進場將陷入「進場 → 立刻死叉 → 出場」尷尬。")
+            _rec_entry  = "❌ 不進場（等死叉發生後再評估，或改觀察 T4 反彈條件）"
+            _rec_exit   = "—"
+            _rec_stop   = "—"
+            _rec_warn   = ("📊 已驗證：在多頭排列下，早期看空訊號 alpha 極弱（差距<1%）；"
+                            "imminent_dc + ATR 停損是最佳保護組合")
+        elif _is_strong and _is_fresh:
             # ADX ≥ 30 + 剛黃金交叉 → 飆股模式，②趨勢最大化
             _rec_name   = "② 趨勢EMA（飆股模式）"
             _rec_color  = "#f0c030"
@@ -4113,6 +4207,33 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         # 標題
         f'<div style="font-size:.82rem;font-weight:700;color:#4a8cbf;margin-bottom:8px">'
         f'📊 ⑦ 自適應趨勢 操作建議{label_tag}</div>'
+        # 🆕 v9.11：明確結論橫幅（狀態 + 原因 + 持倉者建議）
+        f'<div style="background:{action_bg};border-left:4px solid {action_fg};'
+        f'padding:10px 14px;margin:6px 0 10px;border-radius:4px">'
+        f'<div style="color:{action_fg};font-weight:700;font-size:1.0rem;'
+        f'margin-bottom:3px">{action_label}</div>'
+        f'<div style="color:#c8dff0;font-size:.78rem;line-height:1.6">{action_reason}</div>'
+        + (
+            # 持倉者建議（在不建議進場時也提供）
+            f'<div style="color:#ffd070;font-size:.72rem;margin-top:6px;'
+            f'border-top:1px dashed #ff775544;padding-top:5px">'
+            f'💼 <b>若已持倉</b>：建議減碼或設緊停損（離場價 {close - atr14*2.5:.2f}），'
+            f'準備死叉出場'
+            f'</div>'
+            if (_entry_blocked_by_dc and atr14 and close) else
+            f'<div style="color:#ffaaaa;font-size:.72rem;margin-top:6px;'
+            f'border-top:1px dashed #ff444444;padding-top:5px">'
+            f'💼 <b>若已持倉</b>：嚴守停損 + 看是否觸發 RSI&gt;70 出場條件'
+            f'</div>'
+            if (rsi is not None and rsi >= 75 and is_bull) else
+            f'<div style="color:#a8c8d8;font-size:.72rem;margin-top:6px;'
+            f'border-top:1px dashed #1a3050;padding-top:5px">'
+            f'💼 <b>若已持倉</b>：繼續持有，留意 EMA 死叉與停損價'
+            f'</div>'
+            if is_bull else
+            ''
+        )
+        + f'</div>'
         # 📐 K 線型態（標題下、①上）
         f'{_kline_inline}'
         # ①
