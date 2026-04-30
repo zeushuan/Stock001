@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10s"
+APP_VERSION   = "v9.10t"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -313,6 +313,58 @@ def get_prompt_text(ticker: str, name: str, d: dict) -> str:
         "請用繁體中文作答，條列清楚，所有的分析以表格呈現。",
     ]
     return "\n".join(lines)
+
+
+# ── 🆕 v9.10t：美股盤後快訊（即時抓昨夜美股報酬）──────
+@st.cache_data(ttl=1800, show_spinner=False)
+def _get_us_overnight() -> dict:
+    """抓昨夜美股 SPX/SOX/TSM/VIX 收盤報酬（cache 30 分鐘）
+    回傳 dict {symbol: {'close': X, 'change_pct': Y, 'date': 'YYYY-MM-DD'}}"""
+    out = {}
+    targets = {'^GSPC': 'SPX', '^SOX': 'SOX', 'TSM': 'TSM', '^VIX': 'VIX'}
+    for sym, label in targets.items():
+        try:
+            df = yf.Ticker(sym).history(period='5d', interval='1d', auto_adjust=False)
+            if df is None or df.empty or len(df) < 2:
+                continue
+            close_now = float(df['Close'].iloc[-1])
+            close_prev = float(df['Close'].iloc[-2])
+            chg = (close_now - close_prev) / close_prev * 100 if close_prev > 0 else 0
+            out[label] = {
+                'close': round(close_now, 2),
+                'change_pct': round(chg, 2),
+                'date': df.index[-1].strftime('%Y-%m-%d'),
+            }
+        except Exception:
+            continue
+    return out
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _load_us_impact() -> dict:
+    """載入 us_impact_on_tw.json — 個股對美股 lag-1 相關"""
+    from pathlib import Path as _P
+    import json as _json
+    p = _P(__file__).parent / 'us_impact_on_tw.json'
+    if not p.exists(): return {}
+    try:
+        return _json.loads(p.read_text(encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _load_per_stock_wf() -> dict:
+    """載入 per_stock_walkforward.json — 個股 walk-forward β"""
+    from pathlib import Path as _P
+    import json as _json
+    p = _P(__file__).parent / 'per_stock_walkforward.json'
+    if not p.exists(): return {}
+    try:
+        d = _json.loads(p.read_text(encoding='utf-8'))
+        return d.get('all_results', {})
+    except Exception:
+        return {}
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -2642,6 +2694,112 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                       and rsi_prev2 is not None and rsi_prev > rsi_prev2)
     _t4_rising = (not is_bull) and _t4_rsi_oversold and _t4_rsi_rising
 
+    # ── 🆕 v9.10t：美股盤後預警 + 美股連動度（僅 TW 個股）────────
+    us_alert_html = ""
+    if not (_is_us or _is_crypto):
+        try:
+            _us_data = _get_us_overnight()
+            _impact = _load_us_impact()
+            _wf = _load_per_stock_wf()
+            _t_impact = _impact.get('per_ticker', {}).get(ticker, {}) if _impact else {}
+            _t_wf = _wf.get(ticker, {}) if _wf else {}
+
+            if _us_data:
+                # 計算預估今日跳空（依 SOX β）
+                sox_data = _us_data.get('SOX')
+                sox_beta = (_t_wf.get('train_beta') or
+                            _t_impact.get('SOX', {}).get('beta'))
+                pred_str = ""
+                if sox_data and sox_beta:
+                    pred = sox_beta * sox_data['change_pct']
+                    pred_color = ('#3dbb6a' if pred > 0.3 else
+                                  '#ff5555' if pred < -0.3 else '#7a8899')
+                    pred_str = (f' → 預估 <b style="color:{pred_color}">'
+                                f'{pred:+.2f}%</b>')
+
+                # 整體市場跳空機率（基於 spx 漲跌規則）
+                spx_data = _us_data.get('SPX')
+                gap_prob_str = ""
+                if spx_data:
+                    chg = spx_data['change_pct']
+                    if chg > 2:
+                        gap_prob_str = ' ｜大盤跳空高開機率 <b>92.5%</b>'
+                    elif chg > 0.5:
+                        gap_prob_str = ' ｜大盤跳空高開機率 <b>87.4%</b>'
+                    elif chg < -2:
+                        gap_prob_str = ' ｜大盤跳空低開機率 <b>94.8%</b>'
+                    elif chg < -0.5:
+                        gap_prob_str = ' ｜大盤跳空低開機率 <b>75.5%</b>'
+
+                # 顯示美股盤後快訊
+                us_lines = []
+                for label in ['SPX', 'SOX', 'TSM', 'VIX']:
+                    d_us = _us_data.get(label)
+                    if not d_us: continue
+                    chg = d_us['change_pct']
+                    color = ('#3dbb6a' if chg > 0.5 else
+                             '#ff5555' if chg < -0.5 else '#7a8899')
+                    icon = '↑' if chg > 0 else '↓' if chg < 0 else '─'
+                    us_lines.append(
+                        f'<span style="color:{color};font-weight:700">'
+                        f'{label} {icon} {chg:+.2f}%</span>'
+                    )
+
+                _date_str = sox_data.get('date', '') if sox_data else ''
+                us_alert_html = (
+                    f'<div style="background:#0a1830;border:1px solid #5a8ab055;'
+                    f'border-radius:6px;padding:8px 10px;margin:6px 0;'
+                    f'font-size:.78rem">'
+                    f'<div style="color:#7abadd;font-weight:700;margin-bottom:3px">'
+                    f'🌃 美股盤後快訊（{_date_str} 收盤）{gap_prob_str}</div>'
+                    f'<div style="color:#a8cce8">'
+                    + ' ｜ '.join(us_lines) +
+                    f'{pred_str}</div>'
+                    f'</div>'
+                )
+
+            # 美股連動度（靜態歷史相關）
+            if _t_impact:
+                sox_corr = _t_impact.get('SOX', {}).get('corr', 0)
+                sox_r2 = _t_impact.get('SOX', {}).get('r2', 0)
+                spx_corr = _t_impact.get('SPX', {}).get('corr', 0)
+                vix_corr = _t_impact.get('VIX', {}).get('corr', 0)
+
+                if abs(sox_corr) >= 0.05:
+                    if sox_r2 > 0.10:
+                        impact_label = '⚡ 受美股強影響'
+                        impact_color = '#e8a020'
+                    elif sox_r2 > 0.05:
+                        impact_label = '📊 受美股中度影響'
+                        impact_color = '#7abadd'
+                    else:
+                        impact_label = '🛡️ 受美股影響低'
+                        impact_color = '#7a8899'
+
+                    test_r2 = _t_wf.get('test_r2', 0)
+                    mae_imp = _t_wf.get('mae_improve_pct', 0)
+                    wf_str = ''
+                    if test_r2 > 0:
+                        wf_str = (f'<br><span style="color:#7a8899;font-size:.7rem">'
+                                  f'  Walk-forward (2024-2026): Test R² '
+                                  f'<b>{test_r2:.3f}</b>，MAE 改善 '
+                                  f'<b>{mae_imp:+.1f}%</b></span>')
+
+                    us_alert_html += (
+                        f'<div style="background:#0d1825;border-left:3px solid '
+                        f'{impact_color};padding:6px 10px;margin:4px 0;'
+                        f'border-radius:3px;font-size:.78rem">'
+                        f'<span style="color:{impact_color};font-weight:700">'
+                        f'{impact_label}</span> '
+                        f'<span style="color:#a8cce8">'
+                        f'SOX 相關 <b>{sox_corr:+.3f}</b> (R² {sox_r2:.3f}) ｜ '
+                        f'SPX <b>{spx_corr:+.3f}</b> ｜ '
+                        f'VIX <b>{vix_corr:+.3f}</b></span>'
+                        f'{wf_str}</div>'
+                    )
+        except Exception:
+            pass
+
     # ── ① 環境判斷 ────────────────────────────────────────────
     if not is_bull:
         # 空頭：細分嚴重程度
@@ -3772,6 +3930,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'</div></div>'
         # 🎯 策略風格徽章（從側邊欄選擇）
         f'{style_badge_html}'
+        # 🌃 美股盤後預警 + 美股連動度（v9.10t）
+        f'{us_alert_html}'
         # ⑥ 接近條件預警（即使未觸發也提示）
         f'{alert_html}'
         f'</div>'
@@ -5917,7 +6077,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 81  # v9.10s：修「黃金交叉初期誤判即將死叉」bug + TW-US 連動分析 2026-04-30
+_RESULTS_VERSION = 82  # v9.10t：個股 detail 加美股盤後預警 + 美股連動度 + 衰減/walk-forward 研究 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
