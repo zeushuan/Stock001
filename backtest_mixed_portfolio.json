@@ -1,0 +1,84 @@
+{
+  "pure_t1_v7": {
+    "metrics_full": {
+      "final_value": 1929899.2267115533,
+      "total_return_pct": 92.98992267115534,
+      "cagr_pct": 11.505873323484582,
+      "sharpe": 1.1344711590079948,
+      "max_drawdown_pct": -14.881040097491226,
+      "years": 6.036960985626283
+    },
+    "n_trades": 464
+  },
+  "mix_70_30": {
+    "mix_config": {
+      "t1_ratio": 0.7,
+      "t1_max_pos": 7,
+      "hammer_max_pos": 15,
+      "hold": 30
+    },
+    "metrics_full": {
+      "final_value": 1920830.0721643865,
+      "total_return_pct": 92.08300721643865,
+      "cagr_pct": 11.397091370926237,
+      "sharpe": 1.4059955240210649,
+      "max_drawdown_pct": -13.438462690654381,
+      "years": 6.047912388774812
+    },
+    "n_trades": {
+      "t1": 328,
+      "hammer": 458
+    }
+  },
+  "mix_50_50": {
+    "mix_config": {
+      "t1_ratio": 0.5,
+      "t1_max_pos": 5,
+      "hammer_max_pos": 25,
+      "hold": 30
+    },
+    "metrics_full": {
+      "final_value": 1790922.5568559691,
+      "total_return_pct": 79.09225568559692,
+      "cagr_pct": 10.114704136133469,
+      "sharpe": 1.5582721468482617,
+      "max_drawdown_pct": -10.279272209271447,
+      "years": 6.047912388774812
+    },
+    "n_trades": {
+      "t1": 236,
+      "hammer": 607
+    }
+  },
+  "mix_30_70": {
+    "mix_config": {
+      "t1_ratio": 0.3,
+      "t1_max_pos": 3,
+      "hammer_max_pos": 35,
+      "hold": 30
+    },
+    "metrics_full": {
+      "final_value": 1726612.1806314965,
+      "total_return_pct": 72.66121806314965,
+      "cagr_pct": 9.450886910086865,
+      "sharpe": 1.6882683585627998,
+      "max_drawdown_pct": -5.425114109394899,
+      "years": 6.047912388774812
+    },
+    "n_trades": {
+      "t1": 142,
+      "hammer": 717
+    }
+  },
+  "pure_hammer": {
+    "metrics_full": {
+      "final_value": 1587725.1513591586,
+      "total_return_pct": 58.77251513591586,
+      "cagr_pct": 7.947476501436523,
+      "sharpe": 1.9148885288853827,
+      "max_drawdown_pct": -3.3973366639823657,
+      "years": 6.04517453798768
+    },
+    "n_trades": 830
+  }
+}

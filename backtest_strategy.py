@@ -201,14 +201,20 @@ def detect_signals(df, strategy='inv_hammer'):
 
 
 def gen_trades_for_one(args):
-    """單一 ticker：產出所有 trades (entry_date, exit_date, entry, exit, ret)
-    args = (ticker, hold_days, strategy)
-    每個 trade 帶 quality_score 用於 ranked priority 投組模擬"""
-    if len(args) == 2:
-        ticker, hold_days = args
-        strategy = 'inv_hammer'
-    else:
-        ticker, hold_days, strategy = args
+    """單一 ticker：產出所有 trades。
+    args 可選長度：
+      (ticker, hold_days)
+      (ticker, hold_days, strategy)
+      (ticker, hold_days, strategy, stop_pct, trail_pct)
+    stop_pct: 固定止損（離 entry_open）。如 0.10 = 跌 10% 平倉
+    trail_pct: 移動止損（離高點）。如 0.10 = 從高點回跌 10% 平倉
+    """
+    ticker = args[0]
+    hold_days = args[1]
+    strategy = args[2] if len(args) > 2 else 'inv_hammer'
+    stop_pct = args[3] if len(args) > 3 else None
+    trail_pct = args[4] if len(args) > 4 else None
+
     try:
         df = dl.load_from_cache(ticker)
         if df is None or len(df) < 280:
@@ -223,46 +229,80 @@ def gen_trades_for_one(args):
         signals = detect_signals(df, strategy=strategy)
         trades = []
         o = df['Open'].values
+        h = df['High'].values
+        l = df['Low'].values
         c = df['Close'].values
         idx = df.index
         n = len(df)
-        # 訊號級 features（用於 priority ranking）
         rsi_arr = df['rsi'].values if 'rsi' in df.columns else None
         adx_arr = df['adx'].values if 'adx' in df.columns else None
         e20_arr = df['e20'].values if 'e20' in df.columns else None
+
         for sig_i in signals:
             entry_i = sig_i + 1
-            exit_i = entry_i + hold_days
-            if exit_i >= n:
+            exit_i_max = entry_i + hold_days
+            if exit_i_max >= n:
                 continue
             entry_open = float(o[entry_i])
-            exit_open = float(o[exit_i])
-            if entry_open <= 0 or exit_open <= 0:
+            if entry_open <= 0 or np.isnan(entry_open):
                 continue
-            gross_ret = (exit_open - entry_open) / entry_open
+
+            # 預設：hold N 天後出場
+            actual_exit_i = exit_i_max
+            actual_exit_price = float(o[exit_i_max])
+            stopped_by = None
+
+            # 止損檢查（逐日 walk）
+            if stop_pct or trail_pct:
+                running_peak = entry_open
+                fixed_stop_price = entry_open * (1 - stop_pct) if stop_pct else None
+                for k in range(entry_i + 1, exit_i_max + 1):
+                    if k >= n: break
+                    h_k = float(h[k]) if not np.isnan(h[k]) else None
+                    l_k = float(l[k]) if not np.isnan(l[k]) else None
+                    if h_k is None or l_k is None: continue
+                    # 更新 running peak（用 high）
+                    if h_k > running_peak:
+                        running_peak = h_k
+                    # 固定止損：當天 low 觸發
+                    if fixed_stop_price and l_k <= fixed_stop_price:
+                        actual_exit_i = k
+                        actual_exit_price = fixed_stop_price
+                        stopped_by = 'fixed'
+                        break
+                    # 移動止損：當天 low 觸碰 trailing stop
+                    if trail_pct:
+                        trail_price = running_peak * (1 - trail_pct)
+                        # 必須先有獲利才啟動 trailing（避免立刻被洗）
+                        if running_peak > entry_open and l_k <= trail_price:
+                            actual_exit_i = k
+                            actual_exit_price = trail_price
+                            stopped_by = 'trailing'
+                            break
+
+            if actual_exit_price <= 0 or np.isnan(actual_exit_price):
+                continue
+            gross_ret = (actual_exit_price - entry_open) / entry_open
             net_ret = gross_ret - COST_ROUND_TRIP
 
-            # 計算各種 quality score（資料只用 sig_i 之前的，無 lookahead）
             rsi_v = float(rsi_arr[sig_i]) if rsi_arr is not None and not np.isnan(rsi_arr[sig_i]) else 50.0
             adx_v = float(adx_arr[sig_i]) if adx_arr is not None and not np.isnan(adx_arr[sig_i]) else 0.0
             close_v = float(c[sig_i])
             e20_v = float(e20_arr[sig_i]) if e20_arr is not None and not np.isnan(e20_arr[sig_i]) else close_v
-            # drop_30d
             drop_30d = ((close_v - c[sig_i-30]) / c[sig_i-30] * 100) if sig_i >= 30 and c[sig_i-30] > 0 else 0
-            # 距 EMA20（T1 用）
             dist_pct = (e20_v - close_v) / e20_v * 100 if e20_v > 0 else 0
 
             trades.append({
                 'ticker': ticker,
                 'signal_date': idx[sig_i].strftime('%Y-%m-%d'),
                 'entry_date': idx[entry_i].strftime('%Y-%m-%d'),
-                'exit_date': idx[exit_i].strftime('%Y-%m-%d'),
+                'exit_date': idx[actual_exit_i].strftime('%Y-%m-%d'),
                 'entry_price': round(entry_open, 2),
-                'exit_price': round(exit_open, 2),
+                'exit_price': round(actual_exit_price, 2),
                 'gross_ret': gross_ret,
                 'net_ret': net_ret,
-                'hold_days': hold_days,
-                # Signal-time features (no lookahead)
+                'hold_days': actual_exit_i - entry_i,
+                'stopped_by': stopped_by,  # None / 'fixed' / 'trailing'
                 'rsi': rsi_v,
                 'adx': adx_v,
                 'drop_30d': drop_30d,
@@ -576,6 +616,69 @@ def run_backtest(hold_days=30, strategy='inv_hammer', market='tw'):
     }
 
 
+def run_stoploss_sweep(strategy='inv_hammer', hold_days=30, max_pos=10):
+    """🆕 v9.11：止損掃描。
+    比較：no stop / fixed -10% / fixed -15% / trailing 10% / trailing 15%"""
+    DATA = Path('data_cache')
+    universe = sorted([
+        p.stem for p in DATA.glob('*.parquet')
+        if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+        and not p.stem.startswith('00')
+    ])
+    print(f"🇹🇼 Stoploss sweep: {strategy} hold={hold_days}d max_pos={max_pos}")
+    print()
+
+    configs = [
+        ('no_stop',     None, None),
+        ('fixed_10',    0.10, None),
+        ('fixed_15',    0.15, None),
+        ('trail_10',    None, 0.10),
+        ('trail_15',    None, 0.15),
+        ('fixed_10_trail_15', 0.10, 0.15),  # 雙層保護
+    ]
+
+    print("=" * 110)
+    print(f"{'Config':>20}{'n':>6}{'Win%':>7}{'Mean':>9}{'PF':>6}"
+          f"{'CAGR%':>9}{'Sharpe':>8}{'MDD%':>9}{'AvgHold':>9}{'Stopped%':>10}")
+    print("=" * 110)
+    rows = []
+    for name, stop_pct, trail_pct in configs:
+        t0 = time.time()
+        all_trades = []
+        args = [(t, hold_days, strategy, stop_pct, trail_pct) for t in universe]
+        with ProcessPoolExecutor(max_workers=WORKERS) as ex:
+            for trades in ex.map(gen_trades_for_one, args, chunksize=50):
+                all_trades.extend(trades)
+
+        if not all_trades:
+            continue
+        df = pd.DataFrame(all_trades)
+        n = len(df)
+        win = (df['net_ret'] > 0).mean() * 100
+        mean = df['net_ret'].mean() * 100
+        pos_sum = df.loc[df['net_ret']>0, 'net_ret'].sum()
+        neg_sum = -df.loc[df['net_ret']<0, 'net_ret'].sum() if (df['net_ret']<0).any() else 0.001
+        pf = pos_sum / neg_sum if neg_sum > 0 else 999
+        avg_hold = df['hold_days'].mean()
+        stopped_pct = df['stopped_by'].notna().sum() / n * 100
+
+        # 投組
+        B = portfolio_sim(all_trades, hold_days, max_pos=max_pos, priority='drop_deep')
+
+        cagr = B.get('cagr_pct', 0)
+        sharpe = B.get('sharpe', 0)
+        mdd = B.get('max_drawdown_pct', 0)
+        marker = ' ★' if cagr > 8 and sharpe > 1.5 else ''
+        print(f"{name:>20}{n:>6}{win:>6.1f}%{mean:>+8.2f}%{pf:>6.2f}"
+              f"{cagr:>+8.2f}%{sharpe:>8.2f}{mdd:>+8.2f}%{avg_hold:>9.1f}{stopped_pct:>9.1f}%{marker}")
+        rows.append({
+            'config': name, 'n': n, 'win_pct': win, 'mean_pct': mean, 'pf': pf,
+            'cagr_pct': cagr, 'sharpe': sharpe, 'mdd_pct': mdd,
+            'avg_hold': float(avg_hold), 'stopped_pct': float(stopped_pct),
+        })
+    return rows
+
+
 def run_priority_sweep(strategy='inv_hammer', hold_days=30, max_pos=10):
     """🆕 v9.11：訊號優先序敏感性。FIFO vs ranked priorities."""
     DATA = Path('data_cache')
@@ -777,6 +880,8 @@ def main():
                    help='跑 max_positions 敏感性分析（5/10/20/50/100/200）')
     p.add_argument('--priority-sweep', action='store_true',
                    help='跑訊號優先序敏感性（fifo / rsi_low / drop_deep / 等）')
+    p.add_argument('--stoploss-sweep', action='store_true',
+                   help='跑止損敏感性（no/fixed_10/fixed_15/trail_10/trail_15）')
     p.add_argument('--max-pos', type=int, default=10,
                    help='priority sweep 用的 max_positions（預設 10）')
     p.add_argument('--market', type=str, default='tw',
@@ -784,7 +889,21 @@ def main():
                    help='市場：tw (預設) / us / us_top（只用 us_applicable.json TOP 200 檔）')
     args = p.parse_args()
 
-    if args.priority_sweep:
+    if args.stoploss_sweep:
+        results = {}
+        for strat in ['inv_hammer', 't1_v7']:
+            for hd in [30]:
+                key = f'{strat}_hold{hd}d_pos{args.max_pos}'
+                print(f"\n{'#'*70}")
+                print(f"# STOPLOSS SWEEP {strat.upper()} hold={hd} max_pos={args.max_pos}")
+                print(f"{'#'*70}")
+                results[key] = run_stoploss_sweep(strategy=strat, hold_days=hd,
+                                                    max_pos=args.max_pos)
+        out = f'backtest_stoploss_sweep_pos{args.max_pos}.json'
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"\n✅ 寫入 {out}")
+    elif args.priority_sweep:
         results = {}
         for strat in ['inv_hammer', 't1_v7']:
             for hd in [30]:

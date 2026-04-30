@@ -8,25 +8,26 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10z"
-APP_UPDATED   = "2026-04-29 09:00"
+APP_VERSION   = "v9.11"
+APP_UPDATED   = "2026-04-30 16:00"
 APP_NOTES     = (
-    "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
-    "Walk-Forward 7 年驗證 — 危機年大勝 SPY (2020 +99pp / 2022 +10pp)、平穩牛市跟不上 ｜ "
-    "Momentum 12-1 + v8 組合（事後極限 RR 1.229 / 50/50 配資 0.661）｜ "
-    "產業 RR：能源 9.93 / 半導體 5.18 / 軟體 2.38 — 集中度極高"
+    "🥇 OOS 真王者：倒鎚 hold=30 + max_pos=50 + drop_deep priority → "
+    "OOS CAGR +7.30% / Sharpe 1.74 / MDD -4.64% ｜ "
+    "🆕 倒鎚月份效應：4 月黃金 (89.5% 漲 / +15.91%)、3 月地雷 (-7.94%) — 警報自動標示 ｜ "
+    "T1_V7 + fixed_10% 止損 → CAGR +10.87% / MDD -8.24%（雙改善）｜ "
+    "美股 TOP 200 + T1_V7 → CAGR +14.35% / Sharpe 2.41（universe 篩選 > tuning）｜ "
+    "Walk-forward 推翻過擬合：T1_V7 hold=60 是 trap (Sharpe 1.92→0.17) ｜ "
+    "LINE Bot 推送 + alerts quality_score 排序 + Live 命中率追蹤"
 )
 APP_VALIDATIONS = (
-    "P5+VWAPEXEC TEST 22月勝率 56.2% / RR 0.611（baseline 41% / 0.223）2.7×提升 ｜ "
-    "T3 信心度旗標 高分 4-5 全市場 6 年 RR 0.059 vs 低分 0.039（+50%）｜ "
-    "T4 反彈唯一全市場全期穩定 RR 0.103 ｜ "
-    "🇺🇸 美股最佳 P10+POS+ADX18 高流動 555 檔 TEST RR 0.496 / 勝率 55% (vs P5+POS 0.348 +43%) ｜ "
-    "TOP 200 篩選帶來 7× RR 提升（必要前置）｜ "
-    "📊 真實 Portfolio CAGR：🇹🇼 TW 等權 +18.4%/y vs TWII +36.6% → 輸 -18pp（吃不到台積電集中度）｜ "
-    "🇺🇸 US 高流動 +23.3%/y vs SPY +17.2% → 勝 +6.1pp ⭐（唯一真實 alpha）｜ "
-    "🌏 跨市場 50/50 TEST CAGR +20.8% vs Bench +26.9% → 輸 -6pp ｜ "
-    "📅 TW Walk-Forward 7 年：6/7 年正 RR / σ 0.325（高變動但穩）— 勝在熊市與標準牛、輸 AI 暴力牛 ｜ "
-    "🪙 v8 不適用加密貨幣（20 主流幣 TEST 全變體負 RR / 輸 BTC -19pp）"
+    "🚀 倒鎚 OOS 2024+ 71.8% 勝率 / +9.35% 30d / PF 5.5（無過擬合，反而強化）｜ "
+    "🎯 T1_V7 hold=30 OOS CAGR +14.78% / Sharpe 0.81 — 1M 投組真贏家 ｜ "
+    "⚠️ T1_V7 hold=60 是過擬合 trap (Sharpe 1.92→0.17) — 勿用 ｜ "
+    "💎 max_pos=50 + drop_deep priority → 倒鎚 Sharpe 0.54→1.99 / MDD -3.44% ｜ "
+    "🇺🇸 US TOP 200 + T1_V7 → CAGR +14.35% / Sharpe 2.41（universe 篩選比 tuning 重要）｜ "
+    "📊 P5+VWAPEXEC TEST 22月勝率 56.2% / RR 0.611（baseline 0.223）2.7×提升 ｜ "
+    "🇺🇸 P10+POS+ADX18 高流動 555 檔 RR 0.496 / 勝率 55% ｜ "
+    "📅 TW Walk-Forward 7 年：6/7 年正 RR ｜ 🪙 v8 不適用加密貨幣"
 )
 
 import numpy as np
@@ -6066,9 +6067,10 @@ def _render_alerts_panel():
             f'</div>'
             # 🆕 v9.11：研究結論建議
             f'<div style="font-size:.7rem;color:#a8cce8;line-height:1.5">'
-            f'💡 <b>1M 資金最佳設定</b>：50 倉位 × 20k/筆 + drop_deep 排序 '
-            f'(倒鎚 Sharpe 1.99) ｜ T1_V7 30d hold OOS CAGR +14.78% '
-            f'｜ 同 level 內已按 Q 分排序（高優先）'
+            f'💡 <b>OOS 最佳：倒鎚 hold=30 + max_pos=50 + drop_deep</b>'
+            f'（OOS Sharpe 1.74 / MDD -4.64%）｜ '
+            f'T1_V7 +10% 止損 → CAGR +10.87% ｜ '
+            f'🟢 4 月黃金月 (+15.91%) / ⚠️ 3 月地雷月 (-7.94%) 警報自動標示'
             f'</div></div>',
             unsafe_allow_html=True
         )
@@ -6723,7 +6725,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 88  # v9.10z：上次更新時間橫幅 + GitHub Actions 失敗通知 + Discord webhook 2026-04-30
+_RESULTS_VERSION = 89  # v9.11：完整投組回測 + Walk-forward OOS + max_positions/priority sweep + alerts quality_score 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

@@ -36,6 +36,61 @@
    - 結論：micro-cap / biotech 異常股摧毀策略；限 TOP 200 反而贏 TW
    - inv_hammer 在 US TOP 200 只 22 筆訊號（大型股很少滿足跌深+RSI≤25）→ 不適用
 
+---
+
+## 🔬 v9.11 第二波研究（2026-04-30 晚間）
+
+7. **產業集中度檢查**：✅ 集中度 OK 但 alpha 集中
+   - 倒鎚電子 21% / 非電子 79%（訊號數量分散）
+   - 但 alpha 嚴重集中：電子 +13.54% vs 非電子 +6.44%
+   - 通信網路業 win 85% / +20% / 電腦及週邊 win 88%（最強）
+
+8. **止損 sweep**：T1_V7 + fixed_10% 是大發現
+   - **T1_V7 + fixed_10% → CAGR +10.87%（vs no stop +9.96%）+ MDD -8.24%（雙改善）**
+   - 倒鎚加止損反而傷（69% 勝率訊號太強，止損切到贏家）
+   - **trail_10% 對兩者都很糟**（容易被洗掉，CAGR 暴跌到 +3-5%）
+
+9. **倒鎚 hold=15 walk-forward**：被 hold=30 完勝
+   - hold=15 OOS CAGR +1.70% / Sharpe 0.56 / MDD -6.48%
+   - **hold=30 OOS CAGR +7.30% / Sharpe 1.74 / MDD -4.64%** ⭐
+   - hold=15 alpha 沒走完，hold=30 才是 sweet spot
+
+10. **Earnings Season 月份效應**：倒鎚有極端月份效應
+    - 🟢 **4 月：n=363, 89.5% 漲, +15.91%**（黃金月！佔總訊號 30%）
+    - 🟢 5 月：n=162, 80.9% 漲, +12.01%
+    - 🚨 **3 月：n=47, 21.3% 漲, -7.94%**（年報地雷月）
+    - ⚠️ 6 月 (40%) / 9 月 (45.6%)：半年報 / Q3 公告
+    - T1_V7 各月份差異不大（可忽略）
+
+11. **混合策略 70/30 vs 純策略**：純倒鎚 OOS Sharpe 完勝
+    - 70/30 in-sample CAGR +11.40% / Sharpe 1.41 / MDD -13.44%
+    - 50/50 in-sample CAGR +10.11% / Sharpe 1.56 / MDD -10.28%
+    - 純倒鎚 (max_pos=50, drop_deep) in-sample CAGR +7.95% / **Sharpe 1.91**
+    - **OOS 純倒鎚 Sharpe 1.74 + MDD -4.64% 完勝混合策略**
+
+---
+
+## 🏆 最終 OOS 真王者（v9.11 完整驗證）
+
+🥇 **倒鎚 + hold=30 + max_pos=50 (20k/筆) + drop_deep priority**
+   - **OOS 2024+ CAGR +7.30%, Sharpe 1.74, MDD -4.64%**
+   - 4-5 月加碼（+15.91% / +12%），3/6/9 月避開
+   - In-sample 訊號級 71.8% 勝率（PF 5.5）
+
+🥈 **T1_V7 + hold=30 + max_pos=10 + fixed_10% 止損**
+   - In-sample CAGR +10.87%, Sharpe 1.88, MDD -8.24%
+   - 高 CAGR 但 OOS Sharpe 較低
+   - 適合補頻率（5879 訊號 vs 倒鎚 1222）
+
+🥉 **US TOP 200 + T1_V7 + hold=30**
+   - In-sample CAGR +14.35%, Sharpe 2.41
+   - 美股獨立投組
+
+**主程式自動標示**：
+- 倒鎚警報自動帶月份 tag（🟢 黃金月 / ⚠️ 弱月）
+- T1_V7 警報 expect 文字含「建議+10%止損」
+- 同 level 內按 quality_score 排序（drop_deep / rsi_low）
+
 **新主程式設定**（已 push）：
 - alerts 都帶 quality_score（drop_deep / rsi_low / from_high）
 - 同 level 內按 quality 降序排序

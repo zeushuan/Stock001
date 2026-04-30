@@ -169,16 +169,39 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     drop_30d_v = ((close_v - c[max(0, last_idx-30)]) / c[max(0, last_idx-30)] * 100
                    if last_idx >= 30 and c[last_idx-30] > 0 else 0)
 
+    # 🆕 v9.11：取得當前月份用於 earnings season 警示
+    try:
+        current_month = pd.Timestamp(df.index[last_idx]).month
+    except Exception:
+        current_month = 0
+    # 倒鎚月份效應（research finding）：
+    # 4 月: 89.5% 漲 / +15.91% (黃金月)；5 月: 80.9% / +12.01%
+    # 3 月: 21.3% 漲 / -7.94% (地雷)；6 月: 40% / -2.04%；9 月: 45.6% / -1.34%
+    EARNINGS_GOLD_MONTHS = {4, 5}      # 強月：警報強化
+    EARNINGS_DANGER_MONTHS = {3, 6, 9}  # 弱月：警報降級或加警告
+    month_tag = ''
+    if current_month in EARNINGS_GOLD_MONTHS:
+        month_tag = f' 🟢{current_month}月強月'
+    elif current_month in EARNINGS_DANGER_MONTHS:
+        month_tag = f' ⚠️{current_month}月弱月'
+
     # ── 看多警報 ──
     # ★★★★★ 倒鎚 + RSI≤25 + ADX↑
     # OOS 2024+ 驗證：71.8% 漲 / +9.35% 30d / PF 5.5（訊號級 alpha 反而強化，無過擬合）
-    # 注意：投組級在 1M/10倉 下 OOS 已 CAGR 0%（容量瓶頸）— 適合大資金或多倉位
-    # quality_score = -drop_30d_v（跌越深越優先，priority research 證實 +84% CAGR）
+    # 投組最佳：max_pos=50 + drop_deep priority → OOS CAGR +7.30%, Sharpe 1.74, MDD -4.64%
+    # quality_score = -drop_30d_v（跌越深越優先，priority research 證實 OOS 最佳）
     if 'INV_HAMMER' in recent and rsi_v <= 25 and adx_rising:
+        # 月份感知 expect
+        if current_month in EARNINGS_GOLD_MONTHS:
+            expect_text = f'+15.91% 30d (89.5% 漲, {current_month}月歷史最強月)'
+        elif current_month in EARNINGS_DANGER_MONTHS:
+            expect_text = f'⚠️ -7.94% 30d (21% 漲, {current_month}月歷史地雷月，建議避開)'
+        else:
+            expect_text = '+9.35% 30d (71.8% 漲, OOS 驗證)'
         alerts.append({'level': 5, 'side': 'bull',
-            'tag': f'倒鎚 + RSI {rsi_v:.0f}≤25 + ADX↑',
-            'expect': '+9.35% 30d (71.8% 漲, OOS 驗證)',
-            'quality_score': float(-drop_30d_v)})  # 跌越深 → score 越高
+            'tag': f'倒鎚 + RSI {rsi_v:.0f}≤25 + ADX↑{month_tag}',
+            'expect': expect_text,
+            'quality_score': float(-drop_30d_v)})
     # 即將觸發：倒鎚 + RSI 26-30 + ADX↑
     elif 'INV_HAMMER' in recent and 25 < rsi_v <= 30 and adx_rising:
         alerts.append({'level': 'imm_bull', 'side': 'bull',
@@ -206,7 +229,8 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     # 🆕 v9.11：★★ T1 即將上穿（V7: P1 + ADX≥22）— Walk-forward OOS 主力策略
     # In-sample 2020-2023: 51% 漲 / +2.61% 30d
     # OOS 2024+: 45% 漲 / +1.36% 30d（訊號級輕微 decay）
-    # 投組 1M/10倉 hold 30d OOS CAGR +14.78%（**OOS 唯一贏家**：訊號密集容量友善）
+    # 投組 1M/10倉 hold 30d OOS CAGR +14.78%
+    # **建議搭配 fixed_10% 止損 → CAGR +10.87% / MDD -8.24%（vs no stop CAGR +9.96%）**
     # 注意：T1_V7 hold 60d 是過擬合 trap（Sharpe 1.92→0.17）— 切勿用 60d
     # quality_score = (50 - RSI)（priority research：T1_V7 用 rsi_low 最佳）
     e20_arr = df['e20'].values if 'e20' in df.columns else None
@@ -224,8 +248,8 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
             dist_pct = (e20_now - close_v) / e20_now * 100
             alerts.append({'level': 2, 'side': 'bull',
                 'tag': f'T1 即將上穿（距 EMA20 {dist_pct:.2f}% + 連2漲 + ADX≥22）',
-                'expect': '投組 OOS CAGR +14.78% / 訊號級 45% 漲 / +1.36% 30d',
-                'quality_score': float(50 - rsi_v)})  # RSI 越低越優先
+                'expect': '投組 OOS CAGR +14.78%（建議+10%止損，CAGR→+10.87%/MDD-8%）',
+                'quality_score': float(50 - rsi_v)})
 
     # ── 看空警報 ──
     # ★★★★ 三隻烏鴉 + 距高<5% + 量縮
