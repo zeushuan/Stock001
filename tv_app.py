@@ -6846,7 +6846,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 89  # v9.11：完整投組回測 + Walk-forward OOS + max_positions/priority sweep + alerts quality_score 2026-04-30
+_RESULTS_VERSION = 90  # v9.11：操作建議卡片明確結構（狀態+原因+持倉者建議） + 即將死叉阻擋一致化 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
