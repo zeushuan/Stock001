@@ -1,0 +1,50 @@
+name: Daily Signals Update
+
+on:
+  schedule:
+    # 台股收盤後（13:30 台北 = 05:30 UTC）+ 美股盤後（04:30 台北 = 20:30 UTC 前一日）
+    # cron 用 UTC，週一-週五
+    - cron: '30 5 * * 1-5'    # 台股收盤後（台北 13:30）
+    - cron: '0 22 * * 1-5'    # 美股盤後（台北 06:00 隔日）
+  workflow_dispatch:           # 也允許手動觸發
+
+permissions:
+  contents: write              # 允許 push 回 repo
+
+jobs:
+  update_signals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy ta openpyxl twstock requests
+
+      - name: Update TW + US signals (cloud script)
+        run: |
+          python update_signals_cloud.py
+        continue-on-error: true
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status --porcelain top200_signals.json us_top200_signals.json) ]]; then
+            git add top200_signals.json us_top200_signals.json
+            git commit -m "auto: 自動更新 TW + US TOP 200 訊號 ($(date +%Y-%m-%d))"
+            git push
+            echo "✅ Signals updated"
+          else
+            echo "ℹ️ No changes to commit"
+          fi
