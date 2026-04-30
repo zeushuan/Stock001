@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10q"
+APP_VERSION   = "v9.10r"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -3017,20 +3017,60 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         # （v7 已移除 T2 強制進場；多頭中段顯示等待 T3 拉回）
         if rsi is not None and 50 <= rsi < 65 and not t1_ok and not t3_ok:
             to50 = f"{rsi - 50:.1f}"
+            # 🆕 v9.10r：估計需跌到的價格才能讓 RSI<50
+            # Wilder RSI 倒推：d = 13 × ATR × (RSI-50)/50（單日跌幅）
+            # 多日緩跌可平均分攤
+            target_price_html = ''
+            if atr14 is not None and atr14 > 0 and close is not None:
+                # 單日急跌目標
+                d_1day = 13 * atr14 * (rsi - 50) / 50
+                target_1d = close - d_1day
+                target_1d_pct = -d_1day / close * 100 if close > 0 else 0
+                # 3 日緩跌（每日 1/3 跌幅）
+                d_3day = d_1day / 3
+                target_3d_today = close - d_3day
+                target_3d_pct = -d_3day / close * 100 if close > 0 else 0
+                target_price_html = (
+                    f'<br><span style="color:#a8c8d8;font-size:.72rem;margin-left:18px">'
+                    f'💡 預估今日拉回到 <b style="color:#3dbb6a">≤ {target_3d_today:.2f}</b>'
+                    f'（{target_3d_pct:.1f}%，約 0.3 ATR，3 日緩跌情境）｜'
+                    f'單日急跌 <b style="color:#e8a020">≤ {target_1d:.2f}</b>'
+                    f'（{target_1d_pct:.1f}%）才一日入區'
+                    f'</span>'
+                )
             entry_rows.append(
                 f'<div style="display:flex;gap:6px;align-items:baseline">'
                 f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
                 f'font-size:.65rem;color:#7a8899;white-space:nowrap">等待 T3</span>'
                 f'<span style="color:#c8b87a">📌 RSI {rsi_str}，多頭中段，'
-                f'等待 RSI &lt; 50（再距 {to50} 點）確認 T3 拉回再進場</span></div>'
+                f'等待 RSI &lt; 50（再距 {to50} 點）確認 T3 拉回再進場'
+                f'{target_price_html}</span></div>'
             )
         elif rsi is not None and rsi >= 65 and not t1_ok:
+            # 🆕 v9.10r：估計回落目標價
+            target_html_overheat = ''
+            if atr14 is not None and atr14 > 0 and close is not None:
+                d_1day = 13 * atr14 * (rsi - 50) / 50
+                target_1d = close - d_1day
+                target_1d_pct = -d_1day / close * 100 if close > 0 else 0
+                d_5day = d_1day / 5  # 5 日緩跌（過熱通常需更多時間）
+                target_5d = close - d_5day
+                target_5d_pct = -d_5day / close * 100 if close > 0 else 0
+                target_html_overheat = (
+                    f'<br><span style="color:#a8c8d8;font-size:.72rem;margin-left:18px">'
+                    f'💡 預估今日拉回到 <b style="color:#3dbb6a">≤ {target_5d:.2f}</b>'
+                    f'（{target_5d_pct:.1f}%，5 日緩跌）｜'
+                    f'單日急跌 <b style="color:#e8a020">≤ {target_1d:.2f}</b>'
+                    f'（{target_1d_pct:.1f}%）才一日入區'
+                    f'</span>'
+                )
             # 🆕 v9.10l：TW 研究發現 RSI≥70 反而 RR +0.014（強勢延續）→ 改提示而非警告
             if _is_us or _is_crypto:
                 # 美股維持原警告（US RSI≥70 中性）
                 entry_rows.append(
                     f'<div style="color:#7a8899;font-size:.75rem">'
                     f'RSI {rsi_str} ≥ 65，{('過熱，不進場' if rsi >= 75 else "等待回落至 RSI < 50 再進場")}'
+                    f'{target_html_overheat}'
                     f'</div>'
                 )
             else:
@@ -3045,6 +3085,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                     entry_rows.append(
                         f'<div style="color:#7a8899;font-size:.75rem">'
                         f'RSI {rsi_str} ≥ 65，多頭偏熱，等待回落至 RSI &lt; 50 再進場'
+                        f'{target_html_overheat}'
                         f'</div>'
                     )
 
@@ -5858,7 +5899,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 79  # v9.10q：跌深反彈訊號分級（TW 越深越強 / US 30-50% 反向）2026-04-29
+_RESULTS_VERSION = 80  # v9.10r：等待 T3 拉回顯示預估目標價（單日急跌 vs N 日緩跌）2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
