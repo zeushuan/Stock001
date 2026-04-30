@@ -1,0 +1,530 @@
+{
+  "inv_hammer_hold15d": {
+    "config": {
+      "strategy": "inv_hammer",
+      "hold_days": 15,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 1231,
+      "win_rate_pct": 65.64,
+      "mean_gross_pct": 5.66,
+      "mean_net_pct": 4.98,
+      "median_net_pct": 3.25,
+      "std_net_pct": 11.95,
+      "best_pct": 67.05,
+      "worst_pct": -34.0,
+      "percentiles_net_pct": {
+        "p5": -11.57,
+        "p25": -2.43,
+        "p50": 3.25,
+        "p75": 11.69,
+        "p95": 23.76
+      },
+      "by_year": {
+        "2020": {
+          "n": 39,
+          "win_rate": 58.97435897435898,
+          "mean_net": 4.626984807188587
+        },
+        "2021": {
+          "n": 180,
+          "win_rate": 77.77777777777779,
+          "mean_net": 7.817351505613241
+        },
+        "2022": {
+          "n": 209,
+          "win_rate": 62.67942583732058,
+          "mean_net": 2.2803195905757137
+        },
+        "2023": {
+          "n": 92,
+          "win_rate": 51.08695652173913,
+          "mean_net": 0.4875626681300408
+        },
+        "2024": {
+          "n": 179,
+          "win_rate": 40.22346368715084,
+          "mean_net": -0.14293287892192838
+        },
+        "2025": {
+          "n": 498,
+          "win_rate": 77.30923694779116,
+          "mean_net": 8.23788463020463
+        },
+        "2026": {
+          "n": 34,
+          "win_rate": 29.411764705882355,
+          "mean_net": -1.4773472405438715
+        }
+      },
+      "expectancy_pct": 4.98,
+      "profit_factor": 3.31
+    },
+    "B_portfolio": {
+      "n_executed": 513,
+      "n_skipped": 718,
+      "fill_rate_pct": 41.7,
+      "final_value": 1284739.0,
+      "total_return_pct": 28.47,
+      "cagr_pct": 4.24,
+      "sharpe": 0.74,
+      "max_drawdown_pct": -12.88,
+      "win_rate_pct": 50.49,
+      "avg_profit": 555.0,
+      "total_profit": 284739.0,
+      "years": 6.04,
+      "selection_bias": {
+        "exec_mean_net_pct": 0.56,
+        "skipped_mean_net_pct": 8.15,
+        "exec_win_rate_pct": 50.49,
+        "skipped_win_rate_pct": 76.46
+      }
+    }
+  },
+  "inv_hammer_hold30d": {
+    "config": {
+      "strategy": "inv_hammer",
+      "hold_days": 30,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 1222,
+      "win_rate_pct": 69.15,
+      "mean_gross_pct": 8.6,
+      "mean_net_pct": 7.92,
+      "median_net_pct": 5.14,
+      "std_net_pct": 17.52,
+      "best_pct": 232.66,
+      "worst_pct": -36.47,
+      "percentiles_net_pct": {
+        "p5": -13.2,
+        "p25": -1.86,
+        "p50": 5.14,
+        "p75": 14.76,
+        "p95": 36.56
+      },
+      "by_year": {
+        "2020": {
+          "n": 39,
+          "win_rate": 48.717948717948715,
+          "mean_net": 2.575456958345786
+        },
+        "2021": {
+          "n": 180,
+          "win_rate": 76.66666666666667,
+          "mean_net": 11.632086048842144
+        },
+        "2022": {
+          "n": 209,
+          "win_rate": 65.07177033492823,
+          "mean_net": 4.523182883113071
+        },
+        "2023": {
+          "n": 92,
+          "win_rate": 52.17391304347826,
+          "mean_net": -0.18487950243555315
+        },
+        "2024": {
+          "n": 179,
+          "win_rate": 51.955307262569825,
+          "mean_net": 2.7324432785766293
+        },
+        "2025": {
+          "n": 498,
+          "win_rate": 80.72289156626506,
+          "mean_net": 12.268125753643883
+        },
+        "2026": {
+          "n": 25,
+          "win_rate": 36.0,
+          "mean_net": -1.4940782669823636
+        }
+      },
+      "expectancy_pct": 7.92,
+      "profit_factor": 4.47
+    },
+    "B_portfolio": {
+      "n_executed": 348,
+      "n_skipped": 874,
+      "fill_rate_pct": 28.5,
+      "final_value": 1223307.0,
+      "total_return_pct": 22.33,
+      "cagr_pct": 3.39,
+      "sharpe": 0.54,
+      "max_drawdown_pct": -22.32,
+      "win_rate_pct": 45.98,
+      "avg_profit": 642.0,
+      "total_profit": 223307.0,
+      "years": 6.05,
+      "selection_bias": {
+        "exec_mean_net_pct": 0.64,
+        "skipped_mean_net_pct": 10.82,
+        "exec_win_rate_pct": 45.98,
+        "skipped_win_rate_pct": 78.38
+      }
+    }
+  },
+  "inv_hammer_hold60d": {
+    "config": {
+      "strategy": "inv_hammer",
+      "hold_days": 60,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 1202,
+      "win_rate_pct": 60.9,
+      "mean_gross_pct": 7.62,
+      "mean_net_pct": 6.95,
+      "median_net_pct": 3.56,
+      "std_net_pct": 21.88,
+      "best_pct": 232.66,
+      "worst_pct": -55.48,
+      "percentiles_net_pct": {
+        "p5": -18.89,
+        "p25": -4.75,
+        "p50": 3.56,
+        "p75": 13.84,
+        "p95": 43.34
+      },
+      "by_year": {
+        "2020": {
+          "n": 39,
+          "win_rate": 58.97435897435898,
+          "mean_net": 5.439616134672592
+        },
+        "2021": {
+          "n": 180,
+          "win_rate": 74.44444444444444,
+          "mean_net": 12.458900203353771
+        },
+        "2022": {
+          "n": 209,
+          "win_rate": 55.02392344497608,
+          "mean_net": 2.9870782607098656
+        },
+        "2023": {
+          "n": 92,
+          "win_rate": 43.47826086956522,
+          "mean_net": -1.1687583666847097
+        },
+        "2024": {
+          "n": 179,
+          "win_rate": 49.72067039106145,
+          "mean_net": 2.8012269518880286
+        },
+        "2025": {
+          "n": 498,
+          "win_rate": 66.26506024096386,
+          "mean_net": 9.848934074202742
+        },
+        "2026": {
+          "n": 5,
+          "win_rate": 20.0,
+          "mean_net": -4.285175584617432
+        }
+      },
+      "expectancy_pct": 6.95,
+      "profit_factor": 2.88
+    },
+    "B_portfolio": {
+      "n_executed": 196,
+      "n_skipped": 1006,
+      "fill_rate_pct": 16.3,
+      "final_value": 941384.0,
+      "total_return_pct": -5.86,
+      "cagr_pct": -1.0,
+      "sharpe": -0.06,
+      "max_drawdown_pct": -22.19,
+      "win_rate_pct": 43.88,
+      "avg_profit": -299.0,
+      "total_profit": -58616.0,
+      "years": 6.03,
+      "selection_bias": {
+        "exec_mean_net_pct": -0.3,
+        "skipped_mean_net_pct": 8.36,
+        "exec_win_rate_pct": 43.88,
+        "skipped_win_rate_pct": 64.21
+      }
+    }
+  },
+  "t1_v7_hold15d": {
+    "config": {
+      "strategy": "t1_v7",
+      "hold_days": 15,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 5921,
+      "win_rate_pct": 46.82,
+      "mean_gross_pct": 1.21,
+      "mean_net_pct": 0.54,
+      "median_net_pct": -0.35,
+      "std_net_pct": 10.72,
+      "best_pct": 146.72,
+      "worst_pct": -51.14,
+      "percentiles_net_pct": {
+        "p5": -13.22,
+        "p25": -4.31,
+        "p50": -0.35,
+        "p75": 3.78,
+        "p95": 17.12
+      },
+      "by_year": {
+        "2020": {
+          "n": 833,
+          "win_rate": 54.38175270108043,
+          "mean_net": 2.610835280019419
+        },
+        "2021": {
+          "n": 1078,
+          "win_rate": 48.79406307977737,
+          "mean_net": 0.3905663516839333
+        },
+        "2022": {
+          "n": 767,
+          "win_rate": 36.63624511082138,
+          "mean_net": -1.2992294718934225
+        },
+        "2023": {
+          "n": 1329,
+          "win_rate": 52.6711813393529,
+          "mean_net": 1.316774378342869
+        },
+        "2024": {
+          "n": 1099,
+          "win_rate": 46.67879890809827,
+          "mean_net": 0.9237910516133321
+        },
+        "2025": {
+          "n": 597,
+          "win_rate": 37.3534338358459,
+          "mean_net": -1.9843181992437489
+        },
+        "2026": {
+          "n": 218,
+          "win_rate": 34.862385321100916,
+          "mean_net": 0.035134196178715035
+        }
+      },
+      "expectancy_pct": 0.54,
+      "profit_factor": 1.18
+    },
+    "B_portfolio": {
+      "n_executed": 901,
+      "n_skipped": 5020,
+      "fill_rate_pct": 15.2,
+      "final_value": 1466408.0,
+      "total_return_pct": 46.64,
+      "cagr_pct": 6.55,
+      "sharpe": 0.7,
+      "max_drawdown_pct": -12.65,
+      "win_rate_pct": 44.4,
+      "avg_profit": 518.0,
+      "total_profit": 466408.0,
+      "years": 6.04,
+      "selection_bias": {
+        "exec_mean_net_pct": 0.52,
+        "skipped_mean_net_pct": 0.54,
+        "exec_win_rate_pct": 44.4,
+        "skipped_win_rate_pct": 47.25
+      }
+    }
+  },
+  "t1_v7_hold30d": {
+    "config": {
+      "strategy": "t1_v7",
+      "hold_days": 30,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 5879,
+      "win_rate_pct": 49.4,
+      "mean_gross_pct": 2.88,
+      "mean_net_pct": 2.21,
+      "median_net_pct": -0.15,
+      "std_net_pct": 15.92,
+      "best_pct": 198.01,
+      "worst_pct": -54.22,
+      "percentiles_net_pct": {
+        "p5": -16.06,
+        "p25": -5.53,
+        "p50": -0.15,
+        "p75": 6.44,
+        "p95": 27.85
+      },
+      "by_year": {
+        "2020": {
+          "n": 833,
+          "win_rate": 56.182472989195674,
+          "mean_net": 4.562828425716717
+        },
+        "2021": {
+          "n": 1078,
+          "win_rate": 51.94805194805194,
+          "mean_net": 3.1050922325161037
+        },
+        "2022": {
+          "n": 767,
+          "win_rate": 41.720990873533246,
+          "mean_net": -0.6402937142836201
+        },
+        "2023": {
+          "n": 1329,
+          "win_rate": 53.64936042136945,
+          "mean_net": 2.872519627252339
+        },
+        "2024": {
+          "n": 1099,
+          "win_rate": 49.044585987261144,
+          "mean_net": 2.5014290602756417
+        },
+        "2025": {
+          "n": 597,
+          "win_rate": 39.698492462311556,
+          "mean_net": -0.8334307530182742
+        },
+        "2026": {
+          "n": 176,
+          "win_rate": 38.06818181818182,
+          "mean_net": 1.6233889329847662
+        }
+      },
+      "expectancy_pct": 2.21,
+      "profit_factor": 1.61
+    },
+    "B_portfolio": {
+      "n_executed": 464,
+      "n_skipped": 5415,
+      "fill_rate_pct": 7.9,
+      "final_value": 1929899.0,
+      "total_return_pct": 92.99,
+      "cagr_pct": 11.51,
+      "sharpe": 1.13,
+      "max_drawdown_pct": -14.88,
+      "win_rate_pct": 46.12,
+      "avg_profit": 2004.0,
+      "total_profit": 929899.0,
+      "years": 6.04,
+      "selection_bias": {
+        "exec_mean_net_pct": 2.0,
+        "skipped_mean_net_pct": 2.23,
+        "exec_win_rate_pct": 46.12,
+        "skipped_win_rate_pct": 49.68
+      }
+    }
+  },
+  "t1_v7_hold60d": {
+    "config": {
+      "strategy": "t1_v7",
+      "hold_days": 60,
+      "start_date": "2020-01-01",
+      "universe_size": 1925,
+      "cost_round_trip_pct": 0.6709999999999999,
+      "initial_capital": 1000000,
+      "max_positions": 10,
+      "pos_per_trade": 100000
+    },
+    "A_signal_level": {
+      "n_trades": 5734,
+      "win_rate_pct": 51.95,
+      "mean_gross_pct": 6.63,
+      "mean_net_pct": 5.96,
+      "median_net_pct": 0.57,
+      "std_net_pct": 26.26,
+      "best_pct": 400.63,
+      "worst_pct": -53.25,
+      "percentiles_net_pct": {
+        "p5": -20.05,
+        "p25": -6.78,
+        "p50": 0.57,
+        "p75": 11.11,
+        "p95": 48.78
+      },
+      "by_year": {
+        "2020": {
+          "n": 833,
+          "win_rate": 64.34573829531813,
+          "mean_net": 11.64932465480831
+        },
+        "2021": {
+          "n": 1078,
+          "win_rate": 52.875695732838594,
+          "mean_net": 5.702927945608158
+        },
+        "2022": {
+          "n": 767,
+          "win_rate": 44.85006518904824,
+          "mean_net": 0.5047006138701965
+        },
+        "2023": {
+          "n": 1329,
+          "win_rate": 56.50865312264861,
+          "mean_net": 7.702828905711748
+        },
+        "2024": {
+          "n": 1099,
+          "win_rate": 49.499545040946316,
+          "mean_net": 6.05337371440579
+        },
+        "2025": {
+          "n": 597,
+          "win_rate": 36.18090452261307,
+          "mean_net": 0.32095575938113047
+        },
+        "2026": {
+          "n": 31,
+          "win_rate": 58.06451612903226,
+          "mean_net": 27.80057592817407
+        }
+      },
+      "expectancy_pct": 5.96,
+      "profit_factor": 2.34
+    },
+    "B_portfolio": {
+      "n_executed": 231,
+      "n_skipped": 5503,
+      "fill_rate_pct": 4.0,
+      "final_value": 1937223.0,
+      "total_return_pct": 93.72,
+      "cagr_pct": 11.58,
+      "sharpe": 1.44,
+      "max_drawdown_pct": -8.76,
+      "win_rate_pct": 51.08,
+      "avg_profit": 4057.0,
+      "total_profit": 937223.0,
+      "years": 6.03,
+      "selection_bias": {
+        "exec_mean_net_pct": 4.06,
+        "skipped_mean_net_pct": 6.04,
+        "exec_win_rate_pct": 51.08,
+        "skipped_win_rate_pct": 51.99
+      }
+    }
+  }
+}

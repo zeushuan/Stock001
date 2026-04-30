@@ -191,6 +191,27 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
             'tag': f'底部十字星 + RSI {rsi_v:.0f}≤25 + ADX↑',
             'expect': '+7.02% 30d (67.4% 漲)'})
 
+    # 🆕 v9.11：★★ T1 即將上穿（V7: P1 + ADX≥22）— forward 分析最佳實用變體
+    # Forward 6yr (1925 檔): n=5879, 49.4% 漲, +2.21% 30d, PF 1.61
+    # 注意：本訊號 alpha 較弱（vs 隨機 47.2%/+1.83%），建議只當「次要關注」用
+    # T1 cross precision: 58% (3 天內上穿)，但 cross 本身與報酬相關性弱
+    e20_arr = df['e20'].values if 'e20' in df.columns else None
+    e60_arr = df['e60'].values if 'e60' in df.columns else None
+    if e20_arr is not None and e60_arr is not None and last_idx >= 2:
+        e20_now = float(e20_arr[last_idx]) if not np.isnan(e20_arr[last_idx]) else None
+        e60_now = float(e60_arr[last_idx]) if not np.isnan(e60_arr[last_idx]) else None
+        if (e20_now and e60_now
+            and e20_now > e60_now              # 多頭排列
+            and close_v < e20_now               # 還沒上穿
+            and (e20_now - close_v) / e20_now * 100 <= 1.0  # 距 EMA20 ≤ 1%
+            and c[last_idx] > c[last_idx-1]    # 連 2 天上漲
+            and c[last_idx-1] > c[last_idx-2]
+            and adx_v >= 22):                   # ADX 趨勢強（V7 額外條件）
+            dist_pct = (e20_now - close_v) / e20_now * 100
+            alerts.append({'level': 2, 'side': 'bull',
+                'tag': f'T1 即將上穿（距 EMA20 {dist_pct:.2f}% + 連2漲 + ADX≥22）',
+                'expect': '+2.21% 30d (49% 漲, n=5879, 弱 alpha)'})
+
     # ── 看空警報 ──
     # ★★★★ 三隻烏鴉 + 距高<5% + 量縮
     if 'THREE_CROWS' in recent and from_high < 5 and vol_dry:

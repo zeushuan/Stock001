@@ -1,0 +1,193 @@
+{
+  "config": {
+    "hold": 30,
+    "start": "2020-01-01",
+    "cost_rt": 0.00671,
+    "universe": 1925,
+    "variants": {
+      "V1_dist10_rise2": {
+        "dist_max": 1.0,
+        "rise_days": 2
+      },
+      "V2_dist05_rise2": {
+        "dist_max": 0.5,
+        "rise_days": 2
+      },
+      "V3_dist10_rise3": {
+        "dist_max": 1.0,
+        "rise_days": 3
+      },
+      "V4_dist05_rise3": {
+        "dist_max": 0.5,
+        "rise_days": 3
+      },
+      "V5_dist03_rise2": {
+        "dist_max": 0.3,
+        "rise_days": 2
+      },
+      "V6_dist10_rise2_adx18": {
+        "dist_max": 1.0,
+        "rise_days": 2,
+        "adx_min": 18
+      },
+      "V7_dist10_rise2_adx22": {
+        "dist_max": 1.0,
+        "rise_days": 2,
+        "adx_min": 22
+      },
+      "V8_dist10_rise2_market": {
+        "dist_max": 1.0,
+        "rise_days": 2,
+        "market_bull": true
+      },
+      "V9_dist10_rise2_strict": {
+        "dist_max": 1.0,
+        "rise_days": 2,
+        "strict_below": true
+      },
+      "V10_dist10_accel": {
+        "dist_max": 1.0,
+        "rise_days": 2,
+        "accel": true
+      },
+      "V0_baseline_below_ema": {
+        "dist_max": 999,
+        "rise_days": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "variant": "V8_dist10_rise2_market",
+      "n": 11045,
+      "win_pct": 48.9,
+      "mean_pct": 2.32,
+      "median_pct": -0.21,
+      "std_pct": 15.25,
+      "pf": 1.67,
+      "cross_3d_pct": 57.8,
+      "cross_5d_pct": 68.4,
+      "cross_10d_pct": 81.2
+    },
+    {
+      "variant": "V7_dist10_rise2_adx22",
+      "n": 5879,
+      "win_pct": 49.4,
+      "mean_pct": 2.21,
+      "median_pct": -0.15,
+      "std_pct": 15.92,
+      "pf": 1.61,
+      "cross_3d_pct": 58.1,
+      "cross_5d_pct": 69.2,
+      "cross_10d_pct": 81.2
+    },
+    {
+      "variant": "V3_dist10_rise3",
+      "n": 3228,
+      "win_pct": 48.9,
+      "mean_pct": 2.14,
+      "median_pct": -0.23,
+      "std_pct": 15.28,
+      "pf": 1.6,
+      "cross_3d_pct": 57.8,
+      "cross_5d_pct": 67.7,
+      "cross_10d_pct": 80.6
+    },
+    {
+      "variant": "V6_dist10_rise2_adx18",
+      "n": 8986,
+      "win_pct": 49.1,
+      "mean_pct": 2.06,
+      "median_pct": -0.19,
+      "std_pct": 15.54,
+      "pf": 1.56,
+      "cross_3d_pct": 57.8,
+      "cross_5d_pct": 68.4,
+      "cross_10d_pct": 80.8
+    },
+    {
+      "variant": "V1_dist10_rise2",
+      "n": 13471,
+      "win_pct": 47.9,
+      "mean_pct": 1.87,
+      "median_pct": -0.36,
+      "std_pct": 15.08,
+      "pf": 1.51,
+      "cross_3d_pct": 57.8,
+      "cross_5d_pct": 68.2,
+      "cross_10d_pct": 80.9
+    },
+    {
+      "variant": "V9_dist10_rise2_strict",
+      "n": 13471,
+      "win_pct": 47.9,
+      "mean_pct": 1.87,
+      "median_pct": -0.36,
+      "std_pct": 15.08,
+      "pf": 1.51,
+      "cross_3d_pct": 57.8,
+      "cross_5d_pct": 68.2,
+      "cross_10d_pct": 80.9
+    },
+    {
+      "variant": "V0_baseline_below_ema",
+      "n": 445114,
+      "win_pct": 47.2,
+      "mean_pct": 1.83,
+      "median_pct": -0.55,
+      "std_pct": 16.0,
+      "pf": 1.46,
+      "cross_3d_pct": 36.3,
+      "cross_5d_pct": 48.4,
+      "cross_10d_pct": 66.6
+    },
+    {
+      "variant": "V2_dist05_rise2",
+      "n": 7984,
+      "win_pct": 48.1,
+      "mean_pct": 1.82,
+      "median_pct": -0.31,
+      "std_pct": 15.06,
+      "pf": 1.51,
+      "cross_3d_pct": 61.5,
+      "cross_5d_pct": 71.3,
+      "cross_10d_pct": 82.6
+    },
+    {
+      "variant": "V4_dist05_rise3",
+      "n": 2007,
+      "win_pct": 48.5,
+      "mean_pct": 1.76,
+      "median_pct": -0.29,
+      "std_pct": 15.33,
+      "pf": 1.49,
+      "cross_3d_pct": 61.4,
+      "cross_5d_pct": 70.8,
+      "cross_10d_pct": 82.0
+    },
+    {
+      "variant": "V5_dist03_rise2",
+      "n": 5093,
+      "win_pct": 47.5,
+      "mean_pct": 1.69,
+      "median_pct": -0.38,
+      "std_pct": 14.69,
+      "pf": 1.47,
+      "cross_3d_pct": 63.8,
+      "cross_5d_pct": 73.1,
+      "cross_10d_pct": 84.4
+    },
+    {
+      "variant": "V10_dist10_accel",
+      "n": 6266,
+      "win_pct": 47.7,
+      "mean_pct": 1.52,
+      "median_pct": -0.42,
+      "std_pct": 14.44,
+      "pf": 1.4,
+      "cross_3d_pct": 56.6,
+      "cross_5d_pct": 67.5,
+      "cross_10d_pct": 80.4
+    }
+  ]
+}
