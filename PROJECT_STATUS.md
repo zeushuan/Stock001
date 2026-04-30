@@ -1,5 +1,53 @@
 # 專案最終狀態總結（v3 完整封存 + Fugle VWAP 突破 + 全市場驗證）
 
+---
+
+## 📌 v9.11（2026-04-30）— 完整可交易策略 + Walk-forward 驗證
+
+**新增系統**：
+- ✅ T1 V7 即將上穿警報（level=2 ★★，与倒鎚並存）
+- ✅ Live 命中率追蹤系統（alert_history.json + cron 自動回算）
+- ✅ 完整投組回測腳本（backtest_strategy.py，雙策略 × 多 hold 期 × walk-forward / positions / priority sweep）
+
+**主要研究發現**（已寫進 BACKTEST_REPORT.md）：
+
+1. **倒鎚 + RSI≤25 + ADX↑** 訊號級 alpha 真實存在
+   - In-sample: 65.6% 勝率 / +6.00% / PF 3.35
+   - **OOS 2024+: 71.8% 勝率 / +9.35% / PF 5.5**（無過擬合，反而更強）
+
+2. **T1_V7（提前進場）投組實戰勝倒鎚**
+   - 訊號級 alpha 雖弱（49% / +2.21%），但訊號密集 + 容量友善
+   - **OOS hold=30 投組 CAGR +14.78%**, Sharpe 0.81
+   - ⚠️ **hold=60 是過擬合 trap**（Sharpe 1.92→0.17）
+
+3. **max_positions 敏感性**：之前用 10 倉位嚴重次優
+   - 倒鎚 sweet spot: **50 倉位**（20k/筆）→ Sharpe 從 0.54 飆到 **1.99**
+   - T1_V7 sweet spot: 5-200 任選（CAGR vs Sharpe trade-off）
+
+4. **訊號排序最佳化**：FIFO 浪費 alpha
+   - 倒鎚改 **drop_deep priority** → CAGR 從 3.39% 跳到 **6.23% (+84%)**
+   - T1_V7 改 rsi_low priority → CAGR +5%
+
+5. **倒鎚 + T1_V7 組合策略無價值**：6 年僅 6 筆訊號（兩者方向相反）
+
+6. **美股套用**：universe 篩選 >> 策略 tuning
+   - US 全市場（2254 檔）直接套 TW 規則 → CAGR -10.89%, MDD **-78%** 💀
+   - **US TOP 200（精選）+ T1_V7 hold 30** → CAGR +14.35%, **Sharpe 2.41** ⭐
+   - 結論：micro-cap / biotech 異常股摧毀策略；限 TOP 200 反而贏 TW
+   - inv_hammer 在 US TOP 200 只 22 筆訊號（大型股很少滿足跌深+RSI≤25）→ 不適用
+
+**新主程式設定**（已 push）：
+- alerts 都帶 quality_score（drop_deep / rsi_low / from_high）
+- 同 level 內按 quality 降序排序
+- tv_app 警報 panel 顯示 Q 分 + 推薦倉位 banner
+- LINE Bot 已驗證可推送
+
+**1M 資金最佳配置（依 OOS 驗證）**：
+- 主推：**T1_V7 hold=30 + max_pos=10-20**（CAGR +14.78%, Sharpe 1.13）
+- 輔助：倒鎚 max_pos=50 + drop_deep priority（CAGR +7.95%, Sharpe 1.91）
+
+---
+
 > **2026-04-26 研究封存**：從 v7 (+72.99%) 到 v9.0+
 > 共驗證 **40+ 變體**，確認 **POS+IND+DXY 風報比 1.03** 是台股 6 年資料**純技術面**局部最佳。
 >

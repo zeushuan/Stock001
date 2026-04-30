@@ -52,6 +52,44 @@ INITIAL_CAPITAL = 1_000_000
 POS_PER_TRADE = 100_000     # 每筆 10 萬，配合 max_positions=10 = 100% 資金
 MAX_POSITIONS = 10          # 最多 10 倉位
 
+# US ETF 排除清單（避免被當成普通股回測）
+US_ETF_EXCLUDE = {
+    'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','EFA','AGG',
+    'LQD','HYG','GLD','SLV','USO','UNG','UCO','SCO','EEM','EWJ','EWZ','EWY',
+    'FXI','MCHI','XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLC',
+    'SMH','SOXX','IBB','TQQQ','SQQQ','SOXL','SOXS','UPRO','SPXU','VXX','UVXY',
+    'ARKK','ARKG','ARKF','ARKW','ARKQ',
+}
+
+
+def get_universe(market='tw'):
+    """取得 universe ticker list。"""
+    DATA = Path('data_cache')
+    if market == 'tw':
+        return sorted([
+            p.stem for p in DATA.glob('*.parquet')
+            if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+            and not p.stem.startswith('00')
+        ])
+    elif market == 'us':
+        return sorted([
+            p.stem for p in DATA.glob('*.parquet')
+            if p.stem and p.stem.isalpha() and p.stem.isupper()
+            and 1 <= len(p.stem) <= 5
+            and p.stem not in US_ETF_EXCLUDE
+        ])
+    elif market == 'us_top':
+        # 只用 us_applicable.json 標 TOP 的 200 檔
+        if not Path('us_applicable.json').exists():
+            print("⚠️ us_applicable.json 不存在，fallback to full us")
+            return get_universe('us')
+        d = json.load(open('us_applicable.json', encoding='utf-8'))
+        top = sorted([t for t, info in d.items() if info.get('tier') == 'TOP'])
+        # 也要存在 data_cache 才用
+        return sorted([t for t in top if (DATA / f'{t}.parquet').exists()])
+    else:
+        raise ValueError(f"unknown market: {market}")
+
 
 def detect_inv_hammer_signals(df):
     """倒鎚 + RSI≤25 + ADX↑ + drop_30d<-8%（強看多）"""
@@ -121,10 +159,36 @@ def detect_t1_v7_signals(df):
     return signals
 
 
+def detect_combo_signals(df):
+    """🆕 v9.11：倒鎚 + T1_V7 組合（5 天內共同觸發 = 雙重確認）。
+    回傳 union of inv_hammer 和 t1_v7 訊號，但只保留有對方訊號在 ±5 天內的。"""
+    if len(df) < 60:
+        return []
+    inv_h_idx = set(detect_inv_hammer_signals(df))
+    t1_idx = set(detect_t1_v7_signals(df))
+    if not inv_h_idx or not t1_idx:
+        return []
+
+    confirmed = set()
+    for i in inv_h_idx:
+        # 倒鎚當天 i：檢查附近有 t1_v7
+        for j in range(max(0, i-5), min(len(df), i+6)):
+            if j in t1_idx:
+                confirmed.add(i)
+                break
+    for j in t1_idx:
+        for i in range(max(0, j-5), min(len(df), j+6)):
+            if i in inv_h_idx:
+                confirmed.add(j)
+                break
+    return sorted(confirmed)
+
+
 # 策略名稱 → 偵測函數
 STRATEGIES = {
     'inv_hammer': detect_inv_hammer_signals,
     't1_v7': detect_t1_v7_signals,
+    'combo': detect_combo_signals,
 }
 
 
@@ -138,7 +202,8 @@ def detect_signals(df, strategy='inv_hammer'):
 
 def gen_trades_for_one(args):
     """單一 ticker：產出所有 trades (entry_date, exit_date, entry, exit, ret)
-    args = (ticker, hold_days, strategy)"""
+    args = (ticker, hold_days, strategy)
+    每個 trade 帶 quality_score 用於 ranked priority 投組模擬"""
     if len(args) == 2:
         ticker, hold_days = args
         strategy = 'inv_hammer'
@@ -161,6 +226,10 @@ def gen_trades_for_one(args):
         c = df['Close'].values
         idx = df.index
         n = len(df)
+        # 訊號級 features（用於 priority ranking）
+        rsi_arr = df['rsi'].values if 'rsi' in df.columns else None
+        adx_arr = df['adx'].values if 'adx' in df.columns else None
+        e20_arr = df['e20'].values if 'e20' in df.columns else None
         for sig_i in signals:
             entry_i = sig_i + 1
             exit_i = entry_i + hold_days
@@ -172,6 +241,17 @@ def gen_trades_for_one(args):
                 continue
             gross_ret = (exit_open - entry_open) / entry_open
             net_ret = gross_ret - COST_ROUND_TRIP
+
+            # 計算各種 quality score（資料只用 sig_i 之前的，無 lookahead）
+            rsi_v = float(rsi_arr[sig_i]) if rsi_arr is not None and not np.isnan(rsi_arr[sig_i]) else 50.0
+            adx_v = float(adx_arr[sig_i]) if adx_arr is not None and not np.isnan(adx_arr[sig_i]) else 0.0
+            close_v = float(c[sig_i])
+            e20_v = float(e20_arr[sig_i]) if e20_arr is not None and not np.isnan(e20_arr[sig_i]) else close_v
+            # drop_30d
+            drop_30d = ((close_v - c[sig_i-30]) / c[sig_i-30] * 100) if sig_i >= 30 and c[sig_i-30] > 0 else 0
+            # 距 EMA20（T1 用）
+            dist_pct = (e20_v - close_v) / e20_v * 100 if e20_v > 0 else 0
+
             trades.append({
                 'ticker': ticker,
                 'signal_date': idx[sig_i].strftime('%Y-%m-%d'),
@@ -182,6 +262,11 @@ def gen_trades_for_one(args):
                 'gross_ret': gross_ret,
                 'net_ret': net_ret,
                 'hold_days': hold_days,
+                # Signal-time features (no lookahead)
+                'rsi': rsi_v,
+                'adx': adx_v,
+                'drop_30d': drop_30d,
+                'dist_to_ema20': dist_pct,
             })
         return trades
     except Exception:
@@ -235,22 +320,51 @@ def trade_level_stats(trades):
     }
 
 
-def portfolio_sim(trades, hold_days):
+def portfolio_sim(trades, hold_days, max_pos=None, pos_size=None,
+                  priority='fifo'):
     """B: 投資組合模擬。
 
     規則：
-      - 初始資金 1M，每筆固定 100k（=10%）
-      - 同時最多 10 倉位
-      - 訊號超過倉位 → 依序排隊，先到先進場
+      - 初始資金 1M
+      - max_pos: 同時最多倉位數（預設 10）
+      - pos_size: 每筆金額（預設 100k = INITIAL_CAPITAL / max_pos）
+      - priority: 同一天多訊號時的優先序
+          'fifo'      : 先到先進場（按 entry_date + ticker 字母）
+          'rsi_low'   : RSI 越低越優先（適用 inv_hammer）
+          'drop_deep' : 跌幅越大越優先（適用 inv_hammer）
+          'dist_close': 距 EMA20 越近越優先（適用 t1_v7）
+          'adx_high'  : ADX 越高越優先（趨勢強）
+          'oracle'    : 後驗最佳（peek 真實 ret，不可實戰，只當上界 reference）
       - 每天 NAV = 現金 + 持倉 mark-to-market
     """
+    if max_pos is None:
+        max_pos = MAX_POSITIONS
+    if pos_size is None:
+        pos_size = INITIAL_CAPITAL // max_pos
     if not trades:
         return {}
 
-    # 排序所有 entry 訊號（按 entry_date）
-    df_signals = pd.DataFrame(trades).sort_values('entry_date').reset_index(drop=True)
+    # 排序所有 entry 訊號：先按 entry_date，同日內按 priority 規則
+    df_signals = pd.DataFrame(trades)
     df_signals['entry_dt'] = pd.to_datetime(df_signals['entry_date'])
     df_signals['exit_dt'] = pd.to_datetime(df_signals['exit_date'])
+
+    # priority 排序：在 entry_date 相同時，按指定欄位排序
+    if priority == 'fifo':
+        sort_cols, sort_asc = ['entry_dt', 'ticker'], [True, True]
+    elif priority == 'rsi_low':
+        sort_cols, sort_asc = ['entry_dt', 'rsi'], [True, True]   # RSI 越低越好（升序）
+    elif priority == 'drop_deep':
+        sort_cols, sort_asc = ['entry_dt', 'drop_30d'], [True, True]  # 跌幅越大（值越負，升序）
+    elif priority == 'dist_close':
+        sort_cols, sort_asc = ['entry_dt', 'dist_to_ema20'], [True, True]  # 距越近（升序）
+    elif priority == 'adx_high':
+        sort_cols, sort_asc = ['entry_dt', 'adx'], [True, False]  # ADX 越高越好（降序）
+    elif priority == 'oracle':
+        sort_cols, sort_asc = ['entry_dt', 'gross_ret'], [True, False]  # 真實 ret 高優先（peek）
+    else:
+        sort_cols, sort_asc = ['entry_dt', 'ticker'], [True, True]
+    df_signals = df_signals.sort_values(sort_cols, ascending=sort_asc).reset_index(drop=True)
 
     # 取所有可能的交易日：合併 entry_dt 和 exit_dt 的 union
     all_dates = sorted(set(df_signals['entry_dt']) | set(df_signals['exit_dt']))
@@ -270,7 +384,7 @@ def portfolio_sim(trades, hold_days):
         for p in positions:
             if p['exit_dt'] == d:
                 # 平倉：用 net_ret（已扣 round-trip cost），跟 A 統計完全一致
-                proceeds = POS_PER_TRADE * (1 + p['net_ret'])
+                proceeds = pos_size * (1 + p['net_ret'])
                 cash += proceeds
                 p['close_value'] = proceeds
                 executed_trades.append(p)
@@ -281,8 +395,8 @@ def portfolio_sim(trades, hold_days):
         # 2) 處理今天新訊號 entry（受倉位上限限制）
         while next_sig is not None and next_sig[1]['entry_dt'] == d:
             _, sig = next_sig
-            if len(positions) < MAX_POSITIONS and cash >= POS_PER_TRADE:
-                cash -= POS_PER_TRADE
+            if len(positions) < max_pos and cash >= pos_size:
+                cash -= pos_size
                 positions.append({
                     'ticker': sig['ticker'],
                     'entry_dt': sig['entry_dt'],
@@ -299,12 +413,12 @@ def portfolio_sim(trades, hold_days):
         #    當天的 unrealized 由「按 hold_days 線性」近似 — 實際我們不精確 mark）
         #    為簡化，這裡用 cash + 持倉數 × 100k 當作 NAV 的下界，會略保守但可比較。
         #    更精確需要每天每檔的收盤價，會慢很多。
-        nav = cash + len(positions) * POS_PER_TRADE
+        nav = cash + len(positions) * pos_size
         daily_nav.append((d, nav))
 
     # 收盤：強制平掉殘倉（按各自 net_ret）
     for p in positions:
-        proceeds = POS_PER_TRADE * (1 + p['net_ret'])
+        proceeds = pos_size * (1 + p['net_ret'])
         cash += proceeds
         p['close_value'] = proceeds
         executed_trades.append(p)
@@ -314,7 +428,7 @@ def portfolio_sim(trades, hold_days):
         return {'n_executed': 0, 'n_skipped': skipped}
 
     df_exec = pd.DataFrame(executed_trades)
-    df_exec['profit'] = df_exec['close_value'] - POS_PER_TRADE
+    df_exec['profit'] = df_exec['close_value'] - pos_size
     df_exec['exit_dt'] = pd.to_datetime(df_exec['exit_dt'])
 
     # 用 exit 日期分組計 daily P&L → 換算 daily return → Sharpe
@@ -380,14 +494,10 @@ def portfolio_sim(trades, hold_days):
     }
 
 
-def run_backtest(hold_days=30, strategy='inv_hammer'):
-    DATA = Path('data_cache')
-    universe = sorted([
-        p.stem for p in DATA.glob('*.parquet')
-        if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
-        and not p.stem.startswith('00')
-    ])
-    print(f"🇹🇼 Strategy: {strategy}  Universe: {len(universe)} 檔  hold={hold_days}d")
+def run_backtest(hold_days=30, strategy='inv_hammer', market='tw'):
+    universe = get_universe(market)
+    flag = '🇹🇼' if market == 'tw' else ('🇺🇸' + ('(TOP)' if market == 'us_top' else ''))
+    print(f"{flag} Strategy: {strategy}  Universe: {len(universe)} 檔  hold={hold_days}d")
     print(f"  期間: {START_DATE} → 現在")
     print(f"  成本: round-trip {COST_ROUND_TRIP*100:.2f}%")
     print(f"  資金: 初始 {INITIAL_CAPITAL:,}, 每筆 {POS_PER_TRADE:,}, 最多 {MAX_POSITIONS} 倉")
@@ -466,17 +576,256 @@ def run_backtest(hold_days=30, strategy='inv_hammer'):
     }
 
 
+def run_priority_sweep(strategy='inv_hammer', hold_days=30, max_pos=10):
+    """🆕 v9.11：訊號優先序敏感性。FIFO vs ranked priorities."""
+    DATA = Path('data_cache')
+    universe = sorted([
+        p.stem for p in DATA.glob('*.parquet')
+        if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+        and not p.stem.startswith('00')
+    ])
+    print(f"🇹🇼 Priority sweep: {strategy} hold={hold_days}d max_pos={max_pos}")
+    print()
+
+    print(f"📊 跑訊號（{WORKERS} workers）...")
+    t0 = time.time()
+    all_trades = []
+    args = [(t, hold_days, strategy) for t in universe]
+    with ProcessPoolExecutor(max_workers=WORKERS) as ex:
+        for trades in ex.map(gen_trades_for_one, args, chunksize=50):
+            all_trades.extend(trades)
+    print(f"  完成 {time.time()-t0:.1f}s，共 {len(all_trades)} 筆訊號")
+
+    priorities = ['fifo', 'rsi_low', 'drop_deep', 'dist_close', 'adx_high', 'oracle']
+    print()
+    print("=" * 100)
+    print(f"{'Priority':>14}{'n_exec':>8}{'fill%':>7}{'CAGR%':>9}{'Sharpe':>8}{'MDD%':>9}{'final':>14}")
+    print("=" * 100)
+    rows = []
+    for prio in priorities:
+        B = portfolio_sim(all_trades, hold_days, max_pos=max_pos, priority=prio)
+        if B.get('n_executed', 0) > 0:
+            print(f"{prio:>14}{B['n_executed']:>8}{B['fill_rate_pct']:>6.1f}%"
+                  f"{B['cagr_pct']:>+8.2f}%{B['sharpe']:>8}"
+                  f"{B['max_drawdown_pct']:>+8.2f}%{B['final_value']:>14,.0f}")
+            rows.append({'priority': prio, **B})
+        else:
+            print(f"{prio:>14}  (no executed)")
+    return rows
+
+
+def run_positions_sweep(strategy='inv_hammer', hold_days=30,
+                         positions_list=None):
+    """🆕 v9.11：max_positions 敏感性分析。
+    對 [5, 10, 20, 50, 100, 200] 各跑投組模擬，看 fill rate 與 CAGR 變化。"""
+    if positions_list is None:
+        positions_list = [5, 10, 20, 50, 100, 200]
+
+    DATA = Path('data_cache')
+    universe = sorted([
+        p.stem for p in DATA.glob('*.parquet')
+        if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+        and not p.stem.startswith('00')
+    ])
+    print(f"🇹🇼 Positions sweep: {strategy} hold={hold_days}d")
+    print(f"  測試 max_pos: {positions_list}")
+    print()
+
+    print(f"📊 跑訊號（{WORKERS} workers）...")
+    t0 = time.time()
+    all_trades = []
+    args = [(t, hold_days, strategy) for t in universe]
+    with ProcessPoolExecutor(max_workers=WORKERS) as ex:
+        for trades in ex.map(gen_trades_for_one, args, chunksize=50):
+            all_trades.extend(trades)
+    print(f"  完成 {time.time()-t0:.1f}s，共 {len(all_trades)} 筆訊號")
+
+    # 對每個 max_pos 跑投組
+    rows = []
+    print()
+    print("=" * 100)
+    print(f"{'max_pos':>8}{'pos_size':>12}{'n_exec':>8}{'n_skip':>8}{'fill%':>7}"
+          f"{'CAGR%':>9}{'Sharpe':>8}{'MDD%':>9}{'final':>14}")
+    print("=" * 100)
+    for mp in positions_list:
+        pos_size = INITIAL_CAPITAL // mp
+        B = portfolio_sim(all_trades, hold_days, max_pos=mp, pos_size=pos_size)
+        if B.get('n_executed', 0) > 0:
+            print(f"{mp:>8}{pos_size:>12,}{B['n_executed']:>8}{B['n_skipped']:>8}"
+                  f"{B['fill_rate_pct']:>6.1f}%{B['cagr_pct']:>+8.2f}%"
+                  f"{B['sharpe']:>8}{B['max_drawdown_pct']:>+8.2f}%"
+                  f"{B['final_value']:>14,.0f}")
+            rows.append({
+                'max_pos': mp,
+                'pos_size': pos_size,
+                **B,
+            })
+        else:
+            print(f"{mp:>8}{pos_size:>12,}  (no executed)")
+    return rows
+
+
+def run_walkforward(strategy='inv_hammer', hold_days=30,
+                    split_date='2024-01-01'):
+    """🆕 v9.11：Walk-forward OOS 驗證。
+    Train period: START_DATE - split_date
+    Test period: split_date - 現在
+    用 entry_date 切兩段，比較訊號級 + 投組級指標"""
+    DATA = Path('data_cache')
+    universe = sorted([
+        p.stem for p in DATA.glob('*.parquet')
+        if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+        and not p.stem.startswith('00')
+    ])
+    print(f"🇹🇼 Walk-forward {strategy} hold={hold_days}d  split={split_date}")
+    print(f"  Train: {START_DATE} → {split_date}")
+    print(f"  Test:  {split_date} → 現在")
+    print()
+
+    # 跑全部訊號（一次）
+    print(f"📊 跑訊號（{WORKERS} workers）...")
+    t0 = time.time()
+    all_trades = []
+    args = [(t, hold_days, strategy) for t in universe]
+    with ProcessPoolExecutor(max_workers=WORKERS) as ex:
+        for trades in ex.map(gen_trades_for_one, args, chunksize=50):
+            all_trades.extend(trades)
+    print(f"  完成 {time.time()-t0:.1f}s，共 {len(all_trades)} 筆訊號")
+
+    # 用 entry_date 切
+    train_trades = [t for t in all_trades if t['entry_date'] < split_date]
+    test_trades = [t for t in all_trades if t['entry_date'] >= split_date]
+    print(f"  Train: {len(train_trades)} 筆, Test: {len(test_trades)} 筆")
+
+    if not train_trades or not test_trades:
+        print("❌ 訓練或測試集為空")
+        return None
+
+    # 各自計算 trade-level + portfolio
+    print()
+    print("=" * 70)
+    print(f"📈 TRAIN (2020-{split_date}): 訊號級 + 投組")
+    print("=" * 70)
+    train_A = trade_level_stats(train_trades)
+    train_B = portfolio_sim(train_trades, hold_days)
+    print(f"  訊號數: {train_A['n_trades']}, 勝率: {train_A['win_rate_pct']}%, "
+          f"mean: {train_A['mean_net_pct']:+.2f}%, PF: {train_A['profit_factor']}")
+    if train_B.get('n_executed', 0) > 0:
+        print(f"  投組: CAGR {train_B['cagr_pct']:+.2f}%, Sharpe {train_B['sharpe']}, "
+              f"MDD {train_B['max_drawdown_pct']:.2f}%, fill {train_B['fill_rate_pct']}%")
+
+    print()
+    print("=" * 70)
+    print(f"📊 TEST (OOS, {split_date}-現在): 訊號級 + 投組")
+    print("=" * 70)
+    test_A = trade_level_stats(test_trades)
+    test_B = portfolio_sim(test_trades, hold_days)
+    print(f"  訊號數: {test_A['n_trades']}, 勝率: {test_A['win_rate_pct']}%, "
+          f"mean: {test_A['mean_net_pct']:+.2f}%, PF: {test_A['profit_factor']}")
+    if test_B.get('n_executed', 0) > 0:
+        print(f"  投組: CAGR {test_B['cagr_pct']:+.2f}%, Sharpe {test_B['sharpe']}, "
+              f"MDD {test_B['max_drawdown_pct']:.2f}%, fill {test_B['fill_rate_pct']}%")
+
+    # 比較 — alpha decay?
+    print()
+    print("=" * 70)
+    print("🔬 ALPHA DECAY 分析")
+    print("=" * 70)
+    d_win = test_A['win_rate_pct'] - train_A['win_rate_pct']
+    d_mean = test_A['mean_net_pct'] - train_A['mean_net_pct']
+    d_pf = test_A['profit_factor'] - train_A['profit_factor']
+    decay_emoji = '🚨 嚴重 decay' if d_mean < -2 else '⚠️ 輕微 decay' if d_mean < -0.5 else '✅ 穩定'
+    print(f"  訊號級 Δ:")
+    print(f"    勝率: {train_A['win_rate_pct']:.1f}% → {test_A['win_rate_pct']:.1f}% ({d_win:+.1f}%)")
+    print(f"    平均: {train_A['mean_net_pct']:+.2f}% → {test_A['mean_net_pct']:+.2f}% ({d_mean:+.2f}%)")
+    print(f"    PF:   {train_A['profit_factor']:.2f} → {test_A['profit_factor']:.2f} ({d_pf:+.2f})")
+    print(f"  ➜ 結論: {decay_emoji}")
+
+    if (train_B.get('n_executed', 0) > 0 and test_B.get('n_executed', 0) > 0):
+        d_cagr = test_B['cagr_pct'] - train_B['cagr_pct']
+        d_sharpe = test_B['sharpe'] - train_B['sharpe']
+        d_mdd = test_B['max_drawdown_pct'] - train_B['max_drawdown_pct']
+        print(f"  投組級 Δ:")
+        print(f"    CAGR:   {train_B['cagr_pct']:+.2f}% → {test_B['cagr_pct']:+.2f}% ({d_cagr:+.2f}%)")
+        print(f"    Sharpe: {train_B['sharpe']} → {test_B['sharpe']} ({d_sharpe:+.2f})")
+        print(f"    MDD:    {train_B['max_drawdown_pct']:.2f}% → {test_B['max_drawdown_pct']:.2f}% ({d_mdd:+.2f}%)")
+
+    return {
+        'config': {'strategy': strategy, 'hold_days': hold_days,
+                   'split_date': split_date,
+                   'universe_size': len(universe)},
+        'train': {'A_signal_level': train_A, 'B_portfolio': train_B,
+                  'period': f'{START_DATE} - {split_date}'},
+        'test':  {'A_signal_level': test_A, 'B_portfolio': test_B,
+                  'period': f'{split_date} - 現在 (OOS)'},
+    }
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--hold', type=int, default=30, help='持有天數（預設 30）')
     p.add_argument('--strategy', type=str, default='inv_hammer',
-                   choices=['inv_hammer', 't1_v7'],
-                   help='策略：inv_hammer (預設) 或 t1_v7')
+                   choices=['inv_hammer', 't1_v7', 'combo'],
+                   help='策略：inv_hammer (預設) / t1_v7 / combo（兩者 5 天內雙重確認）')
     p.add_argument('--all', action='store_true',
                    help='跑 hold=15/30/60 × strategy=inv_hammer/t1_v7 完整對比')
+    p.add_argument('--walkforward', action='store_true',
+                   help='跑 walk-forward OOS 驗證（train 2020-2023, test 2024-現在）')
+    p.add_argument('--split', type=str, default='2024-01-01',
+                   help='walk-forward 切分日期（預設 2024-01-01）')
+    p.add_argument('--positions-sweep', action='store_true',
+                   help='跑 max_positions 敏感性分析（5/10/20/50/100/200）')
+    p.add_argument('--priority-sweep', action='store_true',
+                   help='跑訊號優先序敏感性（fifo / rsi_low / drop_deep / 等）')
+    p.add_argument('--max-pos', type=int, default=10,
+                   help='priority sweep 用的 max_positions（預設 10）')
+    p.add_argument('--market', type=str, default='tw',
+                   choices=['tw', 'us', 'us_top'],
+                   help='市場：tw (預設) / us / us_top（只用 us_applicable.json TOP 200 檔）')
     args = p.parse_args()
 
-    if args.all:
+    if args.priority_sweep:
+        results = {}
+        for strat in ['inv_hammer', 't1_v7']:
+            for hd in [30]:
+                key = f'{strat}_hold{hd}d_pos{args.max_pos}'
+                print(f"\n{'#'*70}")
+                print(f"# PRIORITY SWEEP {strat.upper()}  hold={hd} max_pos={args.max_pos}")
+                print(f"{'#'*70}")
+                results[key] = run_priority_sweep(strategy=strat, hold_days=hd,
+                                                   max_pos=args.max_pos)
+        out = f'backtest_priority_sweep_pos{args.max_pos}.json'
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"\n✅ 寫入 {out}")
+    elif args.positions_sweep:
+        results = {}
+        for strat in ['inv_hammer', 't1_v7']:
+            for hd in [30]:  # 用 OOS 最佳 hold
+                key = f'{strat}_hold{hd}d'
+                print(f"\n{'#'*70}")
+                print(f"# POSITIONS SWEEP {strat.upper()}  hold={hd}")
+                print(f"{'#'*70}")
+                results[key] = run_positions_sweep(strategy=strat, hold_days=hd)
+        out = 'backtest_positions_sweep.json'
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"\n✅ 寫入 {out}")
+    elif args.walkforward:
+        results = {}
+        for strat in ['inv_hammer', 't1_v7']:
+            for hd in [30, 60]:
+                key = f'{strat}_hold{hd}d'
+                print(f"\n{'#'*70}")
+                print(f"# WALK-FORWARD {strat.upper()}  Hold {hd} days")
+                print(f"{'#'*70}")
+                r = run_walkforward(strategy=strat, hold_days=hd, split_date=args.split)
+                if r: results[key] = r
+        out = 'backtest_walkforward_results.json'
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+        print(f"\n✅ 寫入 {out}")
+    elif args.all:
         results = {}
         for strat in ['inv_hammer', 't1_v7']:
             for hd in [15, 30, 60]:
@@ -490,9 +839,9 @@ def main():
             json.dump(results, f, indent=2, ensure_ascii=False)
         print(f"\n✅ 寫入 {out}")
     else:
-        r = run_backtest(args.hold, strategy=args.strategy)
+        r = run_backtest(args.hold, strategy=args.strategy, market=args.market)
         if r:
-            out = f'backtest_{args.strategy}_hold{args.hold}d.json'
+            out = f'backtest_{args.market}_{args.strategy}_hold{args.hold}d.json'
             with open(out, 'w', encoding='utf-8') as f:
                 json.dump(r, f, indent=2, ensure_ascii=False)
             print(f"\n✅ 寫入 {out}")

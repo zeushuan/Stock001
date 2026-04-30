@@ -165,36 +165,50 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     recent = {p['name']: p['days_ago'] for p in patterns if p['days_ago'] <= 1}
     recent_3d = {p['name']: p['days_ago'] for p in patterns if p['days_ago'] <= 3}
 
+    # 計算當天 drop_30d（用於 quality_score）
+    drop_30d_v = ((close_v - c[max(0, last_idx-30)]) / c[max(0, last_idx-30)] * 100
+                   if last_idx >= 30 and c[last_idx-30] > 0 else 0)
+
     # ── 看多警報 ──
     # ★★★★★ 倒鎚 + RSI≤25 + ADX↑
+    # OOS 2024+ 驗證：71.8% 漲 / +9.35% 30d / PF 5.5（訊號級 alpha 反而強化，無過擬合）
+    # 注意：投組級在 1M/10倉 下 OOS 已 CAGR 0%（容量瓶頸）— 適合大資金或多倉位
+    # quality_score = -drop_30d_v（跌越深越優先，priority research 證實 +84% CAGR）
     if 'INV_HAMMER' in recent and rsi_v <= 25 and adx_rising:
         alerts.append({'level': 5, 'side': 'bull',
             'tag': f'倒鎚 + RSI {rsi_v:.0f}≤25 + ADX↑',
-            'expect': '+9.36% 30d (71.4% 漲)'})
+            'expect': '+9.35% 30d (71.8% 漲, OOS 驗證)',
+            'quality_score': float(-drop_30d_v)})  # 跌越深 → score 越高
     # 即將觸發：倒鎚 + RSI 26-30 + ADX↑
     elif 'INV_HAMMER' in recent and 25 < rsi_v <= 30 and adx_rising:
         alerts.append({'level': 'imm_bull', 'side': 'bull',
             'tag': f'即將: 倒鎚 + RSI {rsi_v:.0f}（差 {rsi_v-25:.1f} 點到極強）',
-            'expect': 'RSI 再降到≤25 即達 ★★★★★'})
+            'expect': 'RSI 再降到≤25 即達 ★★★★★',
+            'quality_score': float(-drop_30d_v)})
     elif 'INV_HAMMER' in recent and rsi_v <= 25:  # ADX 沒升
         alerts.append({'level': 'imm_bull', 'side': 'bull',
             'tag': f'即將: 倒鎚 + RSI≤25（ADX 未轉強）',
-            'expect': 'ADX 上升即達 ★★★★★'})
+            'expect': 'ADX 上升即達 ★★★★★',
+            'quality_score': float(-drop_30d_v)})
     # ★★★★ 倒鎚 + 跌深
     elif 'INV_HAMMER' in recent and extended_down:
         alerts.append({'level': 4, 'side': 'bull',
             'tag': f'倒鎚 + 距 SMA200 {sma200_pct:+.0f}%',
-            'expect': '+7.85% 30d (64.5% 漲)'})
+            'expect': '+7.85% 30d (64.5% 漲)',
+            'quality_score': float(-sma200_pct)})  # 距 SMA200 越負越優先
     # ★★★ 底部十字星 + RSI≤25 + ADX↑
     elif 'DOJI' in recent and rsi_v <= 25 and adx_rising and from_low < 10:
         alerts.append({'level': 3, 'side': 'bull',
             'tag': f'底部十字星 + RSI {rsi_v:.0f}≤25 + ADX↑',
-            'expect': '+7.02% 30d (67.4% 漲)'})
+            'expect': '+7.02% 30d (67.4% 漲)',
+            'quality_score': float(50 - rsi_v)})  # RSI 越低越優先
 
-    # 🆕 v9.11：★★ T1 即將上穿（V7: P1 + ADX≥22）— forward 分析最佳實用變體
-    # Forward 6yr (1925 檔): n=5879, 49.4% 漲, +2.21% 30d, PF 1.61
-    # 注意：本訊號 alpha 較弱（vs 隨機 47.2%/+1.83%），建議只當「次要關注」用
-    # T1 cross precision: 58% (3 天內上穿)，但 cross 本身與報酬相關性弱
+    # 🆕 v9.11：★★ T1 即將上穿（V7: P1 + ADX≥22）— Walk-forward OOS 主力策略
+    # In-sample 2020-2023: 51% 漲 / +2.61% 30d
+    # OOS 2024+: 45% 漲 / +1.36% 30d（訊號級輕微 decay）
+    # 投組 1M/10倉 hold 30d OOS CAGR +14.78%（**OOS 唯一贏家**：訊號密集容量友善）
+    # 注意：T1_V7 hold 60d 是過擬合 trap（Sharpe 1.92→0.17）— 切勿用 60d
+    # quality_score = (50 - RSI)（priority research：T1_V7 用 rsi_low 最佳）
     e20_arr = df['e20'].values if 'e20' in df.columns else None
     e60_arr = df['e60'].values if 'e60' in df.columns else None
     if e20_arr is not None and e60_arr is not None and last_idx >= 2:
@@ -210,34 +224,42 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
             dist_pct = (e20_now - close_v) / e20_now * 100
             alerts.append({'level': 2, 'side': 'bull',
                 'tag': f'T1 即將上穿（距 EMA20 {dist_pct:.2f}% + 連2漲 + ADX≥22）',
-                'expect': '+2.21% 30d (49% 漲, n=5879, 弱 alpha)'})
+                'expect': '投組 OOS CAGR +14.78% / 訊號級 45% 漲 / +1.36% 30d',
+                'quality_score': float(50 - rsi_v)})  # RSI 越低越優先
 
     # ── 看空警報 ──
     # ★★★★ 三隻烏鴉 + 距高<5% + 量縮
+    # quality_score = -from_high（越接近高點越優先）
     if 'THREE_CROWS' in recent and from_high < 5 and vol_dry:
         alerts.append({'level': 4, 'side': 'bear',
             'tag': f'三隻烏鴉 + 距高 {from_high:.1f}% + 量縮',
-            'expect': '-1.26% 30d (71% 跌)'})
+            'expect': '-1.26% 30d (71% 跌)',
+            'quality_score': float(-from_high)})
     # 即將：三隻烏鴉 + 距高 5-10% + 量縮
     elif 'THREE_CROWS' in recent and 5 <= from_high < 10 and vol_dry:
         alerts.append({'level': 'imm_bear', 'side': 'bear',
             'tag': f'即將: 三隻烏鴉 + 距高 {from_high:.1f}%（差到 <5%）',
-            'expect': '價再升即達 ★★★★'})
+            'expect': '價再升即達 ★★★★',
+            'quality_score': float(-from_high)})
     # ★★★ 空頭吞噬 + RSI≥75 + ADX↓
+    # quality_score = RSI - 50（RSI 越高越優先）
     if 'BEAR_ENGULF' in recent and rsi_v >= 75 and adx_falling:
         alerts.append({'level': 3, 'side': 'bear',
             'tag': f'空頭吞噬 + RSI {rsi_v:.0f}≥75 + ADX↓',
-            'expect': '-0.24% 30d (60% 跌)'})
+            'expect': '-0.24% 30d (60% 跌)',
+            'quality_score': float(rsi_v - 50)})
     # 即將：空頭吞噬 + RSI 70-74 + ADX↓
     elif 'BEAR_ENGULF' in recent and 70 <= rsi_v < 75 and adx_falling:
         alerts.append({'level': 'imm_bear', 'side': 'bear',
             'tag': f'即將: 空頭吞噬 + RSI {rsi_v:.0f}（差 {75-rsi_v:.1f} 點到 75）',
-            'expect': 'RSI 再升即達 ★★★'})
+            'expect': 'RSI 再升即達 ★★★',
+            'quality_score': float(rsi_v - 50)})
     # ★★ 黃昏之星 + RSI≥75
     if 'EVENING_STAR' in recent and rsi_v >= 75:
         alerts.append({'level': 2, 'side': 'bear',
             'tag': f'黃昏之星 + RSI {rsi_v:.0f}≥75',
-            'expect': '-0.54% 30d (70% 跌)'})
+            'expect': '-0.54% 30d (70% 跌)',
+            'quality_score': float(rsi_v - 50)})
 
     return alerts
 
@@ -469,17 +491,19 @@ def update_tw():
     exit_.sort(key=lambda x: x.get('rsi') or 0, reverse=True)
     hold.sort(key=lambda x: -(x.get('rsi') or 0))
 
-    # 🆕 v9.10y：警報排序（強警報優先 + 跌深反彈最強）
-    # level: 5 (強看多), 4 (強看多/空), 3, 2, 'imm_bull', 'imm_bear'
+    # 🆕 v9.10y：警報排序（強警報優先）+ v9.11：同 level 內按 quality_score 降序
+    # priority sweep 證實：drop_deep / rsi_low / from_high 排序能 +84% CAGR
     def _sort_key(a):
         lv = a['level']
-        if lv == 5: return 0
-        if lv == 4: return 1
-        if lv == 3: return 2
-        if lv == 2: return 3
-        if lv == 'imm_bull': return 4
-        if lv == 'imm_bear': return 5
-        return 6
+        if lv == 5: lv_rank = 0
+        elif lv == 4: lv_rank = 1
+        elif lv == 3: lv_rank = 2
+        elif lv == 2: lv_rank = 3
+        elif lv == 'imm_bull': lv_rank = 4
+        elif lv == 'imm_bear': lv_rank = 5
+        else: lv_rank = 6
+        # 同 level 內按 quality_score 降序（高品質優先）
+        return (lv_rank, -(a.get('quality_score') or 0))
     all_alerts.sort(key=_sort_key)
 
     out = {
@@ -569,16 +593,17 @@ def update_us():
     exit_.sort(key=lambda x: x.get('rsi') or 0, reverse=True)
     hold.sort(key=lambda x: -(x.get('rsi') or 0))
 
-    # 🆕 v9.10y：警報排序
+    # 🆕 v9.10y：警報排序 + v9.11：同 level 內按 quality_score 降序
     def _sort_key_us(a):
         lv = a['level']
-        if lv == 5: return 0
-        if lv == 4: return 1
-        if lv == 3: return 2
-        if lv == 2: return 3
-        if lv == 'imm_bull': return 4
-        if lv == 'imm_bear': return 5
-        return 6
+        if lv == 5: lv_rank = 0
+        elif lv == 4: lv_rank = 1
+        elif lv == 3: lv_rank = 2
+        elif lv == 2: lv_rank = 3
+        elif lv == 'imm_bull': lv_rank = 4
+        elif lv == 'imm_bear': lv_rank = 5
+        else: lv_rank = 6
+        return (lv_rank, -(a.get('quality_score') or 0))
     all_alerts.sort(key=_sort_key_us)
 
     out = {

@@ -1,0 +1,88 @@
+{
+  "config": {
+    "strategy": "t1_v7",
+    "hold_days": 30,
+    "start_date": "2020-01-01",
+    "universe_size": 2254,
+    "cost_round_trip_pct": 0.6709999999999999,
+    "initial_capital": 1000000,
+    "max_positions": 10,
+    "pos_per_trade": 100000
+  },
+  "A_signal_level": {
+    "n_trades": 5188,
+    "win_rate_pct": 47.74,
+    "mean_gross_pct": 0.9,
+    "mean_net_pct": 0.23,
+    "median_net_pct": -0.48,
+    "std_net_pct": 16.82,
+    "best_pct": 280.64,
+    "worst_pct": -90.67,
+    "percentiles_net_pct": {
+      "p5": -21.31,
+      "p25": -7.04,
+      "p50": -0.48,
+      "p75": 5.86,
+      "p95": 22.27
+    },
+    "by_year": {
+      "2020": {
+        "n": 381,
+        "win_rate": 61.942257217847775,
+        "mean_net": 8.55531252954593
+      },
+      "2021": {
+        "n": 1159,
+        "win_rate": 50.21570319240725,
+        "mean_net": 0.5072085207798661
+      },
+      "2022": {
+        "n": 499,
+        "win_rate": 32.46492985971944,
+        "mean_net": -4.290582307922014
+      },
+      "2023": {
+        "n": 702,
+        "win_rate": 35.75498575498576,
+        "mean_net": -2.380826010877158
+      },
+      "2024": {
+        "n": 1336,
+        "win_rate": 53.1437125748503,
+        "mean_net": 0.8714424881579709
+      },
+      "2025": {
+        "n": 893,
+        "win_rate": 50.27995520716685,
+        "mean_net": 0.7980936388184527
+      },
+      "2026": {
+        "n": 218,
+        "win_rate": 39.908256880733944,
+        "mean_net": -3.2112754212997046
+      }
+    },
+    "expectancy_pct": 0.23,
+    "profit_factor": 1.05
+  },
+  "B_portfolio": {
+    "n_executed": 376,
+    "n_skipped": 4812,
+    "fill_rate_pct": 7.2,
+    "final_value": 623048.0,
+    "total_return_pct": -37.7,
+    "cagr_pct": -7.9,
+    "sharpe": -0.32,
+    "max_drawdown_pct": -72.3,
+    "win_rate_pct": 46.01,
+    "avg_profit": -1003.0,
+    "total_profit": -376952.0,
+    "years": 5.75,
+    "selection_bias": {
+      "exec_mean_net_pct": -1.0,
+      "skipped_mean_net_pct": 0.33,
+      "exec_win_rate_pct": 46.01,
+      "skipped_win_rate_pct": 47.88
+    }
+  }
+}

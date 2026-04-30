@@ -3284,7 +3284,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                     f'<span style="color:#e8c878;font-size:.78rem">'
                     f'從 60d 高點跌 <b>{_drawdown_pct:.1f}%</b>｜'
                     f'🇺🇸 研究：勝率僅 50% / RR 0.033（中性）'
-                    f'，需配合 RSI<30 + 多頭 才能加分</span></div>'
+                    f'，需配合 RSI<30(目前{rsi:.1f}) + 多頭(目前{"是" if is_bull else "否"}) 才能加分</span></div>'
                 )
             elif 30 <= _drawdown_pct < 50:
                 entry_rows.append(
@@ -6063,6 +6063,12 @@ def _render_alerts_panel():
             f'<div style="font-size:1.05rem;font-weight:700;color:#ffd700;'
             f'margin-bottom:6px">'
             f'🚨 警報中 — 強訊號 {total_strong} 檔｜即將觸發 {total_imm} 檔'
+            f'</div>'
+            # 🆕 v9.11：研究結論建議
+            f'<div style="font-size:.7rem;color:#a8cce8;line-height:1.5">'
+            f'💡 <b>1M 資金最佳設定</b>：50 倉位 × 20k/筆 + drop_deep 排序 '
+            f'(倒鎚 Sharpe 1.99) ｜ T1_V7 30d hold OOS CAGR +14.78% '
+            f'｜ 同 level 內已按 Q 分排序（高優先）'
             f'</div></div>',
             unsafe_allow_html=True
         )
@@ -6077,6 +6083,13 @@ def _render_alerts_panel():
             elif lv == 2: stars = '★★'
             else: stars = '⏰'
             close_v = a.get('close', 0) or 0
+            # 🆕 v9.11：顯示 quality_score（priority sweep 證實能 +84% CAGR）
+            qs = a.get('quality_score')
+            qs_html = (f'<span style="color:#e8a020;font-family:monospace;'
+                       f'min-width:55px;font-size:.7rem" title="品質分（高=優先）">'
+                       f'Q{qs:+.1f}</span>'
+                       if qs is not None else
+                       f'<span style="min-width:55px"></span>')
             return (
                 f'<div style="display:flex;gap:8px;align-items:center;'
                 f'padding:4px 8px;border-bottom:1px solid #2a1830;font-size:.78rem">'
@@ -6086,6 +6099,7 @@ def _render_alerts_panel():
                 f'text-overflow:ellipsis;max-width:140px">{a.get("name", "")[:14]}</span>'
                 f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{close_v:.2f}</span>'
                 f'<span style="color:#ffd700;font-family:monospace;min-width:60px">{stars}</span>'
+                + qs_html +
                 f'<span style="color:{color};flex:1.5;font-size:.72rem">{a.get("tag", "")}</span>'
                 f'<span style="color:#7a8899;font-size:.7rem;flex:1">{a.get("expect", "")}</span>'
                 f'</div>'
