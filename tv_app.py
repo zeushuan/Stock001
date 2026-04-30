@@ -4469,6 +4469,7 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
     🆕 v9.10：自動偵測 TW vs US ticker 用不同閾值
       - TW（4 位數字）: ADX≥22 / 加碼門檻 P5（5%）/ V7 預設
       - US（純大寫字母 / -USD crypto）: ADX≥18 / 加碼門檻 P10（10%）/ 美股研究最佳
+    🆕 v9.11：加入 _imminent_dc 阻擋邏輯（跟 get_operation_advice 一致）
     """
     ema20      = d.get("ema20")
     ema60      = d.get("ema60")
@@ -4477,6 +4478,8 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
     rsi_prev   = d.get("rsi_prev")
     rsi_prev2  = d.get("rsi_prev2")
     cross_days = d.get("ema20_cross_days")
+    atr14      = d.get("atr14")
+    close      = d.get("close")
 
     if ema20 is None or ema60 is None:
         return ("—", "background:#0a1020;color:#7a8899")
@@ -4491,6 +4494,29 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
     # 🆕 美股用 ADX18，台股用 ADX22（依美股研究最佳變體 P10+POS+ADX18）
     _adx_th    = 18 if (_is_us or _is_crypto) else 22
     adx_ok     = (adx is not None and adx >= _adx_th)
+
+    # 🆕 v9.11：即將死叉判斷（與 get_operation_advice 完全一致）
+    _imminent_dc = False
+    if (cross_days is not None and cross_days > 10
+            and ema20 is not None and ema60 is not None
+            and atr14 is not None and atr14 > 0
+            and ema20 > ema60):
+        if (ema20 - ema60) < atr14:
+            _e20_5d = d.get('ema20_5d_ago')
+            ema20_falling = (_e20_5d is not None and ema20 < _e20_5d)
+            if ema20_falling:
+                _imminent_dc = True
+            elif cross_days > 30:
+                _imminent_dc = True
+    # T1/T3 條件預估（同 get_operation_advice）
+    _t1_ok = (cross_days is not None and 0 < cross_days <= 10)
+    _t3_ok = (rsi is not None and rsi < 50)
+    _entry_blocked_by_dc = (is_bull and adx_ok and _imminent_dc and (_t1_ok or _t3_ok))
+
+    # 阻擋進場：表格欄優先顯示
+    if _entry_blocked_by_dc and not _is_inverse:
+        return ("🛑 不進場 即將死叉",
+                "background:#2a0a0a;color:#ff7755;border:1px solid #ff775566")
 
     if _is_inverse:
         # 反向ETF：自身趨勢判斷，只用T1/T3（v7 已移除 T2）
@@ -6846,7 +6872,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 90  # v9.11：操作建議卡片明確結構（狀態+原因+持倉者建議） + 即將死叉阻擋一致化 2026-04-30
+_RESULTS_VERSION = 91  # v9.11：表格操作建議欄也加即將死叉阻擋（跟 detail card 一致） 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
