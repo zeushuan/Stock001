@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10r"
+APP_VERSION   = "v9.10s"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -2556,13 +2556,25 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     # 已死叉（過去 30 天內）
     _just_dead_cross = (cross_days is not None and -30 <= cross_days < 0)
     # 即將死叉：仍多頭但 EMA20 距 EMA60 < 1 ATR（隨時可能交叉）
+    # 🆕 v9.10s：排除「剛黃金交叉」的 gap 自然小情境
+    #   bug 修復：cross_days=1 黃金交叉初期 gap 必小，不該誤判成即將死叉
+    #   真正即將死叉 = (1) gap 小 (2) cross_days > 10 已多頭一陣
+    #                  (3) EMA20 不上升或下彎（gap 收窄中而非剛擴張）
     _imminent_dc = False
-    if (cross_days is not None and cross_days > 0
+    if (cross_days is not None and cross_days > 10  # cross_days 從 >0 改成 >10
             and ema20 is not None and ema60 is not None
             and atr14 is not None and atr14 > 0
             and ema20 > ema60):
         if (ema20 - ema60) < atr14:
-            _imminent_dc = True
+            # 額外條件：EMA20 5 日下行（gap 真的在收窄）
+            _e20_5d = d.get('ema20_5d_ago')
+            ema20_falling = (_e20_5d is not None and ema20 < _e20_5d)
+            # gap 小 + cross_days>10 + EMA20 下行 → 才是真正即將死叉
+            if ema20_falling:
+                _imminent_dc = True
+            # 退而求其次：cross_days > 30（多頭很久 gap 還是小）
+            elif cross_days > 30:
+                _imminent_dc = True
     _knife_dc_zone = _just_dead_cross or _imminent_dc
     _drawdown_pct = ((high60 - close) / high60 * 100) if (high60 and close and high60 > 0) else None
     _knife_drawdown = (_drawdown_pct is not None and _drawdown_pct >= 15)
@@ -3255,8 +3267,14 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             exit_rows.append(f'<div style="margin-bottom:3px"><span style="color:{_hv_color};font-size:.78rem">{_hv_label}</span></div>')
 
         # EMA 差距 → 死亡交叉遠近（所有股票共用）
+        # 🆕 v9.10s：剛黃金交叉時 gap 自然小，不該標「即將死叉」
         if ema_gap_pct is not None:
-            if ema_gap_pct < 1.0:
+            _just_crossed_up = (cross_days is not None and 0 < cross_days <= 10)
+            if ema_gap_pct < 1.0 and _just_crossed_up:
+                # 剛黃金交叉的擴張期
+                gap_color = "#3dbb6a"; gap_icon = "🔥"
+                gap_note = f"黃金交叉 {cross_days} 天前（擴張期，差距正常）"
+            elif ema_gap_pct < 1.0:
                 gap_color = "#ff5555"; gap_icon = "🚨"; gap_note = "即將死叉！準備出場"
             elif ema_gap_pct < 3.0:
                 gap_color = "#e8a020"; gap_icon = "⚠️"; gap_note = "接近死叉，密切關注"
@@ -5899,7 +5917,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 80  # v9.10r：等待 T3 拉回顯示預估目標價（單日急跌 vs N 日緩跌）2026-04-30
+_RESULTS_VERSION = 81  # v9.10s：修「黃金交叉初期誤判即將死叉」bug + TW-US 連動分析 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
