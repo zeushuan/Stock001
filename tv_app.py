@@ -6154,6 +6154,144 @@ def _render_alerts_panel():
 _render_alerts_panel()
 
 
+def _render_hit_rate_panel():
+    """🆕 v9.11：Live 命中率追蹤 — 從 alert_history.json 顯示 5/15/30d 命中率"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        p = _P(__file__).parent / 'alert_history.json'
+        if not p.exists():
+            return  # 還沒有歷史資料，不顯示
+
+        h = _json.loads(p.read_text(encoding='utf-8'))
+        alerts = h.get('alerts', [])
+        stats = h.get('stats', {})
+        total = len(alerts)
+        if total == 0:
+            return
+
+        last_update = h.get('last_outcomes_update', h.get('last_updated', ''))
+
+        # group key → 中文標籤
+        label_map = {
+            'tw_5_bull':            '🇹🇼 ★★★★★ 看多 (倒鎚+RSI≤25+ADX↑)',
+            'tw_4_bull':            '🇹🇼 ★★★★ 看多 (倒鎚+跌深)',
+            'tw_3_bull':            '🇹🇼 ★★★ 看多 (底十字+RSI≤25)',
+            'tw_4_bear':            '🇹🇼 ★★★★ 看空 (三烏+距高<5%+量縮)',
+            'tw_3_bear':            '🇹🇼 ★★★ 看空 (空頭吞噬+RSI≥75)',
+            'tw_2_bear':            '🇹🇼 ★★ 看空 (黃昏星+RSI≥75)',
+            'tw_imm_bull_bull':     '🇹🇼 ⏰ 即將看多',
+            'tw_imm_bear_bear':     '🇹🇼 ⏰ 即將看空',
+            'us_5_bull':            '🇺🇸 ★★★★★ 看多',
+            'us_4_bull':            '🇺🇸 ★★★★ 看多',
+            'us_3_bull':            '🇺🇸 ★★★ 看多',
+            'us_4_bear':            '🇺🇸 ★★★★ 看空',
+            'us_3_bear':            '🇺🇸 ★★★ 看空',
+            'us_2_bear':            '🇺🇸 ★★ 看空',
+            'us_imm_bull_bull':     '🇺🇸 ⏰ 即將看多',
+            'us_imm_bear_bear':     '🇺🇸 ⏰ 即將看空',
+        }
+
+        # 已回算的筆數（任一 horizon 有 ret_pct 就算）
+        total_with_outcome = sum(
+            1 for a in alerts
+            if any(a.get('outcomes', {}).get(f'{n}d', {}).get('ret_pct') is not None
+                   for n in [5, 15, 30])
+        )
+
+        st.markdown(
+            f'<div style="background:#0d1c2e;border:2px solid #2a4a70;'
+            f'border-radius:10px;padding:10px 14px;margin:12px 0">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd;'
+            f'margin-bottom:4px">'
+            f'📈 Live 命中率追蹤 — 累積 {total} 筆 / 已回算 {total_with_outcome} 筆'
+            f'</div>'
+            f'<div style="font-size:.7rem;color:#7a8899">'
+            f'最後回算：{last_update or "（尚未回算）"}'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+
+        if not stats:
+            st.markdown(
+                f'<div style="color:#7a8899;font-size:.78rem;padding:8px 14px">'
+                f'仍在累積資料（5/15/30 天後才有結果）</div>',
+                unsafe_allow_html=True)
+            return
+
+        # 排序：看多由強→弱，看空由強→弱，imm 最後
+        order = [
+            'tw_5_bull', 'tw_4_bull', 'tw_3_bull',
+            'us_5_bull', 'us_4_bull', 'us_3_bull',
+            'tw_4_bear', 'tw_3_bear', 'tw_2_bear',
+            'us_4_bear', 'us_3_bear', 'us_2_bear',
+            'tw_imm_bull_bull', 'tw_imm_bear_bear',
+            'us_imm_bull_bull', 'us_imm_bear_bear',
+        ]
+        sorted_keys = ([k for k in order if k in stats]
+                       + [k for k in stats if k not in order])
+
+        rows_html = []
+        for key in sorted_keys:
+            s = stats[key]
+            label = label_map.get(key, key)
+            is_bear = ('bear' in key)
+            cells = []
+            for hd in ['5d', '15d', '30d']:
+                v = s.get(hd)
+                if v:
+                    n_, hr, mr = v['n'], v['hit_rate'], v['mean_ret']
+                    # 看多: ret_pct > 0 = 命中（綠）；看空：ret_pct < 0 = 命中（綠）
+                    expected_pos = (mr > 0) if not is_bear else (mr < 0)
+                    color = '#3dbb6a' if expected_pos else '#ff5555' if mr != 0 else '#7a8899'
+                    cells.append(
+                        f'<span style="color:{color};font-family:monospace;'
+                        f'font-size:.78rem;min-width:130px;display:inline-block">'
+                        f'{hd}: <b>{hr:.0f}%</b> n={n_} ({mr:+.1f}%)</span>'
+                    )
+                else:
+                    cells.append(
+                        f'<span style="color:#445566;font-family:monospace;'
+                        f'font-size:.78rem;min-width:130px;display:inline-block">{hd}: —</span>'
+                    )
+            rows_html.append(
+                f'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;'
+                f'padding:5px 8px;border-bottom:1px solid #1a2a3a">'
+                f'<span style="color:#aac4e0;flex:1;min-width:240px;'
+                f'font-size:.82rem">{label}</span>'
+                + ''.join(cells)
+                + f'</div>'
+            )
+
+        st.markdown(
+            f'<div style="background:#0a1428;border:1px solid #1f3550;'
+            f'border-radius:8px;padding:6px 10px;margin:8px 0">'
+            + ''.join(rows_html)
+            + '</div>',
+            unsafe_allow_html=True
+        )
+
+        # 警示文字：樣本太少時提醒
+        if total_with_outcome < 10:
+            st.markdown(
+                f'<div style="color:#e8a020;font-size:.7rem;padding:4px 14px">'
+                f'⚠️ 樣本數還小（{total_with_outcome} 筆），建議累積到 ≥30 筆再做決策'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    except Exception as e:
+        try:
+            st.markdown(
+                f'<div style="color:#ff7755;font-size:.7rem;padding:4px 14px">'
+                f'命中率 panel 載入失敗：{type(e).__name__}</div>',
+                unsafe_allow_html=True)
+        except:
+            pass
+
+
+_render_hit_rate_panel()
+
+
 # 🆕 市場廣度警報（D 路徑）
 _breadth = _get_market_breadth()
 if _breadth.get('has_data'):

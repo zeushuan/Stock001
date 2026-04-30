@@ -330,6 +330,64 @@ def _process(df_dict, classify_fn, name_map=None):
     return entry, exit_, hold, wait, last_dates, all_alerts
 
 
+def _append_alert_history(market, alerts, alert_date, hist_path='alert_history.json'):
+    """🆕 v9.11：把當天的 alerts 加進歷史檔，後續由 update_alert_outcomes.py
+    在 5/15/30 天後回算實際漲跌幅，用來計算 live 命中率。
+
+    重複日期 + ticker + level + side 不會重加（idempotent）。
+    """
+    if not alerts:
+        return 0
+
+    if Path(hist_path).exists():
+        try:
+            hist = json.load(open(hist_path, encoding='utf-8'))
+            if not isinstance(hist, dict) or 'alerts' not in hist:
+                hist = {'alerts': []}
+        except Exception:
+            hist = {'alerts': []}
+    else:
+        hist = {'alerts': []}
+
+    # 既存的 (date, ticker, level, side) 集合 → 避免重複加
+    existing = set()
+    for a in hist['alerts']:
+        existing.add((a['alert_date'], a['ticker'],
+                      str(a.get('level')), a.get('side')))
+
+    added = 0
+    for al in alerts:
+        key = (alert_date, al['ticker'], str(al.get('level')), al.get('side'))
+        if key in existing:
+            continue
+        existing.add(key)  # 同一輪內也要 dedup
+        hist['alerts'].append({
+            'alert_date': alert_date,
+            'ticker': al['ticker'],
+            'name': al.get('name', ''),
+            'market': market,
+            'level': al.get('level'),
+            'side': al.get('side'),
+            'tag': al.get('tag', ''),
+            'expect': al.get('expect', ''),
+            'entry_price': al.get('close'),
+            'outcomes': {
+                '5d':  {'close': None, 'ret_pct': None, 'checked_at': None},
+                '15d': {'close': None, 'ret_pct': None, 'checked_at': None},
+                '30d': {'close': None, 'ret_pct': None, 'checked_at': None},
+            },
+        })
+        added += 1
+
+    hist['last_updated'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+    hist['total_alerts'] = len(hist['alerts'])
+
+    with open(hist_path, 'w', encoding='utf-8') as f:
+        json.dump(hist, f, indent=2, ensure_ascii=False)
+
+    return added
+
+
 def update_tw():
     """更新台股 TOP 200 訊號"""
     print("🇹🇼 更新 TW TOP 200 訊號（雲端版）")
@@ -417,12 +475,16 @@ def update_tw():
     with open('top200_signals.json', 'w', encoding='utf-8') as f:
         json.dump(out, f, indent=2, ensure_ascii=False)
 
+    # 🆕 v9.11：append 進歷史檔（後續由 update_alert_outcomes.py 回算 5/15/30d 命中率）
+    n_added = _append_alert_history('tw', all_alerts, out['updated_at'])
+
     print(f"\n📊 TW TOP 200 即時掃描:")
     print(f"  📅 資料截至：{out['updated_at']}")
     print(f"  🚀 進場：{len(entry)}")
     print(f"  🚪 出倉：{len(exit_)}")
     print(f"  📌 持倉：{len(hold)}")
     print(f"  ⏸  觀望：{len(wait)}")
+    print(f"  📝 alert_history: 新增 {n_added} 筆")
     print(f"\n✅ 寫入 top200_signals.json")
     return True
 
@@ -512,12 +574,16 @@ def update_us():
     with open('us_top200_signals.json', 'w', encoding='utf-8') as f:
         json.dump(out, f, indent=2, ensure_ascii=False)
 
+    # 🆕 v9.11：append 進歷史檔
+    n_added = _append_alert_history('us', all_alerts, out['updated_at'])
+
     print(f"\n📊 US TOP 100 即時掃描:")
     print(f"  📅 資料截至：{out['updated_at']}")
     print(f"  🚀 進場：{len(entry)}")
     print(f"  🚪 出倉：{len(exit_)}")
     print(f"  📌 持倉：{len(hold)}")
     print(f"  ⏸  觀望：{len(wait)}")
+    print(f"  📝 alert_history: 新增 {n_added} 筆")
     print(f"\n✅ 寫入 us_top200_signals.json")
     return True
 

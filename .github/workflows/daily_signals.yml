@@ -46,14 +46,22 @@ jobs:
           python update_signals_cloud.py 2>&1 | tee /tmp/update.log
         continue-on-error: true
 
+      # 🆕 v9.11：回算過去 alerts 的 5/15/30 天實際漲跌（live 命中率追蹤）
+      - name: Update alert outcomes (live hit-rate)
+        run: |
+          python update_alert_outcomes.py 2>&1 | tee /tmp/outcomes.log
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [[ -n $(git status --porcelain top200_signals.json us_top200_signals.json) ]]; then
-            git add top200_signals.json us_top200_signals.json
-            git commit -m "auto: 自動更新 TW + US TOP 200 訊號 ($(date +%Y-%m-%d))"
+          # 包含 alert_history.json（每天會被 update_signals_cloud + update_alert_outcomes 寫入）
+          FILES="top200_signals.json us_top200_signals.json alert_history.json"
+          if [[ -n $(git status --porcelain $FILES) ]]; then
+            git add $FILES
+            git commit -m "auto: 自動更新 TW + US TOP 200 訊號 + 命中率 ($(date +%Y-%m-%d))"
             git push
             echo "✅ Signals updated"
             echo "changed=true" >> $GITHUB_OUTPUT
