@@ -8,7 +8,7 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.10w"
+APP_VERSION   = "v9.10x"
 APP_UPDATED   = "2026-04-29 09:00"
 APP_NOTES     = (
     "🇺🇸 美股研究完整封存：v8 → P10+POS+ADX18 / 高流動 ADV≥$104M (RR 0.496 / 勝率 55% / 中位 +3.2%) ｜ "
@@ -1318,6 +1318,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "hma":      last(hull_ma(c, 9)),
             # 60 日高點（接刀風險警告用）
             "high60":   float(h.iloc[-60:].max()) if len(h) >= 60 else None,
+            # 🆕 v9.10x：60 日低點（底部反彈訊號用）
+            "low60":    float(l.iloc[-60:].min()) if len(l) >= 60 else None,
         }
 
         # K 線型態偵測（最近 5 個交易日內出現的型態）
@@ -2781,12 +2783,66 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                       and rsi_prev2 is not None and rsi_prev > rsi_prev2)
     _t4_rising = (not is_bull) and _t4_rsi_oversold and _t4_rsi_rising
 
-    # ── 🆕 v9.10w：K 線型態強空頭警報（僅在多頭高位觸發）────────
+    # ── 🆕 v9.10x：K 線型態強警報（看空 + 看多）────────────
     bear_alert_html = ""
+    bull_alert_html = ""
     _kline_patterns = d.get('kline_patterns', []) or []
     # 找最近 1-2 天內出現的型態
     _recent_patterns = {p.get('name'): p for p in _kline_patterns
                          if p.get('days_ago', 99) <= 1}
+
+    # ─── 🚀 強看多警報（底部反轉 + 過濾條件）───
+    # 對所有股票都適用（不需 is_bull）
+    if rsi is not None and atr14 is not None:
+        adx_prev = d.get('adx_prev')
+        adx_rising = (adx is not None and adx_prev is not None
+                       and adx > adx_prev)
+        # 跌深判斷：距 60d 低 / SMA200
+        _from_low_pct = ((close - d.get('low60', close)) /
+                         (d.get('low60', close) or 1) * 100
+                         if d.get('low60') else 99)
+        _below_sma200 = ((close / sma200 - 1) * 100
+                         if sma200 and sma200 > 0 else 0)
+        _extended_down = _below_sma200 < -25
+
+        # ★★★★★ 極強看多：倒鎚 + RSI≤25 + ADX 上升
+        if ('INV_HAMMER' in _recent_patterns and rsi <= 25 and adx_rising):
+            bull_alert_html = (
+                f'<div style="background:#0a2018;border:2px solid #3dbb6a;'
+                f'padding:8px 12px;margin:6px 0;border-radius:6px">'
+                f'<div style="color:#3dbb6a;font-weight:700;font-size:.9rem">'
+                f'🚀🚀 極強看多警報 ★★★★★ — 三重底部訊號</div>'
+                f'<div style="color:#a8d8a8;font-size:.78rem;margin-top:3px">'
+                f'• 倒鎚 ({_recent_patterns["INV_HAMMER"].get("days_ago", 0)} 天前)<br/>'
+                f'• RSI {rsi:.1f} ≤ 25（極度超賣）<br/>'
+                f'• ADX 上升中（趨勢轉強）<br/>'
+                f'<b>實證：n=1223 / 漲機率 71.4% / 30d 均報 +9.36%</b>'
+                f'</div></div>'
+            )
+        # ★★★★ 強看多：倒鎚 + 距 SMA200<-25% (跌深)
+        elif ('INV_HAMMER' in _recent_patterns and _extended_down):
+            bull_alert_html = (
+                f'<div style="background:#0a2018;border:2px solid #3dbb6a;'
+                f'padding:7px 11px;margin:5px 0;border-radius:5px">'
+                f'<div style="color:#3dbb6a;font-weight:700;font-size:.85rem">'
+                f'🚀 強看多警報 ★★★★ — 倒鎚 + 跌深</div>'
+                f'<div style="color:#a8d8a8;font-size:.75rem;margin-top:2px">'
+                f'倒鎚 + 距 SMA200 {_below_sma200:+.1f}%（跌深 >25%）｜'
+                f'實證 n=2589 / 漲機率 64.5% / 30d 均報 +7.85%'
+                f'</div></div>'
+            )
+        # ★★★ 中強看多：底部十字星 + RSI≤25 + ADX 上升
+        elif ('DOJI' in _recent_patterns and rsi <= 25 and adx_rising):
+            bull_alert_html = (
+                f'<div style="background:#0d1825;border:1px solid #7abadd;'
+                f'padding:6px 10px;margin:5px 0;border-radius:4px">'
+                f'<div style="color:#7abadd;font-weight:700;font-size:.85rem">'
+                f'⚡ 中強看多警報 ★★★ — 底部十字星 + 超賣</div>'
+                f'<div style="color:#a8c8d8;font-size:.75rem;margin-top:2px">'
+                f'底部十字星 + RSI {rsi:.1f} ≤ 25 + ADX 上升 ｜'
+                f'實證 n=2920 / 漲機率 67.4% / 30d 均報 +7.02%'
+                f'</div></div>'
+            )
     # 條件：多頭 + 高位（距 60d 高 < 10%）
     _drawdown = d.get('drawdown_pct', 100) or 100
     _at_top = _drawdown < 10
@@ -2837,7 +2893,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             )
 
     # ── 🆕 v9.10t：美股盤後預警 + 美股連動度（僅 TW 個股）────────
-    us_alert_html = bear_alert_html  # 把空頭警報先放進來
+    # 警報順序：強看多 → 強看空 → 雲端美股盤後 → 連動度
+    us_alert_html = bull_alert_html + bear_alert_html
     if not (_is_us or _is_crypto):
         try:
             _us_data = _get_us_overnight()
@@ -6306,7 +6363,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 85  # v9.10w：K 線強空頭警報實作 + 底部反轉型態實證 2026-04-30
+_RESULTS_VERSION = 86  # v9.10x：K 線強看多警報實作 (倒鎚+RSI≤25+ADX↑ 71% 漲機率 +9.36%) 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
