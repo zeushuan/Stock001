@@ -3660,6 +3660,53 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'</span></div>'
             )
 
+    # 🆕 v9.11：月份效應警告（earnings season research）
+    # 計算當前月份（資料最後一日的月份）
+    try:
+        import datetime as _dt
+        _today_month = _dt.datetime.now().month
+    except Exception:
+        _today_month = 0
+    _month_warn = None
+    if is_bull and _today_month > 0:
+        if _is_us or _is_crypto:
+            # 🇺🇸 美股月份效應（T1_V7 research）
+            if _today_month == 5:
+                _month_warn = ('🇺🇸 5月地雷月', '#ff5555',
+                                f'美股研究：5 月 T1_V7 平均 -3.17%（"Sell in May" 應驗）— 建議減少新倉')
+            elif _today_month == 9:
+                _month_warn = ('🇺🇸 9月偏弱', '#e8a020',
+                                f'美股研究：9 月 T1_V7 平均 -0.64%（季節性回調）— 建議謹慎')
+            elif _today_month == 10:
+                _month_warn = ('🇺🇸 10月強月', '#3dbb6a',
+                                f'美股研究：10 月 T1_V7 平均 +5.77%（69.8% 漲）— 黃金月！')
+            elif _today_month == 12:
+                _month_warn = ('🇺🇸 12月強月', '#3dbb6a',
+                                f'美股研究：12 月 T1_V7 平均 +5.37%（75% 漲）— 黃金月！')
+        else:
+            # 🇹🇼 台股月份效應（倒鎚 research）
+            if _today_month == 3:
+                _month_warn = ('🇹🇼 3月地雷月', '#ff5555',
+                                f'台股研究：3 月倒鎚平均 -7.94%（21% 勝率，年報截止前）— 建議延至 4 月')
+            elif _today_month == 4:
+                _month_warn = ('🇹🇼 4月黃金月', '#3dbb6a',
+                                f'台股研究：4 月倒鎚平均 +15.91%（89.5% 勝率）— 年報後反彈最強！')
+            elif _today_month == 5:
+                _month_warn = ('🇹🇼 5月強月', '#3dbb6a',
+                                f'台股研究：5 月倒鎚平均 +12.01%（80.9% 勝率）— 強勢延續')
+            elif _today_month in [6, 9]:
+                _month_warn = (f'🇹🇼 {_today_month}月偏弱', '#e8a020',
+                                f'台股研究：{_today_month} 月倒鎚 < 0%（建議謹慎）')
+
+    if _month_warn:
+        _mtag, _mcolor, _mdesc = _month_warn
+        entry_rows.append(
+            f'<div style="background:#0a1628;border-left:3px solid {_mcolor};'
+            f'padding:6px 10px;margin:5px 0;border-radius:3px">'
+            f'<span style="color:{_mcolor};font-weight:700;font-size:.82rem">{_mtag}</span>'
+            f'<span style="color:#a8c8d8;font-size:.76rem">　{_mdesc}</span></div>'
+        )
+
     # 進場動作標籤
     # 🆕 v9.10j：即將死叉時否決進場訊號（避免「進場 + 即將出場」矛盾）
     # 🆕 v9.11：加 action_reason 顯示原因（建議進場/不建議進場/等待 + 為什麼）
@@ -6945,7 +6992,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 93  # v9.11：完整指標一覽表加 T1累計 欄 2026-04-30
+_RESULTS_VERSION = 94  # v9.11：US/TW 月份效應警告（5月地雷/4月黃金）+ T1 V7 expect 區分市場 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

@@ -169,16 +169,30 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     drop_30d_v = ((close_v - c[max(0, last_idx-30)]) / c[max(0, last_idx-30)] * 100
                    if last_idx >= 30 and c[last_idx-30] > 0 else 0)
 
-    # 🆕 v9.11：取得當前月份用於 earnings season 警示
+    # 🆕 v9.11：月份效應（earnings season research）
     try:
         current_month = pd.Timestamp(df.index[last_idx]).month
     except Exception:
         current_month = 0
-    # 倒鎚月份效應（research finding）：
-    # 4 月: 89.5% 漲 / +15.91% (黃金月)；5 月: 80.9% / +12.01%
-    # 3 月: 21.3% 漲 / -7.94% (地雷)；6 月: 40% / -2.04%；9 月: 45.6% / -1.34%
-    EARNINGS_GOLD_MONTHS = {4, 5}      # 強月：警報強化
-    EARNINGS_DANGER_MONTHS = {3, 6, 9}  # 弱月：警報降級或加警告
+
+    # 跨市場差異（TW vs US 月份地雷不同）：
+    if ticker_market == 'us':
+        # 🇺🇸 美股 T1_V7 月份效應
+        # 5 月 -3.17% (Sell in May)；9 月 -0.64%
+        # 10 月 +5.77%；12 月 +5.37%
+        EARNINGS_GOLD_MONTHS = {10, 12}
+        EARNINGS_DANGER_MONTHS = {5, 9}
+        gold_month_msg = '+5.77% 30d (Q4 強月)'
+        danger_month_msg = '⚠️ -3.17% 30d (Sell in May / 9 月差)'
+    else:
+        # 🇹🇼 台股倒鎚月份效應
+        # 4 月 +15.91% (89.5% 漲)；5 月 +12.01% (80.9%)
+        # 3 月 -7.94% (21% 漲, 年報截止前地雷)；6 月 -2.04%；9 月 -1.34%
+        EARNINGS_GOLD_MONTHS = {4, 5}
+        EARNINGS_DANGER_MONTHS = {3, 6, 9}
+        gold_month_msg = '+15.91% 30d (89.5% 漲, 年報後黃金月)'
+        danger_month_msg = '⚠️ -7.94% 30d (21% 漲, 年報截止前地雷)'
+
     month_tag = ''
     if current_month in EARNINGS_GOLD_MONTHS:
         month_tag = f' 🟢{current_month}月強月'
@@ -191,13 +205,16 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     # 投組最佳：max_pos=50 + drop_deep priority → OOS CAGR +7.30%, Sharpe 1.74, MDD -4.64%
     # quality_score = -drop_30d_v（跌越深越優先，priority research 證實 OOS 最佳）
     if 'INV_HAMMER' in recent and rsi_v <= 25 and adx_rising:
-        # 月份感知 expect
+        # 月份感知 expect（TW/US 不同）
         if current_month in EARNINGS_GOLD_MONTHS:
-            expect_text = f'+15.91% 30d (89.5% 漲, {current_month}月歷史最強月)'
+            expect_text = gold_month_msg + f' / {current_month}月強月'
         elif current_month in EARNINGS_DANGER_MONTHS:
-            expect_text = f'⚠️ -7.94% 30d (21% 漲, {current_month}月歷史地雷月，建議避開)'
+            expect_text = danger_month_msg + f' / {current_month}月弱月，建議避開'
         else:
-            expect_text = '+9.35% 30d (71.8% 漲, OOS 驗證)'
+            if ticker_market == 'us':
+                expect_text = '+9.35% 30d (71.8% 漲, OOS 驗證)'  # 預設用 TW 數據（US 倒鎚樣本太少）
+            else:
+                expect_text = '+9.35% 30d (71.8% 漲, OOS 驗證)'
         alerts.append({'level': 5, 'side': 'bull',
             'tag': f'倒鎚 + RSI {rsi_v:.0f}≤25 + ADX↑{month_tag}',
             'expect': expect_text,
@@ -246,9 +263,16 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
             and c[last_idx-1] > c[last_idx-2]
             and adx_v >= 22):                   # ADX 趨勢強（V7 額外條件）
             dist_pct = (e20_now - close_v) / e20_now * 100
+            # 🆕 v9.11：分市場 expect（TW vs US OOS 差異很大）
+            if ticker_market == 'us':
+                t1_expect = ('🇺🇸 投組 OOS CAGR +16.40% / Sharpe 2.74 / MDD -5.64%'
+                              ' (hold=60 / no stop / Sell in May 避開)')
+            else:
+                t1_expect = ('🇹🇼 投組 OOS CAGR +14.78%（建議+10%止損，'
+                              'CAGR→+10.87%/MDD-8%）｜避開 hold=60（過擬合）')
             alerts.append({'level': 2, 'side': 'bull',
-                'tag': f'T1 即將上穿（距 EMA20 {dist_pct:.2f}% + 連2漲 + ADX≥22）',
-                'expect': '投組 OOS CAGR +14.78%（建議+10%止損，CAGR→+10.87%/MDD-8%）',
+                'tag': f'T1 即將上穿（距 EMA20 {dist_pct:.2f}% + 連2漲 + ADX≥22）{month_tag}',
+                'expect': t1_expect,
                 'quality_score': float(50 - rsi_v)})
 
     # ── 看空警報 ──
@@ -288,7 +312,7 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
     return alerts
 
 
-def _process(df_dict, classify_fn, name_map=None):
+def _process(df_dict, classify_fn, name_map=None, market='tw'):
     """從每股 DataFrame → 計算指標 → 分類 → 產出 row"""
     name_map = name_map or {}
     entry, exit_, hold, wait = [], [], [], []
@@ -366,7 +390,7 @@ def _process(df_dict, classify_fn, name_map=None):
             mom_60d = 0
 
         # 🆕 v9.10y：偵測警報
-        stock_alerts = _detect_alerts(df, last)
+        stock_alerts = _detect_alerts(df, last, ticker_market=market)
         if stock_alerts:
             for al in stock_alerts:
                 all_alerts.append({
@@ -504,7 +528,7 @@ def update_tw():
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
 
     # 處理
-    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_tw, name_map)
+    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_tw, name_map, market='tw')
 
     if not last_dates:
         print("❌ 處理失敗，保留現有 JSON")
@@ -607,7 +631,7 @@ def update_us():
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(us_top)}")
 
     # 處理（US 用 _classify_us）
-    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_us, name_map)
+    entry, exit_, hold, wait, last_dates, all_alerts = _process(df_dict, _classify_us, name_map, market='us')
 
     if not last_dates:
         print("❌ 處理失敗，保留現有 JSON")
