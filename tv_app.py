@@ -1233,6 +1233,19 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         except Exception:
             pass
 
+        # 🆕 v9.11：T1 觸發至今的漲跌（cross day → today）
+        cross_day_close = None
+        cross_change_pct = None
+        if ema20_cross_days is not None:
+            try:
+                _k = abs(ema20_cross_days)
+                if _k < len(c):
+                    cross_day_close = float(c.iloc[-_k - 1])  # cross 發生那天的收盤
+                    if cross_day_close and cross_day_close > 0 and close_val is not None:
+                        cross_change_pct = (close_val - cross_day_close) / cross_day_close * 100
+            except Exception:
+                pass
+
         # 週線結構（日線 resample，無需額外 API）
         w_close_v = w_ma10_v = w_ma20_v = None
         try:
@@ -1303,6 +1316,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "ema60":      last(ema60_s),
             "ema60_prev": prev(ema60_s),
             "ema20_cross_days": ema20_cross_days,
+            "cross_day_close":  cross_day_close,    # 🆕 v9.11：cross 那天的 close
+            "cross_change_pct": cross_change_pct,   # 🆕 v9.11：cross 至今 % 變化
             "w_close":  w_close_v,
             "w_ma10":   w_ma10_v,
             "w_ma20":   w_ma20_v,
@@ -1631,6 +1646,16 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
                     elif d0 > 0 and d1 <= 0:
                         cross_days = -_k; break
 
+            # 🆕 v9.11：T1 觸發至今的漲跌（cross day → 此 idx）
+            cross_day_close = None
+            cross_change_pct = None
+            if cross_days is not None:
+                _ki = abs(cross_days)
+                if idx - _ki >= 0:
+                    cross_day_close = at(c, idx - _ki)
+                    if cross_day_close and cross_day_close > 0 and close_v is not None:
+                        cross_change_pct = (close_v - cross_day_close) / cross_day_close * 100
+
             # 週線對應值
             w_close_v = w_ma10_v = w_ma20_v = None
             if wc_ser is not None and wm10_ser is not None:
@@ -1690,6 +1715,8 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
                 "ema60":        at(ema60_s, idx),
                 "ema60_prev":   at(ema60_s, idx-1),
                 "ema20_cross_days": cross_days,
+                "cross_day_close":  cross_day_close,    # 🆕 v9.11
+                "cross_change_pct": cross_change_pct,   # 🆕 v9.11
                 "w_close":      w_close_v,
                 "w_ma10":       w_ma10_v,
                 "w_ma20":       w_ma20_v,
@@ -3078,11 +3105,19 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                     sweet_tag = " <span style='color:#7abadd'>仍可進場</span>"
                 else:
                     sweet_tag = " <span style='color:#7a8899'>（過 T1 窗）</span>"
+            # 🆕 v9.11：T1 觸發至今的 % 變化
+            _cross_pct = d.get('cross_change_pct')
+            _perf_inline = ""
+            if _cross_pct is not None:
+                _pcolor = '#3dbb6a' if _cross_pct >= 0 else '#ff5555'
+                _psign = '+' if _cross_pct >= 0 else ''
+                _perf_inline = (f" <span style='color:{_pcolor};font-weight:700'>"
+                                f"累計 {_psign}{_cross_pct:.2f}%</span>")
             if cross_days <= 10:
                 cross_info = (f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>"
-                              f"{sweet_tag}｜")
+                              f"{sweet_tag}{_perf_inline}｜")
             else:
-                cross_info = f"黃金交叉 {cross_days} 天前{sweet_tag}｜"
+                cross_info = f"黃金交叉 {cross_days} 天前{sweet_tag}{_perf_inline}｜"
         else:
             cross_info = ""
         env_color, env_icon = "#3b9eff", "✅"
@@ -3370,6 +3405,17 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         # 🆕 v9.11：被 dc 阻擋時，t1_ok 顯示為「條件成立但已否決」
         t1c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t1_ok else "#4a6070"
         t1d   = f"{cross_days} 天前" if (cross_days and cross_days > 0) else "尚未發生"
+        # 🆕 v9.11：T1 觸發至今 % 變化
+        cross_pct = d.get('cross_change_pct')
+        cross_close = d.get('cross_day_close')
+        t1_perf = ""
+        if cross_days and cross_days > 0 and cross_pct is not None:
+            _color = "#3dbb6a" if cross_pct >= 0 else "#ff5555"
+            _sign = "+" if cross_pct >= 0 else ""
+            cross_close_str = f' (從 {cross_close:.2f} → {close:.2f})' if cross_close else ''
+            t1_perf = (f' <span style="color:{_color};font-weight:600;font-size:.78rem">'
+                        f'累計 {_sign}{cross_pct:.2f}%</span>'
+                        f'<span style="color:#5a7a99;font-size:.7rem">{cross_close_str}</span>')
         if t1_ok and _entry_blocked_by_dc:
             t1_action = '　<s style="color:#7a8899">← 積極進場</s> <b style="color:#ff7755">（已被即將死叉否決）</b>'
         elif t1_ok:
@@ -3380,7 +3426,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<div style="display:flex;gap:6px;align-items:baseline">'
             f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
             f'font-size:.65rem;color:#5a9acf;white-space:nowrap">T1 黃金交叉</span>'
-            f'<span style="color:{t1c}">{"✅" if t1_ok else "⬜"} {t1d}{t1_action}</span></div>'
+            f'<span style="color:{t1c}">{"✅" if t1_ok else "⬜"} {t1d}{t1_perf}{t1_action}</span></div>'
         )
 
         # T3：多頭拉回 RSI < 50——停損後再入場 / 回調機會
@@ -6872,7 +6918,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 91  # v9.11：表格操作建議欄也加即將死叉阻擋（跟 detail card 一致） 2026-04-30
+_RESULTS_VERSION = 92  # v9.11：T1 觸發至今 % 變化（市場環境 + T1 row 都顯示累計報酬） 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
