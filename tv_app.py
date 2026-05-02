@@ -4639,6 +4639,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td style="color:#a8cce8;font-size:.78rem">—</td>'
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
                      f'<td class="j-na">—</td>'
+                     f'<td class="j-na">—</td>'  # 🆕 v9.11：T1累計欄
                      f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td>'
                      f'<td>{err_concept_html}</td></tr>')
             continue
@@ -4695,6 +4696,31 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             pe_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;font-size:.82rem;'
                        f'color:{pe_color};font-weight:600;text-align:right">'
                        f'{per_v:.1f}{arrow}</td>')
+
+        # 🆕 v9.11：T1 觸發至今累計 % 變化
+        _cd = d.get('ema20_cross_days')
+        _cp = d.get('cross_change_pct')
+        if _cd is not None and _cd > 0 and _cp is not None:
+            # 黃金交叉至今
+            _ccolor = '#3dbb6a' if _cp >= 0 else '#ff5555'
+            _csign = '+' if _cp >= 0 else ''
+            cross_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;'
+                          f'font-size:.8rem;color:{_ccolor};font-weight:600;text-align:right" '
+                          f'title="T1 黃金交叉至今 {_cd} 天 累計 {_csign}{_cp:.2f}%">'
+                          f'{_csign}{_cp:.1f}%'
+                          f'<span style="color:#5a7a99;font-size:.66rem"> /{_cd}d</span>'
+                          f'</td>')
+        elif _cd is not None and _cd < 0 and _cp is not None:
+            # 死亡交叉至今（灰色）
+            _csign = '+' if _cp >= 0 else ''
+            cross_cell = (f'<td style="font-family:\'IBM Plex Mono\',monospace;'
+                          f'font-size:.72rem;color:#7a8899;text-align:right" '
+                          f'title="死亡交叉至今 {abs(_cd)} 天 累計 {_csign}{_cp:.2f}%">'
+                          f'DC {_csign}{_cp:.1f}%'
+                          f'<span style="color:#5a7a99;font-size:.66rem"> /{abs(_cd)}d</span>'
+                          f'</td>')
+        else:
+            cross_cell = '<td style="color:#334455;font-size:.78rem;text-align:center">—</td>'
 
         _rlabel, _rbadge = get_rec_label(d, ticker)
         _xlabel, _xbadge = get_exit_signal(d)
@@ -4756,12 +4782,13 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                  f'<td class="ticker-cell">{tier_badge}{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}{pe_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
+                 f'{price_cell}{chg_cell}{pe_cell}{cross_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
 
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
             f'<th title="本益比（顏色：綠合理 / 黃合理偏高 / 橘偏高 / 紅虧損或過熱；▼=PER 60日下降=盈餘上修)">P/E</th>'
+            f'<th title="T1 黃金交叉至今的累計漲跌（綠=漲 紅=跌；DC=死亡交叉至今）">T1累計</th>'
             f'<th style="background:#060c18;min-width:140px">操作建議</th>'
             f'<th style="background:#060c18;min-width:120px">④出場獲利</th>'
             f'<th style="background:#060c18;min-width:140px">概念股</th>'
@@ -6918,7 +6945,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 92  # v9.11：T1 觸發至今 % 變化（市場環境 + T1 row 都顯示累計報酬） 2026-04-30
+_RESULTS_VERSION = 93  # v9.11：完整指標一覽表加 T1累計 欄 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
