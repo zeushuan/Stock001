@@ -30,7 +30,20 @@
 
 5. **倒鎚 + T1_V7 組合策略無價值**：6 年僅 6 筆訊號（兩者方向相反）
 
-6. **美股套用**：universe 篩選 >> 策略 tuning
+6. **止損策略要匹配訊號 alpha 強度**（反直覺）：
+   - 倒鎚（強 alpha）→ **無止損** 最佳（CAGR +7.95% / Sharpe 1.91 / MDD -3.40%）
+     * 任何止損都拖累 alpha；trail_10 砍 54% 反而 CAGR 暴跌到 +5.43%
+   - T1_V7（弱 alpha）→ **fixed -10%** 最佳（CAGR +10.87% vs no_stop +9.96%）
+     * 弱訊號需嚴守風控，限制尾部風險
+   - **Trailing stop 兩者都不適合**（提早出場錯過反彈）
+   - 啟示：止損不是一體適用，要看訊號 alpha 強度
+
+7. **早期看空訊號 alpha 極弱**（驗證後不加進主程式）：
+   - 7 個變體（連 lower high / 量增價跌 / EMA20 斜率轉負 / 高位+RSI≥65）
+   - 全部 alpha 差距 < 1%，部分還反向（高位+紅 K 反而 +3.52%）
+   - 啟示：多頭排列下「逃頂」困難，imminent_dc + ATR 停損已是最佳組合
+
+8. **美股套用**：universe 篩選 >> 策略 tuning
    - US 全市場（2254 檔）直接套 TW 規則 → CAGR -10.89%, MDD **-78%** 💀
    - **US TOP 200（精選）+ T1_V7 hold 30** → CAGR +14.35%, **Sharpe 2.41** ⭐
    - 結論：micro-cap / biotech 異常股摧毀策略；限 TOP 200 反而贏 TW
@@ -97,9 +110,19 @@
 - tv_app 警報 panel 顯示 Q 分 + 推薦倉位 banner
 - LINE Bot 已驗證可推送
 
-**1M 資金最佳配置（依 OOS 驗證）**：
-- 主推：**T1_V7 hold=30 + max_pos=10-20**（CAGR +14.78%, Sharpe 1.13）
-- 輔助：倒鎚 max_pos=50 + drop_deep priority（CAGR +7.95%, Sharpe 1.91）
+**1M 資金最佳配置（依 OOS Walk-forward 驗證）**：
+
+| 配置 | OOS CAGR | OOS Sharpe | OOS MDD | 適合 |
+|---|---|---|---|---|
+| **倒鎚 h30 + pos=50 + drop_deep** ⭐⭐ | **+7.30%** | **1.74** | **-4.64%** | 風險 averse + 訊號可信 |
+| **T1_V7 h30 + pos=10 + FIFO** ⭐⭐ | **+14.78%** | 0.81 | -25.55% | CAGR 優先 + 願承受 DD |
+| 倒鎚 h30 + pos=10 + FIFO | +0.02% | 0.08 | -24.41% | ❌ 容量殺光，不推 |
+| 倒鎚 h15 + pos=50 + drop_deep | +1.70% | 0.56 | -6.48% | ❌ 早出場錯過反彈 |
+| T1_V7 h60 (in-sample 看似最強) | +1.37% | 0.17 | -18.52% | 🚨 過擬合 trap |
+
+**結論**：兩條路線各有優勢
+- 想穩健 → 倒鎚 max_pos=50 + drop_deep（Sharpe 1.74、MDD -4.64% 最低）
+- 想 CAGR → T1_V7 max_pos=10 + FIFO（CAGR +14.78% 最高，但 MDD -25%）
 
 ---
 
