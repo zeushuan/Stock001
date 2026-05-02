@@ -8,26 +8,26 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.11"
-APP_UPDATED   = "2026-04-30 16:00"
+APP_VERSION   = "v9.12"
+APP_UPDATED   = "2026-04-30 23:00"
 APP_NOTES     = (
-    "🥇 OOS 真王者：倒鎚 hold=30 + max_pos=50 + drop_deep priority → "
-    "OOS CAGR +7.30% / Sharpe 1.74 / MDD -4.64% ｜ "
-    "🆕 倒鎚月份效應：4 月黃金 (89.5% 漲 / +15.91%)、3 月地雷 (-7.94%) — 警報自動標示 ｜ "
-    "T1_V7 + fixed_10% 止損 → CAGR +10.87% / MDD -8.24%（雙改善）｜ "
-    "美股 TOP 200 + T1_V7 → CAGR +14.35% / Sharpe 2.41（universe 篩選 > tuning）｜ "
-    "Walk-forward 推翻過擬合：T1_V7 hold=60 是 trap (Sharpe 1.92→0.17) ｜ "
-    "LINE Bot 推送 + alerts quality_score 排序 + Live 命中率追蹤"
+    "🆕 跨市場差異化（TW vs US 規則完全不同，自動偵測 ticker 顯示對應警告）｜ "
+    "🥇 🇹🇼 台股最佳：倒鎚 h30 + pos=50 + drop_deep → OOS CAGR +7.30% / Sharpe 1.74 / MDD -4.64% ｜ "
+    "🥇 🇺🇸 美股最佳：T1_V7 h60 + pos=10 + no_stop → OOS CAGR +16.40% / Sharpe 2.74 / MDD -5.64% ⭐⭐ ｜ "
+    "📅 月份警告：TW 3月地雷/4月黃金 vs US 5月地雷(Sell in May)/10-12月強月 ｜ "
+    "📊 大盤對照：絕對 CAGR 輸 TWII (+20.35%) 但 Sharpe + MDD 大勝 ｜ "
+    "LINE Bot 推送 + Live 命中率追蹤 + alerts quality_score 排序"
 )
 APP_VALIDATIONS = (
     "🚀 倒鎚 OOS 2024+ 71.8% 勝率 / +9.35% 30d / PF 5.5（無過擬合，反而強化）｜ "
-    "🎯 T1_V7 hold=30 OOS CAGR +14.78% / Sharpe 0.81 — 1M 投組真贏家 ｜ "
-    "⚠️ T1_V7 hold=60 是過擬合 trap (Sharpe 1.92→0.17) — 勿用 ｜ "
+    "🎯 T1_V7 OOS CAGR：🇹🇼 h30 +14.78% / 🇺🇸 h60 +16.40%（跨市場最佳 hold 不同）｜ "
+    "⚠️ T1_V7 hold=60 在 TW 是過擬合 trap (Sharpe 1.92→0.17) — TW 勿用 60d ｜ "
     "💎 max_pos=50 + drop_deep priority → 倒鎚 Sharpe 0.54→1.99 / MDD -3.44% ｜ "
-    "🇺🇸 US TOP 200 + T1_V7 → CAGR +14.35% / Sharpe 2.41（universe 篩選比 tuning 重要）｜ "
-    "📊 P5+VWAPEXEC TEST 22月勝率 56.2% / RR 0.611（baseline 0.223）2.7×提升 ｜ "
-    "🇺🇸 P10+POS+ADX18 高流動 555 檔 RR 0.496 / 勝率 55% ｜ "
-    "📅 TW Walk-Forward 7 年：6/7 年正 RR ｜ 🪙 v8 不適用加密貨幣"
+    "🛑 止損研究：倒鎚不該止損 / T1_V7 fixed_10 略好 / Trailing 全失敗 ｜ "
+    "📅 月份效應：🇹🇼 3月-7.94%/4月+15.91% ｜ 🇺🇸 5月-3.17%/10月+5.77% ｜ "
+    "🎲 混合策略 70/30 沒奇跡（兩策略相關性高，純策略各為 Pareto 端點）｜ "
+    "📊 大盤對照：🇹🇼 TWII +20.35% / 🇺🇸 SPY +13.31% / SOX +31.29%（風險調整後策略勝）｜ "
+    "🪙 v8 不適用加密貨幣"
 )
 
 import numpy as np
