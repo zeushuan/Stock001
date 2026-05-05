@@ -6560,6 +6560,96 @@ def _render_full_market_t1_panel():
                     '— 暫無候選 —</div>',
                     unsafe_allow_html=True
                 )
+
+        # 🆕 v9.12：存成自選股清單（合併 TW + US）
+        if tw_list or us_list:
+            st.markdown(
+                '<div style="font-size:.7rem;color:#7a8899;margin-top:8px">'
+                '💾 把全市場 T1 候選一鍵存進自選股（之後可在側邊欄載入掃描）</div>',
+                unsafe_allow_html=True
+            )
+            _scols = st.columns([2, 2, 2, 2])
+            # 預設名稱（含日期）
+            _today_str = pd.Timestamp.now().strftime('%Y%m%d')
+            with _scols[0]:
+                _save_name = st.text_input(
+                    '清單名稱', value=f'T1即將_{_today_str}',
+                    label_visibility='collapsed', key='t1_full_save_name',
+                    placeholder='清單名稱'
+                )
+            with _scols[1]:
+                _save_tier = st.selectbox(
+                    '篩選', options=['全部 (TW+US)', '僅 L1 嚴格', 'L1+L2',
+                                     '僅 TW', '僅 US'],
+                    label_visibility='collapsed', key='t1_full_save_tier'
+                )
+            with _scols[2]:
+                _save_btn = st.button('💾 存成自選股', key='t1_full_save_btn',
+                                       use_container_width=True)
+            with _scols[3]:
+                _add_btn = st.button('➕ 加入既有', key='t1_full_add_btn',
+                                      use_container_width=True,
+                                      help='加進已存在的同名清單（若無則新建）')
+
+            if _save_btn or _add_btn:
+                # 篩選邏輯
+                items = []
+                if _save_tier == '全部 (TW+US)':
+                    items = tw_list + us_list
+                elif _save_tier == '僅 L1 嚴格':
+                    items = [r for r in (tw_list + us_list) if r.get('tier') == 'L1_strict']
+                elif _save_tier == 'L1+L2':
+                    items = [r for r in (tw_list + us_list)
+                             if r.get('tier') in ('L1_strict', 'L2_medium')]
+                elif _save_tier == '僅 TW':
+                    items = list(tw_list)
+                elif _save_tier == '僅 US':
+                    items = list(us_list)
+
+                if not items:
+                    st.warning('沒有符合條件的股票')
+                elif not _save_name.strip():
+                    st.warning('請輸入清單名稱')
+                else:
+                    tickers_text = '\n'.join(r['ticker'] for r in items)
+                    # 載入現有 watchlists（雙軌：localStorage + 檔案）
+                    _wl_path = _P(__file__).parent / 'watchlists.json'
+                    try:
+                        from streamlit_local_storage import LocalStorage
+                        _ls = LocalStorage()
+                    except Exception:
+                        _ls = None
+                    wls = {}
+                    if _ls is not None:
+                        try:
+                            v = _ls.getItem('stock001_watchlists')
+                            if v:
+                                wls = _json.loads(v) if isinstance(v, str) else v
+                        except Exception: pass
+                    if not wls and _wl_path.exists():
+                        try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                        except Exception: wls = {}
+
+                    # 加入或合併
+                    name = _save_name.strip()
+                    if _add_btn and name in wls:
+                        # 合併（去重）
+                        existing = set(wls[name].split('\n')) if isinstance(wls[name], str) else set()
+                        new_set = existing | set(r['ticker'] for r in items)
+                        wls[name] = '\n'.join(sorted(new_set))
+                        _msg = f'➕ 已合併進「{name}」（共 {len(new_set)} 檔）'
+                    else:
+                        wls[name] = tickers_text
+                        _msg = f'💾 已儲存「{name}」（{len(items)} 檔）'
+
+                    text = _json.dumps(wls, ensure_ascii=False, indent=2)
+                    if _ls:
+                        try: _ls.setItem('stock001_watchlists', text)
+                        except: pass
+                    try: _wl_path.write_text(text, encoding='utf-8')
+                    except: pass
+                    st.success(_msg)
+                    st.rerun()
     except Exception as e:
         try:
             st.markdown(
@@ -7127,7 +7217,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 96  # v9.12：全市場 T1 即將上穿 watchlist (跳出 TOP 200) 2026-04-30
+_RESULTS_VERSION = 97  # v9.12：全市場 T1 watchlist 加存清單按鈕（TW+US 合併或分開） 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
