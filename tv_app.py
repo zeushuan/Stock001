@@ -8,25 +8,28 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.12"
-APP_UPDATED   = "2026-04-30 23:00"
+APP_VERSION   = "v9.13"
+APP_UPDATED   = "2026-05-03 12:00"
 APP_NOTES     = (
-    "🆕 跨市場差異化（TW vs US 規則完全不同，自動偵測 ticker 顯示對應警告）｜ "
-    "🥇 🇹🇼 台股最佳：倒鎚 h30 + pos=50 + drop_deep → OOS CAGR +7.30% / Sharpe 1.74 / MDD -4.64% ｜ "
-    "🥇 🇺🇸 美股最佳：T1_V7 h60 + pos=10 + no_stop → OOS CAGR +16.40% / Sharpe 2.74 / MDD -5.64% ⭐⭐ ｜ "
-    "📅 月份警告：TW 3月地雷/4月黃金 vs US 5月地雷(Sell in May)/10-12月強月 ｜ "
-    "📊 大盤對照：絕對 CAGR 輸 TWII (+20.35%) 但 Sharpe + MDD 大勝 ｜ "
-    "LINE Bot 推送 + Live 命中率追蹤 + alerts quality_score 排序"
+    "🆕 BB 全套整合（OANDA 文章 10 種判斷 + 警報 + detail card 顯示）｜ "
+    "🆕 全市場 T1 即將上穿 watchlist（跳出 TOP 200，掃 1925 TW + 2254 US，週一三五六自動跑）｜ "
+    "🆕 T1 imminent 命中率追蹤系統（5/15/30d cross precision + alpha 自動回算）｜ "
+    "🆕 LINE 推送擴大到 level 3+2（涵蓋 BB 警報 + 底部十字星等中度訊號）｜ "
+    "🥇 🇹🇼 台股最佳：倒鎚 h30 pos=50 drop_deep → OOS Sharpe 1.74 / MDD -4.64% ｜ "
+    "🥇 🇺🇸 美股最佳：T1_V7 h60 pos=10 → OOS Sharpe 2.74 / CAGR +16.40% ⭐⭐ ｜ "
+    "📅 月份/imminent_dc 警告自動標 + 跨市場差異化"
 )
 APP_VALIDATIONS = (
-    "🚀 倒鎚 OOS 2024+ 71.8% 勝率 / +9.35% 30d / PF 5.5（無過擬合，反而強化）｜ "
+    "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
+    "  🐻空頭+BB Expansion win 56.1%/+3.14%, 🐻空頭+%B<0 win 55.5%/+2.84%, 🐂多頭+%B<0 win 54.9%/+3.32% ｜ "
+    "🚀 倒鎚 OOS 2024+ 71.8% 勝率 / +9.35% 30d / PF 5.5（無過擬合）｜ "
     "🎯 T1_V7 OOS CAGR：🇹🇼 h30 +14.78% / 🇺🇸 h60 +16.40%（跨市場最佳 hold 不同）｜ "
-    "⚠️ T1_V7 hold=60 在 TW 是過擬合 trap (Sharpe 1.92→0.17) — TW 勿用 60d ｜ "
+    "⚠️ T1_V7 hold=60 在 TW 是過擬合 trap — TW 勿用 60d ｜ "
     "💎 max_pos=50 + drop_deep priority → 倒鎚 Sharpe 0.54→1.99 / MDD -3.44% ｜ "
     "🛑 止損研究：倒鎚不該止損 / T1_V7 fixed_10 略好 / Trailing 全失敗 ｜ "
     "📅 月份效應：🇹🇼 3月-7.94%/4月+15.91% ｜ 🇺🇸 5月-3.17%/10月+5.77% ｜ "
-    "🎲 混合策略 70/30 沒奇跡（兩策略相關性高，純策略各為 Pareto 端點）｜ "
-    "📊 大盤對照：🇹🇼 TWII +20.35% / 🇺🇸 SPY +13.31% / SOX +31.29%（風險調整後策略勝）｜ "
+    "🎲 混合策略沒奇跡（相關性高，選一個純策略最簡單清楚）｜ "
+    "📊 大盤對照：🇹🇼 TWII +20.35% / 🇺🇸 SPY +13.31%（CAGR 輸但 Sharpe + MDD 勝）｜ "
     "🪙 v8 不適用加密貨幣"
 )
 
@@ -7325,7 +7328,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 99  # v9.12：BB 全套判斷整合（OANDA 文章 8 種 + 警報 + detail card）2026-04-30
+_RESULTS_VERSION = 100  # v9.13：版本號更新到 v9.13，反映 BB+T1+watchlist 全部新功能 2026-05-03
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
