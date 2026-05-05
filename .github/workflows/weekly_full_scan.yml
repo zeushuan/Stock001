@@ -41,14 +41,21 @@ jobs:
         run: |
           python scan_full_t1_cloud.py 2>&1 | tee /tmp/scan.log
 
+      # 🆕 v9.12：回算過去候選的 5/15/30d outcomes（precision + 報酬）
+      - name: Update T1 outcomes (hit-rate tracking)
+        run: |
+          python update_t1_outcomes.py 2>&1 | tee /tmp/t1_outcomes.log
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [[ -n $(git status --porcelain t1_imminent_full.json) ]]; then
-            git add t1_imminent_full.json
-            git commit -m "auto: 全市場 T1 即將上穿掃描 ($(date +%Y-%m-%d))"
+          FILES="t1_imminent_full.json t1_imminent_history.json"
+          if [[ -n $(git status --porcelain $FILES) ]]; then
+            git add $FILES
+            git commit -m "auto: 全市場 T1 即將上穿掃描 + 命中率歷史 ($(date +%Y-%m-%d))"
             git push
             echo "✅ Updated"
             echo "changed=true" >> $GITHUB_OUTPUT

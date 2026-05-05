@@ -160,6 +160,60 @@ def scan_one(args):
         return []
 
 
+def _append_to_history(output, hist_path='t1_imminent_history.json'):
+    """🆕 v9.12：把當次掃描的 L1/L2 候選 append 到歷史檔（idempotent）"""
+    scan_date = output.get('updated_at', pd.Timestamp.now().strftime('%Y-%m-%d'))
+
+    if Path(hist_path).exists():
+        try:
+            hist = json.load(open(hist_path, encoding='utf-8'))
+            if not isinstance(hist, dict) or 'candidates' not in hist:
+                hist = {'candidates': []}
+        except Exception:
+            hist = {'candidates': []}
+    else:
+        hist = {'candidates': []}
+
+    existing = set()
+    for c in hist['candidates']:
+        existing.add((c['scan_date'], c['ticker'], c.get('tier')))
+
+    added = 0
+    for r in output.get('tw', []) + output.get('us', []):
+        if r.get('tier') not in ('L1_strict', 'L2_medium'):
+            continue
+        key = (scan_date, r['ticker'], r['tier'])
+        if key in existing:
+            continue
+        existing.add(key)
+        hist['candidates'].append({
+            'scan_date': scan_date,
+            'ticker': r['ticker'],
+            'name': r.get('name', ''),
+            'market': r.get('market', ''),
+            'tier': r['tier'],
+            'entry_price': r.get('close'),
+            'ema20': r.get('ema20'),
+            'dist_pct': r.get('dist_pct'),
+            'adx': r.get('adx'),
+            'rsi': r.get('rsi'),
+            'imminent_dc': r.get('imminent_dc', False),
+            'outcomes': {
+                '5d':  {'close': None, 'crossed': None, 'ret_pct': None, 'checked_at': None},
+                '15d': {'close': None, 'crossed': None, 'ret_pct': None, 'checked_at': None},
+                '30d': {'close': None, 'crossed': None, 'ret_pct': None, 'checked_at': None},
+            },
+        })
+        added += 1
+
+    hist['last_updated'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+    hist['total_candidates'] = len(hist['candidates'])
+    with open(hist_path, 'w', encoding='utf-8') as f:
+        json.dump(hist, f, indent=2, ensure_ascii=False)
+    print(f"📝 t1_imminent_history: 新增 {added} 筆 (總 {len(hist['candidates'])})")
+    return added
+
+
 def get_universe(market):
     DATA = Path('data_cache')
     if market == 'tw':
@@ -263,6 +317,10 @@ def main():
     out_file = 't1_imminent_full.json'
     with open(out_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
+
+    # 🆕 v9.12：append 進歷史檔
+    _append_to_history(output)
+
     print(f"\n✅ 寫入 {out_file}")
     print(f"  TW: {len(output['tw'])} / US: {len(output['us'])}")
 
