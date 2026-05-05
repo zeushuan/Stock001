@@ -1,0 +1,58 @@
+name: Weekly Full Market T1 Scan
+
+on:
+  schedule:
+    # 每週六台北 09:00 = 週六 01:00 UTC（避開美股交易時段）
+    # cron 用 UTC
+    - cron: '0 1 * * 6'
+  workflow_dispatch:    # 手動觸發
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  full_scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60   # 預估 35-40 分鐘，預留 buffer
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy ta
+
+      - name: Scan full TW + US T1 imminent
+        run: |
+          python scan_full_t1_cloud.py 2>&1 | tee /tmp/scan.log
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n $(git status --porcelain t1_imminent_full.json) ]]; then
+            git add t1_imminent_full.json
+            git commit -m "auto: 全市場 T1 即將上穿掃描 ($(date +%Y-%m-%d))"
+            git push
+            echo "✅ Updated"
+          else
+            echo "ℹ️ No changes"
+          fi
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "::error::❌ Weekly Full Scan FAILED"
+          tail -100 /tmp/scan.log 2>/dev/null || echo "(no log)"
