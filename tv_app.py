@@ -6454,6 +6454,124 @@ def _render_alerts_panel():
 _render_alerts_panel()
 
 
+def _render_full_market_t1_panel():
+    """🆕 v9.12：全市場 T1 即將上穿 watchlist
+    從 t1_imminent_full.json 讀取（跳出 TOP 200 限制，掃描全部 TW/US）"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        p = _P(__file__).parent / 't1_imminent_full.json'
+        if not p.exists():
+            return  # 還沒掃描就不顯示
+
+        d = _json.loads(p.read_text(encoding='utf-8'))
+        tw_list = d.get('tw', [])
+        us_list = d.get('us', [])
+        total = len(tw_list) + len(us_list)
+        if total == 0:
+            return
+
+        updated = d.get('computed_at', d.get('updated_at', ''))
+
+        st.markdown(
+            f'<div style="background:#0a1828;border:2px solid #5a9acf;'
+            f'border-radius:10px;padding:10px 14px;margin:12px 0">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd;'
+            f'margin-bottom:4px">'
+            f'🎯 全市場 T1 即將上穿 watchlist — 🇹🇼 {len(tw_list)} 檔 / 🇺🇸 {len(us_list)} 檔'
+            f'</div>'
+            f'<div style="font-size:.7rem;color:#a8c8d8;line-height:1.5">'
+            f'掃描全部 1925 TW + 2254 US（跳出 TOP 200 限制）｜ '
+            f'L1 嚴格 (距≤1% + ADX≥22) → L2 中 (≤2% + ADX≥22) → L3 寬 (≤3%)｜ '
+            f'已過濾雞蛋水餃股（TW vol≥50萬、close≥5；US vol≥100萬、close≥$5）'
+            f'</div>'
+            f'<div style="font-size:.65rem;color:#7a8899;margin-top:2px">'
+            f'資料時間：{updated}'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+
+        def _t1_row_html(r, market_flag):
+            tier = r.get('tier', '')
+            tier_color = {'L1_strict': '#ffd700', 'L2_medium': '#7abadd',
+                           'L3_loose': '#5a8ab0'}.get(tier, '#7a8899')
+            tier_label = {'L1_strict': 'L1 嚴格', 'L2_medium': 'L2 中等',
+                           'L3_loose': 'L3 寬鬆'}.get(tier, tier)
+            qs = r.get('quality_score', 0)
+            return (
+                f'<div style="display:flex;gap:8px;align-items:center;'
+                f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem">'
+                f'<span style="font-weight:700;font-family:monospace;'
+                f'min-width:60px;color:#7abadd">{market_flag} {r.get("ticker", "?")}</span>'
+                f'<span style="color:#a8cce8;flex:1;overflow:hidden;'
+                f'text-overflow:ellipsis;max-width:140px">{r.get("name", "")[:14]}</span>'
+                f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{r.get("close", 0):.2f}</span>'
+                f'<span style="background:{tier_color}22;color:{tier_color};'
+                f'padding:1px 6px;border-radius:3px;font-size:.7rem;min-width:60px;'
+                f'text-align:center">{tier_label}</span>'
+                f'<span style="color:#3dbb6a;font-family:monospace;min-width:60px;font-size:.74rem">'
+                f'距 {r.get("dist_pct", 0):.2f}%</span>'
+                f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
+                f'ADX {r.get("adx", 0) or "-"}</span>'
+                f'<span style="color:#a8c8d8;font-family:monospace;min-width:50px;font-size:.72rem">'
+                f'RSI {r.get("rsi", 0) or "-"}</span>'
+                f'<span style="color:#e8a020;font-family:monospace;min-width:45px;'
+                f'font-size:.72rem" title="品質分">Q{qs:+.1f}</span>'
+                f'</div>'
+            )
+
+        cols = st.columns(2)
+        with cols[0]:
+            st.markdown(
+                f'<div style="font-weight:700;color:#7abadd;margin-bottom:4px;'
+                f'font-size:.9rem">🇹🇼 TW 全市場 ({len(tw_list)})</div>',
+                unsafe_allow_html=True)
+            if tw_list:
+                st.markdown(
+                    '<div style="background:#0a1422;border:1px solid #1a3050;'
+                    'border-radius:6px;padding:4px 0">'
+                    + ''.join(_t1_row_html(r, '🇹🇼') for r in tw_list[:30])
+                    + '</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    '<div style="color:#7a8899;font-size:.78rem;padding:10px">'
+                    '— 暫無候選 —</div>',
+                    unsafe_allow_html=True
+                )
+
+        with cols[1]:
+            st.markdown(
+                f'<div style="font-weight:700;color:#7abadd;margin-bottom:4px;'
+                f'font-size:.9rem">🇺🇸 US 全市場 ({len(us_list)})</div>',
+                unsafe_allow_html=True)
+            if us_list:
+                st.markdown(
+                    '<div style="background:#0a1422;border:1px solid #1a3050;'
+                    'border-radius:6px;padding:4px 0">'
+                    + ''.join(_t1_row_html(r, '🇺🇸') for r in us_list[:30])
+                    + '</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    '<div style="color:#7a8899;font-size:.78rem;padding:10px">'
+                    '— 暫無候選 —</div>',
+                    unsafe_allow_html=True
+                )
+    except Exception as e:
+        try:
+            st.markdown(
+                f'<div style="color:#ff7755;font-size:.7rem">'
+                f'全市場 T1 panel 載入失敗：{type(e).__name__}: {str(e)[:80]}</div>',
+                unsafe_allow_html=True)
+        except: pass
+
+
+_render_full_market_t1_panel()
+
+
 def _render_hit_rate_panel():
     """🆕 v9.11：Live 命中率追蹤 — 從 alert_history.json 顯示 5/15/30d 命中率"""
     try:
@@ -7009,7 +7127,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 95  # v9.12：T1 即將上穿 watchlist 獨立分組顯示 2026-04-30
+_RESULTS_VERSION = 96  # v9.12：全市場 T1 即將上穿 watchlist (跳出 TOP 200) 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
