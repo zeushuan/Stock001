@@ -6773,6 +6773,255 @@ def _render_full_market_t1_panel():
 _render_full_market_t1_panel()
 
 
+def _render_screener_panel():
+    """🆕 v9.13：全市場篩選器（下拉式選單，34 種驗證過的指標組合）"""
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        from screener_filters import FILTERS
+
+        st.markdown(
+            f'<div style="background:#0f1830;border:2px solid #5a8ab0;'
+            f'border-radius:10px;padding:10px 14px;margin:12px 0">'
+            f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd;'
+            f'margin-bottom:4px">'
+            f'🔍 全市場篩選器 — 34 種驗證過的指標組合'
+            f'</div>'
+            f'<div style="font-size:.7rem;color:#a8c8d8;line-height:1.5">'
+            f'掃描全部 1925 TW + 2254 US，用驗證過的 alpha 訊號篩選 ｜'
+            f'每次掃描約 10-15 秒（用 data_cache parquet）'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+
+        # UI
+        cols = st.columns([3, 1, 1, 1])
+        with cols[0]:
+            filter_name = st.selectbox(
+                '選擇篩選條件',
+                options=list(FILTERS.keys()),
+                key='screener_filter',
+                label_visibility='collapsed',
+                help='從下拉選單選擇要使用的篩選器'
+            )
+        with cols[1]:
+            scan_market = st.selectbox(
+                '市場',
+                options=['🇹🇼+🇺🇸 全部', '🇹🇼 TW only', '🇺🇸 US only'],
+                key='screener_market',
+                label_visibility='collapsed'
+            )
+        with cols[2]:
+            run_scan = st.button(
+                '🚀 開始篩選',
+                key='screener_run',
+                use_container_width=True
+            )
+        with cols[3]:
+            limit_n = st.number_input(
+                '上限', min_value=10, max_value=200, value=50, step=10,
+                key='screener_limit',
+                label_visibility='collapsed'
+            )
+
+        # 執行篩選
+        if run_scan:
+            from screener_filters import filter_universe
+            DATA = _P(__file__).parent / 'data_cache'
+            universes = []
+            if 'TW' in scan_market or '全部' in scan_market:
+                tw_uni = sorted([
+                    p.stem for p in DATA.glob('*.parquet')
+                    if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+                    and not p.stem.startswith('00')
+                ])
+                universes.append(('tw', tw_uni))
+            if 'US' in scan_market or '全部' in scan_market:
+                US_ETF_EX = {'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','EFA','AGG',
+                             'LQD','HYG','GLD','SLV','USO','UNG','UCO','SCO','EEM','EWJ','EWZ','EWY',
+                             'FXI','MCHI','XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLC',
+                             'SMH','SOXX','IBB','TQQQ','SQQQ','SOXL','SOXS','UPRO','SPXU','VXX','UVXY',
+                             'ARKK','ARKG','ARKF','ARKW','ARKQ'}
+                us_uni = sorted([
+                    p.stem for p in DATA.glob('*.parquet')
+                    if p.stem and p.stem.isalpha() and p.stem.isupper()
+                    and 1 <= len(p.stem) <= 5 and p.stem not in US_ETF_EX
+                ])
+                universes.append(('us', us_uni))
+
+            with st.spinner(f'掃描中... (篩選: {filter_name})'):
+                import time as _t
+                t0 = _t.time()
+                all_results = []
+                for market, uni in universes:
+                    res = filter_universe(uni, market, filter_name)
+                    all_results.extend(res)
+                elapsed = _t.time() - t0
+            st.success(f'✅ 完成 ({elapsed:.1f}s) — 找到 {len(all_results)} 檔')
+
+            # 載入 name map
+            name_map = {}
+            if (_P(__file__).parent / 'tw_stock_list.json').exists():
+                try:
+                    d = _json.loads((_P(__file__).parent / 'tw_stock_list.json').read_text(encoding='utf-8'))
+                    for t, info in d.items():
+                        if isinstance(info, dict):
+                            name_map[t] = info.get('name', '')
+                except Exception: pass
+            if (_P(__file__).parent / 'us_full_tickers.json').exists():
+                try:
+                    full = _json.loads((_P(__file__).parent / 'us_full_tickers.json').read_text(encoding='utf-8'))
+                    for x in full.get('detail', []):
+                        sym = x.get('symbol', '')
+                        nm = x.get('name', '')
+                        for sep in [' - ', ' Common ', ' Class ', ' Ordinary ']:
+                            if sep in nm:
+                                nm = nm.split(sep)[0]; break
+                        if sym: name_map[sym] = nm[:40]
+                except Exception: pass
+            for r in all_results:
+                r['name'] = name_map.get(r['ticker'], '')
+
+            # 存進 session state
+            st.session_state['screener_results'] = all_results
+            st.session_state['screener_last_filter'] = filter_name
+
+        # 顯示既有結果（即使沒按按鈕，也顯示上次結果）
+        results = st.session_state.get('screener_results', [])
+        last_filter = st.session_state.get('screener_last_filter', '')
+        if results:
+            # 排序：imminent_dc 後排（潛在風險）
+            def _sort_key(r):
+                return (1 if r.get('imminent_dc') else 0, r.get('rsi') or 99)
+            results = sorted(results, key=_sort_key)
+
+            st.markdown(
+                f'<div style="font-weight:700;color:#7abadd;margin-bottom:6px;'
+                f'font-size:.9rem">📋 結果（{last_filter}） — {len(results)} 檔'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # 表格 HTML
+            rows_html = []
+            for r in results[:limit_n]:
+                flag = '🇹🇼' if r['market'] == 'tw' else '🇺🇸'
+                bull_tag = ('🟢 多頭' if r.get('is_bull') else '🔴 空頭')
+                dc_warn = ' ⚠️死叉' if r.get('imminent_dc') else ''
+                cd = r.get('cross_days')
+                cd_str = f'+{cd}d' if cd and cd > 0 else (f'{cd}d' if cd else '-')
+                row_bg = ';background:#1a0a0a' if r.get('imminent_dc') else ''
+                pctb_str = f'{r["pct_b"]:.2f}' if r.get('pct_b') is not None else '-'
+                rows_html.append(
+                    f'<div style="display:flex;gap:8px;align-items:center;'
+                    f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem{row_bg}">'
+                    f'<span style="font-weight:700;font-family:monospace;'
+                    f'min-width:60px;color:#7abadd">{flag} {r["ticker"]}</span>'
+                    f'<span style="color:#a8cce8;flex:1;overflow:hidden;'
+                    f'text-overflow:ellipsis;max-width:140px">{r.get("name", "")[:14]}</span>'
+                    f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{r["close"]:.2f}</span>'
+                    f'<span style="color:{"#3dbb6a" if r.get("is_bull") else "#ff5555"};'
+                    f'font-size:.7rem;min-width:50px">{bull_tag}</span>'
+                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
+                    f'RSI {r.get("rsi") or "-"}</span>'
+                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
+                    f'ADX {r.get("adx") or "-"}</span>'
+                    f'<span style="color:#7a8899;font-family:monospace;min-width:55px;font-size:.72rem" '
+                    f'title="EMA20 cross 天數">cross {cd_str}</span>'
+                    f'<span style="color:#5a9acf;font-family:monospace;min-width:55px;font-size:.72rem" '
+                    f'title="BB %B">%B {pctb_str}</span>'
+                    f'<span style="color:#a8c8d8;font-family:monospace;min-width:55px;font-size:.72rem" '
+                    f'title="距 60d 高">距高 {r["from_high"]:.0f}%</span>'
+                    + (f'<span style="color:#ff7755;font-size:.7rem;font-weight:700">{dc_warn}</span>' if dc_warn else '')
+                    + f'</div>'
+                )
+            st.markdown(
+                f'<div style="background:#0a1422;border:1px solid #1a3050;'
+                f'border-radius:6px;padding:4px 0;margin:5px 0">'
+                + ''.join(rows_html)
+                + '</div>',
+                unsafe_allow_html=True
+            )
+
+            # 存成自選股
+            st.markdown(
+                '<div style="font-size:.7rem;color:#7a8899;margin-top:8px">'
+                '💾 存進自選股清單（一鍵把篩選結果加進主掃描）</div>',
+                unsafe_allow_html=True
+            )
+            _scols = st.columns([3, 1, 1])
+            today_str = pd.Timestamp.now().strftime('%Y%m%d')
+            default_name = f'篩選_{filter_name[:10].strip()}_{today_str}'.replace(' ', '_')
+            with _scols[0]:
+                save_name = st.text_input(
+                    '清單名稱', value=default_name,
+                    label_visibility='collapsed', key='screener_save_name',
+                    placeholder='清單名稱'
+                )
+            with _scols[1]:
+                save_btn = st.button('💾 存成自選股', key='screener_save_btn',
+                                       use_container_width=True)
+            with _scols[2]:
+                add_btn = st.button('➕ 加入既有', key='screener_add_btn',
+                                      use_container_width=True)
+
+            if save_btn or add_btn:
+                if not save_name.strip():
+                    st.warning('請輸入清單名稱')
+                elif not results:
+                    st.warning('沒結果可存')
+                else:
+                    tickers_text = '\n'.join(r['ticker'] for r in results)
+                    _wl_path = _P(__file__).parent / 'watchlists.json'
+                    try:
+                        from streamlit_local_storage import LocalStorage
+                        _ls = LocalStorage()
+                    except Exception:
+                        _ls = None
+                    wls = {}
+                    if _ls is not None:
+                        try:
+                            v = _ls.getItem('stock001_watchlists')
+                            if v:
+                                wls = _json.loads(v) if isinstance(v, str) else v
+                        except Exception: pass
+                    if not wls and _wl_path.exists():
+                        try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                        except Exception: wls = {}
+
+                    name = save_name.strip()
+                    if add_btn and name in wls:
+                        existing = set(wls[name].split('\n')) if isinstance(wls[name], str) else set()
+                        new_set = existing | set(r['ticker'] for r in results)
+                        wls[name] = '\n'.join(sorted(new_set))
+                        msg = f'➕ 已合併進「{name}」（共 {len(new_set)} 檔）'
+                    else:
+                        wls[name] = tickers_text
+                        msg = f'💾 已儲存「{name}」（{len(results)} 檔）'
+
+                    text = _json.dumps(wls, ensure_ascii=False, indent=2)
+                    if _ls:
+                        try: _ls.setItem('stock001_watchlists', text)
+                        except: pass
+                    try: _wl_path.write_text(text, encoding='utf-8')
+                    except: pass
+                    st.success(msg)
+                    st.rerun()
+    except Exception as e:
+        try:
+            st.markdown(
+                f'<div style="color:#ff7755;font-size:.7rem">'
+                f'篩選器 panel 載入失敗：{type(e).__name__}: {str(e)[:100]}</div>',
+                unsafe_allow_html=True)
+            import traceback as _tb
+            with st.expander("traceback"):
+                st.code(_tb.format_exc())
+        except: pass
+
+
+_render_screener_panel()
+
+
 def _render_hit_rate_panel():
     """🆕 v9.11：Live 命中率追蹤 — 從 alert_history.json 顯示 5/15/30d 命中率"""
     try:
@@ -7328,7 +7577,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 100  # v9.13：版本號更新到 v9.13，反映 BB+T1+watchlist 全部新功能 2026-05-03
+_RESULTS_VERSION = 101  # v9.13：全市場篩選器（34 種驗證指標下拉式選單） 2026-05-03
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

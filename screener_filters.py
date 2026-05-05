@@ -1,0 +1,409 @@
+"""全市場篩選器 — 集中所有驗證過的指標組合（v9.13）
+==========================================================
+依過去研究驗證有 alpha 的訊號，提供下拉式選單篩選。
+
+每個 filter 是一個函數 (df) → bool，回傳是否觸發。
+df 必須含計算過的指標：Close, Open, High, Low, Volume, e10, e20, e60, rsi, adx, atr
+
+filter 分組：
+  📈 強看多 (alpha 已驗證)
+  📉 強看空 (alpha 已驗證)
+  📊 BB 系列 (OANDA 文章 10 種)
+  🌱 即將觸發 (前期觀察)
+  🎯 進階組合
+  📋 基礎篩選
+"""
+import numpy as np
+import pandas as pd
+from bb_signals import (compute_bb, is_squeeze, is_expansion,
+                          is_walking_up, is_walking_down,
+                          pct_b_extreme_high, pct_b_extreme_low,
+                          mean_reversion_high, mean_reversion_low,
+                          is_w_bottom, is_m_top)
+
+
+# ── Helper: 取得最後一日的關鍵指標 ──
+def _get_state(df, market='tw'):
+    """取得最後一日所有需要的指標值"""
+    if df is None or len(df) < 60: return None
+    try:
+        c = df['Close'].values
+        h = df['High'].values
+        l = df['Low'].values
+        o = df['Open'].values
+        v = df['Volume'].values
+        e10 = df['e10'].values if 'e10' in df.columns else None
+        e20 = df['e20'].values if 'e20' in df.columns else None
+        e60 = df['e60'].values if 'e60' in df.columns else None
+        rsi = df['rsi'].values if 'rsi' in df.columns else None
+        adx = df['adx'].values if 'adx' in df.columns else None
+        atr = df['atr'].values if 'atr' in df.columns else None
+        if any(x is None for x in [e20, e60, rsi, adx]):
+            return None
+
+        # BB 計算
+        bb = compute_bb(c)
+        bb_sma = bb['sma']
+        bb_bbu = bb['bbu']
+        bb_bbl = bb['bbl']
+        bb_bw = bb['bandwidth']
+        bb_pctb = bb['pct_b']
+
+        i = len(df) - 1
+        close = float(c[i])
+        if close <= 0 or np.isnan(close): return None
+        e20_v = float(e20[i]) if not np.isnan(e20[i]) else None
+        e60_v = float(e60[i]) if not np.isnan(e60[i]) else None
+        if e20_v is None or e60_v is None: return None
+
+        rsi_v = float(rsi[i]) if not np.isnan(rsi[i]) else None
+        adx_v = float(adx[i]) if not np.isnan(adx[i]) else None
+        atr_v = float(atr[i]) if atr is not None and not np.isnan(atr[i]) else None
+
+        # 歷史指標
+        adx_5d = float(adx[i-5]) if i >= 5 and not np.isnan(adx[i-5]) else adx_v
+        adx_rising = adx_v is not None and adx_v > adx_5d if adx_5d else False
+        adx_falling = adx_v is not None and adx_v < adx_5d if adx_5d else False
+
+        # drop_30d
+        drop_30d = ((close - c[i-30]) / c[i-30] * 100) if i >= 30 and c[i-30] > 0 else 0
+        # 60d 高低
+        high60 = float(h[max(0, i-60):i+1].max())
+        low60 = float(l[max(0, i-60):i+1].min())
+        from_high = (high60 - close) / high60 * 100 if high60 > 0 else 0
+        from_low = (close - low60) / low60 * 100 if low60 > 0 else 0
+        # SMA200
+        sma200 = float(np.mean(c[max(0, i-199):i+1])) if i >= 100 else close
+        sma200_pct = (close / sma200 - 1) * 100 if sma200 > 0 else 0
+        # 量
+        vol60_avg = float(np.mean(v[max(0, i-59):i+1])) if i >= 30 else 0
+        vol_ratio = v[i] / vol60_avg if vol60_avg > 0 else 1
+        # cross_days
+        cross_days = None
+        try:
+            diff_arr = e20 - e60
+            for k in range(1, min(i, 200)):
+                d1 = diff_arr[i - k + 1]
+                d0 = diff_arr[i - k]
+                if not np.isnan(d1) and not np.isnan(d0):
+                    if d0 < 0 and d1 >= 0:
+                        cross_days = k; break
+                    elif d0 > 0 and d1 <= 0:
+                        cross_days = -k; break
+        except Exception: pass
+
+        # K 線型態（最後一日是否觸發）
+        try:
+            from kline_patterns import detect_recent
+            patterns = detect_recent(df, lookback=2)
+            recent_patterns = {p['name']: p for p in patterns if p['days_ago'] <= 1}
+        except Exception:
+            recent_patterns = {}
+
+        # imminent_dc
+        imminent_dc = False
+        if (cross_days and cross_days > 10 and atr_v and atr_v > 0
+                and e20_v > e60_v and (e20_v - e60_v) < atr_v):
+            e20_5d_ago = e20[i-5] if i >= 5 and not np.isnan(e20[i-5]) else None
+            ema20_falling = e20_5d_ago is not None and e20_v < e20_5d_ago
+            if ema20_falling or cross_days > 30:
+                imminent_dc = True
+
+        return {
+            'close': close, 'open': float(o[i]), 'high': float(h[i]), 'low': float(l[i]),
+            'ema20': e20_v, 'ema60': e60_v, 'rsi': rsi_v, 'adx': adx_v, 'atr': atr_v,
+            'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
+            'is_bull': e20_v > e60_v, 'is_bear': e20_v < e60_v,
+            'drop_30d': drop_30d, 'from_high': from_high, 'from_low': from_low,
+            'sma200': sma200, 'sma200_pct': sma200_pct,
+            'vol_ratio': vol_ratio, 'cross_days': cross_days,
+            'imminent_dc': imminent_dc,
+            # BB
+            'bb_sma': float(bb_sma[i]) if not np.isnan(bb_sma[i]) else None,
+            'bb_bbu': float(bb_bbu[i]) if not np.isnan(bb_bbu[i]) else None,
+            'bb_bbl': float(bb_bbl[i]) if not np.isnan(bb_bbl[i]) else None,
+            'bb_pct_b': float(bb_pctb[i]) if not np.isnan(bb_pctb[i]) else None,
+            'bb_bandwidth': float(bb_bw[i]) if not np.isnan(bb_bw[i]) else None,
+            'bb_squeeze': is_squeeze(bb_bw, i),
+            'bb_expansion': is_expansion(bb_bw, i),
+            'bb_walking_up': is_walking_up(c, bb_sma, bb_bbu, i),
+            'bb_walking_down': is_walking_down(c, bb_sma, bb_bbl, i),
+            'bb_w_bottom': is_w_bottom(l, c, bb_bbl, bb_sma, i),
+            'bb_m_top': is_m_top(h, c, bb_bbu, bb_sma, i),
+            # K 線
+            'kline': recent_patterns,
+            # 期間參考
+            'date': df.index[i].strftime('%Y-%m-%d') if hasattr(df.index[i], 'strftime') else '',
+            # ATR/Price 相對波動
+            'atr_pct': (atr_v / close * 100) if (atr_v and close > 0) else 0,
+        }
+    except Exception:
+        return None
+
+
+# ── Filter 集（每個都是 (state) → bool）──
+
+# 📈 強看多（alpha 已驗證）
+def f_inv_hammer_strong(s):
+    """★★★★★ 倒鎚 + RSI≤25 + ADX↑ (71.8% 漲, +9.35% 30d, OOS 驗證)"""
+    return ('INV_HAMMER' in s.get('kline', {}) and s.get('rsi', 99) <= 25
+            and s.get('adx_rising', False))
+
+def f_inv_hammer_extended_down(s):
+    """★★★★ 倒鎚 + 距 SMA200 < -25%（跌深）"""
+    return ('INV_HAMMER' in s.get('kline', {}) and s.get('sma200_pct', 0) < -25)
+
+def f_doji_oversold(s):
+    """★★★ 底部十字星 + RSI≤25 + ADX↑（67.4% 漲, +7.02% 30d）"""
+    return ('DOJI' in s.get('kline', {}) and s.get('rsi', 99) <= 25
+            and s.get('adx_rising', False) and s.get('from_low', 99) < 10)
+
+def f_t1_imminent_strict(s):
+    """★★ T1 即將上穿（V7 嚴格：距 EMA20 ≤ 1% + 連 2 漲 + ADX≥22 + 多頭）"""
+    if not s.get('is_bull'): return False
+    if s.get('close', 0) >= s.get('ema20', 0): return False
+    e20 = s.get('ema20', 0)
+    if e20 <= 0: return False
+    dist = (e20 - s['close']) / e20 * 100
+    return dist <= 1.0 and s.get('adx', 0) >= 22
+
+def f_t1_imminent_loose(s):
+    """T1 即將上穿（寬鬆 L3：距 EMA20 ≤ 3% + 多頭）"""
+    if not s.get('is_bull'): return False
+    if s.get('close', 0) >= s.get('ema20', 0): return False
+    e20 = s.get('ema20', 0)
+    if e20 <= 0: return False
+    dist = (e20 - s['close']) / e20 * 100
+    return dist <= 3.0
+
+def f_t1_sweet_spot(s):
+    """T1 黃金交叉 sweet spot（5-7 天）— TW 研究最佳"""
+    cd = s.get('cross_days')
+    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 5 <= cd <= 7
+
+def f_t1_fresh(s):
+    """T1 黃金交叉 1-10 天（剛 cross 上 EMA20）"""
+    cd = s.get('cross_days')
+    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 1 <= cd <= 10
+
+def f_t3_pullback(s):
+    """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
+    return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
+
+def f_drop_deep_bull(s):
+    """跌深反彈訊號（多頭 + 跌≥30%）"""
+    return s.get('is_bull') and s.get('from_high', 0) >= 30
+
+def f_high_volatility_alpha(s):
+    """🚀 高波動 alpha（多頭 + ATR/P > 5%）— 飆股訊號"""
+    return s.get('is_bull') and s.get('atr_pct', 0) > 5.0
+
+def f_wangzhao_combo(s):
+    """🎰 王炸組合：跌深 + T1 + 多頭 + ADX 達標（TW 研究最強）"""
+    return (s.get('is_bull') and s.get('adx', 0) >= 22
+            and s.get('from_high', 0) >= 15
+            and s.get('cross_days') and 0 < s.get('cross_days') <= 10)
+
+
+# 📉 強看空（alpha 已驗證）
+def f_three_crows(s):
+    """★★★★ 三隻烏鴉 + 距高<5% + 量縮（71% 跌, -1.26% 30d）"""
+    return ('THREE_CROWS' in s.get('kline', {}) and s.get('from_high', 99) < 5
+            and s.get('vol_ratio', 1) < 0.7)
+
+def f_bear_engulf_overbought(s):
+    """★★★ 空頭吞噬 + RSI≥75 + ADX↓"""
+    return ('BEAR_ENGULF' in s.get('kline', {}) and (s.get('rsi') or 0) >= 75
+            and s.get('adx_falling', False))
+
+def f_evening_star(s):
+    """★★ 黃昏之星 + RSI≥75"""
+    return ('EVENING_STAR' in s.get('kline', {}) and (s.get('rsi') or 0) >= 75)
+
+def f_imminent_dc(s):
+    """⛔ 即將死叉警告（多頭 + EMA gap < 1 ATR + cross_days>30 OR EMA20 下行）"""
+    return s.get('imminent_dc', False)
+
+
+# 📊 BB 系列（OANDA 文章 10 種）
+def f_bb_pctb_overheat(s):
+    """%B > 1.0 (BB 上軌之外，過熱)"""
+    return s.get('bb_pct_b') is not None and s['bb_pct_b'] > 1.0
+
+def f_bb_pctb_oversold(s):
+    """%B < 0 (BB 下軌之外，過冷反彈訊號 ★)"""
+    return s.get('bb_pct_b') is not None and s['bb_pct_b'] < 0
+
+def f_bb_squeeze(s):
+    """BB Squeeze (頻寬 5 天連窄, 大行情前兆)"""
+    return s.get('bb_squeeze', False)
+
+def f_bb_expansion(s):
+    """BB Expansion 突放（空頭末段反轉訊號 ★）"""
+    return s.get('bb_expansion', False)
+
+def f_bb_walking_up(s):
+    """BB Walking Up the Band（多頭強勢延續）"""
+    return s.get('bb_walking_up', False) and s.get('is_bull', False)
+
+def f_bb_walking_down(s):
+    """BB Walking Down the Band（空頭弱勢延續）"""
+    return s.get('bb_walking_down', False) and s.get('is_bear', False)
+
+def f_bb_w_bottom(s):
+    """BB W 底（雙觸下軌 + 二次更高 + 突破中軌, 多頭反轉）"""
+    return s.get('bb_w_bottom', False)
+
+def f_bb_m_top(s):
+    """BB M 頂（雙觸上軌 + 二次更低 + 跌破中軌, 空頭反轉）"""
+    return s.get('bb_m_top', False)
+
+def f_bb_squeeze_bull_bias(s):
+    """BB Squeeze + 多頭排列（即將向上爆發，多頭中的觀察點）"""
+    return s.get('bb_squeeze', False) and s.get('is_bull', False)
+
+def f_bb_squeeze_bear_bias(s):
+    """BB Squeeze + 空頭排列（即將向下爆發）"""
+    return s.get('bb_squeeze', False) and s.get('is_bear', False)
+
+
+# 🌱 即將觸發
+def f_imm_inv_hammer_rsi(s):
+    """即將：倒鎚 + RSI 26-30 + ADX↑（差 RSI 1-5 點即達 ★★★★★）"""
+    return ('INV_HAMMER' in s.get('kline', {}) and 25 < (s.get('rsi') or 0) <= 30
+            and s.get('adx_rising', False))
+
+def f_imm_three_crows(s):
+    """即將：三隻烏鴉 + 距高 5-10% + 量縮"""
+    return ('THREE_CROWS' in s.get('kline', {}) and 5 <= s.get('from_high', 99) < 10
+            and s.get('vol_ratio', 1) < 0.7)
+
+
+# 📋 基礎篩選
+def f_bull_alignment(s):
+    """所有多頭排列（EMA20 > EMA60）"""
+    return s.get('is_bull', False)
+
+def f_bear_alignment(s):
+    """所有空頭排列（EMA20 < EMA60）"""
+    return s.get('is_bear', False)
+
+def f_strong_trend(s):
+    """強趨勢（ADX ≥ 30）"""
+    return (s.get('adx') or 0) >= 30
+
+def f_rsi_oversold(s):
+    """RSI < 30 極度超賣"""
+    return (s.get('rsi') or 99) < 30
+
+def f_rsi_overbought(s):
+    """RSI > 70 過熱"""
+    return (s.get('rsi') or 0) > 70
+
+def f_at_60d_low(s):
+    """接近 60 日低點（距低 < 5%）"""
+    return s.get('from_low', 99) < 5
+
+def f_at_60d_high(s):
+    """接近 60 日高點（距高 < 5%）"""
+    return s.get('from_high', 99) < 5
+
+
+# ── 集中註冊（顯示用）──
+FILTERS = {
+    # 📈 強看多
+    '🚀 ★★★★★ 倒鎚 + RSI≤25 + ADX↑': f_inv_hammer_strong,
+    '🚀 ★★★★ 倒鎚 + 跌深(SMA200<-25%)': f_inv_hammer_extended_down,
+    '⚡ ★★★ 底部十字星 + RSI≤25 + ADX↑': f_doji_oversold,
+    '🎰 王炸組合：跌深+T1+多頭+ADX': f_wangzhao_combo,
+    '📉 跌深反彈（≥30% + 多頭）': f_drop_deep_bull,
+    '🚀 高波動 alpha（多頭+ATR/P>5%）': f_high_volatility_alpha,
+    '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
+    '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
+    '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
+    '🎯 T1 即將上穿（V7嚴格 距≤1%）': f_t1_imminent_strict,
+    '🎯 T1 即將上穿（寬鬆 距≤3%）': f_t1_imminent_loose,
+
+    # 📉 強看空
+    '🚨 ★★★★ 三隻烏鴉 + 距高<5% + 量縮': f_three_crows,
+    '🚨 ★★★ 空頭吞噬 + RSI≥75 + ADX↓': f_bear_engulf_overbought,
+    '⚠️ ★★ 黃昏之星 + RSI≥75': f_evening_star,
+    '⛔ 即將死叉警告': f_imminent_dc,
+
+    # 📊 BB 系列（OANDA 10 種）
+    '📊 %B > 1.0 (BB 過熱)': f_bb_pctb_overheat,
+    '📊 %B < 0 (BB 過冷反彈★)': f_bb_pctb_oversold,
+    '📊 BB Squeeze (頻寬連窄)': f_bb_squeeze,
+    '📊 BB Squeeze + 多頭（即將向上爆發）': f_bb_squeeze_bull_bias,
+    '📊 BB Squeeze + 空頭（即將向下爆發）': f_bb_squeeze_bear_bias,
+    '📊 BB Expansion 突放（空頭反轉★）': f_bb_expansion,
+    '📊 BB Walking Up（多頭強勢延續）': f_bb_walking_up,
+    '📊 BB Walking Down（空頭弱勢延續）': f_bb_walking_down,
+    '📊 BB W 底（雙觸下軌反轉★）': f_bb_w_bottom,
+    '📊 BB M 頂（雙觸上軌反轉）': f_bb_m_top,
+
+    # 🌱 即將觸發
+    '🌱 即將：倒鎚+RSI 26-30': f_imm_inv_hammer_rsi,
+    '⚠️ 即將：三隻烏鴉+距高 5-10%': f_imm_three_crows,
+
+    # 📋 基礎篩選
+    '✅ 多頭排列（EMA20>EMA60）': f_bull_alignment,
+    '❌ 空頭排列（EMA20<EMA60）': f_bear_alignment,
+    '🔥 強趨勢（ADX≥30）': f_strong_trend,
+    '📉 RSI < 30 極度超賣': f_rsi_oversold,
+    '📈 RSI > 70 過熱': f_rsi_overbought,
+    '⬇️ 接近 60 日低點（<5%）': f_at_60d_low,
+    '⬆️ 接近 60 日高點（<5%）': f_at_60d_high,
+}
+
+
+def filter_universe(universe, market, filter_name, min_vol=None, min_price=None):
+    """跑單一 filter 對 universe，回傳符合的 ticker list"""
+    import data_loader as dl
+
+    fn = FILTERS.get(filter_name)
+    if fn is None:
+        return []
+
+    if min_vol is None:
+        min_vol = 500_000 if market == 'tw' else 1_000_000
+    if min_price is None:
+        min_price = 5.0
+
+    results = []
+    for ticker in universe:
+        try:
+            df = dl.load_from_cache(ticker)
+            if df is None or len(df) < 60: continue
+            if hasattr(df.index, 'tz') and df.index.tz is not None:
+                df = df.copy(); df.index = df.index.tz_localize(None)
+
+            state = _get_state(df, market)
+            if state is None: continue
+
+            # 質量過濾
+            if state['close'] < min_price: continue
+            v_arr = df['Volume'].values
+            if len(v_arr) >= 60:
+                avg_vol = float(np.mean(v_arr[-60:]))
+                if avg_vol < min_vol: continue
+
+            if fn(state):
+                results.append({
+                    'ticker': ticker,
+                    'market': market,
+                    'close': round(state['close'], 2),
+                    'rsi': round(state['rsi'], 1) if state.get('rsi') else None,
+                    'adx': round(state['adx'], 1) if state.get('adx') else None,
+                    'is_bull': state['is_bull'],
+                    'cross_days': state.get('cross_days'),
+                    'pct_b': round(state['bb_pct_b'], 2) if state.get('bb_pct_b') is not None else None,
+                    'from_high': round(state['from_high'], 1),
+                    'from_low': round(state['from_low'], 1),
+                    'imminent_dc': state.get('imminent_dc', False),
+                    'date': state['date'],
+                })
+        except Exception:
+            continue
+
+    return results
