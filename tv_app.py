@@ -6498,9 +6498,24 @@ def _render_full_market_t1_panel():
             tier_label = {'L1_strict': 'L1 嚴格', 'L2_medium': 'L2 中等',
                            'L3_loose': 'L3 寬鬆'}.get(tier, tier)
             qs = r.get('quality_score', 0)
+            # 🆕 v9.12：imminent_dc 衝突警告
+            is_dc = r.get('imminent_dc', False)
+            cross_d = r.get('cross_days')
+            gap_atr = r.get('gap_atr')
+            warn_html = ''
+            row_bg = ''
+            if is_dc:
+                _gap_str = f'{gap_atr:.2f} ATR' if gap_atr is not None else ''
+                _cd_str = f'{cross_d}d' if cross_d else ''
+                warn_html = (f'<span title="即將死叉警告：cross_days={cross_d}, '
+                             f'EMA20-EMA60={_gap_str}（多頭末段死貓彈風險）" '
+                             f'style="background:#3a0a0a;color:#ff7755;padding:1px 6px;'
+                             f'border-radius:3px;font-size:.7rem;font-weight:700">'
+                             f'⚠️ 即將死叉 ({_cd_str}/{_gap_str})</span>')
+                row_bg = 'background:#1a0a0a;'  # 紅底警告
             return (
                 f'<div style="display:flex;gap:8px;align-items:center;'
-                f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem">'
+                f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem;{row_bg}">'
                 f'<span style="font-weight:700;font-family:monospace;'
                 f'min-width:60px;color:#7abadd">{market_flag} {r.get("ticker", "?")}</span>'
                 f'<span style="color:#a8cce8;flex:1;overflow:hidden;'
@@ -6517,6 +6532,7 @@ def _render_full_market_t1_panel():
                 f'RSI {r.get("rsi", 0) or "-"}</span>'
                 f'<span style="color:#e8a020;font-family:monospace;min-width:45px;'
                 f'font-size:.72rem" title="品質分">Q{qs:+.1f}</span>'
+                + warn_html +
                 f'</div>'
             )
 
@@ -7217,7 +7233,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 97  # v9.12：全市場 T1 watchlist 加存清單按鈕（TW+US 合併或分開） 2026-04-30
+_RESULTS_VERSION = 98  # v9.12：T1 watchlist 加 imminent_dc 警告（PSX 矛盾標紅底） 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

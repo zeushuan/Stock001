@@ -45,7 +45,7 @@ US_MIN_PRICE = 5.0
 
 
 def _calc_ind(df):
-    """計算 EMA20 / EMA60 / ADX / RSI"""
+    """計算 EMA20 / EMA60 / ADX / RSI / ATR"""
     if df is None or len(df) < 60:
         return None
     df = df.copy()
@@ -53,6 +53,7 @@ def _calc_ind(df):
     df['e60'] = ta.trend.ema_indicator(df['Close'], window=60)
     df['rsi'] = ta.momentum.rsi(df['Close'], window=14)
     df['adx'] = ta.trend.adx(df['High'], df['Low'], df['Close'], window=14)
+    df['atr'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'], 14)
     return df
 
 
@@ -130,7 +131,6 @@ def scan_universe(market, tickers):
     min_price = TW_MIN_PRICE if market == 'tw' else US_MIN_PRICE
 
     for yf_t, df in df_dict.items():
-        # 還原原始 ticker（去掉 .TW）
         ticker = yf_t.replace('.TW', '') if market == 'tw' else yf_t
         df_ind = _calc_ind(df)
         if df_ind is None: continue
@@ -142,6 +142,7 @@ def scan_universe(market, tickers):
         e60_arr = df_ind['e60'].values
         adx_arr = df_ind['adx'].values
         rsi_arr = df_ind['rsi'].values
+        atr_arr = df_ind['atr'].values if 'atr' in df_ind.columns else None
 
         i = len(df_ind) - 1
         close = float(c_arr[i])
@@ -149,22 +150,21 @@ def scan_universe(market, tickers):
         e60 = float(e60_arr[i]) if not np.isnan(e60_arr[i]) else None
         adx = float(adx_arr[i]) if not np.isnan(adx_arr[i]) else None
         rsi = float(rsi_arr[i]) if not np.isnan(rsi_arr[i]) else None
+        atr = float(atr_arr[i]) if atr_arr is not None and not np.isnan(atr_arr[i]) else None
 
         if e20 is None or e60 is None: continue
-        if e20 <= e60: continue       # 多頭排列
-        if close >= e20: continue      # 還沒上穿
+        if e20 <= e60: continue
+        if close >= e20: continue
         if close < min_price: continue
         if i < 60: continue
         avg_vol = float(np.mean(v_arr[-60:]))
         if avg_vol < min_vol: continue
 
-        # 連 2 漲
         if i < 2: continue
         if not (close > c_arr[i-1] > c_arr[i-2]): continue
 
         dist_pct = (e20 - close) / e20 * 100
 
-        # 三層
         if dist_pct <= 1.0 and adx is not None and adx >= 22:
             tier = 'L1_strict'
         elif dist_pct <= 2.0 and adx is not None and adx >= 22:
@@ -174,7 +174,33 @@ def scan_universe(market, tickers):
         else:
             continue
 
+        # 🆕 v9.12：imminent_dc 偵測
+        cross_days = None
+        try:
+            diff_arr = e20_arr - e60_arr
+            for _k in range(1, min(i, 200)):
+                d1 = diff_arr[i - _k + 1]
+                d0 = diff_arr[i - _k]
+                if not np.isnan(d1) and not np.isnan(d0):
+                    if d0 < 0 and d1 >= 0:
+                        cross_days = _k; break
+                    elif d0 > 0 and d1 <= 0:
+                        cross_days = -_k; break
+        except Exception: pass
+
+        imminent_dc = False
+        if (cross_days is not None and cross_days > 10
+                and atr is not None and atr > 0
+                and e20 > e60 and (e20 - e60) < atr):
+            e20_5d = e20_arr[i - 5] if i >= 5 and not np.isnan(e20_arr[i-5]) else None
+            ema20_falling = (e20_5d is not None and e20 < e20_5d)
+            if ema20_falling or cross_days > 30:
+                imminent_dc = True
+
         quality = (50 - rsi) if rsi is not None else 0
+        if imminent_dc:
+            quality -= 20
+
         results.append({
             'ticker': ticker,
             'name': name_map.get(ticker, ''),
@@ -187,6 +213,9 @@ def scan_universe(market, tickers):
             'rsi': round(rsi, 1) if rsi else None,
             'quality_score': round(quality, 1),
             'date': df_ind.index[i].strftime('%Y-%m-%d'),
+            'cross_days': cross_days,
+            'imminent_dc': bool(imminent_dc),
+            'gap_atr': round((e20 - e60) / atr, 2) if atr and atr > 0 else None,
         })
 
     print(f"  完成 {time.time()-t0:.1f}s — 找到 {len(results)} 檔候選")

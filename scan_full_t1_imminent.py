@@ -50,7 +50,8 @@ US_ETF_EXCLUDE = {
 
 
 def scan_one(args):
-    """單檔掃描，回傳 list of dict（如有 T1 即將上穿訊號）"""
+    """單檔掃描，回傳 list of dict（如有 T1 即將上穿訊號）
+    🆕 v9.12：加 imminent_dc 偵測（即將死叉），衝突時標警告"""
     ticker, market = args
     try:
         df = dl.load_from_cache(ticker)
@@ -61,13 +62,13 @@ def scan_one(args):
         if len(df) < 60:
             return []
 
-        # 取最新一日
         c_arr = df['Close'].values
         v_arr = df['Volume'].values if 'Volume' in df.columns else None
         e20_arr = df['e20'].values if 'e20' in df.columns else None
         e60_arr = df['e60'].values if 'e60' in df.columns else None
         adx_arr = df['adx'].values if 'adx' in df.columns else None
         rsi_arr = df['rsi'].values if 'rsi' in df.columns else None
+        atr_arr = df['atr'].values if 'atr' in df.columns else None
 
         if any(x is None for x in [c_arr, e20_arr, e60_arr, adx_arr]):
             return []
@@ -78,12 +79,12 @@ def scan_one(args):
         e60 = float(e60_arr[i]) if not np.isnan(e60_arr[i]) else None
         adx = float(adx_arr[i]) if not np.isnan(adx_arr[i]) else None
         rsi = float(rsi_arr[i]) if rsi_arr is not None and not np.isnan(rsi_arr[i]) else None
+        atr = float(atr_arr[i]) if atr_arr is not None and not np.isnan(atr_arr[i]) else None
 
         if e20 is None or e60 is None: return []
-        if e20 <= e60: return []  # 必須多頭排列
-        if close >= e20: return []  # 必須還沒上穿
+        if e20 <= e60: return []
+        if close >= e20: return []
 
-        # 質量過濾
         min_vol = TW_MIN_VOL if market == 'tw' else US_MIN_VOL
         min_price = TW_MIN_PRICE if market == 'tw' else US_MIN_PRICE
         if close < min_price: return []
@@ -91,18 +92,14 @@ def scan_one(args):
             avg_vol = float(np.mean(v_arr[-60:]))
             if avg_vol < min_vol: return []
 
-        # 連 2 漲
         if i < 2: return []
         c_t = close
         c_t1 = float(c_arr[i-1])
         c_t2 = float(c_arr[i-2])
         if not (c_t > c_t1 > c_t2): return []
 
-        # 距 EMA20
         dist_pct = (e20 - close) / e20 * 100
 
-        # 三層條件
-        results = []
         if dist_pct <= 1.0 and adx is not None and adx >= 22:
             tier = 'L1_strict'
         elif dist_pct <= 2.0 and adx is not None and adx >= 22:
@@ -110,12 +107,40 @@ def scan_one(args):
         elif dist_pct <= 3.0:
             tier = 'L3_loose'
         else:
-            return []  # 距太遠
+            return []
+
+        # 🆕 v9.12：偵測 imminent_dc（即將死叉）
+        # 找最近一次 cross_days
+        cross_days = None
+        try:
+            diff_arr = e20_arr - e60_arr
+            for _k in range(1, min(i, 200)):
+                d1 = diff_arr[i - _k + 1]
+                d0 = diff_arr[i - _k]
+                if not np.isnan(d1) and not np.isnan(d0):
+                    if d0 < 0 and d1 >= 0:
+                        cross_days = _k; break
+                    elif d0 > 0 and d1 <= 0:
+                        cross_days = -_k; break
+        except Exception: pass
+
+        # imminent_dc 條件（與 tv_app/get_operation_advice 一致）
+        imminent_dc = False
+        if (cross_days is not None and cross_days > 10
+                and atr is not None and atr > 0
+                and e20 > e60 and (e20 - e60) < atr):
+            e20_5d = e20_arr[i - 5] if i >= 5 and not np.isnan(e20_arr[i-5]) else None
+            ema20_falling = (e20_5d is not None and e20 < e20_5d)
+            if ema20_falling or cross_days > 30:
+                imminent_dc = True
 
         # 計算 quality_score（rsi_low priority）
+        # 🆕 imminent_dc 觸發時 quality_score 降低（懲罰矛盾訊號）
         quality = (50 - rsi) if rsi is not None else 0
+        if imminent_dc:
+            quality -= 20  # 大幅降級
 
-        results.append({
+        return [{
             'ticker': ticker,
             'market': market,
             'tier': tier,
@@ -126,8 +151,11 @@ def scan_one(args):
             'rsi': round(rsi, 1) if rsi else None,
             'quality_score': round(quality, 1),
             'date': df.index[i].strftime('%Y-%m-%d'),
-        })
-        return results
+            # 🆕 v9.12：警告欄位
+            'cross_days': cross_days,
+            'imminent_dc': bool(imminent_dc),
+            'gap_atr': round((e20 - e60) / atr, 2) if atr and atr > 0 else None,
+        }]
     except Exception:
         return []
 
