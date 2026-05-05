@@ -6828,11 +6828,30 @@ def _render_screener_panel():
         if run_scan:
             from screener_filters import filter_universe
             DATA = _P(__file__).parent / 'data_cache'
-            # 🆕 v9.13：data_cache 不存在時，fallback 讀 cron 預計算的 screener_results.json
             screener_json = _P(__file__).parent / 'screener_results.json'
-            if not DATA.exists():
+
+            # 先檢查 data_cache 是否有 parquet 檔
+            tw_uni, us_uni = [], []
+            if DATA.exists():
+                if 'TW' in scan_market or '全部' in scan_market:
+                    tw_uni = sorted([p.stem for p in DATA.glob('*.parquet')
+                                      if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
+                                      and not p.stem.startswith('00')])
+                if 'US' in scan_market or '全部' in scan_market:
+                    US_ETF_EX = {'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','EFA','AGG',
+                                 'LQD','HYG','GLD','SLV','USO','UNG','UCO','SCO','EEM','EWJ','EWZ','EWY',
+                                 'FXI','MCHI','XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLC',
+                                 'SMH','SOXX','IBB','TQQQ','SQQQ','SOXL','SOXS','UPRO','SPXU','VXX','UVXY',
+                                 'ARKK','ARKG','ARKF','ARKW','ARKQ'}
+                    us_uni = sorted([p.stem for p in DATA.glob('*.parquet')
+                                      if p.stem and p.stem.isalpha() and p.stem.isupper()
+                                      and 1 <= len(p.stem) <= 5 and p.stem not in US_ETF_EX])
+
+            total_uni = len(tw_uni) + len(us_uni)
+
+            # 🆕 v9.13：data_cache 沒檔 → 改讀預計算 JSON（雲端模式）
+            if total_uni == 0:
                 if screener_json.exists():
-                    # Cloud 模式：讀預計算結果
                     try:
                         d = _json.loads(screener_json.read_text(encoding='utf-8'))
                         all_results = d.get('by_filter', {}).get(filter_name, [])
@@ -6841,46 +6860,29 @@ def _render_screener_panel():
                             all_results = [r for r in all_results if r.get('market') == 'tw']
                         elif 'US' in scan_market and '全部' not in scan_market:
                             all_results = [r for r in all_results if r.get('market') == 'us']
-                        st.success(f'✅ 從預計算結果取得 {len(all_results)} 檔（'
-                                    f'資料時間：{d.get("computed_at", "?")}）')
+                        st.success(f'✅ 雲端模式 — 從預計算結果取得 **{len(all_results)} 檔** '
+                                    f'（資料時間：{d.get("computed_at", "?")}）')
                         st.session_state['screener_results'] = all_results
                         st.session_state['screener_last_filter'] = filter_name
                         st.rerun()
                     except Exception as e:
-                        st.error(f'❌ 讀取 screener_results.json 失敗：{e}')
+                        st.error(f'❌ 讀 screener_results.json 失敗：{type(e).__name__}: {e}')
                         return
                 else:
-                    st.error(f'❌ data_cache 不存在 + screener_results.json 不存在。\n'
-                             f'解法：等 cron 預計算（每週一三五六 09:00 台北）'
-                             f'或本地跑 `python screener_full_cloud.py`')
+                    st.error(
+                        f'❌ data_cache 為空（{total_uni} 個 parquet）+ screener_results.json 不存在。\n\n'
+                        f'解法：\n'
+                        f'• 等下一次 cron 自動跑（週一三五六 09:00 台北）\n'
+                        f'• 手動觸發：https://github.com/zeushuan/Stock001/actions/workflows/weekly_full_scan.yml → Run workflow\n'
+                        f'• 或本地跑：`python screener_full_local.py`'
+                    )
                     return
-            universes = []
-            if 'TW' in scan_market or '全部' in scan_market:
-                tw_uni = sorted([
-                    p.stem for p in DATA.glob('*.parquet')
-                    if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
-                    and not p.stem.startswith('00')
-                ])
-                universes.append(('tw', tw_uni))
-            if 'US' in scan_market or '全部' in scan_market:
-                US_ETF_EX = {'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','EFA','AGG',
-                             'LQD','HYG','GLD','SLV','USO','UNG','UCO','SCO','EEM','EWJ','EWZ','EWY',
-                             'FXI','MCHI','XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLC',
-                             'SMH','SOXX','IBB','TQQQ','SQQQ','SOXL','SOXS','UPRO','SPXU','VXX','UVXY',
-                             'ARKK','ARKG','ARKF','ARKW','ARKQ'}
-                us_uni = sorted([
-                    p.stem for p in DATA.glob('*.parquet')
-                    if p.stem and p.stem.isalpha() and p.stem.isupper()
-                    and 1 <= len(p.stem) <= 5 and p.stem not in US_ETF_EX
-                ])
-                universes.append(('us', us_uni))
 
-            # 🆕 診斷：顯示 universe 大小
-            total_uni = sum(len(u) for _, u in universes)
-            if total_uni == 0:
-                st.warning(f'⚠️ 找到 0 檔 ticker（data_cache 為空）')
-                return
-            st.info(f'📊 universe 大小: ' + ', '.join(f'{m}: {len(u)} 檔' for m, u in universes))
+            # data_cache 有檔 → 即時跑 filter
+            universes = []
+            if tw_uni: universes.append(('tw', tw_uni))
+            if us_uni: universes.append(('us', us_uni))
+            st.info(f'📊 即時掃描 universe: ' + ', '.join(f'{m}: {len(u)} 檔' for m, u in universes))
 
             with st.spinner(f'掃描中 {total_uni} 檔... (篩選: {filter_name})'):
                 import time as _t
@@ -7610,7 +7612,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 102  # v9.13：篩選器加 cloud fallback (screener_results.json) + 診斷 2026-05-03
+_RESULTS_VERSION = 103  # v9.13：篩選器 fallback bug 修（data_cache 空時改讀 JSON） 2026-05-03
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
