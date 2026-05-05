@@ -1304,6 +1304,15 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             "uo":           last(ta.momentum.UltimateOscillator(h, l, c, 7, 14, 28).ultimate_oscillator()),
             "bbu":      last(bb.bollinger_hband()),
             "bbl":      last(bb.bollinger_lband()),
+            # 🆕 v9.12：BB 完整狀態
+            "bb_sma":   last(bb.bollinger_mavg()),
+            "bb_pct_b": last(bb.bollinger_pband()),
+            "bb_bandwidth": last(bb.bollinger_wband()),
+            # 🆕 BB 歷史（120d bandwidth 算 squeeze percentile）
+            "bb_squeeze_pct": (
+                lambda bw_s: float(((bw_s.dropna().tail(120) <= bw_s.iloc[-1]).mean() * 100))
+                              if pd.notna(bw_s.iloc[-1]) and len(bw_s.dropna()) >= 60 else None
+            )(bb.bollinger_wband()),
             "ema10":    last(ta.trend.EMAIndicator(c, 10).ema_indicator()),
             "sma10":    last(ta.trend.SMAIndicator(c, 10).sma_indicator()),
             "ema20":      last(ema20_s),
@@ -1587,6 +1596,10 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
         ichi_s   = ta.trend.IchimokuIndicator(h, l, 9, 26, 52).ichimoku_base_line()
         bbu_s    = bb.bollinger_hband()
         bbl_s    = bb.bollinger_lband()
+        # 🆕 v9.12
+        bb_sma_s = bb.bollinger_mavg()
+        bb_pctb_s = bb.bollinger_pband()
+        bb_bw_s = bb.bollinger_wband()
         vol_ma20_s = (ta.trend.SMAIndicator(v, 20).sma_indicator()
                       if not v.dropna().empty else pd.Series(dtype=float, index=c.index))
         vwma_s   = (vwma(c, v, 20) if not v.dropna().empty
@@ -1703,6 +1716,14 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
                 "uo":           at(uo_s, idx),
                 "bbu":          at(bbu_s, idx),
                 "bbl":          at(bbl_s, idx),
+                # 🆕 v9.12
+                "bb_sma":       at(bb_sma_s, idx),
+                "bb_pct_b":     at(bb_pctb_s, idx),
+                "bb_bandwidth": at(bb_bw_s, idx),
+                "bb_squeeze_pct": (
+                    lambda: float(((bb_bw_s.iloc[max(0,idx-120):idx] <= bb_bw_s.iloc[idx]).mean() * 100))
+                    if idx >= 60 and pd.notna(bb_bw_s.iloc[idx]) else None
+                )(),
                 "ema10":        at(ema10_s, idx),
                 "sma10":        at(sma10_s, idx),
                 "ema20":        at(ema20_s, idx),
@@ -4292,6 +4313,75 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</div>'
         )
 
+    # 🆕 v9.12：BB 狀態 inline（依 OANDA BB 文章 8 種判斷）
+    _bb_inline = ""
+    _bb_pct_b = d.get('bb_pct_b')
+    _bb_bw = d.get('bb_bandwidth')
+    _bb_squeeze_pct = d.get('bb_squeeze_pct')
+    _bb_sma = d.get('bb_sma')
+    if _bb_pct_b is not None and close is not None:
+        _bb_chips = []
+        # %B 狀態
+        if _bb_pct_b > 1.0:
+            _bb_chips.append('<span style="background:#3a0a0a;color:#ff5555;border:1px solid #ff555566;'
+                             'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                             f'white-space:nowrap" title="收盤超出上軌（過熱）">%B {_bb_pct_b:.2f}>1 過熱</span>')
+        elif _bb_pct_b < 0:
+            _bb_chips.append('<span style="background:#0a2a18;color:#3dbb6a;border:1px solid #3dbb6a66;'
+                             'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                             f'white-space:nowrap" title="收盤跌破下軌（過冷反彈訊號 +3.32% 30d）">%B {_bb_pct_b:.2f}<0 過冷反彈 ★</span>')
+        elif _bb_pct_b > 0.85:
+            _bb_chips.append(f'<span style="background:#1a1408;color:#e8a020;border:1px solid #e8a02055;'
+                             'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                             f'white-space:nowrap">%B {_bb_pct_b:.2f} 偏熱</span>')
+        elif _bb_pct_b < 0.15:
+            _bb_chips.append(f'<span style="background:#0a1828;color:#7abadd;border:1px solid #7abadd55;'
+                             'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                             f'white-space:nowrap">%B {_bb_pct_b:.2f} 偏冷</span>')
+        else:
+            _bb_chips.append(f'<span style="background:#0a1828;color:#7a8899;border:1px solid #7a889944;'
+                             'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                             f'white-space:nowrap">%B {_bb_pct_b:.2f}</span>')
+
+        # 距中軌
+        if _bb_sma and _bb_sma > 0 and close:
+            dist_mid = (close - _bb_sma) / _bb_sma * 100
+            _color = '#3dbb6a' if dist_mid > 0 else '#ff5555'
+            _bb_chips.append(f'<span style="color:{_color};font-size:.7rem;'
+                             f'margin-right:8px">距中 {dist_mid:+.2f}%</span>')
+
+        # Squeeze percentile
+        if _bb_squeeze_pct is not None:
+            if _bb_squeeze_pct <= 20:
+                _bb_chips.append(f'<span style="background:#1a1408;color:#e8a020;border:1px solid #e8a02055;'
+                                 'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                                 f'white-space:nowrap" title="頻寬近 120 日最低 20%（大行情前兆）">'
+                                 f'⚡ Squeeze (BW {_bb_squeeze_pct:.0f}%ile)</span>')
+            elif _bb_squeeze_pct >= 80:
+                _bb_chips.append(f'<span style="background:#0a1828;color:#7abadd;border:1px solid #7abadd55;'
+                                 'border-radius:10px;padding:1px 7px;margin:2px 4px 2px 0;font-size:.66rem;'
+                                 f'white-space:nowrap" title="頻寬近 120 日最高 20%（趨勢中）">'
+                                 f'🌊 Expansion (BW {_bb_squeeze_pct:.0f}%ile)</span>')
+            else:
+                _bb_chips.append(f'<span style="color:#7a8899;font-size:.7rem;margin-right:8px">'
+                                 f'BW {_bb_squeeze_pct:.0f}%ile</span>')
+
+        # bandwidth 數值
+        if _bb_bw is not None:
+            _bb_chips.append(f'<span style="color:#5a7a99;font-size:.66rem;font-family:monospace">'
+                             f'BW={_bb_bw:.1f}%</span>')
+
+        if _bb_chips:
+            _bb_inline = (
+                f'<div style="display:flex;gap:6px;align-items:center;'
+                f'margin:0 0 8px;padding:6px 8px;background:#0a1626;'
+                f'border-radius:5px;border-left:2px solid #4a8cbf">'
+                f'<span style="color:#7ab0d0;font-size:.66rem;font-weight:700;'
+                f'white-space:nowrap;flex-shrink:0">📊 BB</span>'
+                f'<div style="line-height:1.7">{"".join(_bb_chips)}</div>'
+                f'</div>'
+            )
+
     html = (
         f'<div style="background:#050e1a;border:1px solid #1a3050;border-radius:8px;'
         f'padding:10px 14px;margin-bottom:12px">'
@@ -4329,6 +4419,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         + f'</div>'
         # 📐 K 線型態（標題下、①上）
         f'{_kline_inline}'
+        # 📊 BB 狀態（K 線下、①上）— v9.12 OANDA BB 文章判斷
+        f'{_bb_inline}'
         # ①
         f'<div style="{sec_style}">'
         f'<span style="{tag_style}">①市場環境</span>'
@@ -7233,7 +7325,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 98  # v9.12：T1 watchlist 加 imminent_dc 警告（PSX 矛盾標紅底） 2026-04-30
+_RESULTS_VERSION = 99  # v9.12：BB 全套判斷整合（OANDA 文章 8 種 + 警報 + detail card）2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

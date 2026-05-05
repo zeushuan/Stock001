@@ -309,6 +309,74 @@ def _detect_alerts(df, last_idx, ticker_market='tw'):
             'expect': '-0.54% 30d (70% 跌)',
             'quality_score': float(rsi_v - 50)})
 
+    # 🆕 v9.12：BB 訊號（依 OANDA BB 文章 + research alpha 驗證）
+    # 計算 BB
+    try:
+        from bb_signals import (compute_bb, is_squeeze, is_expansion,
+                                  is_walking_up, is_walking_down,
+                                  pct_b_extreme_high, pct_b_extreme_low,
+                                  is_w_bottom, is_m_top, squeeze_percentile)
+        bb = compute_bb(c)
+        bb_sma = bb['sma']; bb_bbu = bb['bbu']; bb_bbl = bb['bbl']
+        bb_bw = bb['bandwidth']; bb_pct = bb['pct_b']
+        e20_arr_local = df['e20'].values if 'e20' in df.columns else None
+        e60_arr_local = df['e60'].values if 'e60' in df.columns else None
+        is_bull = (e20_arr_local is not None and e60_arr_local is not None
+                   and not np.isnan(e20_arr_local[last_idx])
+                   and not np.isnan(e60_arr_local[last_idx])
+                   and e20_arr_local[last_idx] > e60_arr_local[last_idx])
+        is_bear = (e20_arr_local is not None and e60_arr_local is not None
+                   and not np.isnan(e20_arr_local[last_idx])
+                   and not np.isnan(e60_arr_local[last_idx])
+                   and e20_arr_local[last_idx] < e60_arr_local[last_idx])
+
+        # 🚀 ★★★ %B < 0 過冷反彈（多頭：54.9% 漲/+3.32%；空頭：55.5%/+2.84%）
+        if pct_b_extreme_low(bb_pct, last_idx):
+            pct_b_now = float(bb_pct[last_idx])
+            if is_bull:
+                alerts.append({'level': 3, 'side': 'bull',
+                    'tag': f'BB %B {pct_b_now:.2f}<0 過冷反彈（多頭）',
+                    'expect': '+3.32% 30d (54.9% 漲, BB research)',
+                    'quality_score': float(50 - pct_b_now * 100)})  # %B 越負越優先
+            elif is_bear:
+                alerts.append({'level': 3, 'side': 'bull',
+                    'tag': f'BB %B {pct_b_now:.2f}<0 過冷反彈（空頭觸底）',
+                    'expect': '+2.84% 30d (55.5% 漲, 空頭超賣)',
+                    'quality_score': float(50 - pct_b_now * 100)})
+
+        # 🚀 ★★★ 空頭排列下 BB Expansion（突放，n=167k mean +3.14%）
+        if is_bear and is_expansion(bb_bw, last_idx):
+            bw_now = float(bb_bw[last_idx])
+            alerts.append({'level': 3, 'side': 'bull',
+                'tag': f'BB Expansion 突放（空頭末段反轉）BW={bw_now:.1f}%',
+                'expect': '+3.14% 30d (56.1% 漲, 空頭末段反轉)',
+                'quality_score': float(bw_now)})  # 突放越大越優先
+
+        # ★★ W 底（多頭排列下，雙觸下軌反彈，PF 2.10）
+        if is_bull and is_w_bottom(l, c, bb_bbl, bb_sma, last_idx):
+            alerts.append({'level': 2, 'side': 'bull',
+                'tag': f'BB W 底（雙觸下軌+二次更高+突破中軌）',
+                'expect': '+2.73% 30d (53.9% 漲, PF 2.10)',
+                'quality_score': 30.0})
+
+        # 🔻 ★★ M 頂（多頭末段，雙觸上軌反轉，看空訊號）
+        if is_bull and is_m_top(h, c, bb_bbu, bb_sma, last_idx):
+            alerts.append({'level': 2, 'side': 'bear',
+                'tag': f'BB M 頂（雙觸上軌+二次更低+跌破中軌）',
+                'expect': '+2.21% 30d 較弱 (50.4% 漲, 反轉警告)',
+                'quality_score': 30.0})
+
+        # ⚠️ 空頭 + %B > 1.0（過熱反彈通常是假突破，看空 Δmean -1.31%）
+        if is_bear and pct_b_extreme_high(bb_pct, last_idx):
+            pct_b_now = float(bb_pct[last_idx])
+            alerts.append({'level': 'imm_bear', 'side': 'bear',
+                'tag': f'空頭+%B {pct_b_now:.2f}>1（假突破，反彈將失敗）',
+                'expect': '+0.34% 30d (43.1% 漲, 弱反彈警告)',
+                'quality_score': float(pct_b_now * 100 - 100)})
+
+    except Exception:
+        pass  # BB 計算失敗不影響主流程
+
     return alerts
 
 
