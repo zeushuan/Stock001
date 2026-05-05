@@ -90,7 +90,8 @@ jobs:
               print('LINE_CHANNEL_TOKEN / LINE_USER_ID 未設定，跳過')
               exit(0)
 
-          # 收集強警報（level 5/4 + 即將觸發 imm_bull/imm_bear）
+          # 🆕 v9.12：擴大 LINE 推送範圍 — 包含 level 3（BB 警報 + 底部十字星）
+          # 收集強警報（level 5/4/3 + 即將觸發 imm_bull/imm_bear + level 2 BB W底/M頂）
           msgs = []
           imm_msgs = []
           tw_count = us_count = 0
@@ -99,7 +100,10 @@ jobs:
                   with open(f, encoding='utf-8') as fp:
                       d = json.load(fp)
                   alerts = d.get('alerts', [])
-                  strong = [a for a in alerts if a.get('level') in (5, 4)]
+                  # 強警報：level 5/4/3（PF > 1.8 或更高的 alpha 訊號都納入）
+                  strong = [a for a in alerts if a.get('level') in (5, 4, 3)]
+                  # 中度警報：level 2（W 底 / M 頂等 BB 訊號）
+                  medium = [a for a in alerts if a.get('level') == 2]
                   imminent = [a for a in alerts
                               if a.get('level') in ('imm_bull', 'imm_bear')]
                   market = '🇹🇼' if ('us' not in f) else '🇺🇸'
@@ -109,13 +113,20 @@ jobs:
                       us_count = len(alerts)
                   if strong:
                       lines = [f"{market} {len(strong)} 檔強警報"]
-                      for a in strong[:8]:
+                      for a in strong[:10]:
                           lv = a.get('level')
                           star = '★' * (lv if isinstance(lv, int) else 4)
                           side = '🚀' if a.get('side') == 'bull' else '🚨'
                           lines.append(f"  {side} {star} {a['ticker']} "
                                        f"{a.get('name','')[:10]} — {a['tag']}")
                           lines.append(f"    預期 {a.get('expect','')}")
+                      msgs.append('\n'.join(lines))
+                  if medium:
+                      lines = [f"{market} {len(medium)} 檔中度警報 ★★"]
+                      for a in medium[:5]:
+                          side = '📈' if a.get('side') == 'bull' else '📉'
+                          lines.append(f"  {side} ★★ {a['ticker']} "
+                                       f"{a.get('name','')[:10]} — {a['tag']}")
                       msgs.append('\n'.join(lines))
                   if imminent:
                       lines = [f"{market} {len(imminent)} 檔即將觸發 ⏰"]
