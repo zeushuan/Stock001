@@ -6317,11 +6317,16 @@ def _render_alerts_panel():
         bear4 = [a for a in all_alerts if a.get('level') == 4 and a.get('side') == 'bear']
         bear3 = [a for a in all_alerts if a.get('level') == 3 and a.get('side') == 'bear']
         bear2 = [a for a in all_alerts if a.get('level') == 2 and a.get('side') == 'bear']
+        # 🆕 v9.12：T1 即將上穿（level=2 + 'T1 即將上穿' tag）獨立分組
+        bull2_t1 = [a for a in all_alerts if a.get('level') == 2 and a.get('side') == 'bull'
+                    and 'T1 即將上穿' in a.get('tag', '')]
+        bull2_other = [a for a in all_alerts if a.get('level') == 2 and a.get('side') == 'bull'
+                       and 'T1 即將上穿' not in a.get('tag', '')]
         imm_bull = [a for a in all_alerts if a.get('level') == 'imm_bull']
         imm_bear = [a for a in all_alerts if a.get('level') == 'imm_bear']
 
-        total_strong = len(bull5) + len(bull4) + len(bull3) + len(bear4) + len(bear3) + len(bear2)
-        total_imm = len(imm_bull) + len(imm_bear)
+        total_strong = len(bull5) + len(bull4) + len(bull3) + len(bear4) + len(bear3) + len(bear2) + len(bull2_other)
+        total_imm = len(imm_bull) + len(imm_bear) + len(bull2_t1)
         if total_strong == 0 and total_imm == 0:
             return
 
@@ -6410,21 +6415,33 @@ def _render_alerts_panel():
                 f'<div style="font-weight:700;color:#e8a020;margin-bottom:4px;'
                 f'font-size:.9rem">⏰ 即將觸發（離條件 1 步）</div>',
                 unsafe_allow_html=True)
+            # 🆕 v9.12：T1 即將上穿獨立分組（置頂、藍色標示）
+            if bull2_t1:
+                st.markdown(
+                    f'<div style="color:#5a9acf;font-size:.8rem;font-weight:700;'
+                    f'margin-top:6px;background:#0a1828;padding:3px 6px;'
+                    f'border-left:3px solid #5a9acf;border-radius:3px">'
+                    f'🎯 T1 即將上穿 watchlist ({len(bull2_t1)})'
+                    f'<span style="color:#7a8899;font-weight:400;font-size:.7rem">'
+                    f'  距 EMA20 ≤ 1% + 連 2 漲 + ADX≥22 + 多頭</span></div>'
+                    + ''.join(_row_html(a) for a in bull2_t1[:15]),
+                    unsafe_allow_html=True
+                )
             if imm_bull:
                 st.markdown(
                     f'<div style="color:#3dbb6a;font-size:.8rem;font-weight:700;'
-                    f'margin-top:6px">🌱 即將看多 ({len(imm_bull)})</div>'
+                    f'margin-top:6px">🌱 K 線即將看多 ({len(imm_bull)})</div>'
                     + ''.join(_row_html(a) for a in imm_bull[:10]),
                     unsafe_allow_html=True
                 )
             if imm_bear:
                 st.markdown(
                     f'<div style="color:#ff7755;font-size:.8rem;font-weight:700;'
-                    f'margin-top:6px">⚠️ 即將看空 ({len(imm_bear)})</div>'
+                    f'margin-top:6px">⚠️ K 線即將看空 ({len(imm_bear)})</div>'
                     + ''.join(_row_html(a) for a in imm_bear[:10]),
                     unsafe_allow_html=True
                 )
-            if not imm_bull and not imm_bear:
+            if not imm_bull and not imm_bear and not bull2_t1:
                 st.markdown(
                     f'<div style="color:#7a8899;font-size:.78rem;'
                     f'padding:10px">— 暫無即將觸發 —</div>',
@@ -6992,7 +7009,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 94  # v9.11：US/TW 月份效應警告（5月地雷/4月黃金）+ T1 V7 expect 區分市場 2026-04-30
+_RESULTS_VERSION = 95  # v9.12：T1 即將上穿 watchlist 獨立分組顯示 2026-04-30
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
