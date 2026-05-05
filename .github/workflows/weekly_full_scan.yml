@@ -42,6 +42,7 @@ jobs:
           python scan_full_t1_cloud.py 2>&1 | tee /tmp/scan.log
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -50,9 +51,94 @@ jobs:
             git commit -m "auto: 全市場 T1 即將上穿掃描 ($(date +%Y-%m-%d))"
             git push
             echo "✅ Updated"
+            echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ No changes"
+            echo "changed=false" >> $GITHUB_OUTPUT
           fi
+
+      # 🆕 v9.12：T1 imminent LINE 推送
+      - name: Notify LINE on T1 imminent
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          python <<'EOF'
+          import json, os, urllib.request
+
+          line_token = os.environ.get('LINE_CHANNEL_TOKEN', '')
+          line_user = os.environ.get('LINE_USER_ID', '')
+          if not line_token or not line_user:
+              print('LINE_CHANNEL_TOKEN / LINE_USER_ID 未設定，跳過')
+              exit(0)
+
+          try:
+              with open('t1_imminent_full.json', encoding='utf-8') as f:
+                  d = json.load(f)
+          except Exception as e:
+              print(f'parse fail: {e}')
+              exit(0)
+
+          tw_list = d.get('tw', [])
+          us_list = d.get('us', [])
+
+          # 分 tier
+          def by_tier(items, tier):
+              return [r for r in items if r.get('tier') == tier]
+
+          tw_l1 = by_tier(tw_list, 'L1_strict')
+          tw_l2 = by_tier(tw_list, 'L2_medium')
+          us_l1 = by_tier(us_list, 'L1_strict')
+          us_l2 = by_tier(us_list, 'L2_medium')
+
+          if not (tw_l1 or tw_l2 or us_l1 or us_l2):
+              print('No L1/L2 候選，跳過')
+              exit(0)
+
+          lines = ['🎯 全市場 T1 即將上穿（每週掃描）']
+          lines.append(f'更新：{d.get("computed_at", "?")}')
+          lines.append('')
+
+          for label, items, max_show in [
+              ('🇹🇼 L1 嚴格', tw_l1, 8),
+              ('🇹🇼 L2 中等', tw_l2, 5),
+              ('🇺🇸 L1 嚴格', us_l1, 8),
+              ('🇺🇸 L2 中等', us_l2, 5),
+          ]:
+              if not items: continue
+              lines.append(f'{label} ({len(items)} 檔)')
+              for r in items[:max_show]:
+                  warn = ' ⚠️死叉' if r.get('imminent_dc') else ''
+                  ticker = r.get('ticker', '?')
+                  name = (r.get('name', '') or '')[:10]
+                  dist = r.get('dist_pct', 0)
+                  rsi = r.get('rsi', 0) or 0
+                  lines.append(f'  {ticker} {name} 距{dist:.2f}% RSI{rsi:.0f}{warn}')
+              lines.append('')
+
+          full_msg = '\n'.join(lines)[:4900]
+          print(f'Sending LINE:\n{full_msg}')
+
+          line_url = 'https://api.line.me/v2/bot/message/push'
+          body = json.dumps({
+              'to': line_user,
+              'messages': [{'type': 'text', 'text': full_msg}],
+          }).encode('utf-8')
+          req = urllib.request.Request(line_url, data=body,
+              headers={
+                  'Content-Type': 'application/json',
+                  'Authorization': f'Bearer {line_token}',
+              })
+          try:
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  print(f'✅ LINE 推送成功: status {r.status}')
+          except urllib.error.HTTPError as e:
+              print(f'❌ LINE 推送失敗: {e.code} {e.read().decode()}')
+          except Exception as e:
+              print(f'❌ LINE 推送失敗: {e}')
+          EOF
+        continue-on-error: true
 
       - name: Notify on Failure
         if: failure()
