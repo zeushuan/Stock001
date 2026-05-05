@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-05-04",
-  "computed_at": "2026-05-04 23:02:11",
+  "computed_at": "2026-05-05 07:29:30",
   "top_total": 200,
   "entry": [
     {
@@ -13,7 +13,15 @@
       "sig": "T3 RSI38",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.01<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 50.894083235476685
+        }
+      ]
     },
     {
       "ticker": "NFLX",
@@ -30,7 +38,7 @@
     {
       "ticker": "CAR",
       "name": "Avis Budget Group, Inc.",
-      "close": 168.29,
+      "close": 168.3,
       "rsi": 41.6,
       "ema20_cross_days": 24,
       "delta": 39.8,
@@ -61,7 +69,15 @@
       "sig": "T3 RSI32",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.12<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 61.745525051493885
+        }
+      ]
     },
     {
       "ticker": "RMBS",
@@ -280,7 +296,15 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bull",
+          "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
+          "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+          "quality_score": 30.0
+        }
+      ]
     },
     {
       "ticker": "INTC",
@@ -1489,6 +1513,146 @@
       "tag": "倒鎚 + 距 SMA200 -27%",
       "expect": "+7.85% 30d (64.5% 漲)",
       "quality_score": 27.34629046418857
+    },
+    {
+      "ticker": "PH",
+      "name": "Parker-Hannifin Corporation",
+      "close": 867.75,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.12<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 61.745525051493885
+    },
+    {
+      "ticker": "GRMN",
+      "name": "Garmin Ltd.",
+      "close": 238.6,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 50.894083235476685
+    },
+    {
+      "ticker": "SPOT",
+      "name": "Spotify Technology S.A.",
+      "close": 438.26,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=29.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 29.053337390957125
+    },
+    {
+      "ticker": "RTX",
+      "name": "RTX Corporation",
+      "close": 172.9,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.4%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 26.404732200067137
+    },
+    {
+      "ticker": "HCA",
+      "name": "HCA Healthcare, Inc.",
+      "close": 427.18,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=24.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 24.170246235264255
+    },
+    {
+      "ticker": "ABT",
+      "name": "Abbott Laboratories",
+      "close": 87.54,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=20.9%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 20.91599229222358
+    },
+    {
+      "ticker": "MDT",
+      "name": "Medtronic plc.",
+      "close": 78.3,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=15.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 15.08913974222265
+    },
+    {
+      "ticker": "GD",
+      "name": "General Dynamics Corporation",
+      "close": 349.08,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=14.9%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 14.944777206603188
+    },
+    {
+      "ticker": "ACLX",
+      "name": "Arcellx, Inc.",
+      "close": 115.07,
+      "level": 2,
+      "side": "bull",
+      "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
+      "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "BIIB",
+      "name": "Biogen Inc.",
+      "close": 187.21,
+      "level": 2,
+      "side": "bull",
+      "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
+      "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "CB",
+      "name": "Chubb Limited ",
+      "close": 325.12,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "FROG",
+      "name": "JFrog Ltd.",
+      "close": 52.58,
+      "level": "imm_bear",
+      "side": "bear",
+      "tag": "空頭+%B 1.20>1（假突破，反彈將失敗）",
+      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
+      "quality_score": 20.396858883896158
+    },
+    {
+      "ticker": "FSLR",
+      "name": "First Solar, Inc.",
+      "close": 211.39,
+      "level": "imm_bear",
+      "side": "bear",
+      "tag": "空頭+%B 1.03>1（假突破，反彈將失敗）",
+      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
+      "quality_score": 3.2347815559886044
+    },
+    {
+      "ticker": "NVO",
+      "name": "Novo Nordisk A/S",
+      "close": 44.39,
+      "level": "imm_bear",
+      "side": "bear",
+      "tag": "空頭+%B 1.03>1（假突破，反彈將失敗）",
+      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
+      "quality_score": 2.527381595738049
     }
   ],
   "source": "cloud (yfinance live)"
