@@ -8,16 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.13"
-APP_UPDATED   = "2026-05-03 12:00"
+APP_VERSION   = "v9.14"
+APP_UPDATED   = "2026-05-06 16:30"
 APP_NOTES     = (
-    "🆕 BB 全套整合（OANDA 文章 10 種判斷 + 警報 + detail card 顯示）｜ "
-    "🆕 全市場 T1 即將上穿 watchlist（跳出 TOP 200，掃 1925 TW + 2254 US，週一三五六自動跑）｜ "
-    "🆕 T1 imminent 命中率追蹤系統（5/15/30d cross precision + alpha 自動回算）｜ "
-    "🆕 LINE 推送擴大到 level 3+2（涵蓋 BB 警報 + 底部十字星等中度訊號）｜ "
-    "🥇 🇹🇼 台股最佳：倒鎚 h30 pos=50 drop_deep → OOS Sharpe 1.74 / MDD -4.64% ｜ "
-    "🥇 🇺🇸 美股最佳：T1_V7 h60 pos=10 → OOS Sharpe 2.74 / CAGR +16.40% ⭐⭐ ｜ "
-    "📅 月份/imminent_dc 警告自動標 + 跨市場差異化"
+    "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
+    "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
+    "🆕 cron 升級到一天 3 次（13:35 台股盤後 + 05:05 美股盤後 + 09:00 盤前確認）｜ "
+    "🆕 TW 改用 twstock 抓資料（解決 yfinance .TW 在 GitHub runner 阻擋）｜ "
+    "🆕 BB 全套整合（OANDA 10 種判斷 + 警報 + detail card 顯示）｜ "
+    "🆕 T1 imminent 命中率追蹤 + watchlist 整合到篩選器 ｜ "
+    "🥇 台股最佳：倒鎚 h30 pos=50 drop_deep → Sharpe 1.74 / MDD -4.64% ｜ "
+    "🥇 美股最佳：T1_V7 h60 pos=10 → Sharpe 2.74 / CAGR +16.40% ⭐⭐"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -7489,7 +7490,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 111  # v9.13：cron 改用 twstock 抓 TW（修 yfinance .TW GitHub runner 阻擋問題）2026-05-06
+_RESULTS_VERSION = 112  # v9.14：APP_VERSION bump + APP_NOTES 更新（反映 5/6 所有改動）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
