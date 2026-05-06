@@ -292,6 +292,18 @@ def f_strong_trend(s):
     """強趨勢（ADX ≥ 30）"""
     return (s.get('adx') or 0) >= 30
 
+def f_fake_bull(s):
+    """⚠️ 假多頭（EMA20>EMA60 但 ADX<22，趨勢強度不足，可能震盪）"""
+    return s.get('is_bull', False) and (s.get('adx') or 0) < 22
+
+def f_fake_bear(s):
+    """⚠️ 假空頭（EMA20<EMA60 但 ADX<22，趨勢強度不足，可能震盪）"""
+    return s.get('is_bear', False) and (s.get('adx') or 0) < 22
+
+def f_weak_trend(s):
+    """⏸ 弱趨勢 / 震盪（ADX < 22，無論多空）"""
+    return (s.get('adx') or 0) < 22
+
 def f_rsi_oversold(s):
     """RSI < 30 極度超賣"""
     return (s.get('rsi') or 99) < 30
@@ -350,6 +362,9 @@ FILTERS = {
     '✅ 多頭排列（EMA20>EMA60）': f_bull_alignment,
     '❌ 空頭排列（EMA20<EMA60）': f_bear_alignment,
     '🔥 強趨勢（ADX≥30）': f_strong_trend,
+    '⚠️ 假多頭（多頭排列但 ADX<22）': f_fake_bull,
+    '⚠️ 假空頭（空頭排列但 ADX<22）': f_fake_bear,
+    '⏸ 弱趨勢/震盪（ADX<22）': f_weak_trend,
     '📉 RSI < 30 極度超賣': f_rsi_oversold,
     '📈 RSI > 70 過熱': f_rsi_overbought,
     '⬇️ 接近 60 日低點（<5%）': f_at_60d_low,

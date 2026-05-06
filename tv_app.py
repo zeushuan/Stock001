@@ -7443,7 +7443,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 108  # v9.13：修 TradingView 連結（NYSE/NASDAQ 自動偵測，不再預設 NASDAQ）2026-05-06
+_RESULTS_VERSION = 109  # v9.13：篩選器加假多頭/假空頭/弱趨勢 3 個 filter (37 個總共) 2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
