@@ -31,7 +31,10 @@ def _safe_float(s):
         return None
 
 
-def fetch_twse_day(date_str):
+_DEBUG_PRINTED = {'twse_first': False, 'tpex_first': False}
+
+
+def fetch_twse_day(date_str, debug=False):
     """TWSE 上市個股單日 OHLCV
     date_str: YYYYMMDD
     回傳：dict[ticker] = (open, high, low, close, volume)"""
@@ -42,9 +45,18 @@ def fetch_twse_day(date_str):
             'User-Agent': 'Mozilla/5.0',
             'Accept': 'application/json',
         })
+        if not _DEBUG_PRINTED['twse_first']:
+            print(f"  [DEBUG] TWSE 第一個請求 {date_str}: status={r.status_code}, len={len(r.text)}, content-type={r.headers.get('Content-Type', '')[:50]}")
+            if r.status_code != 200:
+                print(f"  [DEBUG] body 前 300 字: {r.text[:300]}")
+            _DEBUG_PRINTED['twse_first'] = True
         if r.status_code != 200: return {}
         d = r.json()
-        if d.get('stat') != 'OK': return {}
+        if d.get('stat') != 'OK':
+            if not _DEBUG_PRINTED.get('twse_stat_printed'):
+                print(f"  [DEBUG] TWSE stat != OK: stat='{d.get('stat')}', date={date_str}")
+                _DEBUG_PRINTED['twse_stat_printed'] = True
+            return {}
         out = {}
         # tables[8] 是「每日收盤行情(全部)」(index 可能變動，依 fields 判斷)
         for table in d.get('tables', []):
@@ -80,7 +92,7 @@ def fetch_twse_day(date_str):
         return {}
 
 
-def fetch_tpex_day(date_str):
+def fetch_tpex_day(date_str, debug=False):
     """TPEX 上櫃個股單日 OHLCV
     date_str: YYYYMMDD（會轉成民國年 YYY/MM/DD）"""
     y = int(date_str[:4]) - 1911
@@ -93,6 +105,11 @@ def fetch_tpex_day(date_str):
             'Accept': 'application/json',
             'Referer': 'https://www.tpex.org.tw/',
         })
+        if not _DEBUG_PRINTED['tpex_first']:
+            print(f"  [DEBUG] TPEX 第一個請求 {date_str}: status={r.status_code}, len={len(r.text)}")
+            if r.status_code != 200:
+                print(f"  [DEBUG] TPEX body 前 200 字: {r.text[:200]}")
+            _DEBUG_PRINTED['tpex_first'] = True
         if r.status_code != 200: return {}
         d_json = r.json()
         out = {}

@@ -1,0 +1,80 @@
+name: Test TW API Connectivity
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install requests
+      - name: Test TWSE API
+        run: |
+          python <<'EOF'
+          import requests
+          import urllib3
+          urllib3.disable_warnings()
+
+          print("=" * 60)
+          print("Testing TWSE/TPEX/yfinance from GitHub runner")
+          print("=" * 60)
+
+          # 1. TWSE official API
+          print("\n[1] TWSE MI_INDEX:")
+          try:
+              r = requests.get(
+                  'https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=20260506&type=ALLBUT0999',
+                  timeout=30, verify=False,
+                  headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json'}
+              )
+              print(f"  status={r.status_code}, len={len(r.text)}")
+              print(f"  Content-Type: {r.headers.get('Content-Type', '')[:80]}")
+              print(f"  body 前 500 字: {r.text[:500]}")
+          except Exception as e:
+              print(f"  ERROR: {type(e).__name__}: {e}")
+
+          # 2. TPEX official API
+          print("\n[2] TPEX daily_close_quotes:")
+          try:
+              import time
+              r = requests.get(
+                  f'https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?d=115/05/06&se=AL&_={int(time.time()*1000)}',
+                  timeout=30, verify=False,
+                  headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json',
+                           'Referer': 'https://www.tpex.org.tw/'}
+              )
+              print(f"  status={r.status_code}, len={len(r.text)}")
+              print(f"  body 前 500 字: {r.text[:500]}")
+          except Exception as e:
+              print(f"  ERROR: {type(e).__name__}: {e}")
+
+          # 3. Test yfinance .TW
+          print("\n[3] yfinance .TW (single ticker):")
+          try:
+              import subprocess
+              subprocess.check_call(['pip', 'install', 'yfinance', '-q'])
+              import yfinance as yf
+              df = yf.download('2330.TW', period='5d', progress=False)
+              print(f"  rows={len(df) if df is not None else 'None'}")
+              if df is not None and len(df) > 0:
+                  print(f"  最新: {df.index[-1]}")
+          except Exception as e:
+              print(f"  ERROR: {type(e).__name__}: {e}")
+
+          # 4. Test goodinfo (alternative)
+          print("\n[4] Goodinfo 連通性:")
+          try:
+              r = requests.get('https://goodinfo.tw/', timeout=10, verify=False,
+                               headers={'User-Agent': 'Mozilla/5.0'})
+              print(f"  status={r.status_code}, len={len(r.text)}")
+          except Exception as e:
+              print(f"  ERROR: {type(e).__name__}: {e}")
+
+          print("\n" + "=" * 60)
+          print("Done.")
+          EOF
