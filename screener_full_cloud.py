@@ -115,16 +115,56 @@ def get_full_universe(market):
     return []
 
 
+def _fetch_tw_via_twstock(tickers):
+    """🆕 v9.13：用 twstock 抓 TW 資料（不依賴 yfinance .TW，免被 GitHub runner 阻擋）
+    每檔抓 ~13 個月（涵蓋 EMA60/EMA120 等指標需求）"""
+    import twstock
+    from datetime import datetime
+    out = {}
+    today = datetime.now()
+    start_year = today.year - 1
+    start_month = today.month
+    failed = 0
+    for idx, t in enumerate(tickers, 1):
+        try:
+            stock = twstock.Stock(t)
+            stock.fetch_from(start_year, start_month)
+            if len(stock.price) < 60:
+                failed += 1; continue
+            df = pd.DataFrame({
+                'Open': stock.open,
+                'High': stock.high,
+                'Low': stock.low,
+                'Close': stock.price,
+                'Volume': stock.capacity,
+            }, index=pd.DatetimeIndex(stock.date))
+            df = df.dropna(how='all')
+            if len(df) >= 60:
+                out[t] = df
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+        if idx % 100 == 0:
+            print(f"  📦 twstock 進度 {idx}/{len(tickers)}: 累計 {len(out)} 檔 / 失敗 {failed}")
+    return out
+
+
 def scan_market(market, tickers, name_map):
     """掃描某市場，跑全部 filter"""
     flag = '🇹🇼' if market == 'tw' else '🇺🇸'
     print(f"\n{flag} {market.upper()} 掃描: {len(tickers)} 檔")
 
-    yf_tickers = [f'{t}.TW' for t in tickers] if market == 'tw' else tickers
-    print(f"  📥 yfinance batch（period=1y, batch={'25(TW)' if market=='tw' else '50(US)'}）...")
     t0 = time.time()
-    df_dict = _fetch_batch(yf_tickers, period='1y', is_tw=(market == 'tw'))
-    print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
+    if market == 'tw':
+        # 🆕 v9.13：TW 改用 twstock（yfinance .TW 在 GitHub runner 不穩定）
+        print(f"  📥 twstock 抓取（period=13mo, 預估 25-35 分鐘）...")
+        df_dict = _fetch_tw_via_twstock(tickers)
+    else:
+        # US 維持 yfinance batch
+        print(f"  📥 yfinance batch（period=1y, batch=50）...")
+        df_dict = _fetch_batch(tickers, period='1y', is_tw=False)
+    print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(tickers)}")
 
     # 算指標 + 跑所有 filter
     print(f"  🧮 計算指標 + 跑 filter...")
@@ -138,7 +178,8 @@ def scan_market(market, tickers, name_map):
     by_filter = {fname: [] for fname in FILTERS}
 
     for yf_t, df in df_dict.items():
-        ticker = yf_t.replace('.TW', '') if market == 'tw' else yf_t
+        # 🆕 v9.13：TW twstock 已用純 ticker，不需 strip .TW；US 維持 yfinance ticker
+        ticker = yf_t.replace('.TW', '') if (market == 'tw' and '.TW' in yf_t) else yf_t
         df_ind = _calc_ind(df)
         if df_ind is None: continue
         # 質量過濾

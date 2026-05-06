@@ -7489,7 +7489,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 110  # v9.13：篩選器顯示資料新鮮度 + 加 2 盤後 cron（13:35 / 05:05）2026-05-06
+_RESULTS_VERSION = 111  # v9.13：cron 改用 twstock 抓 TW（修 yfinance .TW GitHub runner 阻擋問題）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

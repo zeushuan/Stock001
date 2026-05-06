@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pandas numpy ta
+          pip install yfinance pandas numpy ta twstock requests
 
       - name: Scan full TW + US T1 imminent
         run: |
