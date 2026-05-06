@@ -357,12 +357,25 @@ FILTERS = {
 }
 
 
-def filter_universe(universe, market, filter_name, min_vol=None, min_price=None):
-    """跑單一 filter 對 universe，回傳符合的 ticker list"""
+def filter_universe(universe, market, filter_names, min_vol=None, min_price=None,
+                     logic='AND'):
+    """🆕 v9.13：支援多條件篩選
+    filter_names: 可以是 str（單條件）或 list[str]（多條件）
+    logic: 'AND'（預設，所有條件都符合）or 'OR'（任一條件符合）
+    """
     import data_loader as dl
 
-    fn = FILTERS.get(filter_name)
-    if fn is None:
+    # 統一成 list
+    if isinstance(filter_names, str):
+        filter_names = [filter_names]
+    fns = []
+    for fname in filter_names:
+        fn = FILTERS.get(fname)
+        if fn is None:
+            print(f"  ⚠️ 未知 filter: {fname}")
+            continue
+        fns.append((fname, fn))
+    if not fns:
         return []
 
     if min_vol is None:
@@ -388,7 +401,14 @@ def filter_universe(universe, market, filter_name, min_vol=None, min_price=None)
                 avg_vol = float(np.mean(v_arr[-60:]))
                 if avg_vol < min_vol: continue
 
-            if fn(state):
+            # 多條件邏輯
+            if logic == 'AND':
+                # 所有 filter 都必須通過
+                passed = all(fn(state) for _, fn in fns)
+            else:  # OR
+                passed = any(fn(state) for _, fn in fns)
+
+            if passed:
                 results.append({
                     'ticker': ticker,
                     'market': market,
@@ -402,8 +422,47 @@ def filter_universe(universe, market, filter_name, min_vol=None, min_price=None)
                     'from_low': round(state['from_low'], 1),
                     'imminent_dc': state.get('imminent_dc', False),
                     'date': state['date'],
+                    'matched_filters': [n for n, fn in fns if fn(state)],  # 記錄符合哪些
                 })
         except Exception:
             continue
 
     return results
+
+
+def intersect_from_json(by_filter_dict, filter_names, logic='AND'):
+    """🆕 v9.13：從預計算 JSON 計算多條件交集
+    by_filter_dict: dict[filter_name -> list[stock]]
+    filter_names: list[str]
+    回傳：list[stock]（已合併不同 filter 的資料，並標記 matched_filters）
+    """
+    if isinstance(filter_names, str):
+        filter_names = [filter_names]
+
+    # 蒐集每個 filter 的 ticker → stock 對應
+    per_filter_map = {}  # filter_name → {ticker: stock_dict}
+    for fname in filter_names:
+        items = by_filter_dict.get(fname, [])
+        per_filter_map[fname] = {r['ticker']: r for r in items}
+
+    # 算交集 / 聯集 ticker
+    if not per_filter_map:
+        return []
+    if logic == 'AND':
+        common = set.intersection(*(set(m.keys()) for m in per_filter_map.values()))
+    else:  # OR
+        common = set.union(*(set(m.keys()) for m in per_filter_map.values()))
+
+    # 用第一個 filter 的資料當基底（每個 stock 取一筆 dict）
+    out = []
+    seen = set()
+    for fname in filter_names:
+        for ticker, stock in per_filter_map[fname].items():
+            if ticker in common and ticker not in seen:
+                seen.add(ticker)
+                # 標記符合哪些 filter
+                matched = [fn for fn in filter_names if ticker in per_filter_map.get(fn, {})]
+                stock_copy = dict(stock)
+                stock_copy['matched_filters'] = matched
+                out.append(stock_copy)
+    return out

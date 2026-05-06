@@ -6570,16 +6570,28 @@ def _render_screener_panel():
             unsafe_allow_html=True
         )
 
-        # UI
-        cols = st.columns([3, 1, 1, 1])
+        # UI — 🆕 v9.13：多條件 multiselect
+        st.markdown(
+            '<div style="font-size:.75rem;color:#7a8899;margin:6px 0 2px">'
+            '篩選條件（可複選 — 多選 = 全部都要符合）</div>',
+            unsafe_allow_html=True)
+        filter_names = st.multiselect(
+            '篩選條件',
+            options=list(FILTERS.keys()),
+            key='screener_filter',
+            label_visibility='collapsed',
+            help='多選 = AND 邏輯（要全部符合）。例：倒鎚 + 多頭排列 + 強趨勢 → 三個都符合的股票才出現',
+            placeholder='選擇至少一個條件...'
+        )
+        # 邏輯選擇
+        cols = st.columns([1, 1, 1, 1])
         with cols[0]:
-            filter_name = st.selectbox(
-                '選擇篩選條件',
-                options=list(FILTERS.keys()),
-                key='screener_filter',
-                label_visibility='collapsed',
-                help='從下拉選單選擇要使用的篩選器'
+            logic_mode = st.radio(
+                '邏輯', options=['AND（全部符合）', 'OR（任一符合）'],
+                key='screener_logic', horizontal=True,
+                label_visibility='collapsed'
             )
+            logic = 'AND' if 'AND' in logic_mode else 'OR'
         with cols[1]:
             scan_market = st.selectbox(
                 '市場',
@@ -6602,15 +6614,18 @@ def _render_screener_panel():
 
         # 執行篩選
         if run_scan:
-            from screener_filters import filter_universe
+            if not filter_names:
+                st.warning('⚠️ 請至少選擇一個篩選條件')
+                return
+
+            from screener_filters import filter_universe, intersect_from_json
             DATA = _P(__file__).parent / 'data_cache'
             screener_json = _P(__file__).parent / 'screener_results.json'
 
-            # 🆕 v9.13：明確的市場篩選邏輯（用「只 TW / 只 US / 全部」）
+            # 🆕 v9.13：明確的市場篩選邏輯
             want_tw = ('全部' in scan_market) or ('只 TW' in scan_market) or ('TW only' in scan_market)
             want_us = ('全部' in scan_market) or ('只 US' in scan_market) or ('US only' in scan_market)
 
-            # 先檢查 data_cache 是否有 parquet 檔
             tw_uni, us_uni = [], []
             if DATA.exists():
                 if want_tw:
@@ -6628,55 +6643,61 @@ def _render_screener_panel():
                                       and 1 <= len(p.stem) <= 5 and p.stem not in US_ETF_EX])
 
             total_uni = len(tw_uni) + len(us_uni)
+            display_filter = ' '+logic+' '.join([f'[{f}]' for f in filter_names]) if len(filter_names) > 1 else filter_names[0]
 
-            # 🆕 v9.13：data_cache 沒檔 → 改讀預計算 JSON（雲端模式）
+            # 🆕 雲端模式：data_cache 沒檔 → 讀 JSON + 多 filter 交集
             if total_uni == 0:
                 if screener_json.exists():
                     try:
                         d = _json.loads(screener_json.read_text(encoding='utf-8'))
-                        all_results = d.get('by_filter', {}).get(filter_name, [])
-                        # 篩選市場（明確邏輯）
-                        before = len(all_results)
+                        all_results = intersect_from_json(d.get('by_filter', {}),
+                                                            filter_names, logic=logic)
+                        # 篩選市場
                         if want_tw and not want_us:
                             all_results = [r for r in all_results if r.get('market') == 'tw']
                         elif want_us and not want_tw:
                             all_results = [r for r in all_results if r.get('market') == 'us']
-                        # 診斷訊息
                         tw_n = sum(1 for r in all_results if r.get('market') == 'tw')
                         us_n = sum(1 for r in all_results if r.get('market') == 'us')
-                        st.success(f'✅ 雲端模式 — 從預計算結果取得 **{len(all_results)} 檔**'
+                        st.success(f'✅ 雲端模式 — {len(filter_names)} 條件 {logic} → '
+                                    f'**{len(all_results)} 檔**'
                                     f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）｜資料時間：{d.get("computed_at", "?")}')
                         st.session_state['screener_results'] = all_results
-                        st.session_state['screener_last_filter'] = filter_name
+                        st.session_state['screener_last_filter'] = display_filter
                         st.rerun()
                     except Exception as e:
                         st.error(f'❌ 讀 screener_results.json 失敗：{type(e).__name__}: {e}')
                         return
                 else:
                     st.error(
-                        f'❌ data_cache 為空（{total_uni} 個 parquet）+ screener_results.json 不存在。\n\n'
+                        f'❌ data_cache 為空 + screener_results.json 不存在。\n\n'
                         f'解法：\n'
-                        f'• 等下一次 cron 自動跑（週一三五六 09:00 台北）\n'
-                        f'• 手動觸發：https://github.com/zeushuan/Stock001/actions/workflows/weekly_full_scan.yml → Run workflow\n'
+                        f'• 等下一次 cron 自動跑（每天 09:00 台北）\n'
+                        f'• 手動觸發 weekly_full_scan workflow\n'
                         f'• 或本地跑：`python screener_full_local.py`'
                     )
                     return
 
-            # data_cache 有檔 → 即時跑 filter
+            # Local 模式：即時跑 filter（多條件）
             universes = []
             if tw_uni: universes.append(('tw', tw_uni))
             if us_uni: universes.append(('us', us_uni))
-            st.info(f'📊 即時掃描 universe: ' + ', '.join(f'{m}: {len(u)} 檔' for m, u in universes))
+            st.info(f'📊 即時掃描: {", ".join(f"{m}: {len(u)} 檔" for m, u in universes)}'
+                    f' ｜ {len(filter_names)} 條件 {logic}')
 
-            with st.spinner(f'掃描中 {total_uni} 檔... (篩選: {filter_name})'):
+            with st.spinner(f'掃描 {total_uni} 檔... ({len(filter_names)} 條件 {logic})'):
                 import time as _t
                 t0 = _t.time()
                 all_results = []
                 for market, uni in universes:
-                    res = filter_universe(uni, market, filter_name)
+                    # 🆕 v9.13：傳整個 list + logic
+                    res = filter_universe(uni, market, filter_names, logic=logic)
                     all_results.extend(res)
                 elapsed = _t.time() - t0
-            st.success(f'✅ 完成 ({elapsed:.1f}s) — 找到 {len(all_results)} 檔（{filter_name}）')
+            tw_n = sum(1 for r in all_results if r.get('market') == 'tw')
+            us_n = sum(1 for r in all_results if r.get('market') == 'us')
+            st.success(f'✅ 完成 ({elapsed:.1f}s) — 找到 **{len(all_results)} 檔**'
+                        f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）')
 
             # 載入 name map
             name_map = {}
@@ -6770,7 +6791,9 @@ def _render_screener_panel():
             )
             _scols = st.columns([3, 1, 1])
             today_str = pd.Timestamp.now().strftime('%Y%m%d')
-            default_name = f'篩選_{filter_name[:10].strip()}_{today_str}'.replace(' ', '_')
+            # 🆕 v9.13：多條件名稱
+            _filter_label = filter_names[0] if len(filter_names) == 1 else f'{len(filter_names)}條件'
+            default_name = f'篩選_{_filter_label[:12].strip()}_{today_str}'.replace(' ', '_')
             with _scols[0]:
                 save_name = st.text_input(
                     '清單名稱', value=default_name,
@@ -7396,7 +7419,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 105  # v9.13：篩選器市場選項改成「全部 / 只 TW / 只 US」+ 顯示 TW/US 分別計數 2026-05-06
+_RESULTS_VERSION = 106  # v9.13：篩選器支援多條件 (multiselect AND/OR) 2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
