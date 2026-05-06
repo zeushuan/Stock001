@@ -254,6 +254,8 @@ def get_tv_url(ticker: str, market: str) -> str:
         return base + f"TWSE:{ticker}"
     if market in ("NASDAQ","NYSE","AMEX","OTC"):
         return base + f"{market}:{ticker}"
+    # 🆕 v9.13：US 股票無明確交易所 → 不加前綴讓 TradingView 自動偵測
+    # 修：原本 default 'NASDAQ' 對 NYSE 股（PL/JPM/BAC 等）會產生不存在 URL
     return base + ticker
 
 def get_ai_url(ticker: str, name: str, d: dict,
@@ -4487,7 +4489,9 @@ def parse_input(text: str) -> list:
         elif ticker in SYMBOL_ALIASES:
             stocks.append((ticker, "指數"))
         else:
-            market = parts[1].upper() if len(parts) > 1 else "NASDAQ"
+            # 🆕 v9.13 fix：移除 NASDAQ 預設（讓 TradingView 自動偵測交易所）
+            # 原本 default 'NASDAQ' 對 NYSE/AMEX 股票（如 PL/JPM）會產生不存在的 URL
+            market = parts[1].upper() if len(parts) > 1 else "US"
             stocks.append((ticker, market))
     return stocks
 
@@ -7439,7 +7443,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 107  # v9.13：篩選器加排除條件（exclude）— 三層 include/AND-OR/exclude 2026-05-06
+_RESULTS_VERSION = 108  # v9.13：修 TradingView 連結（NYSE/NASDAQ 自動偵測，不再預設 NASDAQ）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
