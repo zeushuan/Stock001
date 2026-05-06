@@ -6583,7 +6583,7 @@ def _render_screener_panel():
         with cols[1]:
             scan_market = st.selectbox(
                 '市場',
-                options=['🇹🇼+🇺🇸 全部', '🇹🇼 TW only', '🇺🇸 US only'],
+                options=['全部 (TW+US)', '只 TW 台股', '只 US 美股'],
                 key='screener_market',
                 label_visibility='collapsed'
             )
@@ -6606,14 +6606,18 @@ def _render_screener_panel():
             DATA = _P(__file__).parent / 'data_cache'
             screener_json = _P(__file__).parent / 'screener_results.json'
 
+            # 🆕 v9.13：明確的市場篩選邏輯（用「只 TW / 只 US / 全部」）
+            want_tw = ('全部' in scan_market) or ('只 TW' in scan_market) or ('TW only' in scan_market)
+            want_us = ('全部' in scan_market) or ('只 US' in scan_market) or ('US only' in scan_market)
+
             # 先檢查 data_cache 是否有 parquet 檔
             tw_uni, us_uni = [], []
             if DATA.exists():
-                if 'TW' in scan_market or '全部' in scan_market:
+                if want_tw:
                     tw_uni = sorted([p.stem for p in DATA.glob('*.parquet')
                                       if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
                                       and not p.stem.startswith('00')])
-                if 'US' in scan_market or '全部' in scan_market:
+                if want_us:
                     US_ETF_EX = {'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','EFA','AGG',
                                  'LQD','HYG','GLD','SLV','USO','UNG','UCO','SCO','EEM','EWJ','EWZ','EWY',
                                  'FXI','MCHI','XLK','XLF','XLV','XLE','XLY','XLP','XLI','XLU','XLB','XLC',
@@ -6631,13 +6635,17 @@ def _render_screener_panel():
                     try:
                         d = _json.loads(screener_json.read_text(encoding='utf-8'))
                         all_results = d.get('by_filter', {}).get(filter_name, [])
-                        # 篩選市場
-                        if 'TW' in scan_market and '全部' not in scan_market:
+                        # 篩選市場（明確邏輯）
+                        before = len(all_results)
+                        if want_tw and not want_us:
                             all_results = [r for r in all_results if r.get('market') == 'tw']
-                        elif 'US' in scan_market and '全部' not in scan_market:
+                        elif want_us and not want_tw:
                             all_results = [r for r in all_results if r.get('market') == 'us']
-                        st.success(f'✅ 雲端模式 — 從預計算結果取得 **{len(all_results)} 檔** '
-                                    f'（資料時間：{d.get("computed_at", "?")}）')
+                        # 診斷訊息
+                        tw_n = sum(1 for r in all_results if r.get('market') == 'tw')
+                        us_n = sum(1 for r in all_results if r.get('market') == 'us')
+                        st.success(f'✅ 雲端模式 — 從預計算結果取得 **{len(all_results)} 檔**'
+                                    f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）｜資料時間：{d.get("computed_at", "?")}')
                         st.session_state['screener_results'] = all_results
                         st.session_state['screener_last_filter'] = filter_name
                         st.rerun()
@@ -7388,7 +7396,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 104  # v9.13：移除「全市場 T1 即將上穿 watchlist」獨立 panel（功能已涵蓋在篩選器）2026-05-03
+_RESULTS_VERSION = 105  # v9.13：篩選器市場選項改成「全部 / 只 TW / 只 US」+ 顯示 TW/US 分別計數 2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
