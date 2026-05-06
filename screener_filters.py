@@ -186,6 +186,16 @@ def f_t1_fresh(s):
     cd = s.get('cross_days')
     return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 1 <= cd <= 10
 
+def f_t1_today(s):
+    """🆕 v9.14：T1 黃金交叉 0-1 天（今天/昨天剛 cross，最早期進場）"""
+    cd = s.get('cross_days')
+    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 0 <= cd <= 1
+
+def f_t1_day3(s):
+    """🆕 v9.14：T1 黃金交叉 第 3 天（早鳥確認後進場）"""
+    cd = s.get('cross_days')
+    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd == 3
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -330,6 +340,8 @@ FILTERS = {
     '🎰 王炸組合：跌深+T1+多頭+ADX': f_wangzhao_combo,
     '📉 跌深反彈（≥30% + 多頭）': f_drop_deep_bull,
     '🚀 高波動 alpha（多頭+ATR/P>5%）': f_high_volatility_alpha,
+    '🌟 T1 剛剛黃金交叉（0-1天，最早）': f_t1_today,
+    '⚡ T1 黃金交叉 第 3 天（早鳥確認）': f_t1_day3,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
