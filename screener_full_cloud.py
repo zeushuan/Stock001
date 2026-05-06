@@ -41,27 +41,56 @@ def _calc_ind(df):
     return df
 
 
-def _fetch_batch(tickers, period='1y'):
+def _fetch_batch(tickers, period='1y', is_tw=False):
+    """🆕 v9.13：TW 用較小 batch (25) + 失敗時 retry，避免 GitHub Actions 環境下大批 .TW 抓不到"""
     out = {}
-    BATCH = 50
+    BATCH = 25 if is_tw else 50  # TW 用較小 batch
+    failed_tickers = []
     for i in range(0, len(tickers), BATCH):
         batch = tickers[i:i+BATCH]
-        try:
-            df = yf.download(batch, period=period, interval='1d',
-                             auto_adjust=False, progress=False,
-                             group_by='ticker', threads=True)
-            if df is None or df.empty: continue
-            for t in batch:
-                try:
-                    if len(batch) == 1: sub = df
-                    else: sub = df[t]
-                    sub = sub.dropna(how='all')
-                    if len(sub) >= 60: out[t] = sub
-                except Exception: continue
-        except Exception as e:
-            print(f"  ❌ batch {i//BATCH+1} 失敗: {str(e)[:80]}")
+        success = False
+        for retry in range(2):  # 最多 2 次嘗試
+            try:
+                df = yf.download(batch, period=period, interval='1d',
+                                 auto_adjust=False, progress=False,
+                                 group_by='ticker', threads=True)
+                if df is None or df.empty:
+                    if retry == 0:
+                        time.sleep(2); continue
+                    break
+                batch_count = 0
+                for t in batch:
+                    try:
+                        if len(batch) == 1: sub = df
+                        else: sub = df[t]
+                        sub = sub.dropna(how='all')
+                        if len(sub) >= 60:
+                            out[t] = sub
+                            batch_count += 1
+                    except Exception: continue
+                success = True
+                break
+            except Exception as e:
+                if retry == 0:
+                    print(f"  ⚠️ batch {i//BATCH+1} 第 1 次失敗 (retry): {str(e)[:60]}")
+                    time.sleep(3)
+                else:
+                    print(f"  ❌ batch {i//BATCH+1} 兩次失敗: {str(e)[:80]}")
+        if not success:
+            failed_tickers.extend(batch)
         if (i // BATCH + 1) % 5 == 0:
             print(f"  📦 進度 {i//BATCH+1}/{(len(tickers)+BATCH-1)//BATCH}: 累計 {len(out)} 檔")
+
+    # 失敗的 ticker 個別重試
+    if failed_tickers:
+        print(f"  🔁 個別重試 {len(failed_tickers)} 檔失敗...")
+        for t in failed_tickers[:30]:  # 限 30 個避免太慢
+            try:
+                df = yf.download(t, period=period, interval='1d',
+                                 auto_adjust=False, progress=False)
+                if df is not None and len(df) >= 60:
+                    out[t] = df.dropna(how='all')
+            except Exception: continue
     return out
 
 
@@ -92,9 +121,9 @@ def scan_market(market, tickers, name_map):
     print(f"\n{flag} {market.upper()} 掃描: {len(tickers)} 檔")
 
     yf_tickers = [f'{t}.TW' for t in tickers] if market == 'tw' else tickers
-    print(f"  📥 yfinance batch（period=1y）...")
+    print(f"  📥 yfinance batch（period=1y, batch={'25(TW)' if market=='tw' else '50(US)'}）...")
     t0 = time.time()
-    df_dict = _fetch_batch(yf_tickers, period='1y')
+    df_dict = _fetch_batch(yf_tickers, period='1y', is_tw=(market == 'tw'))
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
 
     # 算指標 + 跑所有 filter
