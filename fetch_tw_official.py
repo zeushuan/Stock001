@@ -35,9 +35,9 @@ _DEBUG_PRINTED = {'twse_first': False, 'tpex_first': False}
 
 
 def fetch_twse_day(date_str, debug=False):
-    """TWSE 上市個股單日 OHLCV
-    date_str: YYYYMMDD
-    回傳：dict[ticker] = (open, high, low, close, volume)"""
+    """TWSE 上市個股單日 OHLCV — 解析 tables[8] 每日收盤行情
+    fields: ['證券代號', '證券名稱', '成交股數', '成交筆數', '成交金額',
+             '開盤價', '最高價', '最低價', '收盤價', ...]"""
     url = ("https://www.twse.com.tw/exchangeReport/MI_INDEX"
            f"?response=json&date={date_str}&type=ALLBUT0999")
     try:
@@ -45,37 +45,24 @@ def fetch_twse_day(date_str, debug=False):
             'User-Agent': 'Mozilla/5.0',
             'Accept': 'application/json',
         })
-        if not _DEBUG_PRINTED['twse_first']:
-            print(f"  [DEBUG] TWSE 第一個請求 {date_str}: status={r.status_code}, len={len(r.text)}, content-type={r.headers.get('Content-Type', '')[:50]}")
-            if r.status_code != 200:
-                print(f"  [DEBUG] body 前 300 字: {r.text[:300]}")
-            _DEBUG_PRINTED['twse_first'] = True
         if r.status_code != 200: return {}
         d = r.json()
-        if d.get('stat') != 'OK':
-            if not _DEBUG_PRINTED.get('twse_stat_printed'):
-                print(f"  [DEBUG] TWSE stat != OK: stat='{d.get('stat')}', date={date_str}")
-                _DEBUG_PRINTED['twse_stat_printed'] = True
-            return {}
+        if d.get('stat') and d.get('stat') != 'OK': return {}
         out = {}
-        # tables[8] 是「每日收盤行情(全部)」(index 可能變動，依 fields 判斷)
         for table in d.get('tables', []):
             fields = table.get('fields', [])
-            if not fields: continue
-            # 找含「證券代號」+「開盤價」「最高價」「最低價」「收盤價」「成交股數」的 table
-            try:
-                idx_code = fields.index('證券代號')
-                idx_open = fields.index('開盤價')
-                idx_high = fields.index('最高價')
-                idx_low  = fields.index('最低價')
-                idx_close = fields.index('收盤價')
-                idx_vol = fields.index('成交股數')
-            except ValueError:
-                continue
+            if '證券代號' not in fields: continue
+            # 找 indices
+            idx_code = fields.index('證券代號')
+            idx_open = fields.index('開盤價') if '開盤價' in fields else -1
+            idx_high = fields.index('最高價') if '最高價' in fields else -1
+            idx_low  = fields.index('最低價') if '最低價' in fields else -1
+            idx_close = fields.index('收盤價') if '收盤價' in fields else -1
+            idx_vol = fields.index('成交股數') if '成交股數' in fields else -1
+            if -1 in (idx_open, idx_high, idx_low, idx_close, idx_vol): continue
             for row in table.get('data', []):
                 code = row[idx_code].strip()
-                if not code or not code.isdigit(): continue
-                if len(code) != 4: continue
+                if not code.isdigit() or len(code) != 4: continue
                 if code.startswith('00'): continue  # ETF
                 ohlcv = (
                     _safe_float(row[idx_open]),
@@ -86,15 +73,21 @@ def fetch_twse_day(date_str, debug=False):
                 )
                 if all(x is not None for x in ohlcv):
                     out[code] = ohlcv
-            break  # 找到 main table 就 break
+            break
+        if not _DEBUG_PRINTED['twse_first']:
+            print(f"  [DEBUG] TWSE {date_str}: 解析到 {len(out)} 檔")
+            _DEBUG_PRINTED['twse_first'] = True
         return out
     except Exception as e:
+        if not _DEBUG_PRINTED.get('twse_err'):
+            print(f"  [ERROR] TWSE {date_str}: {type(e).__name__}: {e}")
+            _DEBUG_PRINTED['twse_err'] = True
         return {}
 
 
 def fetch_tpex_day(date_str, debug=False):
-    """TPEX 上櫃個股單日 OHLCV
-    date_str: YYYYMMDD（會轉成民國年 YYY/MM/DD）"""
+    """TPEX 上櫃個股單日 OHLCV — 解析 tables[0] 上櫃股票行情
+    fields: ['代號', '名稱', '收盤', '漲跌', '開盤', '最高', '最低', '均價', '成交股數', ...]"""
     y = int(date_str[:4]) - 1911
     m = date_str[4:6]; d = date_str[6:8]
     url = ("https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/"
@@ -105,31 +98,41 @@ def fetch_tpex_day(date_str, debug=False):
             'Accept': 'application/json',
             'Referer': 'https://www.tpex.org.tw/',
         })
-        if not _DEBUG_PRINTED['tpex_first']:
-            print(f"  [DEBUG] TPEX 第一個請求 {date_str}: status={r.status_code}, len={len(r.text)}")
-            if r.status_code != 200:
-                print(f"  [DEBUG] TPEX body 前 200 字: {r.text[:200]}")
-            _DEBUG_PRINTED['tpex_first'] = True
         if r.status_code != 200: return {}
         d_json = r.json()
         out = {}
-        # TPEX response: {'aaData': [[code, name, close, change, open, high, low, ...], ...]}
-        for row in d_json.get('aaData', []):
-            try:
-                code = row[0].strip()
+        for table in d_json.get('tables', []):
+            fields = table.get('fields', [])
+            if '代號' not in fields: continue
+            idx_code = fields.index('代號')
+            idx_open = fields.index('開盤') if '開盤' in fields else -1
+            idx_high = fields.index('最高') if '最高' in fields else -1
+            idx_low  = fields.index('最低') if '最低' in fields else -1
+            idx_close = fields.index('收盤') if '收盤' in fields else -1
+            idx_vol = fields.index('成交股數') if '成交股數' in fields else -1
+            if -1 in (idx_open, idx_high, idx_low, idx_close, idx_vol): continue
+            for row in table.get('data', []):
+                code = str(row[idx_code]).strip()
                 if not code.isdigit() or len(code) != 4: continue
                 if code.startswith('00'): continue
-                close = _safe_float(row[2])
-                opn   = _safe_float(row[4])
-                high  = _safe_float(row[5])
-                low   = _safe_float(row[6])
-                vol   = _safe_float(row[8])  # 成交股數
-                ohlcv = (opn, high, low, close, vol)
+                ohlcv = (
+                    _safe_float(row[idx_open]),
+                    _safe_float(row[idx_high]),
+                    _safe_float(row[idx_low]),
+                    _safe_float(row[idx_close]),
+                    _safe_float(row[idx_vol]),
+                )
                 if all(x is not None for x in ohlcv):
                     out[code] = ohlcv
-            except Exception: continue
+            break
+        if not _DEBUG_PRINTED['tpex_first']:
+            print(f"  [DEBUG] TPEX {date_str}: 解析到 {len(out)} 檔")
+            _DEBUG_PRINTED['tpex_first'] = True
         return out
-    except Exception:
+    except Exception as e:
+        if not _DEBUG_PRINTED.get('tpex_err'):
+            print(f"  [ERROR] TPEX {date_str}: {type(e).__name__}: {e}")
+            _DEBUG_PRINTED['tpex_err'] = True
         return {}
 
 
