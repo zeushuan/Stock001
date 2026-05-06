@@ -115,38 +115,17 @@ def get_full_universe(market):
     return []
 
 
-def _fetch_tw_via_twstock(tickers):
-    """🆕 v9.13：用 twstock 抓 TW 資料（不依賴 yfinance .TW，免被 GitHub runner 阻擋）
-    每檔抓 ~13 個月（涵蓋 EMA60/EMA120 等指標需求）"""
-    import twstock
-    from datetime import datetime
-    out = {}
-    today = datetime.now()
-    start_year = today.year - 1
-    start_month = today.month
-    failed = 0
-    for idx, t in enumerate(tickers, 1):
-        try:
-            stock = twstock.Stock(t)
-            stock.fetch_from(start_year, start_month)
-            if len(stock.price) < 60:
-                failed += 1; continue
-            df = pd.DataFrame({
-                'Open': stock.open,
-                'High': stock.high,
-                'Low': stock.low,
-                'Close': stock.price,
-                'Volume': stock.capacity,
-            }, index=pd.DatetimeIndex(stock.date))
-            df = df.dropna(how='all')
-            if len(df) >= 60:
-                out[t] = df
-            else:
-                failed += 1
-        except Exception:
-            failed += 1
-        if idx % 100 == 0:
-            print(f"  📦 twstock 進度 {idx}/{len(tickers)}: 累計 {len(out)} 檔 / 失敗 {failed}")
+def _fetch_tw_via_official(tickers):
+    """🆕 v9.14：直接用 TWSE/TPEX 官方 API 抓全市場單日資料（200 個交易日）
+    不依賴 twstock 套件，純 HTTP 請求 → 免被 GitHub runner 阻擋
+    速度：~6 分鐘抓全 TW 200 天歷史"""
+    from fetch_tw_official import fetch_all_tw_history
+    print(f"  📥 TWSE/TPEX 官方 API（不依賴 twstock，200 個交易日）...")
+    all_data = fetch_all_tw_history(days=200)
+    # 過濾只回傳被請求的 ticker（保護 universe 一致性）
+    requested = set(tickers)
+    out = {t: df for t, df in all_data.items() if t in requested}
+    print(f"  TW 全市場抓到 {len(all_data)} 檔，universe 命中 {len(out)} 檔")
     return out
 
 
@@ -157,9 +136,8 @@ def scan_market(market, tickers, name_map):
 
     t0 = time.time()
     if market == 'tw':
-        # 🆕 v9.13：TW 改用 twstock（yfinance .TW 在 GitHub runner 不穩定）
-        print(f"  📥 twstock 抓取（period=13mo, 預估 25-35 分鐘）...")
-        df_dict = _fetch_tw_via_twstock(tickers)
+        # 🆕 v9.14：TW 改用 TWSE/TPEX 官方 API（不依賴第三方套件，~6 分鐘）
+        df_dict = _fetch_tw_via_official(tickers)
     else:
         # US 維持 yfinance batch
         print(f"  📥 yfinance batch（period=1y, batch=50）...")
