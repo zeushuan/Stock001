@@ -104,6 +104,17 @@ def get_full_universe(market):
                            and t and t[0].isdigit() and len(t) == 4
                            and not t.startswith('00')])
     elif market == 'us':
+        # 🆕 v9.14：用 us_full_tickers.json (5629 檔全市場，原本 us_applicable 只 555)
+        if Path('us_full_tickers.json').exists():
+            d = json.load(open('us_full_tickers.json', encoding='utf-8'))
+            tickers = []
+            for x in d.get('detail', []):
+                t = x.get('symbol', '').strip()
+                if t.isalpha() and t.isupper() and 1 <= len(t) <= 5:
+                    if t not in US_ETF_EXCLUDE:
+                        tickers.append(t)
+            return sorted(tickers)
+        # fallback: us_applicable.json
         if Path('us_applicable.json').exists():
             d = json.load(open('us_applicable.json', encoding='utf-8'))
             return sorted([t for t, info in d.items()
