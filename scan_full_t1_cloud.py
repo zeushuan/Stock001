@@ -91,15 +91,27 @@ def scan_universe(market, tickers):
     flag = '🇹🇼' if market == 'tw' else '🇺🇸'
     print(f"\n{flag} {market.upper()} 全市場掃描: {len(tickers)} 檔")
 
-    # yfinance 抓
-    if market == 'tw':
-        yf_tickers = [f'{t}.TW' for t in tickers]
-    else:
-        yf_tickers = tickers
-    print(f"  📥 yfinance 抓取（period=1y, batch=50）...")
+    # 🆕 v9.14：TW 改用 TWSE/TPEX 官方 API（不依賴 yfinance .TW，GitHub runner 友善）
     t0 = time.time()
-    df_dict = _fetch_batch(yf_tickers, period='1y')
-    print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
+    if market == 'tw':
+        try:
+            from fetch_tw_official import fetch_all_tw_history
+            print(f"  📥 TWSE/TPEX 官方 API（200 個交易日，預估 6-8 分鐘）...")
+            all_data = fetch_all_tw_history(days=200)
+            requested = set(tickers)
+            df_dict = {t: df for t, df in all_data.items() if t in requested}
+            print(f"  完成 {time.time()-t0:.1f}s，universe 命中 {len(df_dict)}/{len(tickers)}")
+        except Exception as e:
+            print(f"  ⚠️ TWSE/TPEX 失敗 ({e})，fallback 到 yfinance")
+            yf_tickers = [f'{t}.TW' for t in tickers]
+            df_dict = _fetch_batch(yf_tickers, period='1y')
+            print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
+    else:
+        # US 維持 yfinance batch
+        yf_tickers = tickers
+        print(f"  📥 yfinance 抓取（period=1y, batch=50）...")
+        df_dict = _fetch_batch(yf_tickers, period='1y')
+        print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(yf_tickers)}")
 
     # 名稱對應
     name_map = {}
@@ -131,7 +143,8 @@ def scan_universe(market, tickers):
     min_price = TW_MIN_PRICE if market == 'tw' else US_MIN_PRICE
 
     for yf_t, df in df_dict.items():
-        ticker = yf_t.replace('.TW', '') if market == 'tw' else yf_t
+        # 🆕 v9.14：fetch_tw_official 已用純 ticker，不需 strip .TW
+        ticker = yf_t.replace('.TW', '') if (market == 'tw' and '.TW' in yf_t) else yf_t
         df_ind = _calc_ind(df)
         if df_ind is None: continue
         if len(df_ind) < 60: continue
