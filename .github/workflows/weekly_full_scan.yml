@@ -2,11 +2,23 @@ name: Full Market T1 + Screener Scan
 
 on:
   schedule:
-    # 🆕 v9.13：每天 3 次掃描（盤後立即抓 → 篩選器資料最新鮮）
-    - cron: '35 5 * * 1-5'   # 台股盤後 13:35 台北（TWSE 收盤 13:30）
-    - cron: '5 21 * * 1-5'   # 美股盤後 05:05 台北（NYSE 收盤 04:00 台北）
-    - cron: '0 1 * * *'      # 每天 09:00 台北（盤前確認）
+    # 🆕 v9.14：升頻到一天 8 次（每 2-3 小時 1 次）→ JSON 永遠 < 3 小時舊
+    # 工作日（週一至週五）+ 週末早晨各 1 次（避免持有的股票過久沒看）
+    - cron: '0 1 * * *'      # 每天 09:00 台北（盤前）
+    - cron: '0 4 * * 1-5'    # 工作日 12:00 台北（盤中半段）
+    - cron: '35 5 * * 1-5'   # 工作日 13:35 台北（台股盤後）
+    - cron: '0 9 * * 1-5'    # 工作日 17:00 台北（晚間 1）
+    - cron: '0 13 * * 1-5'   # 工作日 21:00 台北（美盤前）
+    - cron: '0 17 * * 1-5'   # 工作日 01:00 台北（美盤中半段）
+    - cron: '5 21 * * 1-5'   # 工作日 05:05 台北（美股盤後）
+    - cron: '0 23 * * 1-5'   # 工作日 07:00 台北（隔日盤前）
   workflow_dispatch:    # 手動觸發
+
+# 🆕 v9.14：concurrency 控制 — 同一時間只跑一個 instance
+# 避免上一輪還沒跑完，下一輪就觸發造成 git push 衝突
+concurrency:
+  group: full-scan-singleton
+  cancel-in-progress: false  # 不取消，排隊等
 
 permissions:
   contents: write
@@ -17,7 +29,7 @@ env:
 jobs:
   full_scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 60   # 預估 35-40 分鐘，預留 buffer
+    timeout-minutes: 60   # 預估 15-25 分鐘（新版用 TWSE/TPEX），預留 buffer
     steps:
       - name: Checkout repo
         uses: actions/checkout@v5
