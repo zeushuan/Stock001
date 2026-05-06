@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
 APP_VERSION   = "v9.14"
-APP_UPDATED   = "2026-05-06 19:00"
+APP_UPDATED   = "2026-05-06 19:15"
 APP_NOTES     = (
     "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
     "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
@@ -7499,7 +7499,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 116  # v9.14：scan_full_t1_cloud.py 也改用 TWSE/TPEX 官方 API 抓 TW 2026-05-06
+_RESULTS_VERSION = 117  # v9.14：workflow 加 push retry + rebase（解 concurrent push 衝突）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
