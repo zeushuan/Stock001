@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
 APP_VERSION   = "v9.14"
-APP_UPDATED   = "2026-05-06 16:30"
+APP_UPDATED   = "2026-05-06 17:30"
 APP_NOTES     = (
     "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
     "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
@@ -6562,7 +6562,7 @@ def _render_screener_panel():
         from screener_filters import FILTERS
         import datetime as _dt
 
-        # 🆕 v9.13：偵測資料新鮮度
+        # 🆕 v9.13：偵測資料新鮮度（修 timezone bug — JSON 是台北時間，server 可能 UTC）
         screener_json = _P(__file__).parent / 'screener_results.json'
         data_freshness = ''
         data_color = '#7a8899'
@@ -6571,11 +6571,20 @@ def _render_screener_panel():
             try:
                 d_freshness = _json.loads(screener_json.read_text(encoding='utf-8'))
                 computed_at_str = d_freshness.get('computed_at', '?')
-                # 計算距今多久
+                # 計算距今多久（用台北時區一致比對）
                 try:
                     computed_dt = _dt.datetime.strptime(computed_at_str, '%Y-%m-%d %H:%M:%S')
-                    delta = _dt.datetime.now() - computed_dt
+                    # 🆕 Streamlit Cloud server 多為 UTC，JSON 的 computed_at 多為台北時間
+                    # 統一用台北時間比對：UTC + 8h = 台北
+                    now_taipei = _dt.datetime.utcnow() + _dt.timedelta(hours=8)
+                    delta = now_taipei - computed_dt
                     hours = delta.total_seconds() / 3600
+                    # 若是負值（server 已是台北時區）→ 用 datetime.now()
+                    if hours < -1:
+                        delta = _dt.datetime.now() - computed_dt
+                        hours = delta.total_seconds() / 3600
+                    # 取絕對值避免顯示負值
+                    hours = abs(hours)
                     if hours < 6:
                         data_color = '#3dbb6a'  # 綠 — 新鮮
                         freshness_label = f'✓ 新鮮（{hours:.1f}h 前）'
@@ -7490,7 +7499,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 112  # v9.14：APP_VERSION bump + APP_NOTES 更新（反映 5/6 所有改動）2026-05-06
+_RESULTS_VERSION = 113  # v9.14：修資料新鮮度時區 bug（JSON 台北 vs server UTC）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
