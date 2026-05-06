@@ -9,7 +9,8 @@ __pycache__/
 
 # Cache & runtime artifacts
 tw_backtest_checkpoint.csv
-tw_stock_list.json
+# 🆕 v9.14：tw_stock_list.json 改成入庫（cron 需要）
+# tw_stock_list.json
 *.log
 tw_all_log.txt
 tw_all_err.txt
