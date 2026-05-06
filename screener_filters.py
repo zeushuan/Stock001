@@ -358,16 +358,22 @@ FILTERS = {
 
 
 def filter_universe(universe, market, filter_names, min_vol=None, min_price=None,
-                     logic='AND'):
-    """🆕 v9.13：支援多條件篩選
-    filter_names: 可以是 str（單條件）或 list[str]（多條件）
-    logic: 'AND'（預設，所有條件都符合）or 'OR'（任一條件符合）
+                     logic='AND', exclude_names=None):
+    """🆕 v9.13：支援多條件篩選 + 排除條件
+    filter_names: 包含條件（list[str]）— 必須符合
+    exclude_names: 排除條件（list[str]）— 必須不符合（任一符合就排除）
+    logic: include 條件之間用 'AND' / 'OR'
+    exclude 條件之間永遠用 OR（任一符合就排除）
     """
     import data_loader as dl
 
-    # 統一成 list
     if isinstance(filter_names, str):
         filter_names = [filter_names]
+    if exclude_names is None:
+        exclude_names = []
+    if isinstance(exclude_names, str):
+        exclude_names = [exclude_names]
+
     fns = []
     for fname in filter_names:
         fn = FILTERS.get(fname)
@@ -375,6 +381,12 @@ def filter_universe(universe, market, filter_names, min_vol=None, min_price=None
             print(f"  ⚠️ 未知 filter: {fname}")
             continue
         fns.append((fname, fn))
+    excl_fns = []
+    for fname in exclude_names:
+        fn = FILTERS.get(fname)
+        if fn is None:
+            continue
+        excl_fns.append((fname, fn))
     if not fns:
         return []
 
@@ -403,10 +415,15 @@ def filter_universe(universe, market, filter_names, min_vol=None, min_price=None
 
             # 多條件邏輯
             if logic == 'AND':
-                # 所有 filter 都必須通過
                 passed = all(fn(state) for _, fn in fns)
             else:  # OR
                 passed = any(fn(state) for _, fn in fns)
+
+            # 🆕 v9.13：排除條件（任一符合就剔除）
+            if passed and excl_fns:
+                excluded = any(fn(state) for _, fn in excl_fns)
+                if excluded:
+                    passed = False
 
             if passed:
                 results.append({
@@ -430,37 +447,44 @@ def filter_universe(universe, market, filter_names, min_vol=None, min_price=None
     return results
 
 
-def intersect_from_json(by_filter_dict, filter_names, logic='AND'):
-    """🆕 v9.13：從預計算 JSON 計算多條件交集
-    by_filter_dict: dict[filter_name -> list[stock]]
-    filter_names: list[str]
-    回傳：list[stock]（已合併不同 filter 的資料，並標記 matched_filters）
+def intersect_from_json(by_filter_dict, filter_names, logic='AND', exclude_names=None):
+    """🆕 v9.13：從預計算 JSON 計算多條件結果
+    filter_names: 包含條件（list）
+    exclude_names: 排除條件（list，任一符合就剔除）
     """
     if isinstance(filter_names, str):
         filter_names = [filter_names]
+    if exclude_names is None:
+        exclude_names = []
+    if isinstance(exclude_names, str):
+        exclude_names = [exclude_names]
 
-    # 蒐集每個 filter 的 ticker → stock 對應
-    per_filter_map = {}  # filter_name → {ticker: stock_dict}
+    per_filter_map = {}
     for fname in filter_names:
         items = by_filter_dict.get(fname, [])
         per_filter_map[fname] = {r['ticker']: r for r in items}
 
-    # 算交集 / 聯集 ticker
     if not per_filter_map:
         return []
     if logic == 'AND':
         common = set.intersection(*(set(m.keys()) for m in per_filter_map.values()))
-    else:  # OR
+    else:
         common = set.union(*(set(m.keys()) for m in per_filter_map.values()))
 
-    # 用第一個 filter 的資料當基底（每個 stock 取一筆 dict）
+    # 🆕 v9.13：套排除條件
+    if exclude_names:
+        excl_tickers = set()
+        for fname in exclude_names:
+            items = by_filter_dict.get(fname, [])
+            excl_tickers.update(r['ticker'] for r in items)
+        common = common - excl_tickers
+
     out = []
     seen = set()
     for fname in filter_names:
         for ticker, stock in per_filter_map[fname].items():
             if ticker in common and ticker not in seen:
                 seen.add(ticker)
-                # 標記符合哪些 filter
                 matched = [fn for fn in filter_names if ticker in per_filter_map.get(fn, {})]
                 stock_copy = dict(stock)
                 stock_copy['matched_filters'] = matched

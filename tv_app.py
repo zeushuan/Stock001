@@ -6570,18 +6570,30 @@ def _render_screener_panel():
             unsafe_allow_html=True
         )
 
-        # UI — 🆕 v9.13：多條件 multiselect
+        # UI — 🆕 v9.13：多條件 multiselect + 排除條件
         st.markdown(
-            '<div style="font-size:.75rem;color:#7a8899;margin:6px 0 2px">'
-            '篩選條件（可複選 — 多選 = 全部都要符合）</div>',
+            '<div style="font-size:.75rem;color:#3dbb6a;margin:6px 0 2px;font-weight:700">'
+            '✅ 包含條件（多選 = 全部都要符合 / 改 OR 則任一即可）</div>',
             unsafe_allow_html=True)
         filter_names = st.multiselect(
-            '篩選條件',
+            '包含條件',
             options=list(FILTERS.keys()),
             key='screener_filter',
             label_visibility='collapsed',
             help='多選 = AND 邏輯（要全部符合）。例：倒鎚 + 多頭排列 + 強趨勢 → 三個都符合的股票才出現',
             placeholder='選擇至少一個條件...'
+        )
+        st.markdown(
+            '<div style="font-size:.75rem;color:#ff7755;margin:8px 0 2px;font-weight:700">'
+            '❌ 排除條件（選了的條件不能符合 — 任一符合就剔除）</div>',
+            unsafe_allow_html=True)
+        exclude_names = st.multiselect(
+            '排除條件',
+            options=list(FILTERS.keys()),
+            key='screener_exclude',
+            label_visibility='collapsed',
+            help='選擇要排除的條件。例：找看多但「不要即將死叉」的，把「即將死叉警告」加到這裡',
+            placeholder='（可選 — 選擇要排除的條件）'
         )
         # 邏輯選擇
         cols = st.columns([1, 1, 1, 1])
@@ -6643,15 +6655,21 @@ def _render_screener_panel():
                                       and 1 <= len(p.stem) <= 5 and p.stem not in US_ETF_EX])
 
             total_uni = len(tw_uni) + len(us_uni)
-            display_filter = ' '+logic+' '.join([f'[{f}]' for f in filter_names]) if len(filter_names) > 1 else filter_names[0]
+            # 顯示用標籤
+            inc_label = (filter_names[0] if len(filter_names) == 1
+                         else f'{len(filter_names)} 個包含條件 ({logic})')
+            exc_label = (f' / ❌ 排除 {len(exclude_names)} 條件'
+                          if exclude_names else '')
+            display_filter = inc_label + exc_label
 
-            # 🆕 雲端模式：data_cache 沒檔 → 讀 JSON + 多 filter 交集
+            # 🆕 雲端模式：data_cache 沒檔 → 讀 JSON + 多 filter 交集 + 排除
             if total_uni == 0:
                 if screener_json.exists():
                     try:
                         d = _json.loads(screener_json.read_text(encoding='utf-8'))
                         all_results = intersect_from_json(d.get('by_filter', {}),
-                                                            filter_names, logic=logic)
+                                                            filter_names, logic=logic,
+                                                            exclude_names=exclude_names)
                         # 篩選市場
                         if want_tw and not want_us:
                             all_results = [r for r in all_results if r.get('market') == 'tw']
@@ -6659,7 +6677,8 @@ def _render_screener_panel():
                             all_results = [r for r in all_results if r.get('market') == 'us']
                         tw_n = sum(1 for r in all_results if r.get('market') == 'tw')
                         us_n = sum(1 for r in all_results if r.get('market') == 'us')
-                        st.success(f'✅ 雲端模式 — {len(filter_names)} 條件 {logic} → '
+                        excl_msg = f'｜❌排除 {len(exclude_names)} 條件' if exclude_names else ''
+                        st.success(f'✅ 雲端模式 — {len(filter_names)} 包含 {logic}{excl_msg} → '
                                     f'**{len(all_results)} 檔**'
                                     f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）｜資料時間：{d.get("computed_at", "?")}')
                         st.session_state['screener_results'] = all_results
@@ -6685,19 +6704,20 @@ def _render_screener_panel():
             st.info(f'📊 即時掃描: {", ".join(f"{m}: {len(u)} 檔" for m, u in universes)}'
                     f' ｜ {len(filter_names)} 條件 {logic}')
 
-            with st.spinner(f'掃描 {total_uni} 檔... ({len(filter_names)} 條件 {logic})'):
+            with st.spinner(f'掃描 {total_uni} 檔... ({len(filter_names)} 包含 {logic} + {len(exclude_names)} 排除)'):
                 import time as _t
                 t0 = _t.time()
                 all_results = []
                 for market, uni in universes:
-                    # 🆕 v9.13：傳整個 list + logic
-                    res = filter_universe(uni, market, filter_names, logic=logic)
+                    res = filter_universe(uni, market, filter_names, logic=logic,
+                                            exclude_names=exclude_names)
                     all_results.extend(res)
                 elapsed = _t.time() - t0
             tw_n = sum(1 for r in all_results if r.get('market') == 'tw')
             us_n = sum(1 for r in all_results if r.get('market') == 'us')
+            excl_msg = f'｜❌排除 {len(exclude_names)} 條件' if exclude_names else ''
             st.success(f'✅ 完成 ({elapsed:.1f}s) — 找到 **{len(all_results)} 檔**'
-                        f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）')
+                        f'（🇹🇼 {tw_n} / 🇺🇸 {us_n}）{excl_msg}')
 
             # 載入 name map
             name_map = {}
@@ -7419,7 +7439,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 106  # v9.13：篩選器支援多條件 (multiselect AND/OR) 2026-05-06
+_RESULTS_VERSION = 107  # v9.13：篩選器加排除條件（exclude）— 三層 include/AND-OR/exclude 2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
