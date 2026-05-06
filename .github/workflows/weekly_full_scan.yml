@@ -2,10 +2,10 @@ name: Full Market T1 + Screener Scan
 
 on:
   schedule:
-    # 🆕 v9.13：改成每天 09:00 台北（= UTC 01:00），確保篩選器資料每日更新
-    # 預估每次 35-45 分鐘（T1 imminent + 命中率回算 + 篩選器預計算）
-    # 一週 ~5 小時 GitHub Actions（公開 repo 免費無限制）
-    - cron: '0 1 * * *'   # 每天 09:00 台北
+    # 🆕 v9.13：每天 3 次掃描（盤後立即抓 → 篩選器資料最新鮮）
+    - cron: '35 5 * * 1-5'   # 台股盤後 13:35 台北（TWSE 收盤 13:30）
+    - cron: '5 21 * * 1-5'   # 美股盤後 05:05 台北（NYSE 收盤 04:00 台北）
+    - cron: '0 1 * * *'      # 每天 09:00 台北（盤前確認）
   workflow_dispatch:    # 手動觸發
 
 permissions:

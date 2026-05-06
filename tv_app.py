@@ -6554,23 +6554,69 @@ _render_alerts_panel()
 
 
 def _render_screener_panel():
-    """🆕 v9.13：全市場篩選器（下拉式選單，34 種驗證過的指標組合）"""
+    """🆕 v9.13：全市場篩選器（下拉式選單，37 種驗證過的指標組合）"""
     try:
         from pathlib import Path as _P
         import json as _json
         from screener_filters import FILTERS
+        import datetime as _dt
+
+        # 🆕 v9.13：偵測資料新鮮度
+        screener_json = _P(__file__).parent / 'screener_results.json'
+        data_freshness = ''
+        data_color = '#7a8899'
+        data_warning = ''
+        if screener_json.exists():
+            try:
+                d_freshness = _json.loads(screener_json.read_text(encoding='utf-8'))
+                computed_at_str = d_freshness.get('computed_at', '?')
+                # 計算距今多久
+                try:
+                    computed_dt = _dt.datetime.strptime(computed_at_str, '%Y-%m-%d %H:%M:%S')
+                    delta = _dt.datetime.now() - computed_dt
+                    hours = delta.total_seconds() / 3600
+                    if hours < 6:
+                        data_color = '#3dbb6a'  # 綠 — 新鮮
+                        freshness_label = f'✓ 新鮮（{hours:.1f}h 前）'
+                    elif hours < 24:
+                        data_color = '#7abadd'  # 藍 — 尚可
+                        freshness_label = f'△ 尚可（{hours:.1f}h 前）'
+                    elif hours < 48:
+                        data_color = '#e8a020'  # 橘 — 偏舊
+                        freshness_label = f'⚠️ 偏舊（{hours/24:.1f}d 前）'
+                        data_warning = ' — 建議手動觸發 cron 取得新資料'
+                    else:
+                        data_color = '#ff5555'  # 紅 — 過時
+                        freshness_label = f'🚨 過時（{hours/24:.1f}d 前）'
+                        data_warning = ' — 資料嚴重過時，請立即手動觸發 cron'
+                    data_freshness = (
+                        f'<span style="color:{data_color};font-weight:700;font-size:.78rem">{freshness_label}</span>'
+                        f'<span style="color:#7a8899;font-size:.72rem"> ｜ '
+                        f'資料時間：{computed_at_str}{data_warning}</span>'
+                    )
+                except Exception:
+                    data_freshness = (
+                        f'<span style="color:#7a8899;font-size:.72rem">資料時間：{computed_at_str}</span>'
+                    )
+            except Exception:
+                pass
 
         st.markdown(
             f'<div style="background:#0f1830;border:2px solid #5a8ab0;'
             f'border-radius:10px;padding:10px 14px;margin:12px 0">'
             f'<div style="font-size:1.05rem;font-weight:700;color:#7abadd;'
             f'margin-bottom:4px">'
-            f'🔍 全市場篩選器 — 34 種驗證過的指標組合'
+            f'🔍 全市場篩選器 — {len(FILTERS)} 種驗證過的指標組合'
             f'</div>'
-            f'<div style="font-size:.7rem;color:#a8c8d8;line-height:1.5">'
-            f'掃描全部 1925 TW + 2254 US，用驗證過的 alpha 訊號篩選 ｜'
-            f'每次掃描約 10-15 秒（用 data_cache parquet）'
-            f'</div></div>',
+            f'<div style="font-size:.7rem;color:#a8c8d8;line-height:1.5;margin-bottom:6px">'
+            f'掃描全部 1925 TW + 2254 US，用驗證過的 alpha 訊號篩選'
+            f'</div>'
+            # 🆕 資料新鮮度 banner
+            f'<div style="background:#0a1422;border-left:3px solid {data_color};'
+            f'padding:5px 10px;border-radius:4px;margin-top:6px">'
+            f'📅 {data_freshness}'
+            f'</div>'
+            f'</div>',
             unsafe_allow_html=True
         )
 
@@ -7443,7 +7489,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 109  # v9.13：篩選器加假多頭/假空頭/弱趨勢 3 個 filter (37 個總共) 2026-05-06
+_RESULTS_VERSION = 110  # v9.13：篩選器顯示資料新鮮度 + 加 2 盤後 cron（13:35 / 05:05）2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
