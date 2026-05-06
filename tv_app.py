@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
 APP_VERSION   = "v9.14"
-APP_UPDATED   = "2026-05-06 19:45"
+APP_UPDATED   = "2026-05-06 20:00"
 APP_NOTES     = (
     "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
     "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
@@ -6810,14 +6810,32 @@ def _render_screener_panel():
         results = st.session_state.get('screener_results', [])
         last_filter = st.session_state.get('screener_last_filter', '')
         if results:
+            # 🆕 v9.14：算 JSON 距今幾天（用於 cross_days 推算）
+            json_age_days = 0
+            try:
+                if screener_json.exists():
+                    d_age = _json.loads(screener_json.read_text(encoding='utf-8'))
+                    cat_str = d_age.get('computed_at', '')
+                    if cat_str:
+                        cat_dt = _dt.datetime.strptime(cat_str, '%Y-%m-%d %H:%M:%S')
+                        now_taipei = _dt.datetime.utcnow() + _dt.timedelta(hours=8)
+                        delta_h = (now_taipei - cat_dt).total_seconds() / 3600
+                        if delta_h < -1:
+                            delta_h = (_dt.datetime.now() - cat_dt).total_seconds() / 3600
+                        json_age_days = max(0, int(abs(delta_h) / 24))
+            except Exception: pass
+
             # 排序：imminent_dc 後排（潛在風險）
             def _sort_key(r):
                 return (1 if r.get('imminent_dc') else 0, r.get('rsi') or 99)
             results = sorted(results, key=_sort_key)
 
+            stale_note = (f' ⚠️ 資料 {json_age_days} 天舊（cross_days 已實際過 {json_age_days} 天）'
+                           if json_age_days >= 2 else '')
             st.markdown(
                 f'<div style="font-weight:700;color:#7abadd;margin-bottom:6px;'
                 f'font-size:.9rem">📋 結果（{last_filter}） — {len(results)} 檔'
+                f'<span style="color:#e8a020;font-size:.7rem;font-weight:400">{stale_note}</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -6829,7 +6847,16 @@ def _render_screener_panel():
                 bull_tag = ('🟢 多頭' if r.get('is_bull') else '🔴 空頭')
                 dc_warn = ' ⚠️死叉' if r.get('imminent_dc') else ''
                 cd = r.get('cross_days')
-                cd_str = f'+{cd}d' if cd and cd > 0 else (f'{cd}d' if cd else '-')
+                # 🆕 v9.14：顯示「篩選時 cross_days + 推算今日」
+                if cd is not None and cd > 0:
+                    if json_age_days >= 1:
+                        cd_str = f'+{cd}d→今 +{cd+json_age_days}d'
+                    else:
+                        cd_str = f'+{cd}d'
+                elif cd:
+                    cd_str = f'{cd}d'
+                else:
+                    cd_str = '-'
                 row_bg = ';background:#1a0a0a' if r.get('imminent_dc') else ''
                 pctb_str = f'{r["pct_b"]:.2f}' if r.get('pct_b') is not None else '-'
                 rows_html.append(
@@ -6846,8 +6873,8 @@ def _render_screener_panel():
                     f'RSI {r.get("rsi") or "-"}</span>'
                     f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
                     f'ADX {r.get("adx") or "-"}</span>'
-                    f'<span style="color:#7a8899;font-family:monospace;min-width:55px;font-size:.72rem" '
-                    f'title="EMA20 cross 天數">cross {cd_str}</span>'
+                    f'<span style="color:#7a8899;font-family:monospace;min-width:90px;font-size:.72rem" '
+                    f'title="EMA20 cross 天數（篩選時點 → 推算今日）">cross {cd_str}</span>'
                     f'<span style="color:#5a9acf;font-family:monospace;min-width:55px;font-size:.72rem" '
                     f'title="BB %B">%B {pctb_str}</span>'
                     f'<span style="color:#a8c8d8;font-family:monospace;min-width:55px;font-size:.72rem" '
@@ -7499,7 +7526,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 119  # v9.14：T1 加 0-1 天 + 第 3 天兩個 filter（共 39 filter）2026-05-06
+_RESULTS_VERSION = 120  # v9.14：篩選結果 row 顯示「篩選時 cross_days→推算今日」+ 資料舊警告 2026-05-06
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
