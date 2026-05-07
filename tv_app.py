@@ -8,17 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.14"
-APP_UPDATED   = "2026-05-07 09:45"
+APP_VERSION   = "v9.15"
+APP_UPDATED   = "2026-05-07 16:30"
 APP_NOTES     = (
-    "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
-    "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
-    "🆕 cron 升級到一天 3 次（13:35 台股盤後 + 05:05 美股盤後 + 09:00 盤前確認）｜ "
-    "🆕 TW 改用 twstock 抓資料（解決 yfinance .TW 在 GitHub runner 阻擋）｜ "
-    "🆕 BB 全套整合（OANDA 10 種判斷 + 警報 + detail card 顯示）｜ "
-    "🆕 T1 imminent 命中率追蹤 + watchlist 整合到篩選器 ｜ "
-    "🥇 台股最佳：倒鎚 h30 pos=50 drop_deep → Sharpe 1.74 / MDD -4.64% ｜ "
-    "🥇 美股最佳：T1_V7 h60 pos=10 → Sharpe 2.74 / CAGR +16.40% ⭐⭐"
+    "🆕 波段策略 walk-forward OOS 驗證（TW+US 4179 檔, 2020-2026）｜ "
+    "🆕 detail card 加「🌊波段診斷」section（自動偵測 B 入場/接近突破/過熱出場/警示）｜ "
+    "🆕 篩選器加 5 個 OOS 驗證波段 filter（48 個 filter）：B入場 / 近突破 / 過熱該賣（RSI≥80）｜ "
+    "🥇 OOS robust 唯一策略：Strategy B 突破前高 + rsi 動態出場（跨 TW+US 雙市場通）｜ "
+    "  - rsi_70：65% 勝率 / +1.3% 報酬（保守）｜ rsi_75：61% / +2.6%（平衡）｜ rsi_80：54% / +4.0%（進取）｜ "
+    "🥇 Portfolio 投組 OOS：🇺🇸 rsi_80+pos5 CAGR +83.79% Sharpe 1.33 ｜ 🇹🇼 rsi_80+adx_high+pos50 CAGR +14.75% Sharpe 1.95 ⭐⭐ ｜ "
+    "⚠️ Strategy A 趨勢延續 OOS 失效（TW 2024+ 嚴重 alpha decay）→ 暫不推薦"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -3786,6 +3785,96 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                           f"等 T3 拉回（RSI<50）出現再進場")
         action_bg, action_fg = "#0a1628", "#7a9ab0"
 
+    # ── 🌊 波段診斷（v9.15）— 基於 walk-forward OOS 驗證的 Strategy B 推薦 ──
+    # OOS robust（TW + US 雙市場）：
+    #   B + rsi_70：65% win, +1.3% mean (保守)
+    #   B + rsi_75：61% win, +2.6% mean (平衡)
+    #   B + rsi_80：54% win, +4.0% mean (進取)
+    swing_state = None  # None / 'B_entry' / 'B_near' / 'overheat_exit' / 'warn_exit' / 'dc_warn'
+    swing_rows = []
+    if is_bull and atr14:
+        # 計算波段所需的指標
+        _high60_local = float(d.get('high60', close)) if d else close
+        _vol_local = d.get('volume') if d else None
+        _vol_ma20_local = d.get('vol_ma20') if d else None
+        _vol_ratio = (_vol_local / _vol_ma20_local) if (_vol_local and _vol_ma20_local and _vol_ma20_local > 0) else 1
+        _from_high_pct = (_high60_local - close) / _high60_local * 100 if _high60_local > 0 else 99
+        _adx_v = adx if adx is not None else 0
+        _rsi_v = rsi if rsi is not None else 0
+
+        # ① 過熱出場警示（最高優先）
+        if _rsi_v >= 80:
+            swing_state = 'overheat_exit'
+            swing_rows.append(
+                f'<div style="background:#3a0a0a;border-left:4px solid #ff5555;'
+                f'padding:8px 12px;border-radius:4px">'
+                f'<b style="color:#ff5555;font-size:.92rem">🚪 波段過熱出場警示</b>'
+                f'<div style="color:#ffaaaa;font-size:.74rem;margin-top:4px;line-height:1.5">'
+                f'RSI {_rsi_v:.0f} ≥ 80（過熱）+ 多頭排列 →'
+                f'<br><b>OOS 驗證：rsi_80 是 Strategy B 最佳出場點</b>'
+                f'（54% 勝率、+4.0% 平均報酬，跨 TW+US 兩市場 robust）'
+                f'<br>📌 <b>若你持有此股，1-2 天內應獲利了結</b>'
+                f'</div></div>'
+            )
+        # ② 接近過熱（觀察）
+        elif 75 <= _rsi_v < 80:
+            swing_state = 'warn_exit'
+            swing_rows.append(
+                f'<div style="background:#1a1408;border-left:4px solid #e8a020;'
+                f'padding:8px 12px;border-radius:4px">'
+                f'<b style="color:#e8a020;font-size:.92rem">🟡 波段接近過熱</b>'
+                f'<div style="color:#ddc080;font-size:.74rem;margin-top:4px;line-height:1.5">'
+                f'RSI {_rsi_v:.0f} 處於 75-80（rsi_75 出場區）→'
+                f'<br><b>OOS 驗證：rsi_75 = 61% 勝率、+2.6% 報酬</b>（已達不錯水準）'
+                f'<br>📌 持倉者可考慮減碼一半，或設緊停損；激進派可等 RSI≥80 再賣'
+                f'</div></div>'
+            )
+        # ③ Strategy B 入場條件達成（OOS 驗證）
+        elif (_adx_v >= 22 and _from_high_pct < 1 and _vol_ratio > 1.5 and _rsi_v < 70):
+            swing_state = 'B_entry'
+            _exit_target = close * 1.10  # 預估目標
+            swing_rows.append(
+                f'<div style="background:#0a2a14;border-left:4px solid #3dbb6a;'
+                f'padding:8px 12px;border-radius:4px">'
+                f'<b style="color:#3dbb6a;font-size:.92rem">🌟 OOS驗證 波段 B 入場條件達成</b>'
+                f'<div style="color:#a8e0c0;font-size:.74rem;margin-top:4px;line-height:1.5">'
+                f'距 60d 高 {_from_high_pct:.2f}% &lt; 1% + 量比 {_vol_ratio:.1f}x &gt; 1.5x + '
+                f'RSI {_rsi_v:.0f} &lt; 70 + ADX {_adx_v:.0f} ≥ 22'
+                f'<br><b>OOS 驗證：跨 TW+US 兩市場 robust 的唯一策略</b>'
+                f'<br>📌 <b>動態出場推薦</b>（依風險偏好擇一）：'
+                f'<br>　🛡️ <b>保守 rsi_70</b>：等 RSI≥70 賣 → 65% 勝率 / +1.3% 報酬'
+                f'<br>　⚖️ <b>平衡 rsi_75</b>：等 RSI≥75 賣 → 61% 勝率 / +2.6% 報酬'
+                f'<br>　🚀 <b>進取 rsi_80</b>：等 RSI≥80 賣 → 54% 勝率 / +4.0% 報酬'
+                f'<br>　⏰ 安全網：最長持 90 天'
+                f'</div></div>'
+            )
+        # ④ 接近突破（候選）
+        elif (_adx_v >= 22 and 1 <= _from_high_pct <= 3 and _vol_ratio > 1.2 and _rsi_v < 70):
+            swing_state = 'B_near'
+            _trigger_price = _high60_local * 1.001  # 突破 1% 之內就觸發
+            swing_rows.append(
+                f'<div style="background:#0a1828;border-left:4px solid #7abadd;'
+                f'padding:8px 12px;border-radius:4px">'
+                f'<b style="color:#7abadd;font-size:.92rem">🟢 波段近突破（候選 watchlist）</b>'
+                f'<div style="color:#bce0e8;font-size:.74rem;margin-top:4px;line-height:1.5">'
+                f'距 60d 高 {_from_high_pct:.2f}%（1-3% 區）+ 量比 {_vol_ratio:.1f}x + RSI {_rsi_v:.0f} &lt; 70'
+                f'<br>📌 等股價突破 60d 高 <b>{_high60_local:.2f}</b>（再漲 {_from_high_pct:.2f}%）+ '
+                f'量增 1.5x → 觸發 Strategy B 入場'
+                f'</div></div>'
+            )
+        # ⑤ 波段死叉警告（持倉應重評）
+        elif _imminent_dc:
+            swing_state = 'dc_warn'
+            swing_rows.append(
+                f'<div style="background:#2a1605;border-left:4px solid #ff9944;'
+                f'padding:8px 12px;border-radius:4px">'
+                f'<b style="color:#ff9944;font-size:.92rem">⚠️ 波段持倉應重評（即將死叉）</b>'
+                f'<div style="color:#ffd0a0;font-size:.74rem;margin-top:4px;line-height:1.5">'
+                f'多頭排列但 EMA20 距 EMA60 &lt; 1 ATR + 黃金交叉已 {cross_days or "?"} 天 + EMA20 走弱'
+                f'<br>📌 <b>波段已成熟，持倉者該設緊停損或主動出場</b>，不要等死叉發生'
+                f'</div></div>'
+            )
+
     # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
     _atr_mult   = 2.0 if (not is_bull and _t4_rising) else 2.5
@@ -4439,6 +4528,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         f'<span style="{tag_style}">②進場判斷</span>'
         f'<div style="{val_style}">{"".join(entry_rows)}</div>'
         f'</div>'
+        # 🌊 波段診斷（v9.15 OOS 驗證）— 只在 trigger 時顯示
+        + (
+            f'<div style="{sec_style}">'
+            f'<span style="{tag_style};background:#0a2535;color:#5dccdd">🌊波段診斷</span>'
+            f'<div style="{val_style}">{"".join(swing_rows)}</div>'
+            f'</div>'
+            if swing_rows else ''
+        )
+        +
         # ③ 出場停損
         f'<div style="{sec_style}">'
         f'<span style="{tag_style}">③出場停損</span>'
@@ -7636,7 +7734,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 125  # v9.14：篩選器加 4 種波段策略（趨勢延續/突破/拉回/動能加速）共 43 filter 2026-05-07
+_RESULTS_VERSION = 126  # v9.15：波段 OOS walk-forward 驗證 + detail card 波段診斷 + 5 個 OOS filter 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

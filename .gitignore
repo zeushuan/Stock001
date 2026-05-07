@@ -79,6 +79,8 @@ q_table.json
 # 各式 debug / analyze 腳本（暫時性，不入庫）
 debug_*.py
 analyze_*.py
+# 🆕 v9.15：保留波段 OOS 研究主腳本（被 backtest_swing_portfolio.py 引用）
+!analyze_swing_dynamic_exit.py
 test_thresholds.py
 test_v4.py
 backtest_etf.py

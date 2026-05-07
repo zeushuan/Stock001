@@ -253,6 +253,53 @@ def f_swing_momentum_acceleration(s):
             and (adx_now - adx_5d) >= 5  # 5 日內 ADX 加速 +5
             and (s.get('rsi') or 0) < 70)
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🎯 OOS 驗證波段（v9.15）— 經過 walk-forward 驗證的最佳組合
+# Walk-forward (TW+US) OOS robust:
+#   - B + rsi_80：54% win, +4.0% mean（aggressive）
+#   - B + rsi_75：61% win, +2.6% mean（balanced）
+#   - B + rsi_70：65% win, +1.3% mean（conservative）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_swing_B_entry_validated(s):
+    """🌟 OOS 驗證波段 B 入場（突破前高 ≤1% + 量增 1.5x + RSI<70 + ADX≥22）
+    跨 TW + US OOS 兩市場通：win 54-65%, mean +1.3-4.0%（依出場規則）"""
+    return (s.get('is_bull')
+            and (s.get('adx') or 0) >= 22
+            and s.get('from_high', 99) < 1
+            and s.get('vol_ratio', 0) > 1.5
+            and (s.get('rsi') or 0) < 70)  # 比原版更嚴 (<75 → <70)
+
+
+def f_swing_near_breakout(s):
+    """🟢 波段近突破：距 60d 高 1-3% + 量增 1.2x + 多頭 + ADX≥22
+    → 候選清單，等突破時進場"""
+    fh = s.get('from_high', 99)
+    return (s.get('is_bull')
+            and (s.get('adx') or 0) >= 22
+            and 1 <= fh <= 3
+            and s.get('vol_ratio', 0) > 1.2
+            and (s.get('rsi') or 0) < 70)
+
+
+def f_swing_exit_overheat(s):
+    """🚪 波段過熱出場警示：多頭 + RSI≥80
+    → 若你持有此股，OOS 驗證的最佳出場點。1-2 天內賣"""
+    return s.get('is_bull') and (s.get('rsi') or 0) >= 80
+
+
+def f_swing_exit_warning(s):
+    """🟡 波段接近過熱：多頭 + RSI 75-80
+    → 提早 watchlist，準備出場。OOS 驗證 rsi_75 = 61% win/+2.6%"""
+    rsi = s.get('rsi') or 0
+    return s.get('is_bull') and 75 <= rsi < 80
+
+
+def f_swing_exit_dc_warn(s):
+    """⚠️ 波段死叉警告：多頭 + imminent_dc（持倉應重新評估）"""
+    return s.get('is_bull') and s.get('imminent_dc', False)
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -404,6 +451,12 @@ FILTERS = {
     '🚀 波段 B：突破前高 + 量增 1.5x': f_swing_breakout,
     '💧 波段 C：拉回 EMA20（< 2% + RSI 40-55）': f_swing_pullback_to_ema20,
     '⚡ 波段 D：動能加速（ADX 5d 升 +5）': f_swing_momentum_acceleration,
+    # 🎯 OOS 驗證波段（v9.15）— walk-forward 驗證的最佳組合
+    '🌟 OOS驗證 波段B 入場（突破1%內+RSI<70）': f_swing_B_entry_validated,
+    '🟢 波段近突破（距高1-3%+量增1.2x）': f_swing_near_breakout,
+    '🚪 波段過熱該賣（多頭+RSI≥80）': f_swing_exit_overheat,
+    '🟡 波段接近過熱（多頭+RSI 75-80）': f_swing_exit_warning,
+    '⚠️ 波段死叉警告（多頭+imminent_dc）': f_swing_exit_dc_warn,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
