@@ -197,6 +197,62 @@ def f_t1_within3(s):
     return (s.get('is_bull') and s.get('adx', 0) >= 22
             and cd is not None and 0 <= cd <= 3)
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🌊 波段策略（Swing Trading）— 5-30 天持有
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def f_swing_trend_continuation(s):
+    """🌊 波段 A：趨勢延續（最穩，主力波段）
+    多頭 + ADX≥25 + RSI 45-65 健康 + T1 cross 5-15 天 + 不在過熱
+    → 趨勢已啟動且健康，拉回後再跑一段"""
+    cd = s.get('cross_days')
+    rsi = s.get('rsi') or 0
+    return (s.get('is_bull')
+            and (s.get('adx') or 0) >= 25
+            and 45 <= rsi <= 65
+            and cd is not None and 5 <= cd <= 15
+            and s.get('from_high', 99) > 2  # 不要在前高（避免追)
+            and not s.get('imminent_dc'))
+
+
+def f_swing_breakout(s):
+    """🚀 波段 B：突破波段（最猛）
+    距 60d 高 < 1%（突破中）+ 量增 1.5x + 多頭 + ADX≥22
+    → 突破前高 + 大量確認 = 動能爆發"""
+    return (s.get('is_bull')
+            and (s.get('adx') or 0) >= 22
+            and s.get('from_high', 99) < 1
+            and s.get('vol_ratio', 0) > 1.5
+            and (s.get('rsi') or 0) < 75)  # 還沒過熱
+
+
+def f_swing_pullback_to_ema20(s):
+    """💧 波段 C：拉回 EMA20 進場（中線經典）
+    多頭 + ADX≥22 + close 距 EMA20 < 2% + RSI 40-55
+    → 健康拉回到 EMA20 支撐，準備下一波"""
+    close = s.get('close', 0)
+    ema20 = s.get('ema20', 0)
+    if not (close and ema20 and ema20 > 0): return False
+    dist_ema20 = abs(close - ema20) / ema20 * 100
+    rsi = s.get('rsi') or 0
+    return (s.get('is_bull')
+            and (s.get('adx') or 0) >= 22
+            and dist_ema20 < 2
+            and 40 <= rsi <= 55
+            and not s.get('imminent_dc'))
+
+
+def f_swing_momentum_acceleration(s):
+    """⚡ 波段 D：動能加速（加碼點）
+    多頭 + ADX 從中等飆強（升 +5 點以上）+ RSI < 70
+    → ADX 突然加速 = 大行情啟動，仍未過熱"""
+    adx_now = s.get('adx') or 0
+    adx_5d = s.get('adx_5d_prev') or 0
+    return (s.get('is_bull')
+            and adx_now >= 25
+            and (adx_now - adx_5d) >= 5  # 5 日內 ADX 加速 +5
+            and (s.get('rsi') or 0) < 70)
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -343,6 +399,11 @@ FILTERS = {
     '🚀 高波動 alpha（多頭+ATR/P>5%）': f_high_volatility_alpha,
     '🌟 T1 剛剛黃金交叉（0-1天，最早）': f_t1_today,
     '⚡ T1 黃金交叉 3 天內（早期進場）': f_t1_within3,
+    # 🌊 波段策略（Swing Trading 專用，hold 5-30 天）
+    '🌊 波段 A：趨勢延續（cross 5-15d + 健康RSI）': f_swing_trend_continuation,
+    '🚀 波段 B：突破前高 + 量增 1.5x': f_swing_breakout,
+    '💧 波段 C：拉回 EMA20（< 2% + RSI 40-55）': f_swing_pullback_to_ema20,
+    '⚡ 波段 D：動能加速（ADX 5d 升 +5）': f_swing_momentum_acceleration,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
