@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
 APP_VERSION   = "v9.14"
-APP_UPDATED   = "2026-05-06 21:00"
+APP_UPDATED   = "2026-05-07 09:30"
 APP_NOTES     = (
     "🆕 篩選器多條件支援（include AND/OR + exclude）+ 37 個 filter（加假多頭/假空頭/弱趨勢）｜ "
     "🆕 篩選器 panel 永遠顯示資料新鮮度（綠 6h / 藍 24h / 橘 48h / 紅 過時）｜ "
@@ -7170,7 +7170,7 @@ with st.sidebar:
                 return {}
         return {}
 
-    def _save_watchlists(d: dict):
+    def _save_watchlists(d: dict, push_github: bool = False):
         text = _json.dumps(d, ensure_ascii=False, indent=2)
         # ① 寫 localStorage（雲端持久）
         if _localS is not None:
@@ -7183,6 +7183,60 @@ with st.sidebar:
             _WATCHLIST_FILE.write_text(text, encoding='utf-8')
         except Exception:
             pass
+        # 🆕 v9.14 ③ 推送到 GitHub（需 secrets["GITHUB_TOKEN"]）
+        if push_github:
+            return _push_watchlists_to_github(d)
+        return None
+
+    def _push_watchlists_to_github(d: dict, repo: str = 'zeushuan/Stock001',
+                                    file_path: str = 'watchlists_user.json'):
+        """🆕 v9.14：透過 GitHub API 推送 watchlists 到 repo
+        需要 Streamlit secrets 設 GITHUB_TOKEN（PAT，repo 權限）
+        回傳 (success, message)"""
+        try:
+            token = st.secrets.get('GITHUB_TOKEN', '') if hasattr(st, 'secrets') else ''
+            if not token:
+                return (False, '⚠️ 未設定 GITHUB_TOKEN secret')
+            import base64
+            content_str = _json.dumps(d, ensure_ascii=False, indent=2)
+            content_b64 = base64.b64encode(content_str.encode()).decode()
+            api_url = f'https://api.github.com/repos/{repo}/contents/{file_path}'
+            headers = {
+                'Authorization': f'token {token}',
+                'Accept': 'application/vnd.github.v3+json',
+            }
+            # Get existing file SHA (if any)
+            r = requests.get(api_url, headers=headers, timeout=10)
+            sha = r.json().get('sha') if r.status_code == 200 else None
+
+            payload = {
+                'message': f'auto: 更新 watchlists ({_dt.datetime.now().strftime("%Y-%m-%d %H:%M")})',
+                'content': content_b64,
+                'branch': 'main',
+            }
+            if sha:
+                payload['sha'] = sha
+            r = requests.put(api_url, headers=headers, json=payload, timeout=15)
+            if r.status_code in (200, 201):
+                return (True, f'✅ 已推送到 GitHub ({len(d)} 個清單)')
+            else:
+                return (False, f'❌ GitHub 推送失敗 ({r.status_code}): {r.text[:200]}')
+        except Exception as e:
+            return (False, f'❌ 推送錯誤：{type(e).__name__}: {e}')
+
+    def _pull_watchlists_from_github(repo: str = 'zeushuan/Stock001',
+                                      file_path: str = 'watchlists_user.json'):
+        """🆕 v9.14：從 GitHub repo 拉 watchlists（同步至此裝置）"""
+        try:
+            token = st.secrets.get('GITHUB_TOKEN', '') if hasattr(st, 'secrets') else ''
+            url = f'https://raw.githubusercontent.com/{repo}/main/{file_path}'
+            headers = {'Authorization': f'token {token}'} if token else {}
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code == 200 and r.text.strip():
+                return _json.loads(r.text)
+        except Exception:
+            pass
+        return None
 
     # 從 GitHub 讀取預設清單
     GITHUB_LIST_URL = "https://raw.githubusercontent.com/zeushuan/stock001/main/stocks.txt"
@@ -7199,21 +7253,45 @@ with st.sidebar:
 
     default_stocks = load_default_stocks()
 
+    # 🆕 v9.14：載入 3 個預設範本清單（持倉 / 半導體 / 高股息）
+    _PRESETS_PATH = _Path(__file__).parent / 'watchlists_presets.json'
+    @st.cache_data(ttl=None, show_spinner=False)
+    def load_presets() -> dict:
+        try:
+            if _PRESETS_PATH.exists():
+                d = _json.loads(_PRESETS_PATH.read_text(encoding='utf-8'))
+                return d.get('presets', {})
+        except Exception: pass
+        return {}
+    _presets = load_presets()
+    # 預設清單轉 ticker text 格式
+    _preset_texts = {
+        name: '\n'.join(info.get('tickers', []))
+        for name, info in _presets.items()
+    }
+
     # 載入自選股（每次 rerun 都從持久層重新讀，避免 session_state 過時）
     _wls = _load_watchlists()
     st.session_state['watchlists'] = _wls
 
-    # 自選股下拉
-    _wl_options = ["（預設清單）"] + sorted(_wls.keys())
+    # 🆕 自選股下拉：預設清單 + 預設範本（read-only，名稱前加 🔒）+ 使用者自存
+    _preset_options = [f'🔒 {name}（範本）' for name in _preset_texts.keys()]
+    _user_options = sorted(_wls.keys())
+    _wl_options = ["（預設清單）"] + _preset_options + _user_options
+
     _selected_wl = st.selectbox(
         "自選股清單", options=_wl_options,
         index=0, key="watchlist_select",
-        help="選擇已儲存的清單；下方文字框可編輯後另存新名稱"
+        help="🔒 = 範本清單（可載入但無法直接覆寫，請另存新名稱）"
     )
 
     # 依選擇載入清單內容
     if _selected_wl == "（預設清單）":
         _initial_text = default_stocks
+    elif _selected_wl.startswith('🔒 '):
+        # 範本清單：去掉 🔒 + （範本）後綴
+        _preset_name = _selected_wl[2:].rsplit('（範本）', 1)[0].strip()
+        _initial_text = _preset_texts.get(_preset_name, default_stocks)
     else:
         _initial_text = _wls.get(_selected_wl, default_stocks)
 
@@ -7238,18 +7316,50 @@ with st.sidebar:
             n = _save_name.strip()
             if not n:
                 st.warning("請先輸入清單名稱")
+            elif n.startswith('🔒') or '（範本）' in n:
+                st.warning("不能用範本名稱，請改用其他名稱")
             else:
                 _wls[n] = stock_input
-                _save_watchlists(_wls)
-                st.success(f"✓ 已存「{n}」")
+                # 🆕 v9.14：勾「同步到 GitHub」就推
+                push_ok = st.session_state.get('wl_push_github', False)
+                result = _save_watchlists(_wls, push_github=push_ok)
+                msg = f"✓ 已存「{n}」"
+                if result is not None:
+                    success, push_msg = result
+                    msg += f" ｜ {push_msg}"
+                st.success(msg)
                 st.rerun()
 
-    if _selected_wl != "（預設清單）":
+    # 🆕 v9.14：GitHub 同步 + 刪除按鈕
+    _wl_user_only = _selected_wl != "（預設清單）" and not _selected_wl.startswith('🔒 ')
+    _c3, _c4 = st.columns([2, 1])
+    with _c3:
+        st.checkbox("🔄 同步到 GitHub (需設 GITHUB_TOKEN secret)",
+                     key='wl_push_github',
+                     help='勾選後存/刪會透過 GitHub API 自動推送 watchlists_user.json')
+    with _c4:
+        if st.button("📥 從 GitHub 拉",
+                      use_container_width=True, key='wl_pull_btn',
+                      help='從 GitHub repo 拉最新 watchlists（覆蓋本地）'):
+            remote = _pull_watchlists_from_github()
+            if remote:
+                _save_watchlists(remote, push_github=False)
+                st.success(f"✓ 已拉取 {len(remote)} 個清單")
+                st.rerun()
+            else:
+                st.error("拉取失敗（檢查 GITHUB_TOKEN 或 watchlists_user.json 是否存在）")
+
+    if _wl_user_only:
         if st.button(f"🗑 刪除「{_selected_wl}」",
                      use_container_width=True, key="wl_del_btn"):
             _wls.pop(_selected_wl, None)
-            _save_watchlists(_wls)
-            st.success(f"✓ 已刪除「{_selected_wl}」")
+            push_ok = st.session_state.get('wl_push_github', False)
+            result = _save_watchlists(_wls, push_github=push_ok)
+            msg = f"✓ 已刪除「{_selected_wl}」"
+            if result is not None:
+                success, push_msg = result
+                msg += f" ｜ {push_msg}"
+            st.success(msg)
             st.rerun()
 
     # ── 🆕 匯出 / 匯入 JSON 永久備份 ────────────────────────────
@@ -7526,7 +7636,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 123  # v9.14：cron 升頻到一天 8 次（工作日每 2-3h）+ concurrency 控制 2026-05-06
+_RESULTS_VERSION = 124  # v9.14：watchlists 加 3 預設範本 + GitHub 自動推送（PAT secret）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
