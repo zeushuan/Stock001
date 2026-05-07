@@ -8,16 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.15"
-APP_UPDATED   = "2026-05-07 16:30"
+APP_VERSION   = "v9.15.1"
+APP_UPDATED   = "2026-05-07 17:30"
 APP_NOTES     = (
+    "🐛 修正 json_age_days bug：原本只看 calendar hours（10h<24h→0），"
+    "改成計數 TW 收盤 (13:30) 已過幾次 → JSON 早上跑 + 用戶下午看 = 1 交易日 已過 ｜ "
+    "🐛 修正 T1 0-1d / T1 3d 篩選器邏輯（用 cd is not None 取代 cd and...）｜ "
+    "🆕 篩選器顯示「→今 +Xd」自動標註 cross_days 偏移（snapshot vs 今日）｜ "
+    "—— 上版 v9.15 ——｜ "
     "🆕 波段策略 walk-forward OOS 驗證（TW+US 4179 檔, 2020-2026）｜ "
     "🆕 detail card 加「🌊波段診斷」section（自動偵測 B 入場/接近突破/過熱出場/警示）｜ "
-    "🆕 篩選器加 5 個 OOS 驗證波段 filter（48 個 filter）：B入場 / 近突破 / 過熱該賣（RSI≥80）｜ "
-    "🥇 OOS robust 唯一策略：Strategy B 突破前高 + rsi 動態出場（跨 TW+US 雙市場通）｜ "
-    "  - rsi_70：65% 勝率 / +1.3% 報酬（保守）｜ rsi_75：61% / +2.6%（平衡）｜ rsi_80：54% / +4.0%（進取）｜ "
-    "🥇 Portfolio 投組 OOS：🇺🇸 rsi_80+pos5 CAGR +83.79% Sharpe 1.33 ｜ 🇹🇼 rsi_80+adx_high+pos50 CAGR +14.75% Sharpe 1.95 ⭐⭐ ｜ "
-    "⚠️ Strategy A 趨勢延續 OOS 失效（TW 2024+ 嚴重 alpha decay）→ 暫不推薦"
+    "🆕 篩選器加 5 個 OOS 驗證波段 filter（48 個 filter）"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -6908,7 +6909,9 @@ def _render_screener_panel():
         results = st.session_state.get('screener_results', [])
         last_filter = st.session_state.get('screener_last_filter', '')
         if results:
-            # 🆕 v9.14：算 JSON 距今幾天（用於 cross_days 推算）
+            # 🆕 v9.15：算 JSON 距今經過幾個交易日（用於 cross_days 推算）
+            # 修正：JSON 早上 07:03 跑（用昨日收盤）+ 用戶下午看（今日已收盤）= 1 個交易日已過
+            #       但 calendar 不到 24h，舊邏輯 int(10h/24)=0 會誤判 0 天
             json_age_days = 0
             try:
                 if screener_json.exists():
@@ -6917,10 +6920,24 @@ def _render_screener_panel():
                     if cat_str:
                         cat_dt = _dt.datetime.strptime(cat_str, '%Y-%m-%d %H:%M:%S')
                         now_taipei = _dt.datetime.utcnow() + _dt.timedelta(hours=8)
-                        delta_h = (now_taipei - cat_dt).total_seconds() / 3600
-                        if delta_h < -1:
-                            delta_h = (_dt.datetime.now() - cat_dt).total_seconds() / 3600
-                        json_age_days = max(0, int(abs(delta_h) / 24))
+                        # 🆕 計算經過的「TW 交易 session 結束」次數
+                        # TW 收盤 13:30 Taipei，週末跳過
+                        sessions = 0
+                        check = cat_dt
+                        # 跳到 cat_dt 之後最近的 13:30
+                        while check < now_taipei:
+                            next_close = check.replace(hour=13, minute=30, second=0, microsecond=0)
+                            if next_close <= check:
+                                next_close += _dt.timedelta(days=1)
+                            # 跳過週末
+                            while next_close.weekday() >= 5:
+                                next_close += _dt.timedelta(days=1)
+                            if next_close <= now_taipei:
+                                sessions += 1
+                                check = next_close
+                            else:
+                                break
+                        json_age_days = sessions
             except Exception: pass
 
             # 排序：imminent_dc 後排（潛在風險）
@@ -6928,8 +6945,12 @@ def _render_screener_panel():
                 return (1 if r.get('imminent_dc') else 0, r.get('rsi') or 99)
             results = sorted(results, key=_sort_key)
 
-            stale_note = (f' ⚠️ 資料 {json_age_days} 天舊（cross_days 已實際過 {json_age_days} 天）'
-                           if json_age_days >= 2 else '')
+            stale_note = (f' ⚠️ 資料 {json_age_days} 個交易日前（今日 cd 比 snapshot 多 {json_age_days}）'
+                           if json_age_days >= 2 else
+                           f' 🔄 JSON 早於今日收盤，今日 cd 比 snapshot 多 1（看「→今 +Xd」欄）'
+                           if json_age_days == 1 else
+                           f' ✨ JSON 今日剛跑（snapshot = 今日 cd）'
+                           if json_age_days == 0 else '')
             st.markdown(
                 f'<div style="font-weight:700;color:#7abadd;margin-bottom:6px;'
                 f'font-size:.9rem">📋 結果（{last_filter}） — {len(results)} 檔'
@@ -7734,7 +7755,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 126  # v9.15：波段 OOS walk-forward 驗證 + detail card 波段診斷 + 5 個 OOS filter 2026-05-07
+_RESULTS_VERSION = 127  # v9.15.1：修正 json_age_days bug（計交易 session）+ T1 篩選器邏輯 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

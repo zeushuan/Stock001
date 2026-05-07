@@ -179,23 +179,27 @@ def f_t1_imminent_loose(s):
 def f_t1_sweet_spot(s):
     """T1 黃金交叉 sweet spot（5-7 天）— TW 研究最佳"""
     cd = s.get('cross_days')
-    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 5 <= cd <= 7
+    return (s.get('is_bull') and s.get('adx', 0) >= 22
+            and cd is not None and 5 <= cd <= 7)
 
 def f_t1_fresh(s):
     """T1 黃金交叉 1-10 天（剛 cross 上 EMA20）"""
     cd = s.get('cross_days')
-    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 1 <= cd <= 10
+    return (s.get('is_bull') and s.get('adx', 0) >= 22
+            and cd is not None and 1 <= cd <= 10)
 
 def f_t1_today(s):
-    """🆕 v9.14：T1 黃金交叉 0-1 天（今天/昨天剛 cross，最早期進場）"""
+    """🆕 v9.14：T1 黃金交叉 1 天（snapshot 時點剛 cross；注意：JSON 若已過交易日，今日 cd 會 +N）"""
     cd = s.get('cross_days')
-    return s.get('is_bull') and s.get('adx', 0) >= 22 and cd and 0 <= cd <= 1
+    # snapshot 時 cd=1 = JSON 計算當日剛 cross；今日 cd 視 JSON 新鮮度可能 +1~+N
+    return (s.get('is_bull') and s.get('adx', 0) >= 22
+            and cd is not None and cd == 1)
 
 def f_t1_within3(s):
-    """🆕 v9.14：T1 黃金交叉 3 天內（cross_days 0-3，早期進場）"""
+    """🆕 v9.14：T1 黃金交叉 1-3 天（snapshot；注意：JSON 若已過交易日，今日 cd 會 +N）"""
     cd = s.get('cross_days')
     return (s.get('is_bull') and s.get('adx', 0) >= 22
-            and cd is not None and 0 <= cd <= 3)
+            and cd is not None and 1 <= cd <= 3)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
