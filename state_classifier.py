@@ -27,7 +27,9 @@ N_BUFFER = 3  # N 天緩衝（state 必須持續 ≥ N 天才算）
 
 def _raw_state_at(df, i):
     """單日 raw 狀態（不含緩衝）— 回傳 'UPTREND' | 'RANGING' | 'DOWNTREND'"""
-    if i < 60: return None
+    # 🆕 v9.17.1：允許短 df（雲端從 _swing_history 帶入只有 30d）
+    # 原本要 i >= 60，改成 i >= 0（資料已是 EMA 算好的）
+    if i < 0: return None
     e20 = df['e20'].values
     e60 = df['e60'].values
     c = df['Close'].values
@@ -79,7 +81,8 @@ def classify_market_state(df, d=None, n_buffer=N_BUFFER):
         'metrics': dict,
       }
     """
-    if df is None or len(df) < 80:
+    # 🆕 v9.17.1：允許短 df（≥30d 也能跑，雲端從 _swing_history 帶入）
+    if df is None or len(df) < 10:
         return _empty_state()
 
     n = len(df)
@@ -211,7 +214,8 @@ def evaluate_recipes_live(df, entry_i=None):
         ...
       ]
     """
-    if df is None or len(df) < 80:
+    # 🆕 v9.17.1：允許短 df
+    if df is None or len(df) < 10:
         return []
 
     n = len(df)

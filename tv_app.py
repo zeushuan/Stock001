@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.17"
-APP_UPDATED   = "2026-05-07 20:00"
+APP_VERSION   = "v9.17.1"
+APP_UPDATED   = "2026-05-07 20:30"
 APP_NOTES     = (
     "🆕 主動出場 4 個 filter 加進 screener（A 保守/B 平衡⭐/C 飆股/D ATR動態⭐效率王/任一觸發）｜ "
     "🆕 Squeeze 突破方向預測研究（79,605 events）+ 2 個 filter（偏多/偏空突破）｜ "
@@ -1497,6 +1497,34 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
         except Exception:
             d['t3_confidence'] = 0
             d['t3_confidence_hits'] = []
+
+        # 🆕 v9.17.1：把波段診斷需要的「近 30 日 OHLC + 指標」存進 d
+        # 因 Streamlit Cloud data_cache 是空的，state_classifier 需從 d 拿資料
+        try:
+            import numpy as _np
+            tail = 30
+            def _np_tail(s, n=tail):
+                arr = s.values if hasattr(s, 'values') else _np.asarray(s)
+                if len(arr) >= n:
+                    return arr[-n:].tolist()
+                return arr.tolist()
+            o_s = get_col("open")
+            ema10_s = ta.trend.EMAIndicator(c, 10).ema_indicator()
+            d['_swing_history'] = {
+                'open':   _np_tail(o_s),
+                'high':   _np_tail(h),
+                'low':    _np_tail(l),
+                'close':  _np_tail(c),
+                'volume': _np_tail(v),
+                'ema10':  _np_tail(ema10_s),
+                'ema20':  _np_tail(ema20_s),
+                'ema60':  _np_tail(ema60_s),
+                'adx':    _np_tail(adx_s),
+                'atr':    _np_tail(atr_s),
+                'rsi':    _np_tail(rsi_s),
+            }
+        except Exception:
+            d['_swing_history'] = None
 
         return d
     except Exception as e:
@@ -3921,19 +3949,45 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</div></div>'
         )
 
-    # ── 🆕 v9.16：三狀態 + 4 主動出場 recipe 即時評估 ─────────────
+    # ── 🆕 v9.16 / v9.17.1：三狀態 + 4 主動出場 recipe 即時評估 ─────────────
+    # 先試用 d['_swing_history']（雲端從 main scan 流程帶入）
+    # fallback 到 data_cache 本地（local dev）
     try:
         from state_classifier import classify_market_state, evaluate_recipes_live
-        # tv_app 的 d 沒有 df，需從 ticker 重新讀
         _df_for_state = None
-        if ticker:
+
+        # 路徑 A：從 d['_swing_history']（30d tail）重建 mini-DataFrame
+        _hist = d.get('_swing_history') if d else None
+        if _hist and _hist.get('close'):
+            try:
+                import pandas as _pd_local
+                _df_for_state = _pd_local.DataFrame({
+                    'Open':   _hist.get('open', _hist['close']),
+                    'High':   _hist.get('high', _hist['close']),
+                    'Low':    _hist.get('low', _hist['close']),
+                    'Close':  _hist['close'],
+                    'Volume': _hist.get('volume', [0]*len(_hist['close'])),
+                    'e10':    _hist.get('ema10', _hist['close']),
+                    'e20':    _hist.get('ema20', _hist['close']),
+                    'e60':    _hist.get('ema60', _hist['close']),
+                    'adx':    _hist.get('adx', [0]*len(_hist['close'])),
+                    'atr':    _hist.get('atr', [0]*len(_hist['close'])),
+                    'rsi':    _hist.get('rsi', [50]*len(_hist['close'])),
+                })
+            except Exception:
+                _df_for_state = None
+
+        # 路徑 B：fallback to local cache（local dev）
+        if (_df_for_state is None or len(_df_for_state) < 80) and ticker:
             try:
                 import data_loader as _dl_local
                 _df_for_state = _dl_local.load_from_cache(ticker)
             except Exception:
                 _df_for_state = None
 
-        if _df_for_state is not None and len(_df_for_state) >= 80:
+        # state_classifier 需要 ≥80 天，但 _swing_history 只有 30 天 → 放寬限制
+        _min_len = 30 if (_hist and _hist.get('close')) else 80
+        if _df_for_state is not None and len(_df_for_state) >= _min_len:
             _state_info = classify_market_state(_df_for_state, d)
             _recipes = evaluate_recipes_live(_df_for_state)
 
@@ -8021,7 +8075,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 133  # v9.17：主動出場 4 filter + squeeze 方向 2 filter + LINE 持倉通知 2026-05-07
+_RESULTS_VERSION = 134  # v9.17.1：修 detail card 三狀態 + 4 recipe 不顯示（Cloud data_cache 空）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
