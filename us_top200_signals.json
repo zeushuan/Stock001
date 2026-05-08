@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-05-07",
-  "computed_at": "2026-05-07 23:05:22",
+  "computed_at": "2026-05-08 07:02:13",
   "top_total": 200,
   "entry": [
     {
@@ -183,14 +183,11 @@
       "close": 32.56,
       "rsi": 43.5,
       "ema20_cross_days": null,
-      "delta": 6.5,
+      "delta": 2.9,
       "sig": "T3 RSI43",
-      "t3_confidence": 4,
+      "t3_confidence": 1,
       "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA20上升"
       ],
       "alerts": []
     },
@@ -274,7 +271,15 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
     },
     {
       "ticker": "PPL",
@@ -1748,6 +1753,16 @@
       "side": "bull",
       "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
       "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "PL",
+      "name": "Planet Labs PBC Class A",
+      "close": 35.24,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
       "quality_score": 30.0
     },
     {
