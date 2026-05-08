@@ -81,6 +81,8 @@ debug_*.py
 analyze_*.py
 # 🆕 v9.15：保留波段 OOS 研究主腳本（被 backtest_swing_portfolio.py 引用）
 !analyze_swing_dynamic_exit.py
+# 🆕 v9.16：保留主動出場研究腳本
+!analyze_swing_active_exit.py
 test_thresholds.py
 test_v4.py
 backtest_etf.py

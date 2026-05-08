@@ -1,0 +1,166 @@
+{
+  "market": "tw",
+  "oos_only": true,
+  "start_date": "2024-01-01",
+  "universe_size": 1925,
+  "results": {
+    "baseline_rsi80_90d": {
+      "n": 15161,
+      "win_pct": 48.69,
+      "mean_pct": 2.8,
+      "median_pct": -0.67,
+      "std_pct": 25.2,
+      "pf": 1.36,
+      "avg_hold": 62.1,
+      "max_hold_actual": 90,
+      "pct_long_held_60d": 61.8,
+      "mean_per_day": 0.045,
+      "best_pct": 216.15,
+      "worst_pct": -80.39,
+      "top_reasons": {
+        "baseline_max90d": 53.5,
+        "baseline_rsi80": 31.0,
+        "max_hold_safety": 15.4,
+        "baseline_rsi80_close": 0.1
+      },
+      "desc": "Baseline OOS：RSI≥80 賣 + 90d"
+    },
+    "only_ema20_break": {
+      "n": 15162,
+      "win_pct": 28.3,
+      "mean_pct": 0.86,
+      "median_pct": -4.21,
+      "std_pct": 24.05,
+      "pf": 1.16,
+      "avg_hold": 16.2,
+      "max_hold_actual": 113,
+      "pct_long_held_60d": 1.3,
+      "mean_per_day": 0.053,
+      "best_pct": 380.46,
+      "worst_pct": -34.98,
+      "top_reasons": {
+        "E1_ema20_break": 94.3,
+        "max_hold_safety": 5.7
+      },
+      "desc": "E1 單獨：close < EMA20 連 2 天"
+    },
+    "only_adx5d_down": {
+      "n": 15102,
+      "win_pct": 32.23,
+      "mean_pct": 0.5,
+      "median_pct": -3.46,
+      "std_pct": 19.02,
+      "pf": 1.1,
+      "avg_hold": 17.7,
+      "max_hold_actual": 180,
+      "pct_long_held_60d": 2.5,
+      "mean_per_day": 0.028,
+      "best_pct": 312.99,
+      "worst_pct": -57.1,
+      "top_reasons": {
+        "E3_adx_decay": 94.7,
+        "max_hold_safety": 5.3
+      },
+      "desc": "E3 單獨：ADX 5d 下降 ≥5"
+    },
+    "recipe_A_conservative": {
+      "n": 15162,
+      "win_pct": 28.95,
+      "mean_pct": 0.73,
+      "median_pct": -3.94,
+      "std_pct": 22.73,
+      "pf": 1.14,
+      "avg_hold": 14.9,
+      "max_hold_actual": 113,
+      "pct_long_held_60d": 0.8,
+      "mean_per_day": 0.049,
+      "best_pct": 366.56,
+      "worst_pct": -34.98,
+      "top_reasons": {
+        "A_E1_ema20_break": 82.4,
+        "A_E2_3black_vol": 12.7,
+        "max_hold_safety": 4.8
+      },
+      "desc": "🛡️ 保守快出：E1 OR E2"
+    },
+    "recipe_B_balanced": {
+      "n": 15162,
+      "win_pct": 31.72,
+      "mean_pct": 1.45,
+      "median_pct": -4.21,
+      "std_pct": 26.7,
+      "pf": 1.25,
+      "avg_hold": 26.4,
+      "max_hold_actual": 180,
+      "pct_long_held_60d": 8.7,
+      "mean_per_day": 0.055,
+      "best_pct": 412.57,
+      "worst_pct": -57.1,
+      "top_reasons": {
+        "B_E1+E3": 91.5,
+        "max_hold_safety": 8.5
+      },
+      "desc": "⚖️ 平衡 (default)：E1 AND E3"
+    },
+    "recipe_C_momentum": {
+      "n": 15162,
+      "win_pct": 28.18,
+      "mean_pct": 0.06,
+      "median_pct": -3.39,
+      "std_pct": 17.57,
+      "pf": 1.01,
+      "avg_hold": 10.3,
+      "max_hold_actual": 93,
+      "pct_long_held_60d": 0.1,
+      "mean_per_day": 0.006,
+      "best_pct": 380.46,
+      "worst_pct": -34.98,
+      "top_reasons": {
+        "E10_break": 96.5,
+        "max_hold_safety": 3.5
+      },
+      "desc": "🚀 飆股：close < EMA10 連 2 天"
+    },
+    "recipe_D_atr": {
+      "n": 15162,
+      "win_pct": 40.21,
+      "mean_pct": 1.89,
+      "median_pct": -1.68,
+      "std_pct": 19.82,
+      "pf": 1.43,
+      "avg_hold": 25.1,
+      "max_hold_actual": 180,
+      "pct_long_held_60d": 8.3,
+      "mean_per_day": 0.075,
+      "best_pct": 440.94,
+      "worst_pct": -74.98,
+      "top_reasons": {
+        "ATR25_trail": 89.8,
+        "max_hold_safety": 10.2
+      },
+      "desc": "🎯 ATR 動態：peak − 2.5 ATR"
+    },
+    "recipe_E_hybrid": {
+      "n": 15154,
+      "win_pct": 28.9,
+      "mean_pct": -0.05,
+      "median_pct": -3.19,
+      "std_pct": 15.59,
+      "pf": 0.99,
+      "avg_hold": 9.4,
+      "max_hold_actual": 63,
+      "pct_long_held_60d": 0.0,
+      "mean_per_day": -0.005,
+      "best_pct": 232.66,
+      "worst_pct": -34.98,
+      "top_reasons": {
+        "E_E10_break": 58.4,
+        "E_E1_ema20_break": 17.8,
+        "E_E3_adx_decay": 11.7,
+        "E_E2_3black_vol": 9.0,
+        "max_hold_safety": 3.0
+      },
+      "desc": "🌪️ 全方位：E1 OR E2 OR E3 OR E10"
+    }
+  }
+}

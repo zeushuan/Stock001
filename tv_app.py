@@ -8,15 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.15.5"
-APP_UPDATED   = "2026-05-07 18:50"
+APP_VERSION   = "v9.16"
+APP_UPDATED   = "2026-05-07 19:30"
 APP_NOTES     = (
-    "🆕 detail card 波段診斷改成「永遠顯示」（多/空/中性 7 種狀態都有對應提示）"
-    "  ── 中性狀態時顯示「離各觸發條件多遠」分析（ADX 差幾點、量比差多少、距高多遠）｜ "
-    "🐛 修 GitHub 推送 NameError '_dt' bug ｜ "
-    "🐛 修自選股訊息一閃而過 bug ｜ "
-    "🆕 自選股 GitHub 同步診斷工具 ｜ "
-    "🆕 波段策略 walk-forward OOS 驗證 + 5 個 OOS filter"
+    "🆕 detail card 加「目前狀態（上升/盤整/下降）」+ 4 種主動出場 recipe 即時評估"
+    "  ── 一目了然顯示哪個 recipe 已觸發、哪個還沒（讓你自選風格）｜ "
+    "🆕 主動波段出場研究：8 種 exit rule × TW+US OOS 回測 26,663 trades ｜ "
+    "  最佳效率：recipe_D ATR×2.5 動態（mean/day +0.097，hold 25d）⭐ ｜ "
+    "  最高勝率：baseline rsi80+90d（US 58% win, +4.5% mean）｜ "
+    "🆕 三狀態分類器（含 N 天緩衝防誤判）｜ "
+    "🐛 修 GitHub 推送 NameError + 訊息一閃而過 ｜ "
+    "🆕 自選股 GitHub 同步診斷工具"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -3920,6 +3922,83 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<br>📌 持有者：繼續持有觀察；非持有：等突破訊號（B 入場）或回檔（B 拉回）'
             f'</div></div>'
         )
+
+    # ── 🆕 v9.16：三狀態 + 4 主動出場 recipe 即時評估 ─────────────
+    try:
+        from state_classifier import classify_market_state, evaluate_recipes_live
+        # tv_app 的 d 沒有 df，需從 ticker 重新讀
+        _df_for_state = None
+        if ticker:
+            try:
+                import data_loader as _dl_local
+                _df_for_state = _dl_local.load_from_cache(ticker)
+            except Exception:
+                _df_for_state = None
+
+        if _df_for_state is not None and len(_df_for_state) >= 80:
+            _state_info = classify_market_state(_df_for_state, d)
+            _recipes = evaluate_recipes_live(_df_for_state)
+
+            # 三狀態 banner
+            swing_rows.append(
+                f'<div style="background:#08131f;border-left:4px solid {_state_info["state_color"]};'
+                f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                f'<b style="color:{_state_info["state_color"]};font-size:.92rem">'
+                f'目前狀態：{_state_info["state_label"]}（持續 {_state_info["days_in_state"]} 天）</b>'
+                f'<div style="color:#a8c0d0;font-size:.74rem;margin-top:3px;line-height:1.5">'
+                f'{_state_info["state_desc"]}'
+                f'</div></div>'
+            )
+
+            # 4 recipe 即時評估表格
+            _recipe_rows = []
+            for r in _recipes:
+                if r['triggered']:
+                    _icon = '🚪'
+                    _bg_c = '#3a0a0a'
+                    _text_c = '#ff5555'
+                    _msg = f'<b>已觸發出場</b>（{r["reason"]}）'
+                else:
+                    _icon = '⏳'
+                    _bg_c = '#0a1828'
+                    _text_c = '#7abadd'
+                    _msg = f'未觸發 — {r["detail"]}'
+                _recipe_rows.append(
+                    f'<div style="background:{_bg_c};padding:5px 10px;margin:3px 0;'
+                    f'border-radius:3px;font-size:.72rem;line-height:1.4">'
+                    f'{_icon} <b style="color:{_text_c}">{r["label"]}</b> '
+                    f'<span style="color:#7a8899;font-size:.68rem">'
+                    f'(規則: {r["rule"]})</span><br>'
+                    f'<span style="color:#a8c0d0;margin-left:18px">{_msg}</span>'
+                    f'</div>'
+                )
+
+            # OOS 統計參考表
+            _oos_table = (
+                '<div style="font-size:.66rem;color:#7a8899;margin-top:4px;'
+                'border-top:1px dashed #2a3a4a;padding-top:6px">'
+                '<b style="color:#9abacf">📋 OOS（2024+）統計參考</b><br>'
+                '🐢 baseline rsi80+90d：TW win 49% / mean +2.8% / hold 62d ｜ US win 58% / +4.5% / 65d<br>'
+                '🎯 D ATR 動態 ⭐：TW win 40% / mean +1.9% / hold 25d ｜ US win 44% / +2.5% / 26d<br>'
+                '⚖️ B 平衡：TW win 32% / mean +1.5% / hold 26d ｜ US win 40% / +0.5% / 39d<br>'
+                '🛡️ A 保守快出：TW win 29% / mean +0.7% / hold 15d ｜ US win 35% / -0.3% / 19d<br>'
+                '🚀 C 飆股：TW win 28% / mean +0.1% / hold 10d ｜ US win 32% / -0.6% / 13d'
+                '</div>'
+            )
+
+            swing_rows.append(
+                f'<div style="background:#0a1422;border-left:4px solid #5dccdd;'
+                f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                f'<b style="color:#5dccdd;font-size:.92rem">🚪 4 種主動出場規則 — 即時評估</b>'
+                f'<div style="color:#7a8899;font-size:.66rem;margin-top:2px;margin-bottom:4px">'
+                f'min_hold 3d / max_hold 不設限（180d safety）'
+                f'</div>'
+                f'{"".join(_recipe_rows)}'
+                f'{_oos_table}'
+                f'</div>'
+            )
+    except Exception as _e_state:
+        pass
 
     # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
@@ -7944,7 +8023,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 131  # v9.15.5：detail card 波段診斷永遠顯示（中性時也顯示差距分析）2026-05-07
+_RESULTS_VERSION = 132  # v9.16：三狀態 + 4 主動出場 recipe 即時評估 + OOS 統計 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
