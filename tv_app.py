@@ -8,17 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.16"
-APP_UPDATED   = "2026-05-07 19:30"
+APP_VERSION   = "v9.17"
+APP_UPDATED   = "2026-05-07 20:00"
 APP_NOTES     = (
-    "🆕 detail card 加「目前狀態（上升/盤整/下降）」+ 4 種主動出場 recipe 即時評估"
-    "  ── 一目了然顯示哪個 recipe 已觸發、哪個還沒（讓你自選風格）｜ "
-    "🆕 主動波段出場研究：8 種 exit rule × TW+US OOS 回測 26,663 trades ｜ "
-    "  最佳效率：recipe_D ATR×2.5 動態（mean/day +0.097，hold 25d）⭐ ｜ "
-    "  最高勝率：baseline rsi80+90d（US 58% win, +4.5% mean）｜ "
-    "🆕 三狀態分類器（含 N 天緩衝防誤判）｜ "
-    "🐛 修 GitHub 推送 NameError + 訊息一閃而過 ｜ "
-    "🆕 自選股 GitHub 同步診斷工具"
+    "🆕 主動出場 4 個 filter 加進 screener（A 保守/B 平衡⭐/C 飆股/D ATR動態⭐效率王/任一觸發）｜ "
+    "🆕 Squeeze 突破方向預測研究（79,605 events）+ 2 個 filter（偏多/偏空突破）｜ "
+    "  最佳預測：BULL+ACCUMULATION+ADX中性 → UP 47% / DOWN 29%（bias +18, +3.7% mean）｜ "
+    "🆕 LINE 持倉波段出場通知（讀 watchlists_user.json，每天 cron 跑，任一 recipe 觸發即推）｜ "
+    "—— 上版 v9.16 ——｜ "
+    "🆕 detail card 三狀態 + 4 recipe 即時評估（55 個 filter 共）"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -8023,7 +8021,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 132  # v9.16：三狀態 + 4 主動出場 recipe 即時評估 + OOS 統計 2026-05-07
+_RESULTS_VERSION = 133  # v9.17：主動出場 4 filter + squeeze 方向 2 filter + LINE 持倉通知 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

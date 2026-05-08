@@ -109,15 +109,57 @@ def _get_state(df, market='tw'):
             if ema20_falling or cross_days > 30:
                 imminent_dc = True
 
+        # 🆕 v9.17：主動出場 recipe 需要的指標
+        ema10_v = float(e10[i]) if e10 is not None and not np.isnan(e10[i]) else None
+        # close < EMA20 連 2 天
+        close_below_ema20_2d = (
+            ema10_v is not None and i >= 1 and e20 is not None
+            and not np.isnan(e20[i-1]) and not np.isnan(c[i-1])
+            and c[i] < e20_v and c[i-1] < e20[i-1]
+        )
+        # close < EMA10 連 2 天
+        close_below_ema10_2d = (
+            ema10_v is not None and i >= 1
+            and not np.isnan(e10[i-1]) and not np.isnan(c[i-1])
+            and c[i] < ema10_v and c[i-1] < e10[i-1]
+        )
+        # 3 連黑K + 量增 > 1.3x
+        try:
+            blacks = sum(1 for j in [i, i-1, i-2]
+                         if j >= 0 and not np.isnan(o[j]) and not np.isnan(c[j]) and c[j] < o[j])
+            vol_avg_20 = float(np.nanmean(v[max(0,i-20):i])) if i >= 20 else 0
+            three_black_vol = (blacks >= 3 and vol_avg_20 > 0
+                                and v[i] / vol_avg_20 > 1.3)
+        except Exception:
+            three_black_vol = False
+        # ADX 5d 下降 ≥ 5
+        adx_5d_decay = (adx_v is not None and adx_5d is not None
+                         and adx_v - adx_5d <= -5)
+        # ATR×2.5 trailing：用過去 30d 高作 peak
+        try:
+            peak_30d = float(np.nanmax(h[max(0,i-30):i+1])) if i >= 30 else float(h[i])
+            atr_trail_triggered = (atr_v and atr_v > 0
+                                    and (peak_30d - 2.5 * atr_v) > 0
+                                    and c[i] <= (peak_30d - 2.5 * atr_v))
+        except Exception:
+            atr_trail_triggered = False
+
         return {
             'close': close, 'open': float(o[i]), 'high': float(h[i]), 'low': float(l[i]),
-            'ema20': e20_v, 'ema60': e60_v, 'rsi': rsi_v, 'adx': adx_v, 'atr': atr_v,
+            'ema10': ema10_v, 'ema20': e20_v, 'ema60': e60_v,
+            'rsi': rsi_v, 'adx': adx_v, 'atr': atr_v,
             'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
             'is_bull': e20_v > e60_v, 'is_bear': e20_v < e60_v,
             'drop_30d': drop_30d, 'from_high': from_high, 'from_low': from_low,
             'sma200': sma200, 'sma200_pct': sma200_pct,
             'vol_ratio': vol_ratio, 'cross_days': cross_days,
             'imminent_dc': imminent_dc,
+            # 🆕 v9.17 主動出場觸發
+            'close_below_ema20_2d': close_below_ema20_2d,
+            'close_below_ema10_2d': close_below_ema10_2d,
+            'three_black_vol': three_black_vol,
+            'adx_5d_decay': adx_5d_decay,
+            'atr_trail_triggered': atr_trail_triggered,
             # BB
             'bb_sma': float(bb_sma[i]) if not np.isnan(bb_sma[i]) else None,
             'bb_bbu': float(bb_bbu[i]) if not np.isnan(bb_bbu[i]) else None,
@@ -304,6 +346,71 @@ def f_swing_exit_dc_warn(s):
     """⚠️ 波段死叉警告：多頭 + imminent_dc（持倉應重新評估）"""
     return s.get('is_bull') and s.get('imminent_dc', False)
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🚪 主動波段出場 recipe（v9.17）— 找全市場該賣的股票
+# 配合 detail card 的 4 種 recipe 即時評估
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_active_exit_A(s):
+    """🛡️ 主動出場 A 保守快出（多頭 + E1 OR E2 觸發）
+    E1: close < EMA20 連 2 天，OR
+    E2: 3 連黑K + 量比 > 1.3x"""
+    return s.get('is_bull') and (
+        s.get('close_below_ema20_2d', False) or s.get('three_black_vol', False))
+
+
+def f_active_exit_B(s):
+    """⚖️ 主動出場 B 平衡 ⭐（多頭 + E1 AND E3 同時觸發）
+    E1: close < EMA20 連 2 天 AND
+    E3: ADX 5d 下降 ≥ 5"""
+    return s.get('is_bull') and (
+        s.get('close_below_ema20_2d', False) and s.get('adx_5d_decay', False))
+
+
+def f_active_exit_C(s):
+    """🚀 主動出場 C 飆股模式（多頭 + close < EMA10 連 2 天）"""
+    return s.get('is_bull') and s.get('close_below_ema10_2d', False)
+
+
+def f_active_exit_D(s):
+    """🎯 主動出場 D ATR 動態（多頭 + close ≤ peak − 2.5 ATR）
+    OOS 最高效率 mean/d +0.097（US）/ +0.075（TW）"""
+    return s.get('is_bull') and s.get('atr_trail_triggered', False)
+
+
+def f_active_exit_any(s):
+    """🚪 任一 recipe 觸發（A OR B OR C OR D 任一）— 持倉警示總覽"""
+    return s.get('is_bull') and (
+        f_active_exit_A(s) or f_active_exit_C(s) or f_active_exit_D(s))
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔮 Squeeze 突破方向預測（v9.17）— 基於 79,605 events 研究
+# 最佳組合：BULL + ACCUMULATION → UP 47% / DOWN 29% (bias +18%)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_squeeze_breakout_bull(s):
+    """🔮 BB Squeeze + 多排（即將向上突破）
+    OOS：47% UP / 29% DOWN，平均 +3.7%
+    需 BB squeeze + EMA20 > EMA60（明顯多排，非糾纏）"""
+    if not s.get('bb_squeeze', False): return False
+    e20 = s.get('ema20'); e60 = s.get('ema60')
+    if not (e20 and e60 and e60 > 0): return False
+    gap_pct = (e20 - e60) / e60 * 100
+    return gap_pct > 0.5  # 明顯多排
+
+
+def f_squeeze_breakout_bear(s):
+    """🔮 BB Squeeze + 空排（即將向下突破）
+    OOS：BEAR + DISTRIBUTION → DOWN 47% / UP 35%
+    需 BB squeeze + EMA20 < EMA60"""
+    if not s.get('bb_squeeze', False): return False
+    e20 = s.get('ema20'); e60 = s.get('ema60')
+    if not (e20 and e60 and e60 > 0): return False
+    gap_pct = (e60 - e20) / e60 * 100
+    return gap_pct > 0.5
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -461,6 +568,15 @@ FILTERS = {
     '🚪 波段過熱該賣（多頭+RSI≥80）': f_swing_exit_overheat,
     '🟡 波段接近過熱（多頭+RSI 75-80）': f_swing_exit_warning,
     '⚠️ 波段死叉警告（多頭+imminent_dc）': f_swing_exit_dc_warn,
+    # 🆕 v9.17：4 種主動出場 recipe（OOS 驗證的退場時機）
+    '🚪 主動出場 A 保守快出（E1或E2）': f_active_exit_A,
+    '🚪 主動出場 B 平衡 ⭐（E1+E3 同時）': f_active_exit_B,
+    '🚪 主動出場 C 飆股（EMA10 連跌2天）': f_active_exit_C,
+    '🚪 主動出場 D ATR動態（peak-2.5ATR）⭐效率王': f_active_exit_D,
+    '🚪 主動出場 任一觸發（持倉警示總覽）': f_active_exit_any,
+    # 🆕 v9.17：Squeeze 突破方向預測（OOS 79k events 研究）
+    '🔮 Squeeze 偏多突破（BULL+squeeze→UP 47%）': f_squeeze_breakout_bull,
+    '🔮 Squeeze 偏空突破（BEAR+squeeze→DOWN 47%）': f_squeeze_breakout_bear,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
