@@ -8,17 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.15.2"
-APP_UPDATED   = "2026-05-07 17:55"
+APP_VERSION   = "v9.15.3"
+APP_UPDATED   = "2026-05-07 18:15"
 APP_NOTES     = (
-    "🆕 自選股 GitHub 同步診斷工具（sidebar「🔧 GitHub 同步診斷」expander）"
-    "  ── 自動檢查 token / repo / commit 狀態，找出為何沒同步 ｜ "
-    "🆕 加「🚀 立即推送」按鈕（不論 checkbox 直接觸發）｜ "
-    "—— 上版 v9.15.1 ——｜ "
-    "🐛 修正 json_age_days bug：改成計數 TW 收盤 13:30 已過幾次（今早跑+下午看=1 day）｜ "
-    "🐛 修正 T1 0-1d / T1 3d 篩選器邏輯 ｜ "
-    "🆕 篩選器顯示「→今 +Xd」自動標註 cross_days 偏移 ｜ "
-    "🆕 波段策略 walk-forward OOS 驗證 + detail card 波段診斷 + 5 個 OOS filter"
+    "🐛 修自選股訊息「一閃而過」bug：原本 st.rerun() 立刻清掉 st.success 訊息，"
+    "改用 session_state 持久化（存/刪/拉/同步診斷 全部訊息現在都會留下來顯示）｜ "
+    "—— 上版 v9.15.2 ——｜ "
+    "🆕 自選股 GitHub 同步診斷工具 ｜ "
+    "🐛 修 json_age_days bug + T1 篩選器邏輯 ｜ "
+    "🆕 波段策略 walk-forward OOS 驗證 + detail card 波段診斷"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -7257,6 +7255,20 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+    # 🆕 v9.15.3：持久化訊息（解決 st.rerun() 立刻清掉 st.success() 的問題）
+    # 在 rerun 後第一次 render 時顯示上次的訊息
+    _pending = st.session_state.pop('_wl_pending_msg', None)
+    if _pending:
+        _msg, _level = _pending
+        if _level == 'success':
+            st.success(_msg)
+        elif _level == 'error':
+            st.error(_msg)
+        elif _level == 'warning':
+            st.warning(_msg)
+        else:
+            st.info(_msg)
+
     # ── 自選股持久化：localStorage（雲端用） + 本地 JSON 雙軌 ──
     import json as _json
     from pathlib import Path as _Path
@@ -7434,9 +7446,11 @@ with st.sidebar:
         if st.button("💾 存", use_container_width=True, key="wl_save_btn"):
             n = _save_name.strip()
             if not n:
-                st.warning("請先輸入清單名稱")
+                st.session_state['_wl_pending_msg'] = ("請先輸入清單名稱", 'warning')
+                st.rerun()
             elif n.startswith('🔒') or '（範本）' in n:
-                st.warning("不能用範本名稱，請改用其他名稱")
+                st.session_state['_wl_pending_msg'] = ("不能用範本名稱，請改用其他名稱", 'warning')
+                st.rerun()
             else:
                 _wls[n] = stock_input
                 # 🆕 v9.14：勾「同步到 GitHub」就推
@@ -7446,7 +7460,8 @@ with st.sidebar:
                 if result is not None:
                     success, push_msg = result
                     msg += f" ｜ {push_msg}"
-                st.success(msg)
+                # 🆕 v9.15.3：用 session_state 保留訊息跨 rerun
+                st.session_state['_wl_pending_msg'] = (msg, 'success' if (result is None or result[0]) else 'error')
                 st.rerun()
 
     # 🆕 v9.14：GitHub 同步 + 刪除按鈕
@@ -7463,10 +7478,11 @@ with st.sidebar:
             remote = _pull_watchlists_from_github()
             if remote:
                 _save_watchlists(remote, push_github=False)
-                st.success(f"✓ 已拉取 {len(remote)} 個清單")
-                st.rerun()
+                st.session_state['_wl_pending_msg'] = (f"✓ 已拉取 {len(remote)} 個清單", 'success')
             else:
-                st.error("拉取失敗（檢查 GITHUB_TOKEN 或 watchlists_user.json 是否存在）")
+                st.session_state['_wl_pending_msg'] = (
+                    "拉取失敗（檢查 GITHUB_TOKEN 或 watchlists_user.json 是否存在）", 'error')
+            st.rerun()
 
     if _wl_user_only:
         if st.button(f"🗑 刪除「{_selected_wl}」",
@@ -7478,7 +7494,7 @@ with st.sidebar:
             if result is not None:
                 success, push_msg = result
                 msg += f" ｜ {push_msg}"
-            st.success(msg)
+            st.session_state['_wl_pending_msg'] = (msg, 'success' if (result is None or result[0]) else 'error')
             st.rerun()
 
     # ── 🆕 匯出 / 匯入 JSON 永久備份 ────────────────────────────
@@ -7539,6 +7555,17 @@ with st.sidebar:
     with st.expander("🔧 GitHub 同步診斷", expanded=False):
         st.caption("一次檢查 token / repo / 推送狀態，找出為何同步沒成功")
 
+        # 🆕 v9.15.3：診斷訊息持久化（跨 rerun 保留）
+        _diag_msg = st.session_state.pop('_gh_diag_msg', None)
+        if _diag_msg:
+            _msg_t, _level_t = _diag_msg
+            if _level_t == 'success':
+                st.success(_msg_t)
+            elif _level_t == 'error':
+                st.error(_msg_t)
+            else:
+                st.info(_msg_t)
+
         # ① 檢查 secret
         try:
             _tok = st.secrets.get('GITHUB_TOKEN', '') if hasattr(st, 'secrets') else ''
@@ -7582,21 +7609,28 @@ with st.sidebar:
                     _r = requests.get(_api, headers=_h, timeout=10)
                     if _r.status_code == 200:
                         _info = _r.json()
-                        st.success(
+                        _diag_text = (
                             f"✅ Repo 可存取：{_info.get('full_name')} "
                             f"（permissions: push={_info.get('permissions', {}).get('push', False)}, "
                             f"admin={_info.get('permissions', {}).get('admin', False)}）"
                         )
+                        st.session_state['_gh_diag_msg'] = (_diag_text, 'success')
                     elif _r.status_code == 401:
-                        st.error("❌ 401 Unauthorized — token 無效或過期")
+                        st.session_state['_gh_diag_msg'] = (
+                            "❌ 401 Unauthorized — token 無效或過期", 'error')
                     elif _r.status_code == 403:
-                        st.error("❌ 403 Forbidden — token 沒給 `repo` scope")
+                        st.session_state['_gh_diag_msg'] = (
+                            "❌ 403 Forbidden — token 沒給 `repo` scope", 'error')
                     elif _r.status_code == 404:
-                        st.error("❌ 404 Not Found — repo 名錯了，或 token 無權限看")
+                        st.session_state['_gh_diag_msg'] = (
+                            "❌ 404 Not Found — repo 名錯了，或 token 無權限看", 'error')
                     else:
-                        st.error(f"❌ {_r.status_code}: {_r.text[:300]}")
+                        st.session_state['_gh_diag_msg'] = (
+                            f"❌ {_r.status_code}: {_r.text[:300]}", 'error')
                 except Exception as e:
-                    st.error(f"❌ 連線錯誤：{type(e).__name__}: {e}")
+                    st.session_state['_gh_diag_msg'] = (
+                        f"❌ 連線錯誤：{type(e).__name__}: {e}", 'error')
+                st.rerun()
 
         # ④ 手動推送測試
         if _tok:
@@ -7604,16 +7638,15 @@ with st.sidebar:
                           help="不論 checkbox，立即觸發推送（測試用）"):
                 _result = _push_watchlists_to_github(_wls)
                 _suc, _msg = _result
-                if _suc:
-                    st.success(_msg)
-                    st.markdown(
-                        "🔍 確認步驟：\n"
-                        "1. 開 https://github.com/zeushuan/Stock001/commits/main\n"
-                        "2. 應該有 1 分鐘內的新 commit `auto: 更新 watchlists ...`\n"
-                        "3. 點進去看 `watchlists_user.json` 變動"
-                    )
-                else:
-                    st.error(_msg)
+                _confirm_text = (
+                    "\n\n🔍 確認步驟：\n"
+                    "1. 開 https://github.com/zeushuan/Stock001/commits/main\n"
+                    "2. 應該有 1 分鐘內的新 commit `auto: 更新 watchlists ...`\n"
+                    "3. 點進去看 `watchlists_user.json` 變動"
+                ) if _suc else ""
+                st.session_state['_gh_diag_msg'] = (
+                    _msg + _confirm_text, 'success' if _suc else 'error')
+                st.rerun()
 
         # ⑤ 檢查 GitHub 上目前狀態
         st.markdown("---")
@@ -7863,7 +7896,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 128  # v9.15.2：加 GitHub 同步診斷工具（sidebar expander）2026-05-07
+_RESULTS_VERSION = 129  # v9.15.3：修自選股訊息一閃而過 bug（session_state 持久化）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
