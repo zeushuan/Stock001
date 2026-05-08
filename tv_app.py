@@ -8,17 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.15.1"
-APP_UPDATED   = "2026-05-07 17:30"
+APP_VERSION   = "v9.15.2"
+APP_UPDATED   = "2026-05-07 17:55"
 APP_NOTES     = (
-    "🐛 修正 json_age_days bug：原本只看 calendar hours（10h<24h→0），"
-    "改成計數 TW 收盤 (13:30) 已過幾次 → JSON 早上跑 + 用戶下午看 = 1 交易日 已過 ｜ "
-    "🐛 修正 T1 0-1d / T1 3d 篩選器邏輯（用 cd is not None 取代 cd and...）｜ "
-    "🆕 篩選器顯示「→今 +Xd」自動標註 cross_days 偏移（snapshot vs 今日）｜ "
-    "—— 上版 v9.15 ——｜ "
-    "🆕 波段策略 walk-forward OOS 驗證（TW+US 4179 檔, 2020-2026）｜ "
-    "🆕 detail card 加「🌊波段診斷」section（自動偵測 B 入場/接近突破/過熱出場/警示）｜ "
-    "🆕 篩選器加 5 個 OOS 驗證波段 filter（48 個 filter）"
+    "🆕 自選股 GitHub 同步診斷工具（sidebar「🔧 GitHub 同步診斷」expander）"
+    "  ── 自動檢查 token / repo / commit 狀態，找出為何沒同步 ｜ "
+    "🆕 加「🚀 立即推送」按鈕（不論 checkbox 直接觸發）｜ "
+    "—— 上版 v9.15.1 ——｜ "
+    "🐛 修正 json_age_days bug：改成計數 TW 收盤 13:30 已過幾次（今早跑+下午看=1 day）｜ "
+    "🐛 修正 T1 0-1d / T1 3d 篩選器邏輯 ｜ "
+    "🆕 篩選器顯示「→今 +Xd」自動標註 cross_days 偏移 ｜ "
+    "🆕 波段策略 walk-forward OOS 驗證 + detail card 波段診斷 + 5 個 OOS filter"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -7535,6 +7535,114 @@ with st.sidebar:
             "💾 localStorage 儲存於瀏覽器（建議定期匯出備份）"
         )
 
+    # ── 🆕 v9.15.2：GitHub 同步診斷工具 ────────────────────────
+    with st.expander("🔧 GitHub 同步診斷", expanded=False):
+        st.caption("一次檢查 token / repo / 推送狀態，找出為何同步沒成功")
+
+        # ① 檢查 secret
+        try:
+            _tok = st.secrets.get('GITHUB_TOKEN', '') if hasattr(st, 'secrets') else ''
+        except Exception as e:
+            _tok = ''
+            st.error(f"讀 secrets 失敗：{type(e).__name__}: {e}")
+
+        if _tok:
+            _tok_disp = _tok[:7] + '...' + _tok[-4:] if len(_tok) > 11 else 'too short'
+            st.markdown(f"**① GITHUB_TOKEN secret**: ✅ 有設定（{_tok_disp}，長度 {len(_tok)}）")
+        else:
+            st.markdown("**① GITHUB_TOKEN secret**: ❌ **未設定** ← 主要問題！")
+            st.markdown(
+                "📋 修正步驟：\n"
+                "1. GitHub → Settings → Developer settings → Personal access tokens (classic)\n"
+                "2. Generate new token，**勾 `repo` scope**\n"
+                "3. 複製 `ghp_xxxxx...`\n"
+                "4. Streamlit Cloud → app 右上 ⋮ → Settings → **Secrets**\n"
+                "5. 加入 `GITHUB_TOKEN = \"ghp_xxxxx...\"`（注意要有引號）\n"
+                "6. Save → app 自動重啟（約 30 秒）"
+            )
+
+        # ② checkbox 狀態
+        _chk_state = st.session_state.get('wl_push_github', False)
+        if _chk_state:
+            st.markdown("**② 同步 checkbox**: ✅ 已勾選（按存/刪會推 GitHub）")
+        else:
+            st.markdown(
+                "**② 同步 checkbox**: ⚠️ **未勾選** ← 即使有 token 也不會推！"
+                "<br>請勾上方「🔄 同步到 GitHub」再按存",
+                unsafe_allow_html=True
+            )
+
+        # ③ 測試 GitHub API 連線
+        if _tok:
+            if st.button("🧪 測試 GitHub API 連線", key="gh_test_btn"):
+                try:
+                    _api = 'https://api.github.com/repos/zeushuan/Stock001'
+                    _h = {'Authorization': f'token {_tok}',
+                          'Accept': 'application/vnd.github.v3+json'}
+                    _r = requests.get(_api, headers=_h, timeout=10)
+                    if _r.status_code == 200:
+                        _info = _r.json()
+                        st.success(
+                            f"✅ Repo 可存取：{_info.get('full_name')} "
+                            f"（permissions: push={_info.get('permissions', {}).get('push', False)}, "
+                            f"admin={_info.get('permissions', {}).get('admin', False)}）"
+                        )
+                    elif _r.status_code == 401:
+                        st.error("❌ 401 Unauthorized — token 無效或過期")
+                    elif _r.status_code == 403:
+                        st.error("❌ 403 Forbidden — token 沒給 `repo` scope")
+                    elif _r.status_code == 404:
+                        st.error("❌ 404 Not Found — repo 名錯了，或 token 無權限看")
+                    else:
+                        st.error(f"❌ {_r.status_code}: {_r.text[:300]}")
+                except Exception as e:
+                    st.error(f"❌ 連線錯誤：{type(e).__name__}: {e}")
+
+        # ④ 手動推送測試
+        if _tok:
+            if st.button("🚀 立即推送目前 watchlists 到 GitHub", key="gh_push_now_btn",
+                          help="不論 checkbox，立即觸發推送（測試用）"):
+                _result = _push_watchlists_to_github(_wls)
+                _suc, _msg = _result
+                if _suc:
+                    st.success(_msg)
+                    st.markdown(
+                        "🔍 確認步驟：\n"
+                        "1. 開 https://github.com/zeushuan/Stock001/commits/main\n"
+                        "2. 應該有 1 分鐘內的新 commit `auto: 更新 watchlists ...`\n"
+                        "3. 點進去看 `watchlists_user.json` 變動"
+                    )
+                else:
+                    st.error(_msg)
+
+        # ⑤ 檢查 GitHub 上目前狀態
+        st.markdown("---")
+        st.markdown("**③ GitHub 上目前狀態**：")
+        _check_url = "https://api.github.com/repos/zeushuan/Stock001/contents/watchlists_user.json"
+        try:
+            _r2 = requests.get(_check_url, timeout=8)
+            if _r2.status_code == 200:
+                import base64 as _b64
+                _content = _b64.b64decode(_r2.json().get('content', '')).decode('utf-8')
+                try:
+                    _d_remote = _json.loads(_content)
+                    st.success(f"✅ watchlists_user.json 已存在 GitHub（{len(_d_remote)} 個清單）")
+                    _names = list(_d_remote.keys())
+                    st.caption(f"清單：{', '.join(_names[:8])}{'...' if len(_names) > 8 else ''}")
+                    _commit_url = "https://github.com/zeushuan/Stock001/commits/main/watchlists_user.json"
+                    st.markdown(f"[📋 看歷次 commit]({_commit_url})")
+                except Exception:
+                    st.warning("檔案存在但解析失敗")
+            elif _r2.status_code == 404:
+                st.warning(
+                    "⚠️ **GitHub 上尚無 watchlists_user.json**"
+                    "（從未推送成功 → 第一次按「🚀 立即推送」會建立）"
+                )
+            else:
+                st.info(f"GitHub 查詢回應 {_r2.status_code}")
+        except Exception as e:
+            st.info(f"無法查詢 GitHub：{type(e).__name__}")
+
     st.markdown("---")
 
     # ═══════════════════════════════════════════════════════════════
@@ -7755,7 +7863,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 127  # v9.15.1：修正 json_age_days bug（計交易 session）+ T1 篩選器邏輯 2026-05-07
+_RESULTS_VERSION = 128  # v9.15.2：加 GitHub 同步診斷工具（sidebar expander）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
