@@ -8,15 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.17.2"
-APP_UPDATED   = "2026-05-07 20:50"
+APP_VERSION   = "v9.18"
+APP_UPDATED   = "2026-05-07 21:15"
 APP_NOTES     = (
-    "🆕 主動出場 4 個 filter 加進 screener（A 保守/B 平衡⭐/C 飆股/D ATR動態⭐效率王/任一觸發）｜ "
-    "🆕 Squeeze 突破方向預測研究（79,605 events）+ 2 個 filter（偏多/偏空突破）｜ "
-    "  最佳預測：BULL+ACCUMULATION+ADX中性 → UP 47% / DOWN 29%（bias +18, +3.7% mean）｜ "
-    "🆕 LINE 持倉波段出場通知（讀 watchlists_user.json，每天 cron 跑，任一 recipe 觸發即推）｜ "
-    "—— 上版 v9.16 ——｜ "
-    "🆕 detail card 三狀態 + 4 recipe 即時評估（55 個 filter 共）"
+    "🆕 點公司代號（ticker）改為查公司基本資訊（公司基本資料 / 營運狀況 / 發展方向 / 合作對象 / "
+    "影響股價因素 / 概念股連動 / 短中長期展望 + 風險）｜ "
+    "—— 上版 v9.17 ——｜ "
+    "🆕 主動出場 4 個 filter（A/B/C/D + 任一觸發）｜ "
+    "🆕 Squeeze 突破方向預測研究 + 2 個 filter ｜ "
+    "🆕 LINE 持倉波段出場通知 ｜ "
+    "🆕 detail card 三狀態 + 4 recipe 即時評估"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -257,50 +258,103 @@ def get_tv_url(ticker: str, market: str) -> str:
     # 修：原本 default 'NASDAQ' 對 NYSE 股（PL/JPM/BAC 等）會產生不存在 URL
     return base + ticker
 
-def get_ai_url(ticker: str, name: str, d: dict,
-               platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
-    import urllib.parse
+def _build_company_info_prompt(ticker: str, name: str, d: dict) -> str:
+    """🆕 v9.18：點 ticker 改為查公司基本資訊 + 業務 + 影響因素 + 連動概念
+    返回 Perplexity / 其他 AI 用的純文字提示詞。"""
     close  = d.get("close")  or 0
     sma50  = d.get("sma50")  or 0
     sma200 = d.get("sma200") or 0
-    bbu    = d.get("bbu")    or 0
-    bbl    = d.get("bbl")    or 0
-    bbm    = d.get("ema20")  or 0
-    display = f"{ticker}（{name}）" if name and name != ticker else ticker
+    is_tw = ticker.isdigit() and 4 <= len(ticker) <= 6 and not ticker.startswith('00')
+    is_etf = ticker.startswith('00')
+    market_label = ('台股 ETF' if is_etf else '台股' if is_tw else '美股')
+
+    # 已知概念股標籤
+    try:
+        concepts = _get_concepts(ticker, max_n=8)
+        concept_str = '、'.join(concepts) if concepts else '（無）'
+    except Exception:
+        concept_str = '（無資料）'
+
+    display = f'{ticker}（{name}）' if name and name != ticker else ticker
+
     lines = [
-        f"你是一位專業量化交易員，現在請你只針對 {display} 這檔標的，使用日線圖與布林通道為主的技術分析，幫我判斷短中期的買點與賣點。",
+        f"請提供 {market_label} {display} 的全面公司分析報告，重點放在「股價會被什麼影響」。",
         "",
-        "分析要求：",
-        f"先簡要描述目前 {ticker} 價格相對於 20 日均線（布林中軌）、50 日均線、200 日均線的位置，以及整體趨勢是偏多頭、盤整還是空頭。",
-        f"現價約 {close:.2f}，50 日均線約 {sma50:.2f}，200 日均線約 {sma200:.2f}，請一併納入考量。",
+        "【一、公司基本資料】",
+        "- 公司全名、成立年份、總部地點",
+        "- 所屬產業 / 子產業類別",
+        "- 主要業務（請具體列出產品線或服務項目）",
+        "- 市值、員工數、最新一年營收規模",
+        "- 主要股東結構（前 3-5 大持股 + 持股比例）",
         "",
-        "說明布林通道三條線的狀態：",
-        f"20MA 中軌（目前約 {bbm:.2f}）",
-        f"上軌 = 中軌 + 2 倍標準差（目前約 {bbu:.2f}）",
-        f"下軌 = 中軌 − 2 倍標準差（目前約 {bbl:.2f}）",
-        "並判斷通道目前是「張口擴大」（走趨勢）還是「收斂變窄」（盤整壓縮）。",
+        "【二、目前營運狀況】",
+        "- 最新一季 / 一年財報重點：營收、毛利率、EPS、年增/季增",
+        "- 主要產品線的營收佔比",
+        "- 近一年股價走勢與重大事件",
         "",
-        "依照以下布林通道操作原則，具體列出：",
-        "可能的「低風險買點」條件：例如股價由下往上突破下軌、或由下往上突破中軌且帶量，代表跌勢鈍化或多頭啟動，可分批布局或加碼。",
-        "可能的「獲利了結／賣點」條件：例如股價接近或碰到上軌出現明顯壓回、或由上往下跌破中軌，代表多頭力道轉弱，可減碼或出場。",
-        "若價格在中軌與上軌之間且沿著上軌上行，視為強勢多頭，只調整移動停損，不急著賣出。",
+        "【三、發展方向與策略】",
+        "- 未來 1-3 年的成長策略重點（明確列出具體計畫）",
+        "- 主要產品 / 服務 roadmap",
+        "- 資本支出、研發投入、新市場擴張",
+        "- M&A、轉型、品牌策略（若有）",
         "",
-        "如果布林通道出現「收口壓縮」的型態，請說明：這代表波動縮小、可能醞釀後續大的突破。價格向上突破上軌搭配帶寬擴大時，可以視為順勢做多訊號；價格向下跌破下軌搭配帶寬擴大時，可以視為順勢做空或觀望不買的訊號。",
+        "【四、合作對象與生態圈】",
+        "- 主要客戶（前 5 大，含營收佔比 % 若可得）",
+        "- 主要供應商 / 上下游夥伴",
+        "- 策略合作夥伴 / 聯盟",
+        "- 主要競爭對手（國內 + 國際同業）",
         "",
-        "最後請整理成：",
-        "1～2 個「建議買進區間與條件」",
-        "1～2 個「建議停利／停損的區間與條件」",
-        "每個條件用條列式說明「價格位置 + 布林通道狀態 + 風險說明」，並提醒這只是技術面機率，不是保證。",
+        "【五、影響股價的關鍵因素 ⭐核心⭐】",
+        "- 受哪些大盤指數連動高（如 ^GSPC SPY / TWII / ^SOX 半導體）",
+        "- 受哪些總體因素影響（利率、匯率、原物料、地緣政治）",
+        "- 受哪些產業趨勢驅動（請具體：AI、半導體、5G、ESG、電動車、晶圓代工、雲端...）",
+        "- 受哪些公司股價連動高（β 高的標的，例如台積電、輝達、Apple）",
+        "- 特定 catalyst / 風險事件（法規、訴訟、產能擴張、訂單）",
+        "- 季節性因素（旺季 / 淡季 / 法說會 / 財報季 / 配息）",
         "",
-        "請用繁體中文作答，條列清楚，避免空洞的形容詞，重點放在可執行的「條件式規則」。",
-        "所有的分析以表格呈現。",
+        "【六、概念股 / 技術連動分析】",
+        f"- 已知概念股標籤（用戶系統內）：{concept_str}",
+        "- 還有哪些主流概念可以歸類進去？（補充缺漏）",
+        "- 是否為 ETF 成分股（哪些 ETF？影響 passive 資金流向）",
+        "- 與其他同類股的比較（誰是 leader、誰落後）",
+        "",
+        "【七、目前股價技術面 quick check】",
+        f"- 現價約 {close:.2f}，50 日均線 {sma50:.2f}，200 日均線 {sma200:.2f}",
+        "- 趨勢判斷（多 / 空 / 盤整）",
+        "- 近期關鍵支撐 / 壓力位",
+        "",
+        "【八、短中長期展望 + 主要風險】",
+        "- 短期（1-3 個月）關注的重點 catalyst",
+        "- 中長期（6-12 個月）展望",
+        "- 主要下行風險（請具體列出）",
+        "",
+        "輸出格式要求：",
+        "- 繁體中文",
+        "- 每個重點請用條列 + 簡要表格呈現",
+        "- 資訊請以「最新可得的日期」為主，並在每節末尾註明資料時間",
+        "- 避免空洞形容詞，重點放在「具體事實」與「可行動的洞察」",
+        "- 若資料不足或不確定，請明確標示「未確認」",
     ]
-    prompt = "\n".join(lines)
+    return "\n".join(lines)
+
+
+def get_ai_url(ticker: str, name: str, d: dict,
+               platform_url_tpl: str = "https://www.perplexity.ai/search?q={prompt}") -> str:
+    """v9.18：改成公司資訊問答 prompt"""
+    import urllib.parse
+    prompt = _build_company_info_prompt(ticker, name, d)
     encoded = urllib.parse.quote(prompt)
     return platform_url_tpl.replace("{prompt}", encoded)
 
+
 def get_prompt_text(ticker: str, name: str, d: dict) -> str:
-    """回傳純文字提示詞（供複製用）"""
+    """回傳純文字提示詞（供複製用，與 get_ai_url 共用同一份 prompt）"""
+    return _build_company_info_prompt(ticker, name, d)
+
+
+# 🆕 v9.18：保留舊版技術分析 prompt（detail card AI expander 仍需用）
+def get_technical_analysis_prompt(ticker: str, name: str, d: dict) -> str:
+    """舊版技術分析 prompt（布林通道 + 均線 + 買賣點）— 用於 detail card AI 解讀"""
     close  = d.get("close")  or 0
     sma50  = d.get("sma50")  or 0
     sma200 = d.get("sma200") or 0
@@ -309,13 +363,12 @@ def get_prompt_text(ticker: str, name: str, d: dict) -> str:
     bbm    = d.get("ema20")  or 0
     display = f"{ticker}（{name}）" if name and name != ticker else ticker
     lines = [
-        f"你是一位專業量化交易員，現在請你只針對 {display} 這檔標的，使用日線圖與布林通道為主的技術分析，幫我判斷短中期的買點與賣點。",
+        f"你是一位專業量化交易員，請針對 {display} 用日線 + 布林通道為主做技術分析，判斷短中期買賣點。",
         "",
-        f"現價約 {close:.2f}，50 日均線約 {sma50:.2f}，200 日均線約 {sma200:.2f}，布林上軌約 {bbu:.2f}，布林中軌約 {bbm:.2f}，布林下軌約 {bbl:.2f}。",
+        f"現價約 {close:.2f}，50 日均線 {sma50:.2f}，200 日均線 {sma200:.2f}，布林上軌 {bbu:.2f}、中軌 {bbm:.2f}、下軌 {bbl:.2f}。",
         "",
-        "請分析：1) 趨勢與均線位置 2) 布林通道狀態（張口/收口）3) 買點條件 4) 賣點條件 5) 停損停利建議。",
-        "",
-        "請用繁體中文作答，條列清楚，所有的分析以表格呈現。",
+        "分析項目：1) 趨勢與均線位置 2) 布林通道狀態（張口/收口） 3) 買點條件 4) 賣點條件 5) 停損停利建議",
+        "繁體中文，條列 + 表格呈現。",
     ]
     return "\n".join(lines)
 
@@ -5183,14 +5236,14 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
         ai_url    = get_ai_url(ticker, name, d, platform_url_tpl)
         prompt_js = get_prompt_text(ticker, name, d).replace("\\n", "\\\\n").replace("'", "\\'")
         if is_perplexity:
-            ticker_link = f'<a href="{ai_url}" target="_blank" title="Perplexity 技術分析" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
+            ticker_link = f'<a href="{ai_url}" target="_blank" title="Perplexity 公司資訊查詢（基本資料 + 業務 + 影響股價因素 + 概念股連動）" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
         else:
             homepage = platform_url_tpl.split("?")[0].split("{")[0]
             ticker_link = (
                 f'<a href="#" onclick="navigator.clipboard.writeText(\'{prompt_js}\').then(()=>{{'
                 f'window.open(\'{homepage}\',\'_blank\');'
-                f'alert(\'提示詞已複製！請在新視窗中貼上(Ctrl+V / Cmd+V)\');}});return false;"'
-                f' title="複製提示詞並開啟{selected_platform}" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
+                f'alert(\'公司資訊查詢提示詞已複製！請在新視窗中貼上(Ctrl+V / Cmd+V)\');}});return false;"'
+                f' title="複製公司資訊查詢提示詞並開啟{selected_platform}" style="color:#e8f4fd;text-decoration:none;">{ticker}</a>'
             )
         # 概念股標籤
         concepts = _get_concepts(ticker, max_n=4)
@@ -8093,7 +8146,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 135  # v9.17.2：波段診斷加診斷訊息（看為何 banner 沒出來）2026-05-07
+_RESULTS_VERSION = 136  # v9.18：點 ticker 改為查公司基本資訊 + 影響股價因素 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
