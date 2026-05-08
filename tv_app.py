@@ -8,12 +8,13 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.18.1"
-APP_UPDATED   = "2026-05-07 21:35"
+APP_VERSION   = "v9.18.2"
+APP_UPDATED   = "2026-05-07 22:00"
 APP_NOTES     = (
-    "🆕 手機優化：下拉選單不再觸發鍵盤（CSS pointer-events + JS readonly/inputmode=none）"
-    "  → 用 selectbox/multiselect 不會跳輸入法擋畫面 ｜ "
-    "🆕 點公司代號改為查公司基本資訊（v9.18）｜ "
+    "🐛 修主表格『飆股』vs detail card『建議進場』看似矛盾："
+    "  - 主表格『飆股』改成『🚀 飆股 進場』（明確 action）"
+    "  - detail card 細分 飆股/T3強拉/T1進場/T3拉回 4 種標籤，與主表格一致 ｜ "
+    "🆕 手機選單不彈鍵盤（v9.18.1）｜ 點 ticker 查公司資訊（v9.18）｜ "
     "—— 上版 v9.17 ——｜ "
     "🆕 主動出場 4 filter / Squeeze 方向預測 / LINE 持倉通知 / 三狀態 + 4 recipe 即時評估"
 )
@@ -3904,15 +3905,39 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                           f"隨時可能死叉。等死叉發生後再評估")
         action_bg, action_fg = "#2a0a0a", "#ff7755"
     elif t1_ok or t3_ok:
+        # 🆕 v9.18.2：細分標籤，與 classify_action（主表格）一致
+        _is_strong_a = (adx is not None and adx >= 30)
+        _is_fresh_a  = (cross_days is not None and 0 < cross_days <= 10)
+        _is_pullback_a = (rsi is not None and rsi < 50)
         if t1_ok and t3_ok:
             trigger = f"T1 黃金交叉 {cross_days} 天前 + T3 RSI {rsi_str}<50 拉回"
         elif t1_ok:
             trigger = f"T1 黃金交叉 {cross_days} 天前"
         else:
             trigger = f"T3 RSI {rsi_str}<50 拉回到位"
-        action_label = "✅ 建議進場"
-        action_reason = (f"原因：多頭排列 + ADX {adx_str} 達標 + {trigger}")
-        action_bg, action_fg = "#0d2a10", "#3dbb6a"
+
+        # 細分四象限（呼應主表格的 飆股 / T3強拉 / T1 進場 / T3拉回進場）
+        if _is_strong_a and _is_fresh_a:
+            action_label = "🚀 飆股 進場（強趨勢主升段）"
+            action_reason = (f"原因：多頭排列 + ADX {adx_str} ≥30（強趨勢）+ 黃金交叉 {cross_days} 天（剛啟動）"
+                              f"<br>⚠️ 飆股風險高但獲利空間大；採持到 EMA 死叉的策略，不設 RSI 出場")
+            action_bg, action_fg = "#1a1400", "#f0c030"   # 金黃，呼應主表格 chip
+        elif _is_strong_a and _is_pullback_a:
+            action_label = "✅ T3 強趨勢拉回 進場"
+            action_reason = (f"原因：ADX {adx_str} ≥30 強趨勢 + RSI {rsi_str}<50 拉回到位（最佳加碼點）")
+            action_bg, action_fg = "#0d2a10", "#3dbb6a"
+        elif (not _is_strong_a) and _is_fresh_a:
+            action_label = f"✅ T1 {cross_days}D 進場"
+            action_reason = (f"原因：多頭排列 + ADX {adx_str}（22-30 穩健）+ 黃金交叉 {cross_days} 天前")
+            action_bg, action_fg = "#0d2a10", "#3dbb6a"
+        elif (not _is_strong_a) and _is_pullback_a:
+            action_label = "✅ T3 拉回進場"
+            action_reason = (f"原因：多頭排列 + ADX {adx_str} 達標 + RSI {rsi_str}<50 拉回")
+            action_bg, action_fg = "#0d2a10", "#3dbb6a"
+        else:
+            action_label = "✅ 建議進場"
+            action_reason = (f"原因：多頭排列 + ADX {adx_str} 達標 + {trigger}")
+            action_bg, action_fg = "#0d2a10", "#3dbb6a"
     elif t2_ok:
         action_label = "🟡 可觀察進場（次要訊號）"
         action_reason = "原因：多頭排列 + ADX 達標但無 T1/T3 主訊號，可觀察等待主訊號確認"
@@ -5160,9 +5185,10 @@ def get_rec_label(d: dict, ticker: str = "") -> tuple:
         t1_str = f"T1 {cross_days}D 進場" if cross_days else "T1 進場"
 
         if _is_strong and _is_fresh:
-            return ("飆股",                 "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
+            # 🆕 v9.18.2：加 進場 verb，避免與 detail card 「✅ 建議進場」誤以為矛盾
+            return ("🚀 飆股 進場",          "background:#1a1400;color:#f0c030;border:1px solid #f0c03055")
         elif _is_strong and _is_pullback:
-            return ("T3 強趨勢拉回",         "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
+            return ("✅ T3 強趨勢拉回",       "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55")
         elif _is_strong and not _is_pullback and not _is_hot:
             return ("T3 等待拉回",           "background:#0a1628;color:#7abadd;border:1px solid #7abadd44")
         elif not _is_strong and _is_fresh:
@@ -8209,7 +8235,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 137  # v9.18.1：手機 selectbox 不彈鍵盤 + 點 ticker 查公司資訊 2026-05-07
+_RESULTS_VERSION = 138  # v9.18.2：修主表格 vs detail card 標籤不一致（飆股→飆股進場）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
