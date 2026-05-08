@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.17.1"
-APP_UPDATED   = "2026-05-07 20:30"
+APP_VERSION   = "v9.17.2"
+APP_UPDATED   = "2026-05-07 20:50"
 APP_NOTES     = (
     "🆕 主動出場 4 個 filter 加進 screener（A 保守/B 平衡⭐/C 飆股/D ATR動態⭐效率王/任一觸發）｜ "
     "🆕 Squeeze 突破方向預測研究（79,605 events）+ 2 個 filter（偏多/偏空突破）｜ "
@@ -3949,45 +3949,54 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</div></div>'
         )
 
-    # ── 🆕 v9.16 / v9.17.1：三狀態 + 4 主動出場 recipe 即時評估 ─────────────
+    # ── 🆕 v9.16 / v9.17.1 / v9.17.2：三狀態 + 4 主動出場 recipe 即時評估 ─────
     # 先試用 d['_swing_history']（雲端從 main scan 流程帶入）
     # fallback 到 data_cache 本地（local dev）
+    _swing_diag_msg = None  # 診斷訊息（顯示給用戶看為何 banner 沒出來）
     try:
         from state_classifier import classify_market_state, evaluate_recipes_live
         _df_for_state = None
+        _data_source = 'unknown'
 
         # 路徑 A：從 d['_swing_history']（30d tail）重建 mini-DataFrame
         _hist = d.get('_swing_history') if d else None
-        if _hist and _hist.get('close'):
+        if _hist and _hist.get('close') and len(_hist['close']) >= 10:
             try:
                 import pandas as _pd_local
+                _hist_n = len(_hist['close'])
                 _df_for_state = _pd_local.DataFrame({
                     'Open':   _hist.get('open', _hist['close']),
                     'High':   _hist.get('high', _hist['close']),
                     'Low':    _hist.get('low', _hist['close']),
                     'Close':  _hist['close'],
-                    'Volume': _hist.get('volume', [0]*len(_hist['close'])),
+                    'Volume': _hist.get('volume', [0]*_hist_n),
                     'e10':    _hist.get('ema10', _hist['close']),
                     'e20':    _hist.get('ema20', _hist['close']),
                     'e60':    _hist.get('ema60', _hist['close']),
-                    'adx':    _hist.get('adx', [0]*len(_hist['close'])),
-                    'atr':    _hist.get('atr', [0]*len(_hist['close'])),
-                    'rsi':    _hist.get('rsi', [50]*len(_hist['close'])),
+                    'adx':    _hist.get('adx', [0]*_hist_n),
+                    'atr':    _hist.get('atr', [0]*_hist_n),
+                    'rsi':    _hist.get('rsi', [50]*_hist_n),
                 })
-            except Exception:
+                _data_source = f'_swing_history ({_hist_n}d)'
+            except Exception as e:
+                _swing_diag_msg = f'_swing_history 解析失敗：{type(e).__name__}'
                 _df_for_state = None
 
         # 路徑 B：fallback to local cache（local dev）
-        if (_df_for_state is None or len(_df_for_state) < 80) and ticker:
+        if (_df_for_state is None or len(_df_for_state) < 10) and ticker:
             try:
                 import data_loader as _dl_local
                 _df_for_state = _dl_local.load_from_cache(ticker)
+                if _df_for_state is not None:
+                    _data_source = 'data_cache (local)'
             except Exception:
                 _df_for_state = None
 
-        # state_classifier 需要 ≥80 天，但 _swing_history 只有 30 天 → 放寬限制
-        _min_len = 30 if (_hist and _hist.get('close')) else 80
-        if _df_for_state is not None and len(_df_for_state) >= _min_len:
+        if _df_for_state is None or len(_df_for_state) < 10:
+            _swing_diag_msg = (f'波段診斷需 ≥10d 資料（_swing_history 缺，cache 也無）'
+                                f' [d.has_swing_history={bool(_hist)}, ticker={ticker}]')
+
+        if _df_for_state is not None and len(_df_for_state) >= 10:
             _state_info = classify_market_state(_df_for_state, d)
             _recipes = evaluate_recipes_live(_df_for_state)
 
@@ -4050,7 +4059,16 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'</div>'
             )
     except Exception as _e_state:
-        pass
+        _swing_diag_msg = f'波段診斷異常：{type(_e_state).__name__}: {str(_e_state)[:80]}'
+
+    # 顯示診斷訊息（資料缺失或失敗時讓用戶看到原因）
+    if _swing_diag_msg:
+        swing_rows.append(
+            f'<div style="background:#1a1208;border-left:3px solid #d4a020;'
+            f'padding:5px 10px;border-radius:3px;margin-top:6px;font-size:.7rem;color:#c8a050">'
+            f'⚠️ {_swing_diag_msg}'
+            f'</div>'
+        )
 
     # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
@@ -8075,7 +8093,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 134  # v9.17.1：修 detail card 三狀態 + 4 recipe 不顯示（Cloud data_cache 空）2026-05-07
+_RESULTS_VERSION = 135  # v9.17.2：波段診斷加診斷訊息（看為何 banner 沒出來）2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
