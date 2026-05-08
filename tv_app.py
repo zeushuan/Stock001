@@ -8,15 +8,15 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.15.3"
-APP_UPDATED   = "2026-05-07 18:15"
+APP_VERSION   = "v9.15.4"
+APP_UPDATED   = "2026-05-07 18:30"
 APP_NOTES     = (
-    "🐛 修自選股訊息「一閃而過」bug：原本 st.rerun() 立刻清掉 st.success 訊息，"
-    "改用 session_state 持久化（存/刪/拉/同步診斷 全部訊息現在都會留下來顯示）｜ "
-    "—— 上版 v9.15.2 ——｜ "
+    "🐛 修 GitHub 推送 NameError: '_dt' is not defined（_dt 在 sidebar 後段才匯入，"
+    "_push_watchlists_to_github 在前段定義時拿不到 → 改用 local import 修正）｜ "
+    "—— 上版 v9.15.3 ——｜ "
+    "🐛 修自選股訊息「一閃而過」bug（session_state 持久化）｜ "
     "🆕 自選股 GitHub 同步診斷工具 ｜ "
-    "🐛 修 json_age_days bug + T1 篩選器邏輯 ｜ "
-    "🆕 波段策略 walk-forward OOS 驗證 + detail card 波段診斷"
+    "🐛 修 json_age_days bug + T1 篩選器邏輯"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -7329,6 +7329,7 @@ with st.sidebar:
             if not token:
                 return (False, '⚠️ 未設定 GITHUB_TOKEN secret')
             import base64
+            import datetime as _dt_local  # 🆕 v9.15.4：函式內 local 匯入避免 scope 問題
             content_str = _json.dumps(d, ensure_ascii=False, indent=2)
             content_b64 = base64.b64encode(content_str.encode()).decode()
             api_url = f'https://api.github.com/repos/{repo}/contents/{file_path}'
@@ -7341,7 +7342,7 @@ with st.sidebar:
             sha = r.json().get('sha') if r.status_code == 200 else None
 
             payload = {
-                'message': f'auto: 更新 watchlists ({_dt.datetime.now().strftime("%Y-%m-%d %H:%M")})',
+                'message': f'auto: 更新 watchlists ({_dt_local.datetime.now().strftime("%Y-%m-%d %H:%M")})',
                 'content': content_b64,
                 'branch': 'main',
             }
@@ -7896,7 +7897,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 129  # v9.15.3：修自選股訊息一閃而過 bug（session_state 持久化）2026-05-07
+_RESULTS_VERSION = 130  # v9.15.4：修 _push_watchlists_to_github NameError '_dt' 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
