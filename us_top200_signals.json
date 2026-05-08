@@ -1,16 +1,16 @@
 {
-  "updated_at": "2026-05-07",
-  "computed_at": "2026-05-08 07:02:13",
+  "updated_at": "2026-05-08",
+  "computed_at": "2026-05-08 23:02:45",
   "top_total": 200,
   "entry": [
     {
       "ticker": "GRMN",
       "name": "Garmin Ltd.",
-      "close": 241.9,
-      "rsi": 43.5,
-      "ema20_cross_days": 56,
-      "delta": 17.1,
-      "sig": "T3 RSI43",
+      "close": 240.09,
+      "rsi": 42.0,
+      "ema20_cross_days": 57,
+      "delta": 18.1,
+      "sig": "T3 RSI42",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -18,11 +18,11 @@
     {
       "ticker": "CAR",
       "name": "Avis Budget Group, Inc.",
-      "close": 154.06,
-      "rsi": 40.6,
-      "ema20_cross_days": 27,
-      "delta": 32.9,
-      "sig": "T3 RSI41",
+      "close": 145.75,
+      "rsi": 39.8,
+      "ema20_cross_days": 28,
+      "delta": 25.1,
+      "sig": "T3 RSI40",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -30,10 +30,10 @@
     {
       "ticker": "PRIM",
       "name": "Primoris Services Corporation",
-      "close": 107.98,
-      "rsi": 33.2,
-      "ema20_cross_days": 26,
-      "delta": -34.8,
+      "close": 104.8,
+      "rsi": 32.5,
+      "ema20_cross_days": 27,
+      "delta": -35.9,
       "sig": "T3 RSI33",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -41,39 +41,19 @@
         {
           "level": 3,
           "side": "bull",
-          "tag": "BB %B -0.12<0 過冷反彈（多頭）",
+          "tag": "BB %B -0.04<0 過冷反彈（多頭）",
           "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 61.62404973111593
+          "quality_score": 53.58103518013975
         }
       ]
     },
     {
-      "ticker": "ANET",
-      "name": "Arista Networks, Inc.",
-      "close": 141.75,
-      "rsi": 38.3,
-      "ema20_cross_days": 20,
-      "delta": 0.8,
-      "sig": "T3 RSI38",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 51.2909572497796
-        }
-      ]
-    },
-    {
-      "ticker": "JPM",
-      "name": "JP Morgan Chase & Co.",
-      "close": 306.27,
-      "rsi": 48.7,
-      "ema20_cross_days": 16,
-      "delta": -1.5,
+      "ticker": "TT",
+      "name": "Trane Technologies plc",
+      "close": 466.17,
+      "rsi": 48.6,
+      "ema20_cross_days": 23,
+      "delta": 1.2,
       "sig": "T3 RSI49",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -83,13 +63,72 @@
       "alerts": []
     },
     {
+      "ticker": "ANET",
+      "name": "Arista Networks, Inc.",
+      "close": 141.77,
+      "rsi": 38.3,
+      "ema20_cross_days": 21,
+      "delta": 4.9,
+      "sig": "T3 RSI38",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "BAC",
+      "name": "Bank of America Corporation",
+      "close": 51.31,
+      "rsi": 44.6,
+      "ema20_cross_days": 17,
+      "delta": -2.3,
+      "sig": "T3 RSI45",
+      "t3_confidence": 1,
+      "t3_confidence_hits": [
+        "EMA20上升"
+      ],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.11<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 61.17733935117491
+        },
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
+    },
+    {
+      "ticker": "FROG",
+      "name": "JFrog Ltd.",
+      "close": 70.55,
+      "rsi": 83.2,
+      "ema20_cross_days": 3,
+      "delta": 32.4,
+      "sig": "T1 3d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "OKLO",
       "name": "Oklo Inc.",
-      "close": 71.83,
-      "rsi": 55.1,
-      "ema20_cross_days": 2,
-      "delta": 8.5,
-      "sig": "T1 2d",
+      "close": 72.51,
+      "rsi": 55.6,
+      "ema20_cross_days": 3,
+      "delta": 13.4,
+      "sig": "T1 3d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -103,11 +142,47 @@
     {
       "ticker": "QBTS",
       "name": "D-Wave Quantum Inc.",
-      "close": 21.99,
-      "rsi": 60.4,
-      "ema20_cross_days": 2,
-      "delta": 12.0,
-      "sig": "T1 2d",
+      "close": 22.57,
+      "rsi": 62.1,
+      "ema20_cross_days": 3,
+      "delta": 19.9,
+      "sig": "T1 3d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MNST",
+      "name": "Monster Beverage Corporation",
+      "close": 86.29,
+      "rsi": 73.1,
+      "ema20_cross_days": 1,
+      "delta": 6.3,
+      "sig": "T1 1d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "SMCI",
+      "name": "Super Micro Computer, Inc.",
+      "close": 35.37,
+      "rsi": 69.1,
+      "ema20_cross_days": 1,
+      "delta": 16.2,
+      "sig": "T1 1d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -121,47 +196,35 @@
     {
       "ticker": "AMPX",
       "name": "Amprius Technologies, Inc.",
-      "close": 16.11,
-      "rsi": 40.2,
+      "close": 16.7,
+      "rsi": 42.3,
       "ema20_cross_days": null,
-      "delta": 45.0,
-      "sig": "T3 RSI40",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.05<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 54.53300208979691
-        }
-      ]
+      "delta": 63.9,
+      "sig": "T3 RSI42",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
     },
     {
       "ticker": "APA",
       "name": "APA Corporation",
-      "close": 36.24,
-      "rsi": 42.3,
+      "close": 35.56,
+      "rsi": 40.5,
       "ema20_cross_days": null,
-      "delta": 28.2,
-      "sig": "T3 RSI42",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
+      "delta": 32.1,
+      "sig": "T3 RSI40",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
       "ticker": "BKR",
       "name": "Baker Hughes Company",
-      "close": 63.53,
-      "rsi": 46.7,
+      "close": 63.89,
+      "rsi": 47.9,
       "ema20_cross_days": null,
-      "delta": 3.7,
-      "sig": "T3 RSI47",
+      "delta": 4.1,
+      "sig": "T3 RSI48",
       "t3_confidence": 2,
       "t3_confidence_hits": [
         "EMA20上升",
@@ -194,11 +257,117 @@
     {
       "ticker": "DVN",
       "name": "Devon Energy Corporation",
-      "close": 45.31,
-      "rsi": 39.7,
+      "close": 45.61,
+      "rsi": 41.0,
       "ema20_cross_days": null,
-      "delta": 0.8,
-      "sig": "T3 RSI40",
+      "delta": 3.8,
+      "sig": "T3 RSI41",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "ESLT",
+      "name": "Elbit Systems Ltd.",
+      "close": 782.21,
+      "rsi": 35.5,
+      "ema20_cross_days": null,
+      "delta": 15.5,
+      "sig": "T3 RSI36",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "LNG",
+      "name": "Cheniere Energy, Inc.",
+      "close": 240.11,
+      "rsi": 33.9,
+      "ema20_cross_days": null,
+      "delta": 10.3,
+      "sig": "T3 RSI34",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 56.578316586199115
+        }
+      ]
+    },
+    {
+      "ticker": "MO",
+      "name": "Altria Group, Inc.",
+      "close": 68.12,
+      "rsi": 49.7,
+      "ema20_cross_days": null,
+      "delta": 1.7,
+      "sig": "T3 RSI50",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "OVV",
+      "name": "Ovintiv Inc. (DE)",
+      "close": 57.83,
+      "rsi": 49.5,
+      "ema20_cross_days": null,
+      "delta": 25.8,
+      "sig": "T3 RSI49",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "OXY",
+      "name": "Occidental Petroleum Corporation",
+      "close": 53.03,
+      "rsi": 37.2,
+      "ema20_cross_days": null,
+      "delta": 16.6,
+      "sig": "T3 RSI37",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "PPL",
+      "name": "PPL Corporation",
+      "close": 35.91,
+      "rsi": 29.2,
+      "ema20_cross_days": null,
+      "delta": -1.9,
+      "sig": "T3 RSI29",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 57.278626962654265
+        }
+      ]
+    },
+    {
+      "ticker": "PR",
+      "name": "Permian Resources Corporation Class A",
+      "close": 19.72,
+      "rsi": 41.6,
+      "ema20_cross_days": null,
+      "delta": 17.0,
+      "sig": "T3 RSI42",
       "t3_confidence": 1,
       "t3_confidence_hits": [
         "EMA20上升"
@@ -206,135 +375,13 @@
       "alerts": []
     },
     {
-      "ticker": "ESLT",
-      "name": "Elbit Systems Ltd.",
-      "close": 794.96,
-      "rsi": 37.5,
-      "ema20_cross_days": null,
-      "delta": 19.6,
-      "sig": "T3 RSI37",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "FDX",
-      "name": "FedEx Corporation",
-      "close": 375.93,
-      "rsi": 49.5,
-      "ema20_cross_days": null,
-      "delta": 2.4,
-      "sig": "T3 RSI50",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "HAL",
-      "name": "Halliburton Company",
-      "close": 39.12,
-      "rsi": 48.6,
-      "ema20_cross_days": null,
-      "delta": 11.7,
-      "sig": "T3 RSI49",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "LNG",
-      "name": "Cheniere Energy, Inc.",
-      "close": 246.78,
-      "rsi": 37.3,
-      "ema20_cross_days": null,
-      "delta": 12.5,
-      "sig": "T3 RSI37",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "PL",
-      "name": "Planet Labs PBC Class A",
-      "close": 35.24,
-      "rsi": 49.8,
-      "ema20_cross_days": null,
-      "delta": 62.8,
-      "sig": "T3 RSI50",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": [
-        {
-          "level": 2,
-          "side": "bear",
-          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-          "quality_score": 30.0
-        }
-      ]
-    },
-    {
-      "ticker": "PPL",
-      "name": "PPL Corporation",
-      "close": 36.77,
-      "rsi": 34.9,
-      "ema20_cross_days": null,
-      "delta": 2.1,
-      "sig": "T3 RSI35",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "PR",
-      "name": "Permian Resources Corporation Class A",
-      "close": 20.08,
-      "rsi": 44.1,
-      "ema20_cross_days": null,
-      "delta": 16.9,
-      "sig": "T3 RSI44",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "PSX",
-      "name": "Phillips 66",
-      "close": 168.31,
-      "rsi": 49.1,
-      "ema20_cross_days": null,
-      "delta": 4.2,
-      "sig": "T3 RSI49",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "RIG",
       "name": "Transocean Ltd (Switzerland)",
-      "close": 6.17,
-      "rsi": 44.0,
+      "close": 6.4,
+      "rsi": 49.6,
       "ema20_cross_days": null,
-      "delta": 2.8,
-      "sig": "T3 RSI44",
+      "delta": 6.1,
+      "sig": "T3 RSI50",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -342,49 +389,10 @@
     {
       "ticker": "SU",
       "name": "Suncor Energy  Inc.",
-      "close": 63.74,
-      "rsi": 47.1,
+      "close": 64.01,
+      "rsi": 47.9,
       "ema20_cross_days": null,
-      "delta": 13.9,
-      "sig": "T3 RSI47",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "TJX",
-      "name": "TJX Companies, Inc. (The)",
-      "close": 154.48,
-      "rsi": 40.8,
-      "ema20_cross_days": null,
-      "delta": 2.5,
-      "sig": "T3 RSI41",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "VAL",
-      "name": "Valaris Limited",
-      "close": 91.78,
-      "rsi": 44.0,
-      "ema20_cross_days": null,
-      "delta": 3.8,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "VLO",
-      "name": "Valero Energy Corporation",
-      "close": 236.35,
-      "rsi": 47.6,
-      "ema20_cross_days": null,
-      "delta": 15.9,
+      "delta": 16.2,
       "sig": "T3 RSI48",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -394,22 +402,54 @@
       "alerts": []
     },
     {
+      "ticker": "VAL",
+      "name": "Valaris Limited",
+      "close": 95.02,
+      "rsi": 49.4,
+      "ema20_cross_days": null,
+      "delta": 6.9,
+      "sig": "T3 RSI49",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
       "ticker": "WLK",
       "name": "Westlake Corporation",
-      "close": 97.38,
-      "rsi": 30.1,
+      "close": 93.85,
+      "rsi": 27.3,
       "ema20_cross_days": null,
-      "delta": -3.0,
-      "sig": "T3 RSI30",
+      "delta": -4.9,
+      "sig": "T3 RSI27",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": [
         {
           "level": 3,
           "side": "bull",
-          "tag": "BB %B -0.14<0 過冷反彈（多頭）",
+          "tag": "BB %B -0.12<0 過冷反彈（多頭）",
           "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 63.963157158900046
+          "quality_score": 61.696967194173546
+        }
+      ]
+    },
+    {
+      "ticker": "COR",
+      "name": "Cencora, Inc.",
+      "close": 261.08,
+      "rsi": 24.2,
+      "ema20_cross_days": -36,
+      "delta": -25.6,
+      "sig": "T3 RSI24",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB Expansion 突放（空頭末段反轉）BW=28.7%",
+          "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+          "quality_score": 28.654381227219368
         }
       ]
     }
@@ -419,64 +459,10 @@
     {
       "ticker": "FLEX",
       "name": "Flex Ltd.",
-      "close": 133.01,
-      "rsi": 88.3,
+      "close": 142.17,
+      "rsi": 89.9,
       "ema20_cross_days": null,
-      "delta": 105.1,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "GOOGL",
-      "name": "Alphabet Inc.",
-      "close": 397.99,
-      "rsi": 83.4,
-      "ema20_cross_days": 18,
-      "delta": 28.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "GOOG",
-      "name": "Alphabet Inc.",
-      "close": 395.3,
-      "rsi": 82.9,
-      "ema20_cross_days": 17,
-      "delta": 27.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "FTNT",
-      "name": "Fortinet, Inc.",
-      "close": 107.97,
-      "rsi": 81.7,
-      "ema20_cross_days": 13,
-      "delta": 22.9,
+      "delta": 127.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -491,10 +477,118 @@
     {
       "ticker": "INTC",
       "name": "Intel Corporation",
-      "close": 109.62,
-      "rsi": 80.5,
+      "close": 124.92,
+      "rsi": 85.1,
       "ema20_cross_days": null,
-      "delta": 127.0,
+      "delta": 168.8,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "FTNT",
+      "name": "Fortinet, Inc.",
+      "close": 114.07,
+      "rsi": 84.4,
+      "ema20_cross_days": 14,
+      "delta": 35.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "close": 400.8,
+      "rsi": 84.0,
+      "ema20_cross_days": 19,
+      "delta": 29.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MU",
+      "name": "Micron Technology, Inc.",
+      "close": 746.81,
+      "rsi": 83.8,
+      "ema20_cross_days": null,
+      "delta": 80.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "GOOG",
+      "name": "Alphabet Inc.",
+      "close": 397.05,
+      "rsi": 83.3,
+      "ema20_cross_days": 18,
+      "delta": 28.3,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "STM",
+      "name": "STMicroelectronics N.V.",
+      "close": 59.17,
+      "rsi": 80.9,
+      "ema20_cross_days": null,
+      "delta": 76.0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "AMD",
+      "name": "Advanced Micro Devices, Inc.",
+      "close": 455.19,
+      "rsi": 80.8,
+      "ema20_cross_days": 22,
+      "delta": 121.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -533,66 +627,12 @@
       ]
     },
     {
-      "ticker": "MU",
-      "name": "Micron Technology, Inc.",
-      "close": 646.63,
-      "rsi": 77.5,
-      "ema20_cross_days": null,
-      "delta": 57.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "STM",
-      "name": "STMicroelectronics N.V.",
-      "close": 55.9,
-      "rsi": 77.0,
-      "ema20_cross_days": null,
-      "delta": 59.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "AMD",
-      "name": "Advanced Micro Devices, Inc.",
-      "close": 408.46,
-      "rsi": 76.1,
-      "ema20_cross_days": 21,
-      "delta": 91.2,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "TXN",
       "name": "Texas Instruments Incorporated",
-      "close": 285.24,
-      "rsi": 75.2,
-      "ema20_cross_days": 21,
-      "delta": 25.9,
+      "close": 287.8,
+      "rsi": 76.1,
+      "ema20_cross_days": 22,
+      "delta": 29.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -607,10 +647,10 @@
     {
       "ticker": "NVT",
       "name": "nVent Electric plc",
-      "close": 166.73,
-      "rsi": 73.8,
+      "close": 169.95,
+      "rsi": 75.3,
       "ema20_cross_days": null,
-      "delta": 47.9,
+      "delta": 51.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -620,69 +660,23 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": []
-    },
-    {
-      "ticker": "PWR",
-      "name": "Quanta Services, Inc.",
-      "close": 750.73,
-      "rsi": 73.6,
-      "ema20_cross_days": null,
-      "delta": 43.3,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "黃昏之星 + RSI 75≥75",
+          "expect": "-0.54% 30d (70% 跌)",
+          "quality_score": 25.321263212612976
+        }
+      ]
     },
     {
       "ticker": "CASY",
       "name": "Caseys General Stores, Inc.",
-      "close": 850.95,
-      "rsi": 73.2,
+      "close": 859.49,
+      "rsi": 74.7,
       "ema20_cross_days": null,
-      "delta": 31.2,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "HUT",
-      "name": "Hut 8 Corp.",
-      "close": 101.18,
-      "rsi": 72.6,
-      "ema20_cross_days": 21,
-      "delta": 90.1,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "CDNS",
-      "name": "Cadence Design Systems, Inc.",
-      "close": 356.9,
-      "rsi": 70.6,
-      "ema20_cross_days": 12,
-      "delta": 19.1,
+      "delta": 29.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -697,10 +691,10 @@
     {
       "ticker": "AXTI",
       "name": "AXT Inc",
-      "close": 108.42,
-      "rsi": 70.3,
+      "close": 116.36,
+      "rsi": 73.2,
       "ema20_cross_days": null,
-      "delta": 304.6,
+      "delta": 369.4,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -713,12 +707,12 @@
       "alerts": []
     },
     {
-      "ticker": "ORCL",
-      "name": "Oracle Corporation",
-      "close": 194.59,
-      "rsi": 68.8,
-      "ema20_cross_days": 11,
-      "delta": 23.8,
+      "ticker": "CDNS",
+      "name": "Cadence Design Systems, Inc.",
+      "close": 362.7,
+      "rsi": 72.5,
+      "ema20_cross_days": 13,
+      "delta": 25.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -731,12 +725,30 @@
       "alerts": []
     },
     {
-      "ticker": "STLD",
-      "name": "Steel Dynamics, Inc.",
-      "close": 232.92,
-      "rsi": 68.5,
-      "ema20_cross_days": 21,
-      "delta": 13.2,
+      "ticker": "MKSI",
+      "name": "MKS Inc.",
+      "close": 313.21,
+      "rsi": 72.2,
+      "ema20_cross_days": null,
+      "delta": 25.6,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "PWR",
+      "name": "Quanta Services, Inc.",
+      "close": 745.0,
+      "rsi": 71.6,
+      "ema20_cross_days": null,
+      "delta": 44.4,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -751,10 +763,10 @@
     {
       "ticker": "ADI",
       "name": "Analog Devices, Inc.",
-      "close": 408.52,
-      "rsi": 67.9,
+      "close": 416.52,
+      "rsi": 70.4,
       "ema20_cross_days": null,
-      "delta": 21.2,
+      "delta": 25.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -767,208 +779,12 @@
       "alerts": []
     },
     {
-      "ticker": "APLD",
-      "name": "Applied Digital Corporation",
-      "close": 41.53,
-      "rsi": 66.9,
-      "ema20_cross_days": 12,
-      "delta": 13.5,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "CAT",
-      "name": "Caterpillar, Inc.",
-      "close": 895.69,
-      "rsi": 66.6,
-      "ema20_cross_days": null,
-      "delta": 15.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "ARWR",
-      "name": "Arrowhead Pharmaceuticals, Inc.",
-      "close": 77.95,
-      "rsi": 66.3,
-      "ema20_cross_days": 21,
-      "delta": 26.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "ADM",
-      "name": "Archer-Daniels-Midland Company",
-      "close": 77.53,
-      "rsi": 66.2,
-      "ema20_cross_days": null,
-      "delta": 11.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "RY",
-      "name": "Royal Bank Of Canada",
-      "close": 181.35,
-      "rsi": 65.8,
-      "ema20_cross_days": 20,
-      "delta": 4.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "TSM",
-      "name": "Taiwan Semiconductor Manufacturing Compa",
-      "close": 414.15,
-      "rsi": 65.5,
-      "ema20_cross_days": null,
-      "delta": 10.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "TD",
-      "name": "Toronto Dominion Bank (The)",
-      "close": 107.7,
-      "rsi": 65.4,
-      "ema20_cross_days": null,
-      "delta": 10.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "MRVL",
-      "name": "Marvell Technology, Inc.",
-      "close": 160.01,
-      "rsi": 63.7,
-      "ema20_cross_days": 42,
-      "delta": 96.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "LRCX",
-      "name": "Lam Research Corporation",
-      "close": 286.52,
-      "rsi": 63.5,
-      "ema20_cross_days": null,
-      "delta": 21.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "NVDA",
-      "name": "NVIDIA Corporation",
-      "close": 211.5,
-      "rsi": 63.4,
-      "ema20_cross_days": 17,
-      "delta": 11.3,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "CMI",
-      "name": "Cummins Inc.",
-      "close": 682.88,
-      "rsi": 63.2,
+      "ticker": "STLD",
+      "name": "Steel Dynamics, Inc.",
+      "close": 235.1,
+      "rsi": 69.8,
       "ema20_cross_days": 22,
-      "delta": 14.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "VRT",
-      "name": "Vertiv Holdings, LLC Class A",
-      "close": 340.01,
-      "rsi": 63.0,
-      "ema20_cross_days": null,
-      "delta": 36.8,
+      "delta": 17.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -983,10 +799,100 @@
     {
       "ticker": "VRSN",
       "name": "VeriSign, Inc.",
-      "close": 278.47,
-      "rsi": 62.9,
-      "ema20_cross_days": 30,
-      "delta": 29.1,
+      "close": 288.21,
+      "rsi": 69.8,
+      "ema20_cross_days": 31,
+      "delta": 32.1,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "HUT",
+      "name": "Hut 8 Corp.",
+      "close": 98.46,
+      "rsi": 69.4,
+      "ema20_cross_days": 22,
+      "delta": 93.2,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "ORCL",
+      "name": "Oracle Corporation",
+      "close": 195.95,
+      "rsi": 69.4,
+      "ema20_cross_days": 12,
+      "delta": 25.2,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MRVL",
+      "name": "Marvell Technology, Inc.",
+      "close": 170.13,
+      "rsi": 69.0,
+      "ema20_cross_days": 43,
+      "delta": 117.5,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "CAT",
+      "name": "Caterpillar, Inc.",
+      "close": 897.45,
+      "rsi": 66.8,
+      "ema20_cross_days": null,
+      "delta": 18.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "ADM",
+      "name": "Archer-Daniels-Midland Company",
+      "close": 77.66,
+      "rsi": 66.5,
+      "ema20_cross_days": null,
+      "delta": 11.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1001,10 +907,10 @@
     {
       "ticker": "MSTR",
       "name": "Strategy Inc",
-      "close": 179.84,
-      "rsi": 62.7,
-      "ema20_cross_days": 11,
-      "delta": 42.7,
+      "close": 187.59,
+      "rsi": 66.3,
+      "ema20_cross_days": 12,
+      "delta": 52.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1017,102 +923,30 @@
       "alerts": []
     },
     {
-      "ticker": "CRDO",
-      "name": "Credo Technology Group Holding Ltd",
-      "close": 188.29,
-      "rsi": 62.2,
-      "ema20_cross_days": 16,
-      "delta": 46.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "FORM",
-      "name": "FormFactor, Inc.",
-      "close": 144.68,
-      "rsi": 61.8,
-      "ema20_cross_days": null,
-      "delta": 50.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "AEHR",
-      "name": "Aehr Test Systems",
-      "close": 91.26,
-      "rsi": 61.6,
-      "ema20_cross_days": null,
-      "delta": 169.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "MPWR",
-      "name": "Monolithic Power Systems, Inc.",
-      "close": 1575.96,
-      "rsi": 61.6,
-      "ema20_cross_days": null,
-      "delta": 31.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "UUUU",
-      "name": "Energy Fuels Inc",
-      "close": 23.35,
-      "rsi": 61.3,
-      "ema20_cross_days": 14,
-      "delta": 4.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "UNM",
-      "name": "Unum Group",
-      "close": 80.32,
-      "rsi": 61.2,
+      "ticker": "RY",
+      "name": "Royal Bank Of Canada",
+      "close": 181.68,
+      "rsi": 66.3,
       "ema20_cross_days": 21,
-      "delta": 12.5,
+      "delta": 7.3,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "APLD",
+      "name": "Applied Digital Corporation",
+      "close": 41.25,
+      "rsi": 66.1,
+      "ema20_cross_days": 13,
+      "delta": 14.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1127,10 +961,10 @@
     {
       "ticker": "AMKR",
       "name": "Amkor Technology, Inc.",
-      "close": 72.27,
-      "rsi": 60.9,
+      "close": 76.61,
+      "rsi": 65.9,
       "ema20_cross_days": null,
-      "delta": 28.7,
+      "delta": 48.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1145,10 +979,10 @@
     {
       "ticker": "AVGO",
       "name": "Broadcom Inc.",
-      "close": 412.56,
-      "rsi": 60.0,
-      "ema20_cross_days": 19,
-      "delta": 20.4,
+      "close": 430.0,
+      "rsi": 65.9,
+      "ema20_cross_days": 20,
+      "delta": 29.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1161,46 +995,12 @@
       "alerts": []
     },
     {
-      "ticker": "C",
-      "name": "Citigroup, Inc.",
-      "close": 129.09,
-      "rsi": 60.0,
-      "ema20_cross_days": 24,
-      "delta": 10.0,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "MS",
-      "name": "Morgan Stanley",
-      "close": 190.17,
-      "rsi": 59.9,
-      "ema20_cross_days": 18,
-      "delta": 7.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "SEI",
-      "name": "Solaris Energy Infrastructure, Inc. Clas",
-      "close": 73.07,
-      "rsi": 59.1,
+      "ticker": "LRCX",
+      "name": "Lam Research Corporation",
+      "close": 294.05,
+      "rsi": 65.9,
       "ema20_cross_days": null,
-      "delta": 36.0,
+      "delta": 27.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1213,12 +1013,120 @@
       "alerts": []
     },
     {
-      "ticker": "ALAB",
-      "name": "Astera Labs, Inc.",
-      "close": 195.65,
-      "rsi": 58.4,
-      "ema20_cross_days": 16,
-      "delta": 36.1,
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "close": 215.2,
+      "rsi": 65.9,
+      "ema20_cross_days": 18,
+      "delta": 15.1,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "AEHR",
+      "name": "Aehr Test Systems",
+      "close": 97.23,
+      "rsi": 65.2,
+      "ema20_cross_days": null,
+      "delta": 248.6,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "AMAT",
+      "name": "Applied Materials, Inc.",
+      "close": 435.44,
+      "rsi": 64.6,
+      "ema20_cross_days": null,
+      "delta": 32.6,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "TD",
+      "name": "Toronto Dominion Bank (The)",
+      "close": 107.46,
+      "rsi": 64.3,
+      "ema20_cross_days": null,
+      "delta": 12.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "TSM",
+      "name": "Taiwan Semiconductor Manufacturing Compa",
+      "close": 411.68,
+      "rsi": 64.0,
+      "ema20_cross_days": null,
+      "delta": 11.8,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "FORM",
+      "name": "FormFactor, Inc.",
+      "close": 147.87,
+      "rsi": 63.8,
+      "ema20_cross_days": null,
+      "delta": 57.8,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "RIO",
+      "name": "Rio Tinto Plc",
+      "close": 105.38,
+      "rsi": 63.7,
+      "ema20_cross_days": null,
+      "delta": 7.6,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1233,45 +1141,9 @@
     {
       "ticker": "LSCC",
       "name": "Lattice Semiconductor Corporation",
-      "close": 119.92,
-      "rsi": 57.4,
+      "close": 127.19,
+      "rsi": 63.4,
       "ema20_cross_days": null,
-      "delta": 13.4,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "TRGP",
-      "name": "Targa Resources, Inc.",
-      "close": 252.44,
-      "rsi": 56.7,
-      "ema20_cross_days": null,
-      "delta": 13.8,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "RMBS",
-      "name": "Rambus, Inc.",
-      "close": 126.6,
-      "rsi": 56.0,
-      "ema20_cross_days": 18,
       "delta": 27.4,
       "sig": "—",
       "t3_confidence": 5,
@@ -1285,12 +1157,138 @@
       "alerts": []
     },
     {
-      "ticker": "ENTG",
-      "name": "Entegris, Inc.",
-      "close": 147.66,
-      "rsi": 55.9,
+      "ticker": "UNM",
+      "name": "Unum Group",
+      "close": 80.88,
+      "rsi": 63.4,
+      "ema20_cross_days": 22,
+      "delta": 14.2,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MPWR",
+      "name": "Monolithic Power Systems, Inc.",
+      "close": 1600.84,
+      "rsi": 63.3,
       "ema20_cross_days": null,
-      "delta": 7.2,
+      "delta": 38.5,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MS",
+      "name": "Morgan Stanley",
+      "close": 193.09,
+      "rsi": 63.3,
+      "ema20_cross_days": 19,
+      "delta": 14.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "VRT",
+      "name": "Vertiv Holdings, LLC Class A",
+      "close": 339.97,
+      "rsi": 63.0,
+      "ema20_cross_days": null,
+      "delta": 43.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "CRDO",
+      "name": "Credo Technology Group Holding Ltd",
+      "close": 188.51,
+      "rsi": 62.2,
+      "ema20_cross_days": 17,
+      "delta": 54.8,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "CMI",
+      "name": "Cummins Inc.",
+      "close": 679.55,
+      "rsi": 62.1,
+      "ema20_cross_days": 23,
+      "delta": 15.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "ALAB",
+      "name": "Astera Labs, Inc.",
+      "close": 199.79,
+      "rsi": 60.0,
+      "ema20_cross_days": 17,
+      "delta": 57.8,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "SEI",
+      "name": "Solaris Energy Infrastructure, Inc. Clas",
+      "close": 72.96,
+      "rsi": 58.9,
+      "ema20_cross_days": null,
+      "delta": 41.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1305,10 +1303,10 @@
     {
       "ticker": "EWBC",
       "name": "East West Bancorp, Inc.",
-      "close": 121.93,
-      "rsi": 55.9,
-      "ema20_cross_days": 18,
-      "delta": 2.4,
+      "close": 122.99,
+      "rsi": 58.2,
+      "ema20_cross_days": 19,
+      "delta": 4.9,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -1319,74 +1317,100 @@
       "alerts": []
     },
     {
+      "ticker": "RMBS",
+      "name": "Rambus, Inc.",
+      "close": 129.24,
+      "rsi": 57.4,
+      "ema20_cross_days": 19,
+      "delta": 34.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "PL",
+      "name": "Planet Labs PBC Class A",
+      "close": 39.04,
+      "rsi": 57.1,
+      "ema20_cross_days": null,
+      "delta": 83.3,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "ENTG",
+      "name": "Entegris, Inc.",
+      "close": 149.11,
+      "rsi": 56.9,
+      "ema20_cross_days": null,
+      "delta": 13.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "MPC",
       "name": "Marathon Petroleum Corporation",
-      "close": 242.26,
+      "close": 244.87,
+      "rsi": 56.9,
+      "ema20_cross_days": null,
+      "delta": 23.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "ONTO",
+      "name": "Onto Innovation Inc.",
+      "close": 284.67,
       "rsi": 55.3,
       "ema20_cross_days": null,
-      "delta": 16.1,
+      "delta": 32.6,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
     {
-      "ticker": "AAOI",
-      "name": "Applied Optoelectronics, Inc.",
-      "close": 157.55,
-      "rsi": 54.0,
-      "ema20_cross_days": null,
-      "delta": 225.5,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "BAC",
-      "name": "Bank of America Corporation",
-      "close": 52.75,
-      "rsi": 53.3,
-      "ema20_cross_days": 16,
-      "delta": -2.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": [
-        {
-          "level": 2,
-          "side": "bear",
-          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-          "quality_score": 30.0
-        }
-      ]
-    },
-    {
-      "ticker": "MO",
-      "name": "Altria Group, Inc.",
-      "close": 69.04,
-      "rsi": 52.7,
-      "ema20_cross_days": null,
-      "delta": 4.7,
+      "ticker": "ARWR",
+      "name": "Arrowhead Pharmaceuticals, Inc.",
+      "close": 72.69,
+      "rsi": 53.9,
+      "ema20_cross_days": 22,
+      "delta": 16.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1401,32 +1425,25 @@
     {
       "ticker": "FOXA",
       "name": "Fox Corporation",
-      "close": 62.69,
-      "rsi": 51.9,
-      "ema20_cross_days": 12,
-      "delta": 2.6,
+      "close": 62.94,
+      "rsi": 53.3,
+      "ema20_cross_days": 13,
+      "delta": 11.5,
       "sig": "—",
-      "t3_confidence": 1,
+      "t3_confidence": 2,
       "t3_confidence_hits": [
-        "close>EMA20"
+        "close>EMA20",
+        "EMA5>EMA20"
       ],
-      "alerts": [
-        {
-          "level": "imm_bear",
-          "side": "bear",
-          "tag": "即將: 三隻烏鴉 + 距高 5.0%（差到 <5%）",
-          "expect": "價再升即達 ★★★★",
-          "quality_score": -5.0151535958954785
-        }
-      ]
+      "alerts": []
     },
     {
       "ticker": "DLR",
       "name": "Digital Realty Trust, Inc.",
-      "close": 194.78,
-      "rsi": 51.8,
+      "close": 195.31,
+      "rsi": 52.7,
       "ema20_cross_days": null,
-      "delta": 11.6,
+      "delta": 8.3,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1436,12 +1453,28 @@
       "alerts": []
     },
     {
-      "ticker": "BK",
-      "name": "The Bank of New York Mellon Corporation",
-      "close": 130.69,
-      "rsi": 51.3,
-      "ema20_cross_days": 25,
-      "delta": 7.4,
+      "ticker": "PSX",
+      "name": "Phillips 66",
+      "close": 171.56,
+      "rsi": 52.6,
+      "ema20_cross_days": null,
+      "delta": 9.8,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "HAL",
+      "name": "Halliburton Company",
+      "close": 39.83,
+      "rsi": 52.2,
+      "ema20_cross_days": null,
+      "delta": 16.2,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1451,30 +1484,16 @@
       "alerts": []
     },
     {
-      "ticker": "ONTO",
-      "name": "Onto Innovation Inc.",
-      "close": 274.17,
-      "rsi": 51.3,
-      "ema20_cross_days": null,
-      "delta": 23.3,
+      "ticker": "UUUU",
+      "name": "Energy Fuels Inc",
+      "close": 21.38,
+      "rsi": 52.2,
+      "ema20_cross_days": 15,
+      "delta": 0.4,
       "sig": "—",
-      "t3_confidence": 2,
+      "t3_confidence": 5,
       "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "OVV",
-      "name": "Ovintiv Inc. (DE)",
-      "close": 58.31,
-      "rsi": 50.9,
-      "ema20_cross_days": null,
-      "delta": 22.0,
-      "sig": "—",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
+        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -1483,12 +1502,48 @@
       "alerts": []
     },
     {
-      "ticker": "TT",
-      "name": "Trane Technologies plc",
-      "close": 469.81,
-      "rsi": 50.5,
-      "ema20_cross_days": 22,
-      "delta": -0.6,
+      "ticker": "TRGP",
+      "name": "Targa Resources, Inc.",
+      "close": 248.12,
+      "rsi": 52.1,
+      "ema20_cross_days": null,
+      "delta": 13.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "TER",
+      "name": "Teradyne, Inc.",
+      "close": 359.77,
+      "rsi": 51.4,
+      "ema20_cross_days": null,
+      "delta": 15.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "VLO",
+      "name": "Valero Energy Corporation",
+      "close": 241.06,
+      "rsi": 51.1,
+      "ema20_cross_days": null,
+      "delta": 22.4,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1498,202 +1553,332 @@
       "alerts": []
     },
     {
-      "ticker": "TER",
-      "name": "Teradyne, Inc.",
-      "close": 354.11,
-      "rsi": 50.2,
+      "ticker": "AAOI",
+      "name": "Applied Optoelectronics, Inc.",
+      "close": 148.94,
+      "rsi": 50.8,
       "ema20_cross_days": null,
-      "delta": 10.2,
+      "delta": 238.6,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
-        "EMA5上升",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
+    },
+    {
+      "ticker": "BK",
+      "name": "The Bank of New York Mellon Corporation",
+      "close": 130.5,
+      "rsi": 50.8,
+      "ema20_cross_days": 26,
+      "delta": 13.6,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
         "EMA5>EMA20"
       ],
       "alerts": []
+    },
+    {
+      "ticker": "C",
+      "name": "Citigroup, Inc.",
+      "close": 125.55,
+      "rsi": 50.8,
+      "ema20_cross_days": 25,
+      "delta": 13.0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "FDX",
+      "name": "FedEx Corporation",
+      "close": 378.58,
+      "rsi": 50.8,
+      "ema20_cross_days": null,
+      "delta": 2.5,
+      "sig": "—",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
     }
   ],
-  "wait_count": 113,
+  "wait_count": 107,
   "alerts": [
+    {
+      "ticker": "MTD",
+      "name": "Mettler-Toledo International, Inc.",
+      "close": 1124.46,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.33<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 82.79526375583953
+    },
     {
       "ticker": "USFD",
       "name": "US Foods Holding Corp.",
-      "close": 86.88,
+      "close": 84.4,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.25<0 過冷反彈（多頭）",
+      "tag": "BB %B -0.26<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 75.24864421912322
+      "quality_score": 75.99690514264235
     },
     {
-      "ticker": "TPR",
-      "name": "Tapestry, Inc.",
-      "close": 130.52,
+      "ticker": "WFC",
+      "name": "Wells Fargo & Company",
+      "close": 75.64,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.20<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 70.27614252048318
-    },
-    {
-      "ticker": "COR",
-      "name": "Cencora, Inc.",
-      "close": 255.66,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.17<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.15<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 66.70654817739896
+      "quality_score": 64.75477831977794
     },
     {
-      "ticker": "WLK",
-      "name": "Westlake Corporation",
-      "close": 97.38,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.14<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 63.963157158900046
-    },
-    {
-      "ticker": "PRIM",
-      "name": "Primoris Services Corporation",
-      "close": 107.98,
+      "ticker": "JPM",
+      "name": "JP Morgan Chase & Co.",
+      "close": 302.1,
       "level": 3,
       "side": "bull",
       "tag": "BB %B -0.12<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 61.62404973111593
+      "quality_score": 61.89441312340311
+    },
+    {
+      "ticker": "OSK",
+      "name": "Oshkosh Corporation (Holding Company)Com",
+      "close": 137.97,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.12<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 61.87561248118997
+    },
+    {
+      "ticker": "WLK",
+      "name": "Westlake Corporation",
+      "close": 93.85,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.12<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 61.696967194173546
+    },
+    {
+      "ticker": "BAC",
+      "name": "Bank of America Corporation",
+      "close": 51.31,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.11<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 61.17733935117491
+    },
+    {
+      "ticker": "LPLA",
+      "name": "LPL Financial Holdings Inc.",
+      "close": 303.52,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.11<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 60.64202169320406
+    },
+    {
+      "ticker": "VST",
+      "name": "Vistra Corp.",
+      "close": 147.72,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.10<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 59.86967586904232
+    },
+    {
+      "ticker": "MLM",
+      "name": "Martin Marietta Materials, Inc.",
+      "close": 590.38,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.08<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 57.902286479094684
+    },
+    {
+      "ticker": "PPL",
+      "name": "PPL Corporation",
+      "close": 35.91,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 57.278626962654265
+    },
+    {
+      "ticker": "LNG",
+      "name": "Cheniere Energy, Inc.",
+      "close": 240.11,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 56.578316586199115
     },
     {
       "ticker": "EXC",
       "name": "Exelon Corporation",
-      "close": 44.41,
+      "close": 43.91,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.07<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 56.56287747734714
+    },
+    {
+      "ticker": "PFE",
+      "name": "Pfizer, Inc.",
+      "close": 25.68,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.06<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 56.48691533838812
+    },
+    {
+      "ticker": "MCK",
+      "name": "McKesson Corporation",
+      "close": 736.09,
       "level": 3,
       "side": "bull",
       "tag": "BB %B -0.05<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 55.14590597779527
+      "quality_score": 55.043541824675756
     },
     {
-      "ticker": "AMPX",
-      "name": "Amprius Technologies, Inc.",
-      "close": 16.11,
+      "ticker": "AEP",
+      "name": "American Electric Power Company, Inc.",
+      "close": 130.16,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.05<0 過冷反彈（多頭）",
+      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 54.53300208979691
+      "quality_score": 53.75186399753199
     },
     {
-      "ticker": "MCK",
-      "name": "McKesson Corporation",
-      "close": 754.76,
+      "ticker": "PRIM",
+      "name": "Primoris Services Corporation",
+      "close": 104.8,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.04<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 53.58103518013975
+    },
+    {
+      "ticker": "WYNN",
+      "name": "Wynn Resorts, Limited",
+      "close": 102.42,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 53.85196701848262
-    },
-    {
-      "ticker": "ANET",
-      "name": "Arista Networks, Inc.",
-      "close": 141.75,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 51.2909572497796
-    },
-    {
-      "ticker": "AEE",
-      "name": "Ameren Corporation",
-      "close": 108.77,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 50.89842185040441
+      "quality_score": 51.93648615079858
     },
     {
       "ticker": "SPOT",
       "name": "Spotify Technology S.A.",
-      "close": 427.43,
+      "close": 417.83,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=36.4%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=38.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 36.36241213288107
+      "quality_score": 38.58581720333163
     },
     {
       "ticker": "COR",
       "name": "Cencora, Inc.",
-      "close": 255.66,
+      "close": 261.08,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=25.4%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=28.7%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.357340081317552
-    },
-    {
-      "ticker": "RTX",
-      "name": "RTX Corporation",
-      "close": 176.78,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=25.2%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.21882542762579
+      "quality_score": 28.654381227219368
     },
     {
       "ticker": "HCA",
       "name": "HCA Healthcare, Inc.",
-      "close": 429.02,
+      "close": 435.19,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=24.3%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=23.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 24.283828637959118
+      "quality_score": 23.609677387351194
     },
     {
       "ticker": "FSLR",
       "name": "First Solar, Inc.",
-      "close": 214.57,
+      "close": 219.95,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=20.0%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=21.8%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 20.03629381987066
-    },
-    {
-      "ticker": "MDT",
-      "name": "Medtronic plc.",
-      "close": 77.96,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 17.143364815269667
+      "quality_score": 21.81234259606284
     },
     {
       "ticker": "MCK",
       "name": "McKesson Corporation",
-      "close": 754.76,
+      "close": 736.09,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=16.9%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.4%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 16.907415394780678
+      "quality_score": 19.36040124974138
+    },
+    {
+      "ticker": "MDT",
+      "name": "Medtronic plc.",
+      "close": 76.15,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.9%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 17.93430155409032
     },
     {
       "ticker": "AJG",
       "name": "Arthur J. Gallagher & Co.",
-      "close": 201.94,
+      "close": 198.87,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=15.2%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=16.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 15.200662172423671
+      "quality_score": 16.63394643573019
+    },
+    {
+      "ticker": "AAOI",
+      "name": "Applied Optoelectronics, Inc.",
+      "close": 148.94,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
     },
     {
       "ticker": "ACLX",
@@ -1708,17 +1893,7 @@
     {
       "ticker": "BAC",
       "name": "Bank of America Corporation",
-      "close": 52.75,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
-    },
-    {
-      "ticker": "BG",
-      "name": "Bunge Limited",
-      "close": 123.75,
+      "close": 51.31,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1728,7 +1903,7 @@
     {
       "ticker": "BKR",
       "name": "Baker Hughes Company",
-      "close": 63.53,
+      "close": 63.89,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1738,7 +1913,7 @@
     {
       "ticker": "CB",
       "name": "Chubb Limited ",
-      "close": 321.28,
+      "close": 319.64,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1748,7 +1923,7 @@
     {
       "ticker": "DD",
       "name": "DuPont de Nemours, Inc.",
-      "close": 48.36,
+      "close": 49.76,
       "level": 2,
       "side": "bull",
       "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
@@ -1756,9 +1931,9 @@
       "quality_score": 30.0
     },
     {
-      "ticker": "PL",
-      "name": "Planet Labs PBC Class A",
-      "close": 35.24,
+      "ticker": "USFD",
+      "name": "US Foods Holding Corp.",
+      "close": 84.4,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1766,54 +1941,54 @@
       "quality_score": 30.0
     },
     {
-      "ticker": "USFD",
-      "name": "US Foods Holding Corp.",
-      "close": 86.88,
+      "ticker": "NVT",
+      "name": "nVent Electric plc",
+      "close": 169.95,
       "level": 2,
       "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
+      "tag": "黃昏之星 + RSI 75≥75",
+      "expect": "-0.54% 30d (70% 跌)",
+      "quality_score": 25.321263212612976
     },
     {
       "ticker": "KHC",
       "name": "The Kraft Heinz Company",
-      "close": 23.64,
+      "close": 23.96,
       "level": "imm_bear",
       "side": "bear",
       "tag": "空頭+%B 1.18>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 17.683394657743406
+      "quality_score": 17.75105105319092
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla, Inc. ",
+      "close": 428.35,
+      "level": "imm_bear",
+      "side": "bear",
+      "tag": "空頭+%B 1.13>1（假突破，反彈將失敗）",
+      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
+      "quality_score": 12.952086363964128
     },
     {
       "ticker": "MDB",
       "name": "MongoDB, Inc.",
-      "close": 293.42,
+      "close": 299.47,
       "level": "imm_bear",
       "side": "bear",
-      "tag": "空頭+%B 1.11>1（假突破，反彈將失敗）",
+      "tag": "空頭+%B 1.12>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 11.355982230987706
+      "quality_score": 11.588756702852379
     },
     {
-      "ticker": "SMCI",
-      "name": "Super Micro Computer, Inc.",
-      "close": 33.62,
+      "ticker": "EOSE",
+      "name": "Eos Energy Enterprises, Inc.",
+      "close": 8.01,
       "level": "imm_bear",
       "side": "bear",
-      "tag": "空頭+%B 1.09>1（假突破，反彈將失敗）",
+      "tag": "空頭+%B 1.08>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 9.307014550381737
-    },
-    {
-      "ticker": "FOXA",
-      "name": "Fox Corporation",
-      "close": 62.69,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "即將: 三隻烏鴉 + 距高 5.0%（差到 <5%）",
-      "expect": "價再升即達 ★★★★",
-      "quality_score": -5.0151535958954785
+      "quality_score": 7.557964708698961
     }
   ],
   "source": "cloud (yfinance live)"
