@@ -8,16 +8,14 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.18"
-APP_UPDATED   = "2026-05-07 21:15"
+APP_VERSION   = "v9.18.1"
+APP_UPDATED   = "2026-05-07 21:35"
 APP_NOTES     = (
-    "🆕 點公司代號（ticker）改為查公司基本資訊（公司基本資料 / 營運狀況 / 發展方向 / 合作對象 / "
-    "影響股價因素 / 概念股連動 / 短中長期展望 + 風險）｜ "
+    "🆕 手機優化：下拉選單不再觸發鍵盤（CSS pointer-events + JS readonly/inputmode=none）"
+    "  → 用 selectbox/multiselect 不會跳輸入法擋畫面 ｜ "
+    "🆕 點公司代號改為查公司基本資訊（v9.18）｜ "
     "—— 上版 v9.17 ——｜ "
-    "🆕 主動出場 4 個 filter（A/B/C/D + 任一觸發）｜ "
-    "🆕 Squeeze 突破方向預測研究 + 2 個 filter ｜ "
-    "🆕 LINE 持倉波段出場通知 ｜ "
-    "🆕 detail card 三狀態 + 4 recipe 即時評估"
+    "🆕 主動出場 4 filter / Squeeze 方向預測 / LINE 持倉通知 / 三狀態 + 4 recipe 即時評估"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -119,7 +117,72 @@ section[data-testid="stSidebar"] .stTextArea textarea{background:#0d1b2e !import
 .main{background:#060c18;}
 .stExpander{border:1px solid #1a2f48 !important;border-radius:10px !important;background:#080e1a !important;}
 .res-table a:hover{text-decoration:underline !important;opacity:.85;}
+
+/* 🆕 v9.18.1：手機優化 — 避免下拉選單觸發鍵盤佔用畫面 */
+/* iOS 自動 zoom 防護（input font-size ≥ 16px 不 zoom）*/
+[data-baseweb="select"] input,
+[data-baseweb="combobox"] input {
+    font-size: 16px !important;
+    caret-color: transparent !important;
+}
+/* 觸控裝置：input 完全不接收輸入焦點 */
+@media (pointer: coarse), (max-width: 768px) {
+    [data-baseweb="select"] input,
+    [data-baseweb="combobox"] input {
+        pointer-events: none !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+    /* 但 multiselect 移除 chip 的 X 仍要可點 */
+    [data-baseweb="select"] [role="button"],
+    [data-baseweb="select"] svg {
+        pointer-events: auto !important;
+    }
+}
 </style>""", unsafe_allow_html=True)
+
+# 🆕 v9.18.1：JS 注入 — 把所有 selectbox/multiselect 的 input 設成 readonly + inputmode=none
+# 這是手機端阻止鍵盤的最可靠方法，CSS 只能輔助
+import streamlit.components.v1 as _components
+_components.html("""
+<script>
+(function() {
+    const isTouch = window.matchMedia('(pointer: coarse)').matches
+                     || window.matchMedia('(max-width: 768px)').matches;
+    if (!isTouch) return;
+
+    function disableKeyboard(root) {
+        // 找所有 selectbox / multiselect 的 input
+        const inputs = root.querySelectorAll(
+            '[data-baseweb="select"] input, [data-baseweb="combobox"] input'
+        );
+        inputs.forEach(inp => {
+            if (!inp.dataset.kbDisabled) {
+                inp.setAttribute('readonly', 'readonly');
+                inp.setAttribute('inputmode', 'none');
+                inp.setAttribute('autocomplete', 'off');
+                inp.setAttribute('autocorrect', 'off');
+                inp.setAttribute('autocapitalize', 'off');
+                inp.setAttribute('spellcheck', 'false');
+                inp.dataset.kbDisabled = '1';
+            }
+        });
+    }
+
+    // 等 parent document 載完，操作 parent（Streamlit iframe 的父）
+    function applyToParent() {
+        try {
+            const doc = window.parent.document;
+            disableKeyboard(doc);
+            const observer = new MutationObserver(() => disableKeyboard(doc));
+            observer.observe(doc.body, { childList: true, subtree: true });
+        } catch(e) {}
+    }
+    if (document.readyState === 'complete') applyToParent();
+    else window.addEventListener('load', applyToParent);
+})();
+</script>
+""", height=0, width=0)
 
 # ─────────────────────────────────────────────────────────────────
 # LABELS
@@ -8146,7 +8209,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 136  # v9.18：點 ticker 改為查公司基本資訊 + 影響股價因素 2026-05-07
+_RESULTS_VERSION = 137  # v9.18.1：手機 selectbox 不彈鍵盤 + 點 ticker 查公司資訊 2026-05-07
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
