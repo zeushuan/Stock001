@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.3"
-APP_UPDATED   = "2026-05-10 21:15"
+APP_VERSION   = "v9.20.5"
+APP_UPDATED   = "2026-05-10 21:50"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1688,21 +1688,28 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                 }))
                 d['vcp_info'] = _vcp_info
 
-                # RS Rating：從最新 screener_results.json 查（universe-wide 計算結果）
+                # 🆕 v9.20.5：RS Rating — 優先讀 rs_ratings dict（所有 ticker 都有）
+                # fallback：從 by_filter 結果反查（舊 JSON 沒 rs_ratings）
                 try:
                     from pathlib import Path as _P
                     _sj = _P(__file__).parent / 'screener_results.json'
                     if _sj.exists():
                         _sd = json.load(open(_sj, encoding='utf-8'))
-                        _bf = _sd.get('by_filter', {})
-                        # 任一 filter 結果都有 rs_rating（v9.19 後）
-                        for _items in _bf.values():
-                            for _r in _items:
-                                if _r.get('ticker') == ticker.replace('.TW', ''):
-                                    if _r.get('rs_rating') is not None:
-                                        d['rs_rating'] = _r.get('rs_rating')
-                                        break
-                            if d.get('rs_rating') is not None: break
+                        _tk_pure = ticker.replace('.TW', '')
+                        # 路徑 A：直接從 rs_ratings 查（v9.20.5+）
+                        _rs_dict = _sd.get('rs_ratings') or {}
+                        if _rs_dict and _tk_pure in _rs_dict:
+                            d['rs_rating'] = _rs_dict[_tk_pure]
+                        else:
+                            # 路徑 B：從 by_filter 反查（fallback）
+                            _bf = _sd.get('by_filter', {})
+                            for _items in _bf.values():
+                                for _r in _items:
+                                    if _r.get('ticker') == _tk_pure:
+                                        if _r.get('rs_rating') is not None:
+                                            d['rs_rating'] = _r.get('rs_rating')
+                                            break
+                                if d.get('rs_rating') is not None: break
                 except Exception:
                     pass
             except Exception:
@@ -8541,7 +8548,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 144  # v9.20.3：篩選結果加 RS Rating 欄位 + RSI vs RS 區分提示 2026-05-10
+_RESULTS_VERSION = 145  # v9.20.5：JSON 加 rs_ratings dict 讓任何股票 detail card 都能查到 RS 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

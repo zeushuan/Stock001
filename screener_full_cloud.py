@@ -236,7 +236,10 @@ def scan_market(market, tickers, name_map):
                 continue
 
     print(f"  完成 {time.time()-t0:.1f}s")
-    return by_filter
+    # 🆕 v9.20.5：回傳所有 tickers 的 RS Rating（不分是否在 filter 內）
+    market_rs = {tk: round(s.get('rs_rating'), 1) for tk, s in ticker_states.items()
+                 if s.get('rs_rating') is not None}
+    return by_filter, market_rs
 
 
 def load_name_maps(market):
@@ -274,27 +277,32 @@ def main():
         'computed_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
         'description': '全市場篩選器預計算（34 filter × 全 universe）',
         'by_filter': {},  # filter_name → list of stocks
+        'rs_ratings': {},  # 🆕 v9.20.5：所有 ticker 的 RS Rating
     }
 
     t_start = time.time()
     all_combined = {}
+    all_rs = {}
 
     if do_tw:
         tw_uni = get_full_universe('tw')
         if tw_uni:
             tw_name = load_name_maps('tw')
-            tw_results = scan_market('tw', tw_uni, tw_name)
+            tw_results, tw_rs = scan_market('tw', tw_uni, tw_name)
             for fname, items in tw_results.items():
                 all_combined.setdefault(fname, []).extend(items)
+            all_rs.update(tw_rs)
     if do_us:
         us_uni = get_full_universe('us')
         if us_uni:
             us_name = load_name_maps('us')
-            us_results = scan_market('us', us_uni, us_name)
+            us_results, us_rs = scan_market('us', us_uni, us_name)
             for fname, items in us_results.items():
                 all_combined.setdefault(fname, []).extend(items)
+            all_rs.update(us_rs)
 
     output['by_filter'] = all_combined
+    output['rs_ratings'] = all_rs
 
     out_file = 'screener_results.json'
     with open(out_file, 'w', encoding='utf-8') as f:

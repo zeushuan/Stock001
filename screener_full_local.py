@@ -123,7 +123,10 @@ def scan(market, tickers, name_map):
             except Exception: continue
 
     print(f"  完成 {time.time()-t0:.1f}s ({len(ticker_states)} states + RS)")
-    return by_filter
+    # 🆕 v9.20.5：回傳 rs_ratings 給主流程整合到 JSON
+    market_rs = {tk: round(s.get('rs_rating'), 1) for tk, s in ticker_states.items()
+                 if s.get('rs_rating') is not None}
+    return by_filter, market_rs
 
 
 def main():
@@ -133,15 +136,19 @@ def main():
         'computed_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
         'description': '全市場篩選器預計算（local data_cache 版）',
         'by_filter': {},
+        'rs_ratings': {},  # 🆕 v9.20.5：所有 ticker 的 RS Rating（不分是否在 filter 內）
     }
     all_combined = {}
+    rs_all = {}
     for market in ['tw', 'us']:
         uni = get_universe(market)
         if not uni: continue
-        results = scan(market, uni, name_map)
+        results, market_rs = scan(market, uni, name_map)
         for fname, items in results.items():
             all_combined.setdefault(fname, []).extend(items)
+        rs_all.update(market_rs)
     output['by_filter'] = all_combined
+    output['rs_ratings'] = rs_all
 
     with open('screener_results.json', 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
