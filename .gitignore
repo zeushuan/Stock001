@@ -89,6 +89,8 @@ analyze_*.py
 !analyze_sepa_oos.py
 # 🆕 v9.20：保留 SEPA portfolio 回測腳本
 !backtest_sepa_portfolio.py
+# 🆕 v9.21：雙底雙頂偵測模組
+# (double_pattern.py 不在 analyze_*.py 範圍，預設可入)
 test_thresholds.py
 test_v4.py
 backtest_etf.py

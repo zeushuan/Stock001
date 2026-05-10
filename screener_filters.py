@@ -23,6 +23,8 @@ from bb_signals import (compute_bb, is_squeeze, is_expansion,
 # 🆕 v9.19：SEPA / VCP / RS Rating
 from sepa_vcp import (check_sepa_trend_template, detect_vcp,
                        compute_sma_helpers, compute_returns)
+# 🆕 v9.21：雙底雙頂偵測
+from double_pattern import detect_double_bottom, detect_double_top
 
 
 # ── Helper: 取得最後一日的關鍵指標 ──
@@ -160,6 +162,15 @@ def _get_state(df, market='tw'):
             vcp_info = detect_vcp(df)
         except Exception:
             vcp_info = {'is_vcp': False}
+        # 🆕 v9.21：雙底雙頂
+        try:
+            db_info = detect_double_bottom(df)
+        except Exception:
+            db_info = {'is_double_bottom': False, 'status': 'none'}
+        try:
+            dt_info = detect_double_top(df)
+        except Exception:
+            dt_info = {'is_double_top': False, 'status': 'none'}
         # SEPA Trend Template 7 條件（cond8 RS 由外部注入）
         try:
             sepa_passed, sepa_n_met, sepa_details = check_sepa_trend_template(
@@ -200,6 +211,17 @@ def _get_state(df, market='tw'):
             'sepa_passed': sepa_passed,
             'sepa_n_met': sepa_n_met,
             'sepa_details': sepa_details,
+            # 🆕 v9.21：雙底雙頂
+            'double_bottom_status': db_info.get('status', 'none'),
+            'double_bottom_breakout': db_info.get('breakout_confirmed', False),
+            'double_bottom_neckline': db_info.get('neckline_price'),
+            'double_bottom_target': db_info.get('target_price'),
+            'double_bottom_info': db_info,
+            'double_top_status': dt_info.get('status', 'none'),
+            'double_top_breakdown': dt_info.get('breakdown_confirmed', False),
+            'double_top_neckline': dt_info.get('neckline_price'),
+            'double_top_target': dt_info.get('target_price'),
+            'double_top_info': dt_info,
             # 'rs_rating' 由 screener_full_cloud 在 universe-wide 計算後注入
             'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
             'is_bull': e20_v > e60_v, 'is_bear': e20_v < e60_v,
@@ -533,6 +555,30 @@ def f_pivot_near_breakout(s):
     return (s.get('vcp_is_vcp', False)
             and -2 <= (s.get('vcp_near_pivot_pct') or -99) <= 1)
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🟢🔴 雙底雙頂（v9.21）— Double Bottom / Top reversal
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_double_bottom_breakout(s):
+    """🟢 雙底突破（W底+突破 neckline）— 看多反轉確認"""
+    return s.get('double_bottom_status') == 'breakout'
+
+
+def f_double_bottom_confirmed(s):
+    """🟢 雙底成形（兩底已現 + 反彈，待突破 neckline）"""
+    return s.get('double_bottom_status') == 'confirmed'
+
+
+def f_double_top_breakdown(s):
+    """🔴 雙頂跌破（M頂+跌破 neckline）— 看空反轉確認"""
+    return s.get('double_top_status') == 'breakdown'
+
+
+def f_double_top_confirmed(s):
+    """🔴 雙頂成形（兩頂已現 + 回檔，待跌破 neckline）"""
+    return s.get('double_top_status') == 'confirmed'
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -710,6 +756,11 @@ FILTERS = {
     '💪 RS Rating ≥ 90（飆股候選 強於前 10%）': f_rs_rating_90,
     '🏆⭐ Minervini 完整 setup（SEPA+VCP+RS≥70）': f_sepa_full_setup,
     '🎯 Pivot 接近突破（VCP+距pivot≤1%）': f_pivot_near_breakout,
+    # 🆕 v9.21：雙底雙頂
+    '🟢 雙底突破（W底+突破neckline）': f_double_bottom_breakout,
+    '🟢 雙底成形（待突破 watchlist）': f_double_bottom_confirmed,
+    '🔴 雙頂跌破（M頂+跌破neckline）': f_double_top_breakdown,
+    '🔴 雙頂成形（待跌破警示）': f_double_top_confirmed,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,

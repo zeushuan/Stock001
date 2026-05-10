@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.12"
-APP_UPDATED   = "2026-05-11 00:10"
+APP_VERSION   = "v9.21"
+APP_UPDATED   = "2026-05-11 00:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1688,6 +1688,19 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     'Close': c, 'Volume': v
                 }))
                 d['vcp_info'] = _vcp_info
+
+                # 🆕 v9.21：雙底雙頂偵測
+                try:
+                    from double_pattern import detect_double_bottom, detect_double_top
+                    _df_for_dbl = pd.DataFrame({
+                        'Open': o_s.values, 'High': h, 'Low': l,
+                        'Close': c, 'Volume': v
+                    })
+                    d['double_bottom_info'] = detect_double_bottom(_df_for_dbl)
+                    d['double_top_info'] = detect_double_top(_df_for_dbl)
+                except Exception:
+                    d['double_bottom_info'] = {'is_double_bottom': False, 'status': 'none'}
+                    d['double_top_info'] = {'is_double_top': False, 'status': 'none'}
 
                 # 🆕 v9.20.5：RS Rating — 優先讀 rs_ratings dict（所有 ticker 都有）
                 # fallback：從 by_filter 結果反查（舊 JSON 沒 rs_ratings）
@@ -4472,6 +4485,103 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
+    # ── 🆕 v9.21：雙底雙頂分析 ────────────────────────────
+    try:
+        _db = d.get('double_bottom_info') or {}
+        _dt = d.get('double_top_info') or {}
+        _has_db = _db.get('is_double_bottom', False)
+        _has_dt = _dt.get('is_double_top', False)
+        if _has_db or _has_dt:
+            _dbl_blocks = []
+            if _has_db:
+                _st = _db.get('status', 'none')
+                _label_map_db = {
+                    'breakout': ('🟢 W 底突破 — 看多反轉確認', '#3dbb6a', '#0a2a14'),
+                    'confirmed': ('🟡 W 底成形 — 等突破 neckline', '#e8a020', '#1a1408'),
+                    'forming': ('🔵 W 底形成中（第 2 底剛現）', '#7abadd', '#0a1828'),
+                }
+                _lbl, _c, _bg = _label_map_db.get(_st, ('', '#7a8899', '#0a1422'))
+                _lb = _db.get('left_bottom') or {}
+                _rb = _db.get('right_bottom') or {}
+                _mp = _db.get('middle_peak') or {}
+                _neck = _db.get('neckline_price', 0)
+                _tgt = _db.get('target_price', 0)
+                _sim = _db.get('similarity_pct', 0)
+                _sep = _db.get('separation_days', 0)
+                _cur = d.get('close', 0) or 0
+                _gap_pct = ((_cur - _neck) / _neck * 100) if _neck > 0 else 0
+                _action = ''
+                if _st == 'breakout':
+                    _action = (f'📌 <b>已突破 neckline ${_neck} (+{_gap_pct:.2f}%)</b>'
+                                f'<br>進場目標 → ${_tgt}（測量移動）'
+                                f'<br>停損：跌回 neckline ${_neck} 以下')
+                elif _st == 'confirmed':
+                    _action = (f'📌 <b>等突破 neckline ${_neck}</b>'
+                                f'（現價 ${_cur:.2f}，差 {-_gap_pct:.2f}%）'
+                                f'<br>watchlist：等突破 + 量增進場')
+                elif _st == 'forming':
+                    _action = (f'📌 第 2 底剛現，等回測強度與 neckline ${_neck}'
+                                f'<br>太早進場風險高（雙底失敗 = 跌破 ${_lb.get("price", 0):.2f}）')
+                _dbl_blocks.append(
+                    f'<div style="background:{_bg};border-left:4px solid {_c};'
+                    f'padding:8px 12px;border-radius:4px">'
+                    f'<b style="color:{_c};font-size:.92rem">{_lbl}</b>'
+                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:4px;line-height:1.5">'
+                    f'左底 {_lb.get("date", "—")} ${_lb.get("price", 0):.2f} ｜ '
+                    f'右底 {_rb.get("date", "—")} ${_rb.get("price", 0):.2f} '
+                    f'(差 {_sim:.2f}%)<br>'
+                    f'中間 peak {_mp.get("date", "—")} ${_neck:.2f} = neckline'
+                    f' ｜ 兩底間距 {_sep} 天<br>'
+                    f'{_action}'
+                    f'</div></div>'
+                )
+            if _has_dt:
+                _st = _dt.get('status', 'none')
+                _label_map_dt = {
+                    'breakdown': ('🔴 M 頂跌破 — 看空反轉確認', '#ff5555', '#3a0a0a'),
+                    'confirmed': ('🟠 M 頂成形 — 等跌破 neckline', '#ff9944', '#2a1605'),
+                    'forming': ('🔵 M 頂形成中（第 2 頂剛現）', '#7abadd', '#0a1828'),
+                }
+                _lbl, _c, _bg = _label_map_dt.get(_st, ('', '#7a8899', '#0a1422'))
+                _lt = _dt.get('left_top') or {}
+                _rt = _dt.get('right_top') or {}
+                _mt = _dt.get('middle_trough') or {}
+                _neck = _dt.get('neckline_price', 0)
+                _tgt = _dt.get('target_price', 0)
+                _sim = _dt.get('similarity_pct', 0)
+                _sep = _dt.get('separation_days', 0)
+                _cur = d.get('close', 0) or 0
+                _gap_pct = ((_cur - _neck) / _neck * 100) if _neck > 0 else 0
+                _action = ''
+                if _st == 'breakdown':
+                    _action = (f'📌 <b>已跌破 neckline ${_neck} ({_gap_pct:+.2f}%)</b>'
+                                f'<br>下殺目標 → ${_tgt}（測量移動）'
+                                f'<br>持倉：立即出場；做空者：放空 + 停損 neckline 上 3%')
+                elif _st == 'confirmed':
+                    _action = (f'📌 <b>等跌破 neckline ${_neck}</b>'
+                                f'（現價 ${_cur:.2f}，距 {_gap_pct:+.2f}%）'
+                                f'<br>watchlist：等跌破 + 量增放空 / 持倉者降風險')
+                elif _st == 'forming':
+                    _action = (f'📌 第 2 頂剛現，等回測或跌破確認'
+                                f'<br>頭部失敗 = 突破 ${_rt.get("price", 0):.2f}')
+                _dbl_blocks.append(
+                    f'<div style="background:{_bg};border-left:4px solid {_c};'
+                    f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                    f'<b style="color:{_c};font-size:.92rem">{_lbl}</b>'
+                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:4px;line-height:1.5">'
+                    f'左頂 {_lt.get("date", "—")} ${_lt.get("price", 0):.2f} ｜ '
+                    f'右頂 {_rt.get("date", "—")} ${_rt.get("price", 0):.2f} '
+                    f'(差 {_sim:.2f}%)<br>'
+                    f'中間 trough {_mt.get("date", "—")} ${_neck:.2f} = neckline'
+                    f' ｜ 兩頂間距 {_sep} 天<br>'
+                    f'{_action}'
+                    f'</div></div>'
+                )
+            for _b in _dbl_blocks:
+                swing_rows.append(_b)
+    except Exception:
+        pass
+
     # ── 🆕 v9.20：綜合決策得分（Strategy B + SEPA + Recipes 加總） ──
     try:
         score = 0
@@ -4520,6 +4630,22 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         if _rsi_d >= 80:
             score -= 1
             score_reasons.append('-1 RSI≥80 過熱')
+
+        # 🆕 v9.21：雙底雙頂加減分
+        _db_st = (d.get('double_bottom_info') or {}).get('status', 'none')
+        _dt_st = (d.get('double_top_info') or {}).get('status', 'none')
+        if _db_st == 'breakout':
+            score += 1.5
+            score_reasons.append('+1.5 雙底突破')
+        elif _db_st == 'confirmed':
+            score += 0.5
+            score_reasons.append('+0.5 雙底成形（待突破）')
+        if _dt_st == 'breakdown':
+            score -= 1.5
+            score_reasons.append('-1.5 雙頂跌破')
+        elif _dt_st == 'confirmed':
+            score -= 0.5
+            score_reasons.append('-0.5 雙頂成形（風險）')
 
         # 總分判斷
         score_max = 5
@@ -8586,7 +8712,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 152  # v9.20.12：VCP 條件清楚顯示 4 條件（不一定要 5 次收口）+ 量縮永遠顯示 2026-05-11
+_RESULTS_VERSION = 153  # v9.21：雙底雙頂分析（4 filter + detail card 進出場 + 綜合得分加減 1.5）2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
