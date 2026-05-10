@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.22"
-APP_UPDATED   = "2026-05-11 01:00"
+APP_VERSION   = "v9.22.1"
+APP_UPDATED   = "2026-05-11 08:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -8820,7 +8820,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 154  # v9.22：雙底雙頂職業交易員方法論（五大關鍵 + 三段建倉 + Quality A/B/C/D）2026-05-11
+_RESULTS_VERSION = 155  # v9.22.1：雙底雙頂 OOS 回測完成（TW 雙底 +9.3% / US 雙底 +11.1%）2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

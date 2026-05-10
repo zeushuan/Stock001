@@ -91,6 +91,8 @@ analyze_*.py
 !backtest_sepa_portfolio.py
 # 🆕 v9.21：雙底雙頂偵測模組
 # (double_pattern.py 不在 analyze_*.py 範圍，預設可入)
+# 🆕 v9.22.1：保留雙底雙頂 OOS 回測腳本
+!analyze_double_oos.py
 test_thresholds.py
 test_v4.py
 backtest_etf.py
