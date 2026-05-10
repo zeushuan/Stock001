@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.5"
-APP_UPDATED   = "2026-05-10 21:50"
+APP_VERSION   = "v9.20.6"
+APP_UPDATED   = "2026-05-10 22:10"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1140,8 +1140,9 @@ def _fetch_news_google(ticker: str, market: str) -> list:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def fetch_indicators(ticker: str, market: str, end_date: str = ""):
-    """end_date: 'YYYY-MM-DD' 指定截止日期（空字串=最新）；歷史日期快取永久有效"""
+def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: str = ""):
+    """end_date: 'YYYY-MM-DD' 指定截止日期（空字串=最新）；歷史日期快取永久有效
+    🆕 v9.20.6：_cache_ver 參數讓版本變更時自動 invalidate cache（避免舊 d 殘留）"""
     symbol = get_yf_symbol(ticker)
     df = None
     last_err = None
@@ -8548,7 +8549,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 145  # v9.20.5：JSON 加 rs_ratings dict 讓任何股票 detail card 都能查到 RS 2026-05-10
+_RESULTS_VERSION = 146  # v9.20.6：fetch_indicators 加 _cache_ver 參數強制版本更新時 invalidate 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
@@ -9196,7 +9197,7 @@ if fetch_btn:
             f'正在抓取 <b style="color:#8ab8d8">{ticker}</b>...</div>',
             unsafe_allow_html=True)
         _end = st.session_state.get("fetch_end_date", "")
-        d = fetch_indicators(ticker, market, _end)
+        d = fetch_indicators(ticker, market, _end, _cache_ver=APP_VERSION)
         if d and d.get("_error"):
             debug_msgs.append(f"❌ {ticker} ({get_yf_symbol(ticker)}): {d['_error']}")
             d = None
