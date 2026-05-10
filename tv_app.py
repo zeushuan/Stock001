@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.6"
-APP_UPDATED   = "2026-05-10 22:10"
+APP_VERSION   = "v9.20.7"
+APP_UPDATED   = "2026-05-10 22:25"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -7157,22 +7157,8 @@ def _render_alerts_panel():
         if total_strong == 0 and total_imm == 0:
             return
 
-        st.markdown(
-            f'<div style="background:#1a0f1f;border:2px solid #ffd70066;'
-            f'border-radius:10px;padding:10px 14px;margin:8px 0">'
-            f'<div style="font-size:1.05rem;font-weight:700;color:#ffd700;'
-            f'margin-bottom:6px">'
-            f'🚨 警報中 — 強訊號 {total_strong} 檔｜即將觸發 {total_imm} 檔'
-            f'</div>'
-            # 🆕 v9.11：研究結論建議
-            f'<div style="font-size:.7rem;color:#a8cce8;line-height:1.5">'
-            f'💡 <b>OOS 最佳：倒鎚 hold=30 + max_pos=50 + drop_deep</b>'
-            f'（OOS Sharpe 1.74 / MDD -4.64%）｜ '
-            f'T1_V7 +10% 止損 → CAGR +10.87% ｜ '
-            f'🟢 4 月黃金月 (+15.91%) / ⚠️ 3 月地雷月 (-7.94%) 警報自動標示'
-            f'</div></div>',
-            unsafe_allow_html=True
-        )
+        # 🐛 v9.20.7：用戶要求移除「警報中 — 強訊號 N 檔｜即將觸發 M 檔」總覽 banner
+        # 但保留下方分組詳細列表（強看多/強看空/即將觸發）
 
         def _row_html(a):
             color = '#3dbb6a' if a.get('side') == 'bull' else '#ff5555'
@@ -8549,7 +8535,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 146  # v9.20.6：fetch_indicators 加 _cache_ver 參數強制版本更新時 invalidate 2026-05-10
+_RESULTS_VERSION = 147  # v9.20.7：移除「警報中 — 強訊號 N 檔｜即將觸發 M 檔」總覽 banner 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
