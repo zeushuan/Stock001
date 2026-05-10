@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.9"
-APP_UPDATED   = "2026-05-10 23:00"
+APP_VERSION   = "v9.20.10"
+APP_UPDATED   = "2026-05-10 23:20"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4340,10 +4340,19 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             rs_disp = f'{rs_rating:.0f}' if rs_rating is not None else '—'
             ic = '✅' if rs_ok else ('❌' if rs_rating is not None else '⚪')
             col = '#3dbb6a' if rs_ok else ('#aa6655' if rs_rating is not None else '#7a8899')
+
+            # 🆕 v9.20.10：RS 無資料時用 returns_52w 顯示替代資訊
+            if rs_rating is None:
+                _ret52 = d.get('returns_52w')
+                if _ret52 is not None and _ret52 != 0:
+                    _alt = f'（不在 universe — 52 週報酬 {_ret52:+.1f}%）'
+                else:
+                    _alt = '（不在 universe — ETF / 新上市 / 資料不足）'
+            else:
+                _alt = ''
             cond_rows.append(
                 f'<div style="font-size:.7rem;color:{col};margin:1px 0">'
-                f'{ic} 8. RS Rating {rs_disp} ≥ 70（強於 70% 同期）'
-                f'{"（無資料 — 等下次 cron 計算）" if rs_rating is None else ""}</div>'
+                f'{ic} 8. RS Rating {rs_disp} ≥ 70（強於 70% 同期）{_alt}</div>'
             )
 
             # 整體 SEPA 結論
@@ -4397,7 +4406,14 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 entry_advice = ('✅ <b>SEPA 全通過 + RS 強，可進場</b>'
                                  '<br>OOS：🇹🇼 win 47%/+10%/82d ｜ 🇺🇸 win 51%/+5%/82d')
             elif sepa_passed:
-                entry_advice = '🟡 SEPA 體質達標但 RS 待驗（等下次 cron 計算）'
+                # 🆕 v9.20.10：依 RS Rating 是否可得分流
+                if rs_rating is None:
+                    entry_advice = ('🟡 SEPA 體質達標（RS 不在 universe，無從評等）'
+                                     '<br>本股可能是 ETF / 新上市 / 6位數TW票，'
+                                     '不參與 universe-wide RS 排名')
+                else:
+                    entry_advice = (f'🟡 SEPA 體質達標但 RS Rating {rs_rating:.0f} < 70'
+                                     '<br>需 RS 達標才符合 Minervini 完整 setup')
             elif sepa_n_met >= 6:
                 entry_advice = f'🥈 接近 SEPA 過關，watchlist 候選（差 {7-sepa_n_met} 條）'
             else:
@@ -8552,7 +8568,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 149  # v9.20.9：移除產業輪動 + 警報中 panel（用戶要求清乾淨）2026-05-10
+_RESULTS_VERSION = 150  # v9.20.10：RS Rating 無資料時改顯示「不在 universe + 52w 報酬替代」2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
