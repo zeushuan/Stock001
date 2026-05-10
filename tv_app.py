@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.8"
-APP_UPDATED   = "2026-05-10 22:45"
+APP_VERSION   = "v9.20.9"
+APP_UPDATED   = "2026-05-10 23:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -7130,7 +7130,8 @@ def _render_sector_rotation_panel():
         pass
 
 
-_render_sector_rotation_panel()
+# 🐛 v9.20.9：用戶要求移除產業輪動 panel（Top 5 / Bottom 5）
+# _render_sector_rotation_panel()
 
 
 # 🆕 v9.10y：警報中 panel（強訊號 + 即將觸發）
@@ -7279,7 +7280,8 @@ def _render_alerts_panel():
         pass
 
 
-_render_alerts_panel()
+# 🐛 v9.20.9：用戶要求移除警報中 panel（強警報觸發中 + 即將觸發）
+# _render_alerts_panel()
 
 
 def _render_screener_panel():
@@ -8550,7 +8552,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 148  # v9.20.8：detail card SEPA 區 RS Rating fresh lookup（不靠 cached d）2026-05-10
+_RESULTS_VERSION = 149  # v9.20.9：移除產業輪動 + 警報中 panel（用戶要求清乾淨）2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
