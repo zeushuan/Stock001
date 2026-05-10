@@ -41,7 +41,7 @@ def _calc_ind(df):
     return df
 
 
-def _fetch_batch(tickers, period='1y', is_tw=False):
+def _fetch_batch(tickers, period='14mo', is_tw=False):
     """🆕 v9.13：TW 用較小 batch (25) + 失敗時 retry，避免 GitHub Actions 環境下大批 .TW 抓不到"""
     out = {}
     BATCH = 25 if is_tw else 50  # TW 用較小 batch
@@ -130,9 +130,10 @@ def _fetch_tw_via_official(tickers):
     """🆕 v9.14：直接用 TWSE/TPEX 官方 API 抓全市場單日資料（200 個交易日）
     不依賴 twstock 套件，純 HTTP 請求 → 免被 GitHub runner 阻擋
     速度：~6 分鐘抓全 TW 200 天歷史"""
+    # 🆕 v9.20.2：TW SEPA 需 252+ 天（52w 高低 + sma200_30d_ago）
     from fetch_tw_official import fetch_all_tw_history
     print(f"  📥 TWSE/TPEX 官方 API（不依賴 twstock，200 個交易日）...")
-    all_data = fetch_all_tw_history(days=200)
+    all_data = fetch_all_tw_history(days=280)
     # 過濾只回傳被請求的 ticker（保護 universe 一致性）
     requested = set(tickers)
     out = {t: df for t, df in all_data.items() if t in requested}
@@ -152,7 +153,7 @@ def scan_market(market, tickers, name_map):
     else:
         # US 維持 yfinance batch
         print(f"  📥 yfinance batch（period=1y, batch=50）...")
-        df_dict = _fetch_batch(tickers, period='1y', is_tw=False)
+        df_dict = _fetch_batch(tickers, period='14mo', is_tw=False)
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(tickers)}")
 
     # 算指標 + 跑所有 filter
