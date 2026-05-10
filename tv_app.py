@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20"
-APP_UPDATED   = "2026-05-10 20:00"
+APP_VERSION   = "v9.20.1"
+APP_UPDATED   = "2026-05-10 20:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4482,14 +4482,15 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             verdict = '❌ 風險訊號多，避開'
             v_color = '#ff5555'; v_bg = '#1a0808'
 
+        # 🐛 fix v9.20.1：用 () 包裹 if/else 避免 Python operator precedence 切斷 div
+        _score_reasons_str = ' ; '.join(score_reasons) if score_reasons else '無訊號加分'
         swing_rows.append(
             f'<div style="background:{v_bg};border-left:4px solid {v_color};'
             f'padding:8px 12px;border-radius:4px;margin-top:6px">'
             f'<b style="color:{v_color};font-size:.92rem">🎯 綜合決策：{verdict}</b>'
             f'<div style="font-size:.74rem;color:#c8dff0;margin-top:3px">'
-            f'總分 {score:+.1f} / {score_max}  ｜  '
-            + ' ; '.join(score_reasons) if score_reasons else '無訊號加分'
-            + f'</div></div>'
+            f'總分 {score:+.1f} / {score_max}  ｜  {_score_reasons_str}'
+            f'</div></div>'
         )
     except Exception:
         pass
@@ -8518,7 +8519,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 141  # v9.20：detail card SEPA section + 綜合決策得分 + LINE + 投組 2026-05-10
+_RESULTS_VERSION = 142  # v9.20.1：修綜合決策 div operator precedence bug（未關 div 破布局）2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
