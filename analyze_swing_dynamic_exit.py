@@ -86,11 +86,11 @@ US_ETF_EXCLUDE = {
 # Universe
 # ─────────────────────────────────────────────────────────────────────────
 def get_universe(market='tw'):
+    """🆕 v9.20.11：universe 擴大（含 ETF）"""
     DATA = Path('data_cache')
     if market == 'tw':
         return sorted([p.stem for p in DATA.glob('*.parquet')
-                       if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
-                       and not p.stem.startswith('00')])
+                       if p.stem and p.stem[0].isdigit() and 4 <= len(p.stem) <= 7])
     elif market == 'us':
         return sorted([p.stem for p in DATA.glob('*.parquet')
                        if p.stem and p.stem.isalpha() and p.stem.isupper()

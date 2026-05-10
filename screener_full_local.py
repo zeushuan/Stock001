@@ -19,11 +19,14 @@ US_ETF_EXCLUDE = {'SPY','QQQ','IWM','DIA','VOO','VTI','VEA','VWO','BND','TLT','E
 
 
 def get_universe(market):
+    """🆕 v9.20.11：universe 涵蓋更廣
+    - TW: 4-6 字元數字開頭（含 ETF 00*、active ETF 00981A、權證等）
+    - US: 1-5 字元純字母，移除 leveraged/volatility ETF（保留主流 ETF）"""
     DATA = Path('data_cache')
     if market == 'tw':
+        # 包含 4 位數個股 + 5-6 位數 ETF/權證 + 0 開頭 ETF
         return sorted([p.stem for p in DATA.glob('*.parquet')
-                       if p.stem and p.stem[0].isdigit() and len(p.stem) == 4
-                       and not p.stem.startswith('00')])
+                       if p.stem and p.stem[0].isdigit() and 4 <= len(p.stem) <= 7])
     elif market == 'us':
         return sorted([p.stem for p in DATA.glob('*.parquet')
                        if p.stem and p.stem.isalpha() and p.stem.isupper()

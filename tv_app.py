@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.10"
-APP_UPDATED   = "2026-05-10 23:20"
+APP_VERSION   = "v9.20.11"
+APP_UPDATED   = "2026-05-10 23:50"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -8568,7 +8568,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 150  # v9.20.10：RS Rating 無資料時改顯示「不在 universe + 52w 報酬替代」2026-05-10
+_RESULTS_VERSION = 151  # v9.20.11：universe 擴大含 ETF + 5-6 位數 + 補 SATS（1593 RS ratings）2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

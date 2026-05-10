@@ -95,14 +95,16 @@ def _fetch_batch(tickers, period='14mo', is_tw=False):
 
 
 def get_full_universe(market):
+    """🆕 v9.20.11：universe 擴大涵蓋
+    - TW: 含 ETF 00* + 5-6 位數 active ETF + 4 位數個股
+    - US: 1-5 字元字母（主流 leveraged ETF 排除）"""
     if market == 'tw':
         if Path('tw_stock_list.json').exists():
             d = json.load(open('tw_stock_list.json', encoding='utf-8'))
+            # 包含 4 位數個股 + ETF（含 00 開頭、5-6 位數 active ETF）
             return sorted([t for t, info in d.items()
                            if isinstance(info, dict)
-                           and info.get('type') != 'ETF'
-                           and t and t[0].isdigit() and len(t) == 4
-                           and not t.startswith('00')])
+                           and t and t[0].isdigit() and 4 <= len(t) <= 7])
     elif market == 'us':
         # 🆕 v9.14：用 us_full_tickers.json (5629 檔全市場，原本 us_applicable 只 555)
         if Path('us_full_tickers.json').exists():
