@@ -53,6 +53,8 @@ def load_name_maps():
 
 
 def scan(market, tickers, name_map):
+    """🆕 v9.20.4：3-pass — state collect → RS Rating → filter（universe-wide RS）"""
+    from sepa_vcp import compute_rs_ratings
     flag = '🇹🇼' if market == 'tw' else '🇺🇸'
     print(f"{flag} {market.upper()} 掃描 {len(tickers)} 檔...")
     t0 = time.time()
@@ -60,13 +62,15 @@ def scan(market, tickers, name_map):
     min_price = 5.0
     by_filter = {fname: [] for fname in FILTERS}
 
+    # ── Pass 1：state + returns ──
+    ticker_states = {}
+    ticker_returns = {}
     for ticker in tickers:
         try:
             df = dl.load_from_cache(ticker)
             if df is None or len(df) < 60: continue
             if hasattr(df.index, 'tz') and df.index.tz is not None:
                 df = df.copy(); df.index = df.index.tz_localize(None)
-
             try:
                 close = float(df['Close'].iloc[-1])
                 if close < min_price: continue
@@ -75,32 +79,50 @@ def scan(market, tickers, name_map):
                     avg_vol = float(np.mean(v_arr[-60:]))
                     if avg_vol < min_vol: continue
             except Exception: continue
-
             state = _get_state(df, market)
             if state is None: continue
-
-            for fname, fn in FILTERS.items():
-                try:
-                    if fn(state):
-                        by_filter[fname].append({
-                            'ticker': ticker,
-                            'name': name_map.get(ticker, ''),
-                            'market': market,
-                            'close': round(state['close'], 2),
-                            'rsi': round(state['rsi'], 1) if state.get('rsi') else None,
-                            'adx': round(state['adx'], 1) if state.get('adx') else None,
-                            'is_bull': state['is_bull'],
-                            'cross_days': state.get('cross_days'),
-                            'pct_b': round(state['bb_pct_b'], 2) if state.get('bb_pct_b') is not None else None,
-                            'from_high': round(state['from_high'], 1),
-                            'from_low': round(state['from_low'], 1),
-                            'imminent_dc': state.get('imminent_dc', False),
-                            'date': state['date'],
-                        })
-                except Exception: continue
+            ticker_states[ticker] = state
+            ticker_returns[ticker] = {
+                '13w': state.get('returns_13w', 0),
+                '26w': state.get('returns_26w', 0),
+                '39w': state.get('returns_39w', 0),
+                '52w': state.get('returns_52w', 0),
+            }
         except Exception: continue
 
-    print(f"  完成 {time.time()-t0:.1f}s")
+    # ── Pass 2：RS Rating（universe-wide）──
+    rs_ratings = compute_rs_ratings(ticker_returns)
+    for ticker, rs in rs_ratings.items():
+        if ticker in ticker_states:
+            ticker_states[ticker]['rs_rating'] = rs
+
+    # ── Pass 3：filter ──
+    for ticker, state in ticker_states.items():
+        for fname, fn in FILTERS.items():
+            try:
+                if fn(state):
+                    by_filter[fname].append({
+                        'ticker': ticker,
+                        'name': name_map.get(ticker, ''),
+                        'market': market,
+                        'close': round(state['close'], 2),
+                        'rsi': round(state['rsi'], 1) if state.get('rsi') else None,
+                        'adx': round(state['adx'], 1) if state.get('adx') else None,
+                        'is_bull': state['is_bull'],
+                        'cross_days': state.get('cross_days'),
+                        'pct_b': round(state['bb_pct_b'], 2) if state.get('bb_pct_b') is not None else None,
+                        'from_high': round(state['from_high'], 1),
+                        'from_low': round(state['from_low'], 1),
+                        'imminent_dc': state.get('imminent_dc', False),
+                        'date': state['date'],
+                        'rs_rating': state.get('rs_rating'),
+                        'sepa_n_met': state.get('sepa_n_met', 0),
+                        'vcp_is_vcp': state.get('vcp_is_vcp', False),
+                        'vcp_near_pivot_pct': state.get('vcp_near_pivot_pct', 0),
+                    })
+            except Exception: continue
+
+    print(f"  完成 {time.time()-t0:.1f}s ({len(ticker_states)} states + RS)")
     return by_filter
 
 
