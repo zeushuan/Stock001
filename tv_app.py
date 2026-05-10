@@ -8,15 +8,16 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.18.2"
-APP_UPDATED   = "2026-05-07 22:00"
+APP_VERSION   = "v9.19"
+APP_UPDATED   = "2026-05-10 09:00"
 APP_NOTES     = (
-    "🐛 修主表格『飆股』vs detail card『建議進場』看似矛盾："
-    "  - 主表格『飆股』改成『🚀 飆股 進場』（明確 action）"
-    "  - detail card 細分 飆股/T3強拉/T1進場/T3拉回 4 種標籤，與主表格一致 ｜ "
-    "🆕 手機選單不彈鍵盤（v9.18.1）｜ 點 ticker 查公司資訊（v9.18）｜ "
-    "—— 上版 v9.17 ——｜ "
-    "🆕 主動出場 4 filter / Squeeze 方向預測 / LINE 持倉通知 / 三狀態 + 4 recipe 即時評估"
+    "🆕 SEPA / VCP / RS Rating（Mark Minervini 飆股策略）"
+    "  ── 10 個新 filter：SEPA Trend Template 7+1 條件 / VCP 形態偵測 / RS Rating 0-100 percentile ｜ "
+    "🆕 screener_full_cloud 改 3-pass：state → RS rating → filter（universe-wide RS 計算）｜ "
+    "🆕 sepa_vcp.py：check_sepa_trend_template / detect_vcp / compute_rs_ratings 模組化 ｜ "
+    "—— 上版 v9.18.2 ——｜ "
+    "🐛 修主表格『飆股』vs detail card『建議進場』看似矛盾 ｜ "
+    "🆕 手機選單不彈鍵盤 / 點 ticker 查公司資訊 / 主動出場 4 filter / Squeeze 方向預測"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -8235,7 +8236,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 138  # v9.18.2：修主表格 vs detail card 標籤不一致（飆股→飆股進場）2026-05-07
+_RESULTS_VERSION = 139  # v9.19：SEPA + VCP + RS Rating（Mark Minervini）+ 10 個 filter 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

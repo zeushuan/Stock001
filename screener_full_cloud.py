@@ -159,6 +159,8 @@ def scan_market(market, tickers, name_map):
     print(f"  🧮 計算指標 + 跑 filter...")
     t0 = time.time()
     from screener_filters import _get_state, FILTERS
+    # 🆕 v9.19：RS Rating 需要 universe-wide 計算 → 2-pass
+    from sepa_vcp import compute_rs_ratings
 
     min_vol = 500_000 if market == 'tw' else 1_000_000
     min_price = 5.0
@@ -166,12 +168,15 @@ def scan_market(market, tickers, name_map):
     # filter_name → list of matching tickers
     by_filter = {fname: [] for fname in FILTERS}
 
+    # ── Pass 1：算 state + 收集 returns（給 RS 用）─────────
+    print(f"  Pass 1: state + returns ...")
+    ticker_states = {}     # ticker → state dict
+    ticker_returns = {}    # ticker → {'13w', '26w', '39w', '52w'}
+
     for yf_t, df in df_dict.items():
-        # 🆕 v9.13：TW twstock 已用純 ticker，不需 strip .TW；US 維持 yfinance ticker
         ticker = yf_t.replace('.TW', '') if (market == 'tw' and '.TW' in yf_t) else yf_t
         df_ind = _calc_ind(df)
         if df_ind is None: continue
-        # 質量過濾
         try:
             v_arr = df_ind['Volume'].values
             close = float(df_ind['Close'].iloc[-1])
@@ -184,8 +189,25 @@ def scan_market(market, tickers, name_map):
 
         state = _get_state(df_ind, market)
         if state is None: continue
+        ticker_states[ticker] = state
+        ticker_returns[ticker] = {
+            '13w': state.get('returns_13w', 0),
+            '26w': state.get('returns_26w', 0),
+            '39w': state.get('returns_39w', 0),
+            '52w': state.get('returns_52w', 0),
+        }
 
-        # 跑所有 filter，符合就 append
+    # ── Pass 2：算 RS Rating ───────────────────────
+    print(f"  Pass 2: 計算 RS Ratings ({len(ticker_returns)} tickers)...")
+    rs_ratings = compute_rs_ratings(ticker_returns)
+    # 注入到 state
+    for ticker, rs in rs_ratings.items():
+        if ticker in ticker_states:
+            ticker_states[ticker]['rs_rating'] = rs
+
+    # ── Pass 3：跑 filter ─────────────────────────
+    print(f"  Pass 3: 跑 filter ...")
+    for ticker, state in ticker_states.items():
         for fname, fn in FILTERS.items():
             try:
                 if fn(state):
@@ -203,6 +225,11 @@ def scan_market(market, tickers, name_map):
                         'from_low': round(state['from_low'], 1),
                         'imminent_dc': state.get('imminent_dc', False),
                         'date': state['date'],
+                        # 🆕 v9.19 SEPA/VCP/RS
+                        'rs_rating': state.get('rs_rating'),
+                        'sepa_n_met': state.get('sepa_n_met', 0),
+                        'vcp_is_vcp': state.get('vcp_is_vcp', False),
+                        'vcp_near_pivot_pct': state.get('vcp_near_pivot_pct', 0),
                     })
             except Exception:
                 continue

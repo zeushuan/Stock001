@@ -20,6 +20,9 @@ from bb_signals import (compute_bb, is_squeeze, is_expansion,
                           pct_b_extreme_high, pct_b_extreme_low,
                           mean_reversion_high, mean_reversion_low,
                           is_w_bottom, is_m_top)
+# 🆕 v9.19：SEPA / VCP / RS Rating
+from sepa_vcp import (check_sepa_trend_template, detect_vcp,
+                       compute_sma_helpers, compute_returns)
 
 
 # ── Helper: 取得最後一日的關鍵指標 ──
@@ -144,10 +147,60 @@ def _get_state(df, market='tw'):
         except Exception:
             atr_trail_triggered = False
 
+        # 🆕 v9.19：SEPA / VCP / RS Rating（必須在 universe-wide 計算 RS 前先算）
+        try:
+            sma_helpers = compute_sma_helpers(df)
+        except Exception:
+            sma_helpers = {}
+        try:
+            returns_dict = compute_returns(df)
+        except Exception:
+            returns_dict = {}
+        try:
+            vcp_info = detect_vcp(df)
+        except Exception:
+            vcp_info = {'is_vcp': False}
+        # SEPA Trend Template 7 條件（cond8 RS 由外部注入）
+        try:
+            sepa_passed, sepa_n_met, sepa_details = check_sepa_trend_template(
+                close,
+                sma_helpers.get('sma50'),
+                sma_helpers.get('sma150'),
+                sma_helpers.get('sma200'),
+                sma_helpers.get('sma200_30d_ago'),
+                sma_helpers.get('high_52w'),
+                sma_helpers.get('low_52w'))
+        except Exception:
+            sepa_passed = False; sepa_n_met = 0; sepa_details = {}
+
         return {
             'close': close, 'open': float(o[i]), 'high': float(h[i]), 'low': float(l[i]),
             'ema10': ema10_v, 'ema20': e20_v, 'ema60': e60_v,
             'rsi': rsi_v, 'adx': adx_v, 'atr': atr_v,
+            # 🆕 v9.19 SEPA / VCP / RS
+            'sma50': sma_helpers.get('sma50'),
+            'sma150': sma_helpers.get('sma150'),
+            'sma200_v': sma_helpers.get('sma200'),  # 'sma200' 已被原本佔用
+            'sma200_30d_ago': sma_helpers.get('sma200_30d_ago'),
+            'high_52w': sma_helpers.get('high_52w'),
+            'low_52w': sma_helpers.get('low_52w'),
+            'from_52w_low': sma_helpers.get('from_52w_low', 0),
+            'from_52w_high_pct': sma_helpers.get('from_52w_high', 0),
+            'returns_13w': returns_dict.get('13w', 0),
+            'returns_26w': returns_dict.get('26w', 0),
+            'returns_39w': returns_dict.get('39w', 0),
+            'returns_52w': returns_dict.get('52w', 0),
+            'vcp_is_vcp': vcp_info.get('is_vcp', False),
+            'vcp_near_pivot': vcp_info.get('near_pivot', False),
+            'vcp_near_pivot_pct': vcp_info.get('near_pivot_pct', 0),
+            'vcp_pivot_price': vcp_info.get('pivot_price', 0),
+            'vcp_n_contractions': vcp_info.get('n_contractions', 0),
+            'vcp_declines_pct': vcp_info.get('declines_pct', []),
+            'vcp_volume_dry_up': vcp_info.get('volume_dry_up', False),
+            'sepa_passed': sepa_passed,
+            'sepa_n_met': sepa_n_met,
+            'sepa_details': sepa_details,
+            # 'rs_rating' 由 screener_full_cloud 在 universe-wide 計算後注入
             'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
             'is_bull': e20_v > e60_v, 'is_bear': e20_v < e60_v,
             'drop_30d': drop_30d, 'from_high': from_high, 'from_low': from_low,
@@ -411,6 +464,75 @@ def f_squeeze_breakout_bear(s):
     gap_pct = (e60 - e20) / e60 * 100
     return gap_pct > 0.5
 
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🏆 SEPA / VCP / RS Rating（v9.19）— Mark Minervini 飆股策略
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_sepa_trend_template(s):
+    """🏆 SEPA Trend Template（7 條件全過 + RS≥70）
+    Mark Minervini 飆股體質 8 條件中前 7 條（RS≥70 由 cond8 另計）
+    全市場通常只剩 5-10% 通過"""
+    if not s.get('sepa_passed', False): return False
+    rs = s.get('rs_rating')
+    if rs is None: return s.get('sepa_passed', False)  # RS 未注入時用 7 條件
+    return rs >= 70
+
+
+def f_sepa_trend_template_7of7(s):
+    """🏆 SEPA Trend Template 7/7（基礎版，不需 RS≥70）"""
+    return s.get('sepa_passed', False)
+
+
+def f_sepa_partial_6of7(s):
+    """🥈 SEPA 6/7（接近過關，可加 watchlist）"""
+    return s.get('sepa_n_met', 0) >= 6
+
+
+def f_vcp_pattern(s):
+    """📐 VCP 形態（≥2 次振幅遞減 + 接近 pivot）
+    Volatility Contraction Pattern — Minervini 進場形態"""
+    return s.get('vcp_is_vcp', False)
+
+
+def f_vcp_volume_dry_pivot(s):
+    """📐 VCP + 量縮 + 接近 pivot（最佳 setup）"""
+    return (s.get('vcp_is_vcp', False)
+            and s.get('vcp_volume_dry_up', False)
+            and s.get('vcp_near_pivot', False))
+
+
+def f_rs_rating_70(s):
+    """💪 RS Rating ≥ 70（強於 70% 同期股票）"""
+    rs = s.get('rs_rating')
+    return rs is not None and rs >= 70
+
+
+def f_rs_rating_80(s):
+    """💪 RS Rating ≥ 80（強於 80%）"""
+    rs = s.get('rs_rating')
+    return rs is not None and rs >= 80
+
+
+def f_rs_rating_90(s):
+    """💪 RS Rating ≥ 90（飆股候選 — 強於 90%）"""
+    rs = s.get('rs_rating')
+    return rs is not None and rs >= 90
+
+
+def f_sepa_full_setup(s):
+    """🏆⭐ 完整 Minervini Setup：SEPA 7/7 + VCP + RS≥70"""
+    return (s.get('sepa_passed', False)
+            and s.get('vcp_is_vcp', False)
+            and (s.get('rs_rating') or 0) >= 70)
+
+
+def f_pivot_near_breakout(s):
+    """🎯 Pivot Point 接近突破（VCP 收口 + 距 pivot ≤ 1%）
+    Minervini 進場時機：突破時放量買進"""
+    return (s.get('vcp_is_vcp', False)
+            and -2 <= (s.get('vcp_near_pivot_pct') or -99) <= 1)
+
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
     return s.get('is_bull') and s.get('adx', 0) >= 22 and (s.get('rsi') or 99) < 50
@@ -577,6 +699,17 @@ FILTERS = {
     # 🆕 v9.17：Squeeze 突破方向預測（OOS 79k events 研究）
     '🔮 Squeeze 偏多突破（BULL+squeeze→UP 47%）': f_squeeze_breakout_bull,
     '🔮 Squeeze 偏空突破（BEAR+squeeze→DOWN 47%）': f_squeeze_breakout_bear,
+    # 🆕 v9.19：SEPA / VCP / RS Rating（Mark Minervini 飆股策略）
+    '🏆 SEPA Trend Template（7條件+RS≥70）': f_sepa_trend_template,
+    '🏆 SEPA Trend Template 7/7（基礎）': f_sepa_trend_template_7of7,
+    '🥈 SEPA 6/7（接近過關 watchlist）': f_sepa_partial_6of7,
+    '📐 VCP 形態（≥2 次收口+接近 pivot）': f_vcp_pattern,
+    '📐 VCP + 量縮 + 接近 pivot（最佳 setup）': f_vcp_volume_dry_pivot,
+    '💪 RS Rating ≥ 70（強於前 30%）': f_rs_rating_70,
+    '💪 RS Rating ≥ 80（強於前 20%）': f_rs_rating_80,
+    '💪 RS Rating ≥ 90（飆股候選 強於前 10%）': f_rs_rating_90,
+    '🏆⭐ Minervini 完整 setup（SEPA+VCP+RS≥70）': f_sepa_full_setup,
+    '🎯 Pivot 接近突破（VCP+距pivot≤1%）': f_pivot_near_breakout,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
