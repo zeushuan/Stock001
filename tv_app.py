@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.7"
-APP_UPDATED   = "2026-05-10 22:25"
+APP_VERSION   = "v9.20.8"
+APP_UPDATED   = "2026-05-10 22:45"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4292,6 +4292,21 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         sepa_n_met = d.get('sepa_n_met')
         sepa_details = d.get('sepa_details') or {}
         rs_rating = d.get('rs_rating')
+        # 🐛 fix v9.20.7：cached d 沒 rs_rating 時，從 screener_results.json fresh lookup
+        if rs_rating is None and ticker:
+            try:
+                from pathlib import Path as _P_rs
+                _sj_rs = _P_rs(__file__).parent / 'screener_results.json'
+                if _sj_rs.exists():
+                    import json as _json_rs
+                    _sd_rs = _json_rs.loads(_sj_rs.read_text(encoding='utf-8'))
+                    _tk_pure_rs = ticker.replace('.TW', '')
+                    _rs_dict_rs = _sd_rs.get('rs_ratings') or {}
+                    if _tk_pure_rs in _rs_dict_rs:
+                        rs_rating = _rs_dict_rs[_tk_pure_rs]
+                        d['rs_rating'] = rs_rating  # 寫回 d 給綜合決策用
+            except Exception:
+                pass
         vcp_info = d.get('vcp_info') or {}
         sma150 = d.get('sma150')
         sma200_real = d.get('sma200_real')
@@ -8535,7 +8550,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 147  # v9.20.7：移除「警報中 — 強訊號 N 檔｜即將觸發 M 檔」總覽 banner 2026-05-10
+_RESULTS_VERSION = 148  # v9.20.8：detail card SEPA 區 RS Rating fresh lookup（不靠 cached d）2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
