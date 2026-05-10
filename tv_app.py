@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.11"
-APP_UPDATED   = "2026-05-10 23:50"
+APP_VERSION   = "v9.20.12"
+APP_UPDATED   = "2026-05-11 00:10"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4371,28 +4371,46 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 sepa_label = f'❌ SEPA {sepa_n_met}/7（差 {7-sepa_n_met} 條，不適用）'
                 sepa_color = '#aa6655'; sepa_bg = '#1a0808'
 
-            # VCP 狀態
+            # VCP 狀態（v9.20.12：條件具體化 + 量縮永遠顯示）
             vcp_is_vcp = vcp_info.get('is_vcp', False)
             vcp_n_contractions = vcp_info.get('n_contractions', 0)
             vcp_declines = vcp_info.get('declines_pct', [])
             vcp_pivot = vcp_info.get('pivot_price', 0)
             vcp_near_pivot_pct = vcp_info.get('near_pivot_pct', 0)
             vcp_volume_dry = vcp_info.get('volume_dry_up', False)
+            vcp_is_contracting = vcp_info.get('is_contracting', False)
+            vcp_near_pivot = vcp_info.get('near_pivot', False)
+
+            # Minervini VCP 標準：2-6 次收口都行（不需固定 5 次）
+            # 三條件：① 收口 ≥ 2 次 ② 振幅遞減 ③ 接近 pivot（≤5%）
+            #   + bonus：量縮 (volume_dry_up)
+            _vcp_cond1_count = vcp_n_contractions >= 2
+            _vcp_cond2_decreasing = vcp_is_contracting
+            _vcp_cond3_pivot = vcp_near_pivot
+
+            # 永遠顯示三條件 + 量縮狀態（不論是否 trigger）
+            _vcp_cond_rows = [
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _vcp_cond1_count else "#aa6655")};margin:1px 0">'
+                f'{"✅" if _vcp_cond1_count else "❌"} ① 收口 ≥ 2 次（目前 {vcp_n_contractions} 次）</div>',
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _vcp_cond2_decreasing else "#aa6655")};margin:1px 0">'
+                f'{"✅" if _vcp_cond2_decreasing else "❌"} ② 振幅依次遞減：{vcp_declines if vcp_declines else "—"}</div>',
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _vcp_cond3_pivot else "#aa6655")};margin:1px 0">'
+                f'{"✅" if _vcp_cond3_pivot else "❌"} ③ 接近 pivot ${vcp_pivot:.2f}（距 {vcp_near_pivot_pct:+.2f}%）</div>',
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if vcp_volume_dry else "#7a8899")};margin:1px 0">'
+                f'{"✅" if vcp_volume_dry else "⚪"} ④ 量縮 ≥ 30%（bonus，非必要）</div>',
+            ]
+            _vcp_cond_html = ''.join(_vcp_cond_rows)
 
             if vcp_is_vcp:
-                vcp_label = f'📐 VCP 形態成立（{vcp_n_contractions} 次振幅遞減）'
+                vcp_label = '📐 VCP 形態成立 — Minervini 進場時機'
                 vcp_color = '#3dbb6a'
-                vcp_detail = (f'振幅 {vcp_declines}（依次遞減）+ 距 pivot {vcp_near_pivot_pct:+.2f}% '
-                               f'(${vcp_pivot:.2f})'
-                               + (f' + 量縮 ✓' if vcp_volume_dry else ''))
-            elif vcp_n_contractions >= 2:
-                vcp_label = f'⚠️ {vcp_n_contractions} 次收口但條件不全'
+            elif vcp_n_contractions >= 2 and (vcp_is_contracting or vcp_near_pivot):
+                vcp_label = '🟡 部分 VCP 條件達成（觀察）'
                 vcp_color = '#e8a020'
-                vcp_detail = f'振幅 {vcp_declines}（需遞減 + 接近 pivot）'
             else:
                 vcp_label = '⚪ 無 VCP 形態'
                 vcp_color = '#7a8899'
-                vcp_detail = f'未偵測到≥2 次 contraction'
+            vcp_detail = _vcp_cond_html
 
             # 進出場判斷
             close = d.get('close', 0)
@@ -8568,7 +8586,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 151  # v9.20.11：universe 擴大含 ETF + 5-6 位數 + 補 SATS（1593 RS ratings）2026-05-10
+_RESULTS_VERSION = 152  # v9.20.12：VCP 條件清楚顯示 4 條件（不一定要 5 次收口）+ 量縮永遠顯示 2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
