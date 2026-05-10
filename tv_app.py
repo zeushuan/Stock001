@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.21"
-APP_UPDATED   = "2026-05-11 00:30"
+APP_VERSION   = "v9.22"
+APP_UPDATED   = "2026-05-11 01:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4485,100 +4485,199 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
-    # ── 🆕 v9.21：雙底雙頂分析 ────────────────────────────
+    # ── 🆕 v9.22：雙底雙頂進階分析（職業交易員五大關鍵 + 三段建倉） ─────
     try:
         _db = d.get('double_bottom_info') or {}
         _dt = d.get('double_top_info') or {}
         _has_db = _db.get('is_double_bottom', False)
         _has_dt = _dt.get('is_double_top', False)
-        if _has_db or _has_dt:
-            _dbl_blocks = []
-            if _has_db:
-                _st = _db.get('status', 'none')
-                _label_map_db = {
-                    'breakout': ('🟢 W 底突破 — 看多反轉確認', '#3dbb6a', '#0a2a14'),
-                    'confirmed': ('🟡 W 底成形 — 等突破 neckline', '#e8a020', '#1a1408'),
-                    'forming': ('🔵 W 底形成中（第 2 底剛現）', '#7abadd', '#0a1828'),
+
+        def _build_double_block(info, side='bull'):
+            """建構雙底/雙頂 detail card 區塊"""
+            _st = info.get('status', 'none')
+            _stage = info.get('entry_stage', 'wait')
+            _grade = info.get('quality_grade', 'D')
+            _score = info.get('quality_score', 0)
+            _decay = info.get('momentum_decay') or {}
+            _rxn = info.get('reaction_kbar') or {}
+            _liq = info.get('liquidity_sweep', False)
+            _valid = info.get('breakout_validity') or {}
+            _pos = info.get('position_context', 'unknown')
+            _pos_q = info.get('position_quality', 'neutral')
+
+            # Label / 顏色 by status
+            if side == 'bull':
+                _label_map = {
+                    'B_breakout_buy': ('🟢 W 底突破 — 補滿區（B 段進場）', '#3dbb6a', '#0a2a14'),
+                    'A_test_buy':     ('🟡 W 底試單區（A 段 1/3 試單）', '#e8c050', '#1a1408'),
+                    'C_retest_buy':   ('🟢 W 底回踩 neckline 補滿（C 段）', '#3dbb6a', '#0a2a14'),
+                    'confirmed':      ('🟡 W 底成形 — 等突破', '#e8a020', '#1a1408'),
+                    'forming':        ('🔵 W 底形成中', '#7abadd', '#0a1828'),
+                    'failed':         ('❌ W 底失敗（已跌破第 1 底）', '#aa4040', '#1a0808'),
                 }
-                _lbl, _c, _bg = _label_map_db.get(_st, ('', '#7a8899', '#0a1422'))
-                _lb = _db.get('left_bottom') or {}
-                _rb = _db.get('right_bottom') or {}
-                _mp = _db.get('middle_peak') or {}
-                _neck = _db.get('neckline_price', 0)
-                _tgt = _db.get('target_price', 0)
-                _sim = _db.get('similarity_pct', 0)
-                _sep = _db.get('separation_days', 0)
-                _cur = d.get('close', 0) or 0
-                _gap_pct = ((_cur - _neck) / _neck * 100) if _neck > 0 else 0
-                _action = ''
-                if _st == 'breakout':
-                    _action = (f'📌 <b>已突破 neckline ${_neck} (+{_gap_pct:.2f}%)</b>'
-                                f'<br>進場目標 → ${_tgt}（測量移動）'
-                                f'<br>停損：跌回 neckline ${_neck} 以下')
-                elif _st == 'confirmed':
-                    _action = (f'📌 <b>等突破 neckline ${_neck}</b>'
-                                f'（現價 ${_cur:.2f}，差 {-_gap_pct:.2f}%）'
-                                f'<br>watchlist：等突破 + 量增進場')
-                elif _st == 'forming':
-                    _action = (f'📌 第 2 底剛現，等回測強度與 neckline ${_neck}'
-                                f'<br>太早進場風險高（雙底失敗 = 跌破 ${_lb.get("price", 0):.2f}）')
-                _dbl_blocks.append(
-                    f'<div style="background:{_bg};border-left:4px solid {_c};'
-                    f'padding:8px 12px;border-radius:4px">'
-                    f'<b style="color:{_c};font-size:.92rem">{_lbl}</b>'
-                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:4px;line-height:1.5">'
-                    f'左底 {_lb.get("date", "—")} ${_lb.get("price", 0):.2f} ｜ '
-                    f'右底 {_rb.get("date", "—")} ${_rb.get("price", 0):.2f} '
-                    f'(差 {_sim:.2f}%)<br>'
-                    f'中間 peak {_mp.get("date", "—")} ${_neck:.2f} = neckline'
-                    f' ｜ 兩底間距 {_sep} 天<br>'
-                    f'{_action}'
-                    f'</div></div>'
-                )
-            if _has_dt:
-                _st = _dt.get('status', 'none')
-                _label_map_dt = {
-                    'breakdown': ('🔴 M 頂跌破 — 看空反轉確認', '#ff5555', '#3a0a0a'),
-                    'confirmed': ('🟠 M 頂成形 — 等跌破 neckline', '#ff9944', '#2a1605'),
-                    'forming': ('🔵 M 頂形成中（第 2 頂剛現）', '#7abadd', '#0a1828'),
+                _lbl, _c, _bg = _label_map.get(_st, ('🟡 W 底', '#e8a020', '#1a1408'))
+                _l_label = '左底'; _r_label = '右底'
+                _l_data = info.get('left_bottom') or {}
+                _r_data = info.get('right_bottom') or {}
+                _m_data = info.get('middle_peak') or {}
+                _decay_label_map = {
+                    'volume_ratio': ('量縮（第2次/第1次）', 0.8, '<', '量縮 → 空方力竭'),
+                    'body_ratio':   ('黑K實體比', 0.7, '<', '黑K縮短 → 空方無力'),
+                    'shadow_ratio': ('下影比', 1.2, '>', '下影增 → 多方反擊增'),
+                    'rev_kbar_count_diff': ('紅K數量差', 0, '>', '紅K增 → 多方接管'),
                 }
-                _lbl, _c, _bg = _label_map_dt.get(_st, ('', '#7a8899', '#0a1422'))
-                _lt = _dt.get('left_top') or {}
-                _rt = _dt.get('right_top') or {}
-                _mt = _dt.get('middle_trough') or {}
-                _neck = _dt.get('neckline_price', 0)
-                _tgt = _dt.get('target_price', 0)
-                _sim = _dt.get('similarity_pct', 0)
-                _sep = _dt.get('separation_days', 0)
-                _cur = d.get('close', 0) or 0
-                _gap_pct = ((_cur - _neck) / _neck * 100) if _neck > 0 else 0
-                _action = ''
-                if _st == 'breakdown':
-                    _action = (f'📌 <b>已跌破 neckline ${_neck} ({_gap_pct:+.2f}%)</b>'
-                                f'<br>下殺目標 → ${_tgt}（測量移動）'
-                                f'<br>持倉：立即出場；做空者：放空 + 停損 neckline 上 3%')
-                elif _st == 'confirmed':
-                    _action = (f'📌 <b>等跌破 neckline ${_neck}</b>'
-                                f'（現價 ${_cur:.2f}，距 {_gap_pct:+.2f}%）'
-                                f'<br>watchlist：等跌破 + 量增放空 / 持倉者降風險')
-                elif _st == 'forming':
-                    _action = (f'📌 第 2 頂剛現，等回測或跌破確認'
-                                f'<br>頭部失敗 = 突破 ${_rt.get("price", 0):.2f}')
-                _dbl_blocks.append(
-                    f'<div style="background:{_bg};border-left:4px solid {_c};'
-                    f'padding:8px 12px;border-radius:4px;margin-top:6px">'
-                    f'<b style="color:{_c};font-size:.92rem">{_lbl}</b>'
-                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:4px;line-height:1.5">'
-                    f'左頂 {_lt.get("date", "—")} ${_lt.get("price", 0):.2f} ｜ '
-                    f'右頂 {_rt.get("date", "—")} ${_rt.get("price", 0):.2f} '
-                    f'(差 {_sim:.2f}%)<br>'
-                    f'中間 trough {_mt.get("date", "—")} ${_neck:.2f} = neckline'
-                    f' ｜ 兩頂間距 {_sep} 天<br>'
-                    f'{_action}'
-                    f'</div></div>'
-                )
-            for _b in _dbl_blocks:
-                swing_rows.append(_b)
+            else:
+                _label_map = {
+                    'B_breakdown_short': ('🔴 M 頂跌破 — 補滿放空（B 段）', '#ff5555', '#3a0a0a'),
+                    'A_test_short':       ('🟠 M 頂試單區（A 段 1/3 放空）', '#ff9944', '#2a1605'),
+                    'C_retest_short':     ('🔴 M 頂反彈 neckline 補滿（C 段）', '#ff5555', '#3a0a0a'),
+                    'confirmed':           ('🟠 M 頂成形 — 等跌破', '#ff9944', '#2a1605'),
+                    'forming':             ('🔵 M 頂形成中', '#7abadd', '#0a1828'),
+                    'failed':              ('❌ M 頂失敗（已突破第 1 頂）', '#40aa40', '#0a2a10'),
+                }
+                _lbl, _c, _bg = _label_map.get(_st, ('🟠 M 頂', '#ff9944', '#2a1605'))
+                _l_label = '左頂'; _r_label = '右頂'
+                _l_data = info.get('left_top') or {}
+                _r_data = info.get('right_top') or {}
+                _m_data = info.get('middle_trough') or {}
+                _decay_label_map = {
+                    'volume_ratio': ('量縮（第2次/第1次）', 0.8, '<', '量縮 → 多方力竭'),
+                    'body_ratio':   ('紅K實體比', 0.7, '<', '紅K縮短 → 多方無力'),
+                    'shadow_ratio': ('上影比', 1.2, '>', '上影增 → 空方反擊增'),
+                    'rev_kbar_count_diff': ('黑K數量差', 0, '>', '黑K增 → 空方接管'),
+                }
+
+            _neck = info.get('neckline_price', 0)
+            _tgt = info.get('target_price', 0)
+            _sim = info.get('similarity_pct', 0)
+            _sep = info.get('separation_days', 0)
+            _stop = info.get('stop_loss', 0)
+            _cur = d.get('close', 0) or 0
+            _mid_label = '中間 peak' if side == 'bull' else '中間 trough'
+
+            # ─── 五大關鍵打勾 ───
+            _key_rows = []
+            # 1. 位置
+            _pos_ok = _pos_q == 'high_prob'
+            _key_rows.append(
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _pos_ok else "#aa6655")}">'
+                f'{"✅" if _pos_ok else "⚠️"} 1. 位置：{_pos}（{_pos_q}）</div>'
+            )
+            # 2. 動能衰減
+            _decay_score = _decay.get('decay_score', 0)
+            _decay_ok = _decay_score >= 2
+            _decay_lines = [f'{"✅" if _decay_ok else "⚠️"} 2. 動能衰減 {_decay_score}/4：']
+            for _key, (_n, _th, _op, _desc) in _decay_label_map.items():
+                _v = _decay.get(_key, 0)
+                if _op == '<':
+                    _good = _v < _th
+                else:
+                    _good = _v > _th
+                _icon = '✓' if _good else '·'
+                _decay_lines.append(f'　{_icon} {_n} {_v}（{"達標" if _good else "未達"}{_op}{_th}）')
+            _key_rows.append(
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _decay_ok else "#aa6655")}">'
+                + '<br>'.join(_decay_lines) +
+                f'</div>'
+            )
+            # 3. 反應 K 棒
+            _rxn_ok = _rxn.get('has_reaction', False)
+            _rxn_desc = _rxn.get('desc', '無') if _rxn_ok else '無強反應 K 棒'
+            _key_rows.append(
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _rxn_ok else "#aa6655")}">'
+                f'{"✅" if _rxn_ok else "⚠️"} 3. 表態 K 棒：{_rxn_desc}</div>'
+            )
+            # 4. 掃流動性 + 頸線突破
+            _valid_score = _valid.get('validity_score', 0)
+            _bo_ok = _valid_score >= 2
+            _bo_parts = []
+            _bo_parts.append(f'量增 {"✓" if _valid.get("volume_surge") else "✗"}')
+            _bo_parts.append(f'實體 {"✓" if _valid.get("body_breakout") else "✗"}')
+            _bo_parts.append(f'無回打 {"✓" if _valid.get("no_pull_back") else "✗"}')
+            _liq_str = (' + 掃流動性 ✓' if _liq else '')
+            _key_rows.append(
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _bo_ok else "#aa6655")}">'
+                f'{"✅" if _bo_ok else "⚠️"} 4. 頸線突破 {_valid_score}/3：'
+                f'{" / ".join(_bo_parts)}{_liq_str}</div>'
+            )
+            # 5. Pattern strength
+            _strength_ok = _sim <= 3 and (info.get('rebound_pct', 0) or info.get('pullback_pct', 0)) >= 12
+            _key_rows.append(
+                f'<div style="font-size:.66rem;color:{("#3dbb6a" if _strength_ok else "#aa6655")}">'
+                f'{"✅" if _strength_ok else "⚠️"} 5. Pattern 強度：兩端差 {_sim:.2f}%（≤3）'
+                f' + 反彈 {(info.get("rebound_pct") or info.get("pullback_pct") or 0):.1f}%（≥12）</div>'
+            )
+
+            # 三段建倉行動
+            _action_lines = []
+            if _stage == 'A_test':
+                _action_lines.append(
+                    f'<b>📍 A 段：底部試單 1/3</b><br>'
+                    f'進場：${_cur:.2f}（反應 K 出現）<br>'
+                    f'停損：${_stop:.2f}（{_r_label}下方）<br>'
+                    f'下個補滿點：頸線 ${_neck} 帶量突破')
+            elif _stage == 'B_breakout':
+                _action_lines.append(
+                    f'<b>📍 B 段：頸線突破補滿</b><br>'
+                    f'進場：${_cur:.2f}（已突破頸線）<br>'
+                    f'停損：${_stop:.2f}（neckline 下方 3%）<br>'
+                    f'目標：${_tgt}（測量移動）<br>'
+                    f'下個補滿點：回踩 neckline 不破 + 反應 K')
+            elif _stage == 'C_retest':
+                _action_lines.append(
+                    f'<b>📍 C 段：回踩補滿</b><br>'
+                    f'進場：${_cur:.2f}（回踩 neckline 有效）<br>'
+                    f'停損：${_stop:.2f}（反應 K 棒下方）<br>'
+                    f'目標：${_tgt}')
+            elif _stage == 'wait':
+                if _st == 'forming':
+                    _action_lines.append(
+                        f'⏸ 等反應 K 棒出現（{_r_label}剛現，太早進場風險高）')
+                elif _st == 'failed':
+                    _action_lines.append(
+                        f'❌ Pattern 失敗，避開')
+                else:
+                    _action_lines.append(
+                        f'⏸ 等突破：頸線 ${_neck}<br>'
+                        f'watchlist：每天看是否量增實體突破')
+
+            # Quality Grade badge
+            _grade_color = ({'A': '#ffd700', 'B': '#3dbb6a',
+                             'C': '#7abadd', 'D': '#7a8899'}).get(_grade, '#7a8899')
+            _grade_badge = (
+                f'<span style="background:{_grade_color}22;color:{_grade_color};'
+                f'border:1px solid {_grade_color}66;padding:1px 7px;'
+                f'border-radius:10px;font-size:.66rem;font-weight:700">'
+                f'Grade {_grade} ({_score}/5)</span>'
+            )
+
+            return (
+                f'<div style="background:{_bg};border-left:4px solid {_c};'
+                f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                f'<b style="color:{_c};font-size:.92rem">{_lbl}</b> {_grade_badge}'
+                f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:4px;line-height:1.5">'
+                f'{_l_label} {_l_data.get("date", "—")} ${_l_data.get("price", 0):.2f} ｜ '
+                f'{_r_label} {_r_data.get("date", "—")} ${_r_data.get("price", 0):.2f} '
+                f'(差 {_sim:.2f}%)<br>'
+                f'{_mid_label} {_m_data.get("date", "—")} ${_neck:.2f} = neckline'
+                f' ｜ 間距 {_sep} 天'
+                f'</div>'
+                f'<div style="margin-top:6px;padding:6px;background:#0a1422;border-radius:3px">'
+                f'<b style="color:#7abadd;font-size:.74rem">🔍 五大關鍵分析</b>'
+                f'{"".join(_key_rows)}'
+                f'</div>'
+                f'<div style="margin-top:6px;padding:6px;background:#0a1828;border-radius:3px;'
+                f'border-left:2px solid #3dbb6a">'
+                f'<div style="font-size:.74rem;color:#c8e0d0">'
+                f'{("<br>".join(_action_lines))}</div>'
+                f'</div>'
+                f'</div>'
+            )
+
+        if _has_db:
+            swing_rows.append(_build_double_block(_db, side='bull'))
+        if _has_dt:
+            swing_rows.append(_build_double_block(_dt, side='bear'))
     except Exception:
         pass
 
@@ -4631,18 +4730,27 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             score -= 1
             score_reasons.append('-1 RSI≥80 過熱')
 
-        # 🆕 v9.21：雙底雙頂加減分
-        _db_st = (d.get('double_bottom_info') or {}).get('status', 'none')
-        _dt_st = (d.get('double_top_info') or {}).get('status', 'none')
-        if _db_st == 'breakout':
-            score += 1.5
-            score_reasons.append('+1.5 雙底突破')
+        # 🆕 v9.22：雙底雙頂加減分（依 Quality Grade）
+        _db_info = d.get('double_bottom_info') or {}
+        _dt_info = d.get('double_top_info') or {}
+        _db_st = _db_info.get('status', 'none')
+        _dt_st = _dt_info.get('status', 'none')
+        _db_g = _db_info.get('quality_grade', 'D')
+        _dt_g = _dt_info.get('quality_grade', 'D')
+        # Grade A 加分多，D 加分少
+        _db_bonus_map = {'A': 2.5, 'B': 2.0, 'C': 1.5, 'D': 1.0}
+        _dt_bonus_map = {'A': -2.5, 'B': -2.0, 'C': -1.5, 'D': -1.0}
+        if _db_st in ('B_breakout_buy', 'A_test_buy', 'C_retest_buy', 'breakout'):
+            _bonus = _db_bonus_map.get(_db_g, 1.0)
+            score += _bonus
+            score_reasons.append(f'+{_bonus} 雙底進場 (Grade {_db_g})')
         elif _db_st == 'confirmed':
             score += 0.5
             score_reasons.append('+0.5 雙底成形（待突破）')
-        if _dt_st == 'breakdown':
-            score -= 1.5
-            score_reasons.append('-1.5 雙頂跌破')
+        if _dt_st in ('B_breakdown_short', 'A_test_short', 'C_retest_short', 'breakdown'):
+            _bonus = _dt_bonus_map.get(_dt_g, -1.0)
+            score += _bonus
+            score_reasons.append(f'{_bonus:+.1f} 雙頂出場 (Grade {_dt_g})')
         elif _dt_st == 'confirmed':
             score -= 0.5
             score_reasons.append('-0.5 雙頂成形（風險）')
@@ -8712,7 +8820,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 153  # v9.21：雙底雙頂分析（4 filter + detail card 進出場 + 綜合得分加減 1.5）2026-05-11
+_RESULTS_VERSION = 154  # v9.22：雙底雙頂職業交易員方法論（五大關鍵 + 三段建倉 + Quality A/B/C/D）2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)

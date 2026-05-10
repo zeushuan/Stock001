@@ -216,11 +216,17 @@ def _get_state(df, market='tw'):
             'double_bottom_breakout': db_info.get('breakout_confirmed', False),
             'double_bottom_neckline': db_info.get('neckline_price'),
             'double_bottom_target': db_info.get('target_price'),
+            'double_bottom_quality': db_info.get('quality_grade', 'D'),  # A/B/C/D
+            'double_bottom_score': db_info.get('quality_score', 0),
+            'double_bottom_stage': db_info.get('entry_stage', 'wait'),
             'double_bottom_info': db_info,
             'double_top_status': dt_info.get('status', 'none'),
             'double_top_breakdown': dt_info.get('breakdown_confirmed', False),
             'double_top_neckline': dt_info.get('neckline_price'),
             'double_top_target': dt_info.get('target_price'),
+            'double_top_quality': dt_info.get('quality_grade', 'D'),
+            'double_top_score': dt_info.get('quality_score', 0),
+            'double_top_stage': dt_info.get('entry_stage', 'wait'),
             'double_top_info': dt_info,
             # 'rs_rating' 由 screener_full_cloud 在 universe-wide 計算後注入
             'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
@@ -561,8 +567,8 @@ def f_pivot_near_breakout(s):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def f_double_bottom_breakout(s):
-    """🟢 雙底突破（W底+突破 neckline）— 看多反轉確認"""
-    return s.get('double_bottom_status') == 'breakout'
+    """🟢 雙底突破（任何 grade）"""
+    return s.get('double_bottom_status') in ('B_breakout_buy', 'breakout')
 
 
 def f_double_bottom_confirmed(s):
@@ -571,13 +577,49 @@ def f_double_bottom_confirmed(s):
 
 
 def f_double_top_breakdown(s):
-    """🔴 雙頂跌破（M頂+跌破 neckline）— 看空反轉確認"""
-    return s.get('double_top_status') == 'breakdown'
+    """🔴 雙頂跌破（任何 grade）"""
+    return s.get('double_top_status') in ('B_breakdown_short', 'breakdown')
 
 
 def f_double_top_confirmed(s):
     """🔴 雙頂成形（兩頂已現 + 回檔，待跌破 neckline）"""
     return s.get('double_top_status') == 'confirmed'
+
+
+# 🆕 v9.22：依五大關鍵 quality 分級
+def f_double_bottom_grade_A(s):
+    """🥇 雙底 Grade A（5/5 五大關鍵全過 — 最高品質）"""
+    return (s.get('double_bottom_status') not in ('none', 'failed')
+            and s.get('double_bottom_quality') == 'A')
+
+
+def f_double_bottom_grade_AB(s):
+    """🥈 雙底 Grade A 或 B（≥4/5 — 高品質）"""
+    return (s.get('double_bottom_status') not in ('none', 'failed')
+            and s.get('double_bottom_quality') in ('A', 'B'))
+
+
+def f_double_top_grade_A(s):
+    """🥇 雙頂 Grade A（5/5）"""
+    return (s.get('double_top_status') not in ('none', 'failed')
+            and s.get('double_top_quality') == 'A')
+
+
+def f_double_top_grade_AB(s):
+    """🥈 雙頂 Grade A 或 B（≥4/5）"""
+    return (s.get('double_top_status') not in ('none', 'failed')
+            and s.get('double_top_quality') in ('A', 'B'))
+
+
+# 三段式建倉 stage filters
+def f_double_bottom_stage_A(s):
+    """🟢 雙底 A 段試單（底部反應K + 第2底剛現）"""
+    return s.get('double_bottom_stage') == 'A_test'
+
+
+def f_double_bottom_stage_C(s):
+    """🟢 雙底 C 段補滿（突破後回踩 neckline 有效）"""
+    return s.get('double_bottom_stage') == 'C_retest'
 
 def f_t3_pullback(s):
     """T3 多頭拉回（多頭 + ADX≥22 + RSI<50）"""
@@ -756,11 +798,19 @@ FILTERS = {
     '💪 RS Rating ≥ 90（飆股候選 強於前 10%）': f_rs_rating_90,
     '🏆⭐ Minervini 完整 setup（SEPA+VCP+RS≥70）': f_sepa_full_setup,
     '🎯 Pivot 接近突破（VCP+距pivot≤1%）': f_pivot_near_breakout,
-    # 🆕 v9.21：雙底雙頂
+    # 🆕 v9.21：雙底雙頂（基本）
     '🟢 雙底突破（W底+突破neckline）': f_double_bottom_breakout,
     '🟢 雙底成形（待突破 watchlist）': f_double_bottom_confirmed,
     '🔴 雙頂跌破（M頂+跌破neckline）': f_double_top_breakdown,
     '🔴 雙頂成形（待跌破警示）': f_double_top_confirmed,
+    # 🆕 v9.22：雙底雙頂 Quality 分級（五大關鍵）
+    '🥇 雙底 Grade A（五大關鍵全過 5/5）': f_double_bottom_grade_A,
+    '🥈 雙底 Grade A+B（≥4/5 高品質）': f_double_bottom_grade_AB,
+    '🥇 雙頂 Grade A（五大關鍵全過 5/5）': f_double_top_grade_A,
+    '🥈 雙頂 Grade A+B（≥4/5 高品質）': f_double_top_grade_AB,
+    # 🆕 v9.22：三段建倉
+    '🟢 雙底 A 段試單（底部反應K + 第2底剛現）': f_double_bottom_stage_A,
+    '🟢 雙底 C 段補滿（突破後回踩有效）': f_double_bottom_stage_C,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
