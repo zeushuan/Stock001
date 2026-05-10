@@ -183,6 +183,16 @@ jobs:
           python notify_swing_exit.py 2>&1 | tee /tmp/notify_swing.log
         continue-on-error: true
 
+      # 🆕 v9.20：SEPA / VCP / RS 候選通知（從 screener_results.json 整理）
+      - name: Notify SEPA / VCP candidates
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          python notify_sepa_candidates.py 2>&1 | tee /tmp/notify_sepa.log
+        continue-on-error: true
+
       - name: Notify on Failure
         if: failure()
         run: |

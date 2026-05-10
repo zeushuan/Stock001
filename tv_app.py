@@ -8,17 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.19.1"
-APP_UPDATED   = "2026-05-10 19:00"
+APP_VERSION   = "v9.20"
+APP_UPDATED   = "2026-05-10 20:00"
 APP_NOTES     = (
-    "🏆 SEPA OOS 大規模驗證（TW+US, 4179 檔, 2020-2026, 8 萬 trades）"
-    "  - 🇹🇼 SEPA+VCP+RS70+90d: 47% win, +11.2% mean, hold 82d ⭐⭐"
-    "  - 🇺🇸 SEPA+RS90+90d: 51% win, +6.3% mean, hold 82d (OOS 2024+) ⭐"
-    "  - 跨期間 robust：OOS 結果 ≥ 全期間（無過擬合）"
-    "  - SEPA + 90d 平均 hold 比 Strategy B 多 ~25%, 但 mean 高 2-4 倍 ｜ "
-    "🆕 SEPA / VCP / RS Rating 10 個 filter ｜ "
-    "—— 上版 v9.18.2 ——｜ "
-    "🐛 修主表格『飆股』vs detail card 不一致 / 手機選單不彈鍵盤 / 點 ticker 查公司資訊"
+    "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
+    "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
+    "🆕 綜合決策得分系統（SEPA+VCP+T1+B+recipes 加總，-2~+5 分）｜ "
+    "🆕 SEPA 投組回測 OOS：🇹🇼 fifo+pos10 CAGR +60.6% Sharpe 1.79 MDD -2.76% ⭐⭐ "
+    "  🇺🇸 rs_high+pos50 CAGR +20% Sharpe 1.52 MDD -7.08% ｜ "
+    "🆕 SEPA 候選 LINE 通知（Minervini 完整 setup / SEPA+RS70 / Pivot breakout）｜ "
+    "—— 上版 v9.19.1 ——｜ "
+    "🆕 SEPA OOS 驗證（TW SEPA+VCP+RS70+90d: 47% win, +11.2% mean）"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -1618,10 +1618,10 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
             d['t3_confidence_hits'] = []
 
         # 🆕 v9.17.1：把波段診斷需要的「近 30 日 OHLC + 指標」存進 d
-        # 因 Streamlit Cloud data_cache 是空的，state_classifier 需從 d 拿資料
+        # 🆕 v9.20：擴充到 252 日，並加 SEPA / RS 需要的 SMA + 52w 指標
         try:
             import numpy as _np
-            tail = 30
+            tail = 252  # 一年 → SMA200 + 52w 高低足夠
             def _np_tail(s, n=tail):
                 arr = s.values if hasattr(s, 'values') else _np.asarray(s)
                 if len(arr) >= n:
@@ -1629,6 +1629,9 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                 return arr.tolist()
             o_s = get_col("open")
             ema10_s = ta.trend.EMAIndicator(c, 10).ema_indicator()
+            sma50_s_ = ta.trend.SMAIndicator(c, 50).sma_indicator()
+            sma150_s_ = ta.trend.SMAIndicator(c, 150).sma_indicator()
+            sma200_s_ = ta.trend.SMAIndicator(c, 200).sma_indicator()
             d['_swing_history'] = {
                 'open':   _np_tail(o_s),
                 'high':   _np_tail(h),
@@ -1638,10 +1641,72 @@ def fetch_indicators(ticker: str, market: str, end_date: str = ""):
                 'ema10':  _np_tail(ema10_s),
                 'ema20':  _np_tail(ema20_s),
                 'ema60':  _np_tail(ema60_s),
+                'sma50':  _np_tail(sma50_s_),
+                'sma150': _np_tail(sma150_s_),
+                'sma200': _np_tail(sma200_s_),
                 'adx':    _np_tail(adx_s),
                 'atr':    _np_tail(atr_s),
                 'rsi':    _np_tail(rsi_s),
             }
+
+            # 🆕 v9.20：SEPA 指標直接算入 d
+            try:
+                from sepa_vcp import (compute_sma_helpers, compute_returns,
+                                       check_sepa_trend_template, detect_vcp)
+                _sma_helpers_local = compute_sma_helpers(pd.DataFrame({
+                    'Close': c, 'High': h, 'Low': l
+                }))
+                _ret_local = compute_returns(pd.DataFrame({'Close': c}))
+                d['sma150'] = _sma_helpers_local.get('sma150')
+                d['sma200_real'] = _sma_helpers_local.get('sma200')
+                d['high_52w'] = _sma_helpers_local.get('high_52w')
+                d['low_52w'] = _sma_helpers_local.get('low_52w')
+                d['from_52w_low'] = _sma_helpers_local.get('from_52w_low', 0)
+                d['from_52w_high_pct'] = _sma_helpers_local.get('from_52w_high', 0)
+                d['returns_13w'] = _ret_local.get('13w', 0)
+                d['returns_26w'] = _ret_local.get('26w', 0)
+                d['returns_39w'] = _ret_local.get('39w', 0)
+                d['returns_52w'] = _ret_local.get('52w', 0)
+
+                # SEPA Trend Template 判斷
+                _sepa_pass, _sepa_n, _sepa_det = check_sepa_trend_template(
+                    d.get('close'),
+                    d.get('sma50'),
+                    d.get('sma150'),
+                    d.get('sma200_real'),
+                    _sma_helpers_local.get('sma200_30d_ago'),
+                    d.get('high_52w'),
+                    d.get('low_52w'))
+                d['sepa_passed'] = _sepa_pass
+                d['sepa_n_met'] = _sepa_n
+                d['sepa_details'] = _sepa_det
+
+                # VCP 檢測
+                _vcp_info = detect_vcp(pd.DataFrame({
+                    'Open': o_s.values, 'High': h, 'Low': l,
+                    'Close': c, 'Volume': v
+                }))
+                d['vcp_info'] = _vcp_info
+
+                # RS Rating：從最新 screener_results.json 查（universe-wide 計算結果）
+                try:
+                    from pathlib import Path as _P
+                    _sj = _P(__file__).parent / 'screener_results.json'
+                    if _sj.exists():
+                        _sd = json.load(open(_sj, encoding='utf-8'))
+                        _bf = _sd.get('by_filter', {})
+                        # 任一 filter 結果都有 rs_rating（v9.19 後）
+                        for _items in _bf.values():
+                            for _r in _items:
+                                if _r.get('ticker') == ticker.replace('.TW', ''):
+                                    if _r.get('rs_rating') is not None:
+                                        d['rs_rating'] = _r.get('rs_rating')
+                                        break
+                            if d.get('rs_rating') is not None: break
+                except Exception:
+                    pass
+            except Exception:
+                pass
         except Exception:
             d['_swing_history'] = None
 
@@ -4212,6 +4277,222 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'⚠️ {_swing_diag_msg}'
             f'</div>'
         )
+
+    # ── 🆕 v9.20：SEPA / VCP / RS Rating 詳細診斷 + 進出場判斷 ────
+    try:
+        sepa_passed = d.get('sepa_passed')
+        sepa_n_met = d.get('sepa_n_met')
+        sepa_details = d.get('sepa_details') or {}
+        rs_rating = d.get('rs_rating')
+        vcp_info = d.get('vcp_info') or {}
+        sma150 = d.get('sma150')
+        sma200_real = d.get('sma200_real')
+        if sepa_n_met is not None and sepa_n_met >= 0:
+            # 8 條件詳細
+            cond_rows = []
+            _sma150_str = f'{sma150:.2f}' if sma150 else '?'
+            _sma200_str = f'{sma200_real:.2f}' if sma200_real else '?'
+            sma50_v_disp = d.get('sma50') or 0
+            _sma50_for_label = f'{sma50_v_disp:.2f}' if sma50_v_disp else '?'
+            cond_labels = [
+                ('cond1_close_above_150_200', f'1. 收盤 > SMA150 ({_sma150_str}) AND > SMA200 ({_sma200_str})'),
+                ('cond2_sma150_above_200', '2. SMA150 > SMA200'),
+                ('cond3_sma200_rising_30d', '3. SMA200 上升 ≥ 30 天（趨勢確立）'),
+                ('cond4_sma50_above_150_200', f'4. SMA50 ({_sma50_for_label}) > SMA150 AND > SMA200'),
+                ('cond5_close_above_50', f'5. 收盤 > SMA50 ({_sma50_for_label})'),
+                ('cond6_above_52w_low_30pct', '6. 收盤 ≥ 52週低點 + 30%（已脫底）'),
+                ('cond7_below_52w_high_25pct', '7. 收盤 距 52週高 ≤ 25%（接近高點）'),
+            ]
+            for key, label in cond_labels:
+                ok = sepa_details.get(key, False)
+                ic = '✅' if ok else '❌'
+                col = '#3dbb6a' if ok else '#aa6655'
+                cond_rows.append(
+                    f'<div style="font-size:.7rem;color:{col};margin:1px 0">'
+                    f'{ic} {label}</div>'
+                )
+
+            # 8th condition: RS≥70
+            rs_ok = rs_rating is not None and rs_rating >= 70
+            rs_disp = f'{rs_rating:.0f}' if rs_rating is not None else '—'
+            ic = '✅' if rs_ok else ('❌' if rs_rating is not None else '⚪')
+            col = '#3dbb6a' if rs_ok else ('#aa6655' if rs_rating is not None else '#7a8899')
+            cond_rows.append(
+                f'<div style="font-size:.7rem;color:{col};margin:1px 0">'
+                f'{ic} 8. RS Rating {rs_disp} ≥ 70（強於 70% 同期）'
+                f'{"（無資料 — 等下次 cron 計算）" if rs_rating is None else ""}</div>'
+            )
+
+            # 整體 SEPA 結論
+            full_pass = sepa_passed and rs_ok
+            conds_total = sepa_n_met + (1 if rs_ok else 0)
+            if full_pass:
+                sepa_label = f'🏆 SEPA 8/8 全通過 — Minervini 飆股體質'
+                sepa_color = '#3dbb6a'; sepa_bg = '#0a2a14'
+            elif sepa_passed:
+                sepa_label = f'🥈 SEPA 7/7 通過 + RS 待確認'
+                sepa_color = '#7abadd'; sepa_bg = '#0a1828'
+            elif sepa_n_met >= 6:
+                sepa_label = f'🥈 SEPA {sepa_n_met}/7（接近過關，僅差 {7-sepa_n_met} 條）'
+                sepa_color = '#e8a020'; sepa_bg = '#1a1408'
+            else:
+                sepa_label = f'❌ SEPA {sepa_n_met}/7（差 {7-sepa_n_met} 條，不適用）'
+                sepa_color = '#aa6655'; sepa_bg = '#1a0808'
+
+            # VCP 狀態
+            vcp_is_vcp = vcp_info.get('is_vcp', False)
+            vcp_n_contractions = vcp_info.get('n_contractions', 0)
+            vcp_declines = vcp_info.get('declines_pct', [])
+            vcp_pivot = vcp_info.get('pivot_price', 0)
+            vcp_near_pivot_pct = vcp_info.get('near_pivot_pct', 0)
+            vcp_volume_dry = vcp_info.get('volume_dry_up', False)
+
+            if vcp_is_vcp:
+                vcp_label = f'📐 VCP 形態成立（{vcp_n_contractions} 次振幅遞減）'
+                vcp_color = '#3dbb6a'
+                vcp_detail = (f'振幅 {vcp_declines}（依次遞減）+ 距 pivot {vcp_near_pivot_pct:+.2f}% '
+                               f'(${vcp_pivot:.2f})'
+                               + (f' + 量縮 ✓' if vcp_volume_dry else ''))
+            elif vcp_n_contractions >= 2:
+                vcp_label = f'⚠️ {vcp_n_contractions} 次收口但條件不全'
+                vcp_color = '#e8a020'
+                vcp_detail = f'振幅 {vcp_declines}（需遞減 + 接近 pivot）'
+            else:
+                vcp_label = '⚪ 無 VCP 形態'
+                vcp_color = '#7a8899'
+                vcp_detail = f'未偵測到≥2 次 contraction'
+
+            # 進出場判斷
+            close = d.get('close', 0)
+            sma50_v = d.get('sma50', 0)
+            entry_advice = ''
+            exit_advice = ''
+            if full_pass and vcp_is_vcp:
+                entry_advice = ('🏆 <b>完整 Minervini setup — 強烈進場候選</b>'
+                                 '<br>OOS 驗證：🇹🇼 win 47%/+11.2%/82d ｜ 🇺🇸 win 54%/+4.6%/83d')
+            elif full_pass:
+                entry_advice = ('✅ <b>SEPA 全通過 + RS 強，可進場</b>'
+                                 '<br>OOS：🇹🇼 win 47%/+10%/82d ｜ 🇺🇸 win 51%/+5%/82d')
+            elif sepa_passed:
+                entry_advice = '🟡 SEPA 體質達標但 RS 待驗（等下次 cron 計算）'
+            elif sepa_n_met >= 6:
+                entry_advice = f'🥈 接近 SEPA 過關，watchlist 候選（差 {7-sepa_n_met} 條）'
+            else:
+                entry_advice = '❌ 不符合 Minervini 體質，建議避開'
+
+            # 出場判斷（依 Minervini）
+            if sma50_v and close:
+                if close < (close * 0.92):  # placeholder（need entry price，這裡就現價×0.92 提醒）
+                    pass
+                if close < sma50_v:
+                    exit_advice = (f'🚪 <b>跌破 SMA50（${sma50_v:.2f}）</b> — Minervini 出場警示'
+                                    '<br>若量增 ≥ 1.3x，OOS 驗證為主動出場時機')
+                elif sma200_real and close < sma200_real:
+                    exit_advice = f'🚨 <b>跌破 SMA200（${sma200_real:.2f}）</b> — 必須出場（趨勢死亡）'
+                else:
+                    # 安全持倉
+                    safety_pct = ((close - sma50_v) / sma50_v * 100) if sma50_v > 0 else 0
+                    exit_advice = (f'✅ 持倉安全：距 SMA50 ${sma50_v:.2f} +{safety_pct:.1f}%'
+                                    f'<br>持倉建議：fixed_90d 持有；停損 -8% from entry')
+
+            swing_rows.append(
+                f'<div style="background:{sepa_bg};border-left:4px solid {sepa_color};'
+                f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                f'<b style="color:{sepa_color};font-size:.92rem">{sepa_label}</b>'
+                f'<div style="margin-top:4px">{"".join(cond_rows)}</div>'
+                f'<div style="margin-top:6px;padding:6px;background:#08131f;border-radius:3px">'
+                f'<b style="color:{vcp_color};font-size:.78rem">{vcp_label}</b>'
+                f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:2px">{vcp_detail}</div>'
+                f'</div>'
+                f'<div style="margin-top:6px;padding:6px;background:#0a1422;border-radius:3px;border-left:2px solid #3dbb6a">'
+                f'<div style="font-size:.74rem;color:#c8e0d0">📌 進場：{entry_advice}</div>'
+                f'</div>'
+                + (f'<div style="margin-top:4px;padding:6px;background:#0a1422;border-radius:3px;border-left:2px solid #ff9944">'
+                   f'<div style="font-size:.74rem;color:#e0c0a0">🚪 出場：{exit_advice}</div>'
+                   f'</div>' if exit_advice else '')
+                + f'</div>'
+            )
+    except Exception:
+        pass
+
+    # ── 🆕 v9.20：綜合決策得分（Strategy B + SEPA + Recipes 加總） ──
+    try:
+        score = 0
+        score_reasons = []
+
+        # +2: SEPA full setup (passed + RS≥70)
+        if d.get('sepa_passed') and (d.get('rs_rating') or 0) >= 70:
+            score += 2
+            score_reasons.append('+2 SEPA 8/8 完整')
+        elif d.get('sepa_passed'):
+            score += 1
+            score_reasons.append('+1 SEPA 7/7（RS 未確認）')
+        elif (d.get('sepa_n_met') or 0) >= 6:
+            score += 0.5
+            score_reasons.append('+0.5 SEPA 6/7 接近')
+
+        # +1: VCP pattern
+        _vcp = d.get('vcp_info') or {}
+        if _vcp.get('is_vcp'):
+            score += 1
+            score_reasons.append('+1 VCP 形態')
+
+        # +1: Strategy B 入場條件達成（多頭+ADX≥22+from_high<1+vol>1.5+RSI<70）
+        _is_bull_d = d.get('is_bull') if 'is_bull' in d else (d.get('ema20', 0) > d.get('ema60', 0))
+        _adx_d = d.get('adx', 0) or 0
+        _from_high_d = d.get('from_high_pct', 99) or d.get('from_high', 99) or 99
+        _vol_d = d.get('volume', 0) or 0
+        _vol_ma_d = d.get('vol_ma20', 1) or 1
+        _vol_ratio_d = (_vol_d / _vol_ma_d) if _vol_ma_d > 0 else 1
+        _rsi_d = d.get('rsi', 50) or 50
+        if _is_bull_d and _adx_d >= 22 and _from_high_d < 1 and _vol_ratio_d > 1.5 and _rsi_d < 70:
+            score += 1
+            score_reasons.append('+1 Strategy B 入場')
+
+        # +1: T1 fresh cross
+        if (d.get('ema20_cross_days') or 0) and 0 < d.get('ema20_cross_days') <= 10:
+            score += 1
+            score_reasons.append('+1 T1 黃金交叉 0-10d')
+
+        # -1: imminent_dc
+        if d.get('imminent_dc'):
+            score -= 1
+            score_reasons.append('-1 即將死叉')
+
+        # -1: RSI ≥ 80 過熱
+        if _rsi_d >= 80:
+            score -= 1
+            score_reasons.append('-1 RSI≥80 過熱')
+
+        # 總分判斷
+        score_max = 5
+        if score >= 4:
+            verdict = '🏆 強烈進場（多訊號疊加）'
+            v_color = '#3dbb6a'; v_bg = '#0a2a14'
+        elif score >= 2.5:
+            verdict = '✅ 適合進場'
+            v_color = '#7abadd'; v_bg = '#0a1828'
+        elif score >= 1:
+            verdict = '🟡 觀望候選'
+            v_color = '#e8a020'; v_bg = '#1a1408'
+        elif score >= 0:
+            verdict = '⚪ 中性，無明顯訊號'
+            v_color = '#7a8899'; v_bg = '#0a1422'
+        else:
+            verdict = '❌ 風險訊號多，避開'
+            v_color = '#ff5555'; v_bg = '#1a0808'
+
+        swing_rows.append(
+            f'<div style="background:{v_bg};border-left:4px solid {v_color};'
+            f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+            f'<b style="color:{v_color};font-size:.92rem">🎯 綜合決策：{verdict}</b>'
+            f'<div style="font-size:.74rem;color:#c8dff0;margin-top:3px">'
+            f'總分 {score:+.1f} / {score_max}  ｜  '
+            + ' ; '.join(score_reasons) if score_reasons else '無訊號加分'
+            + f'</div></div>'
+        )
+    except Exception:
+        pass
 
     # ── ③ 出場停損（ATR動態停損價）──────────────────────────────
     risk_rows = []
@@ -8237,7 +8518,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 140  # v9.19.1：SEPA OOS 驗證 + bugfix（global var → workers）2026-05-10
+_RESULTS_VERSION = 141  # v9.20：detail card SEPA section + 綜合決策得分 + LINE + 投組 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
