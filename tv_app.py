@@ -8,16 +8,17 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.19"
-APP_UPDATED   = "2026-05-10 09:00"
+APP_VERSION   = "v9.19.1"
+APP_UPDATED   = "2026-05-10 19:00"
 APP_NOTES     = (
-    "🆕 SEPA / VCP / RS Rating（Mark Minervini 飆股策略）"
-    "  ── 10 個新 filter：SEPA Trend Template 7+1 條件 / VCP 形態偵測 / RS Rating 0-100 percentile ｜ "
-    "🆕 screener_full_cloud 改 3-pass：state → RS rating → filter（universe-wide RS 計算）｜ "
-    "🆕 sepa_vcp.py：check_sepa_trend_template / detect_vcp / compute_rs_ratings 模組化 ｜ "
+    "🏆 SEPA OOS 大規模驗證（TW+US, 4179 檔, 2020-2026, 8 萬 trades）"
+    "  - 🇹🇼 SEPA+VCP+RS70+90d: 47% win, +11.2% mean, hold 82d ⭐⭐"
+    "  - 🇺🇸 SEPA+RS90+90d: 51% win, +6.3% mean, hold 82d (OOS 2024+) ⭐"
+    "  - 跨期間 robust：OOS 結果 ≥ 全期間（無過擬合）"
+    "  - SEPA + 90d 平均 hold 比 Strategy B 多 ~25%, 但 mean 高 2-4 倍 ｜ "
+    "🆕 SEPA / VCP / RS Rating 10 個 filter ｜ "
     "—— 上版 v9.18.2 ——｜ "
-    "🐛 修主表格『飆股』vs detail card『建議進場』看似矛盾 ｜ "
-    "🆕 手機選單不彈鍵盤 / 點 ticker 查公司資訊 / 主動出場 4 filter / Squeeze 方向預測"
+    "🐛 修主表格『飆股』vs detail card 不一致 / 手機選單不彈鍵盤 / 點 ticker 查公司資訊"
 )
 APP_VALIDATIONS = (
     "🆕 BB 全套（OANDA 10 種判斷）alpha 驗證:"
@@ -8236,7 +8237,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 139  # v9.19：SEPA + VCP + RS Rating（Mark Minervini）+ 10 個 filter 2026-05-10
+_RESULTS_VERSION = 140  # v9.19.1：SEPA OOS 驗證 + bugfix（global var → workers）2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
