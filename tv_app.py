@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.20.2"
-APP_UPDATED   = "2026-05-10 20:50"
+APP_VERSION   = "v9.20.3"
+APP_UPDATED   = "2026-05-10 21:15"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -7571,7 +7571,19 @@ def _render_screener_panel():
                            if json_age_days == 1 else
                            f' ✨ JSON 今日剛跑（snapshot = 今日 cd）'
                            if json_age_days == 0 else '')
+            # 🆕 v9.20.3：SEPA / VCP 相關 filter 顯示 RS vs RSI 提示
+            _is_sepa_filter = last_filter and any(
+                k in last_filter for k in ['SEPA', 'VCP', 'Minervini', 'RS Rating', 'Pivot'])
+            _rs_help = ('<div style="font-size:.65rem;color:#5a8aa0;margin-bottom:4px;'
+                         'background:#0a1422;padding:3px 6px;border-radius:3px;'
+                         'border-left:2px solid #5dccdd">'
+                         '💡 <b>RSI ≠ RS Rating</b>：'
+                         'RSI = 相對強弱指標（個股價格動能 0-100，30 超賣 / 70 過熱）；'
+                         '<b>RS</b> = 相對強度評分（vs universe 同期百分位，Minervini 建議 ≥70）。'
+                         'SEPA / VCP / Minervini 系列濾條看 <b>RS Rating</b>，不是 RSI。'
+                         '</div>') if _is_sepa_filter else ''
             st.markdown(
+                _rs_help +
                 f'<div style="font-weight:700;color:#7abadd;margin-bottom:6px;'
                 f'font-size:.9rem">📋 結果（{last_filter}） — {len(results)} 檔'
                 f'<span style="color:#e8a020;font-size:.7rem;font-weight:400">{stale_note}</span>'
@@ -7598,6 +7610,12 @@ def _render_screener_panel():
                     cd_str = '-'
                 row_bg = ';background:#1a0a0a' if r.get('imminent_dc') else ''
                 pctb_str = f'{r["pct_b"]:.2f}' if r.get('pct_b') is not None else '-'
+                # 🆕 v9.20.3：加 RS Rating 欄位（避免與 RSI 混淆）
+                rs_v = r.get('rs_rating')
+                rs_str = f'{rs_v:.0f}' if rs_v is not None else '-'
+                rs_color = ('#3dbb6a' if rs_v and rs_v >= 80 else
+                             '#7abadd' if rs_v and rs_v >= 70 else
+                             '#7a8899')
                 rows_html.append(
                     f'<div style="display:flex;gap:8px;align-items:center;'
                     f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem{row_bg}">'
@@ -7608,8 +7626,12 @@ def _render_screener_panel():
                     f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{r["close"]:.2f}</span>'
                     f'<span style="color:{"#3dbb6a" if r.get("is_bull") else "#ff5555"};'
                     f'font-size:.7rem;min-width:50px">{bull_tag}</span>'
-                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
+                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem" '
+                    f'title="RSI 相對強弱指標 0-100（不是 RS Rating）">'
                     f'RSI {r.get("rsi") or "-"}</span>'
+                    f'<span style="color:{rs_color};font-family:monospace;min-width:55px;font-size:.72rem;font-weight:700" '
+                    f'title="RS Rating 相對強度評分（vs universe 同期百分位）— Minervini 建議 ≥70">'
+                    f'RS{rs_str}</span>'
                     f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
                     f'ADX {r.get("adx") or "-"}</span>'
                     f'<span style="color:#7a8899;font-family:monospace;min-width:90px;font-size:.72rem" '
@@ -8519,7 +8541,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 143  # v9.20.2：TW SEPA = 0 bug 修復（fetch days 200→280 + 1y→14mo）2026-05-10
+_RESULTS_VERSION = 144  # v9.20.3：篩選結果加 RS Rating 欄位 + RSI vs RS 區分提示 2026-05-10
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
