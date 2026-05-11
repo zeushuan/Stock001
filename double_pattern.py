@@ -419,7 +419,9 @@ def detect_double_bottom(df, lookback_days=180,
     if len(minima) < 2:
         return {'is_double_bottom': False, 'status': 'none'}
 
-    # 找最近合格雙底
+    # 🆕 v9.22.5：強化驗證
+    # 1. 兩底之間不能有更深的低點（否則不是真雙底）
+    # 2. L1 / L2 必須是 lookback 期間的「相對深底」（前後 N 天最低）
     best_pair = None
     for i in range(len(minima)-1, 0, -1):
         for j in range(i-1, -1, -1):
@@ -430,20 +432,51 @@ def detect_double_bottom(df, lookback_days=180,
             p_low_right = float(l_s[minima[i]])
             if min(p_low_left, p_low_right) <= 0: continue
             sim = abs(p_low_right - p_low_left) / min(p_low_left, p_low_right)
-            if sim <= similarity_tol:
-                mid_slice = h_s[minima[j]:minima[i]+1]
-                if len(mid_slice) == 0: continue
-                mid_idx_local = int(np.nanargmax(mid_slice))
-                mid_idx = minima[j] + mid_idx_local
-                neckline = float(h_s[mid_idx])
-                rebound_pct = (neckline - p_low_left) / p_low_left * 100
-                if rebound_pct < min_rebound_pct:
-                    continue
-                days_since = m - 1 - minima[i]
-                if days_since > max_age_2nd:
-                    continue
-                best_pair = (j, i, mid_idx, sim, rebound_pct)
-                break
+            if sim > similarity_tol: continue
+
+            # 🆕 嚴格檢查 1：兩底之間 (exclusive) 不能有更深的低點
+            #   容差 2%（允許微小破底但不算大破壞）
+            min_anchor = min(p_low_left, p_low_right)
+            between_low = float(np.nanmin(l_s[minima[j]+1:minima[i]])) if minima[i] > minima[j]+1 else min_anchor
+            if between_low < min_anchor * 0.98:
+                continue  # 中間有更深低點 → 不是真雙底，跳過
+
+            # 🆕 嚴格檢查 2：L1 / L2 必須是「相對深底」
+            all_lows_sorted = sorted([l_s[idx] for idx in minima])
+            depth_threshold = all_lows_sorted[int(len(all_lows_sorted) * 0.4)]
+            if p_low_left > depth_threshold or p_low_right > depth_threshold:
+                continue
+
+            # 中間 peak (neckline)
+            mid_slice = h_s[minima[j]:minima[i]+1]
+            if len(mid_slice) == 0: continue
+            mid_idx_local = int(np.nanargmax(mid_slice))
+            mid_idx = minima[j] + mid_idx_local
+            neckline = float(h_s[mid_idx])
+            rebound_pct = (neckline - p_low_left) / p_low_left * 100
+            if rebound_pct < min_rebound_pct: continue
+
+            # 🆕 v9.22.6 嚴格檢查 3：neckline 必須在 L1-L2 中段（不能緊貼 L1 或 L2）
+            #   neckline_pos_pct = neckline 相對位置 (0=L1, 1=L2)
+            neckline_pos_pct = (mid_idx - minima[j]) / sep
+            if neckline_pos_pct < 0.20 or neckline_pos_pct > 0.80:
+                continue  # neckline 太靠邊 = 沒有真正的「中段反彈」
+
+            # 🆕 嚴格檢查 4：價格從 L1 反彈後，必須持續在 neckline 區域 ≥ 5 天
+            #   (反彈不是 1-2 天就跌回，而是真正攻擊頸線失敗)
+            rebound_zone = neckline * 0.97   # neckline 97% 以下算「攻擊區」
+            days_in_zone = 0
+            for k_chk in range(minima[j]+1, minima[i]):
+                if h_s[k_chk] >= rebound_zone:
+                    days_in_zone += 1
+            if days_in_zone < 5:
+                continue  # 反彈太短 = 不是真 W
+
+            days_since = m - 1 - minima[i]
+            if days_since > max_age_2nd: continue
+
+            best_pair = (j, i, mid_idx, sim, rebound_pct)
+            break
         if best_pair:
             break
 
@@ -610,6 +643,7 @@ def detect_double_top(df, lookback_days=180,
     if len(maxima) < 2:
         return {'is_double_top': False, 'status': 'none'}
 
+    # 🆕 v9.22.5：強化驗證（雙頂鏡像）
     best_pair = None
     for i in range(len(maxima)-1, 0, -1):
         for j in range(i-1, -1, -1):
@@ -620,20 +654,47 @@ def detect_double_top(df, lookback_days=180,
             p_high_right = float(h_s[maxima[i]])
             if min(p_high_left, p_high_right) <= 0: continue
             sim = abs(p_high_right - p_high_left) / min(p_high_left, p_high_right)
-            if sim <= similarity_tol:
-                mid_slice = l_s[maxima[j]:maxima[i]+1]
-                if len(mid_slice) == 0: continue
-                mid_idx_local = int(np.nanargmin(mid_slice))
-                mid_idx = maxima[j] + mid_idx_local
-                neckline = float(l_s[mid_idx])
-                pullback_pct = (p_high_left - neckline) / p_high_left * 100
-                if pullback_pct < min_pullback_pct:
-                    continue
-                days_since = m - 1 - maxima[i]
-                if days_since > max_age_2nd:
-                    continue
-                best_pair = (j, i, mid_idx, sim, pullback_pct)
-                break
+            if sim > similarity_tol: continue
+
+            # 🆕 嚴格檢查 1：兩頂之間 (exclusive) 不能有更高的高點
+            max_anchor = max(p_high_left, p_high_right)
+            between_high = float(np.nanmax(h_s[maxima[j]+1:maxima[i]])) if maxima[i] > maxima[j]+1 else max_anchor
+            if between_high > max_anchor * 1.02:
+                continue   # 中間更高 → 不是真雙頂
+
+            # 🆕 嚴格檢查 2：L1 / L2 必須是「相對高頂」
+            all_highs_sorted = sorted([h_s[idx] for idx in maxima], reverse=True)
+            height_threshold = all_highs_sorted[int(len(all_highs_sorted) * 0.4)]
+            if p_high_left < height_threshold or p_high_right < height_threshold:
+                continue
+
+            mid_slice = l_s[maxima[j]:maxima[i]+1]
+            if len(mid_slice) == 0: continue
+            mid_idx_local = int(np.nanargmin(mid_slice))
+            mid_idx = maxima[j] + mid_idx_local
+            neckline = float(l_s[mid_idx])
+            pullback_pct = (p_high_left - neckline) / p_high_left * 100
+            if pullback_pct < min_pullback_pct: continue
+
+            # 🆕 v9.22.6 嚴格檢查 3：neckline（中間最低）必須在 H1-H2 中段
+            neckline_pos_pct = (mid_idx - maxima[j]) / sep
+            if neckline_pos_pct < 0.20 or neckline_pos_pct > 0.80:
+                continue  # neckline 太靠邊 = 沒有真正的「中段回落」
+
+            # 🆕 嚴格檢查 4：價格從 H1 回落後，必須持續在 neckline 區域 ≥ 5 天
+            pullback_zone = neckline * 1.03   # neckline 103% 以上算「回落區」
+            days_in_zone = 0
+            for k_chk in range(maxima[j]+1, maxima[i]):
+                if l_s[k_chk] <= pullback_zone:
+                    days_in_zone += 1
+            if days_in_zone < 5:
+                continue  # 回落太短 = 不是真 M
+
+            days_since = m - 1 - maxima[i]
+            if days_since > max_age_2nd: continue
+
+            best_pair = (j, i, mid_idx, sim, pullback_pct)
+            break
         if best_pair:
             break
 
