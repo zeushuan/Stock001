@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.23.2"
-APP_UPDATED   = "2026-05-11 14:30"
+APP_VERSION   = "v9.23.3"
+APP_UPDATED   = "2026-05-11 15:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1698,7 +1698,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 }))
                 d['vcp_info'] = _vcp_info
 
-                # 🆕 v9.23：雙底雙頂 + ZigZag VCP（統一 ATR×1.5 引擎）
+                # 🆕 v9.23.3：雙底雙頂 + ZigZag VCP（統一 ATR×1.30 引擎）
                 try:
                     from double_pattern import (detect_double_bottom, detect_double_top,
                                                   detect_vcp_zigzag)
@@ -4110,7 +4110,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 return None
 
             from zigzag import zigzag as _zz
-            pivots = _zz(df_plot, mode='atr', atr_mult=1.5, atr_period=14)
+            pivots = _zz(df_plot, mode='atr', atr_mult=1.3, atr_period=14)
 
             fig, (ax1, ax2) = _plt.subplots(2, 1, figsize=(13, 6.5),
                                               gridspec_kw={'height_ratios': [3, 1]},
@@ -4134,7 +4134,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                           marker='o', markersize=8,
                           markerfacecolor='gold', markeredgecolor='#cc4400',
                           markeredgewidth=1.6,
-                          label=f'ZigZag ATR×1.5 ({len(pivots)} pivots)', zorder=5)
+                          label=f'ZigZag ATR×1.3 ({len(pivots)} pivots)', zorder=5)
 
             # W 底標註
             _dbi = d_local.get('double_bottom_info') or {}
@@ -4209,7 +4209,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             if _has_vcp: tags.append(f'VCP-{_vcp.get("vcp_grade","")} ({_vcp.get("num_contractions",0)}收口 {_vcp.get("breakout_status","")})')
             elif _ctr:
                 tags.append(f'VCP候選 ({len(_ctr)}收口，未達標)')
-            title = f'ZigZag (ATR×1.5) {len(pivots)} pivots'
+            title = f'ZigZag (ATR×1.3) {len(pivots)} pivots'
             if tags: title += '   |   ' + '  ｜  '.join(tags)
             ax1.set_title(title, fontsize=10, fontweight='bold', pad=6)
             ax1.set_ylabel('Price', fontsize=9)
@@ -4881,7 +4881,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="margin-top:8px;padding:6px;background:#0a1828;'
                 f'border:1px solid #1a2a3a;border-radius:6px">'
                 f'<div style="font-size:.7rem;color:#7abadd;font-weight:700;'
-                f'margin-bottom:4px">📊 ZigZag 對照圖（ATR×1.5）— W 底 / M 頂 / VCP 共用視覺</div>'
+                f'margin-bottom:4px">📊 ZigZag 對照圖（ATR×1.3）— W 底 / M 頂 / VCP 共用視覺</div>'
                 f'<img src="{_zz_data_uri}" style="width:100%;border-radius:4px"/>'
                 f'</div>'
             )

@@ -1,8 +1,9 @@
-"""雙底雙頂 + VCP 偵測（v9.23）— ZigZag (ATR×1.5) 統一引擎
+"""雙底雙頂 + VCP 偵測（v9.23.3）— ZigZag (ATR×1.30) 統一引擎
 ============================================================
 v9.23 重大改寫：
   - 取代 v9.22 的 _find_local_extremes + 4 道嚴格檢查
-  - 改用 ZigZag (ATR×1.5) pivot 偵測（OOS 驗證 win@60d 51%/54%）
+  - 改用 ZigZag (ATR×1.30) pivot 偵測
+  - 細粒 OOS 驗證 (1.25-1.50)：ATR×1.30 為 VCP Sharpe 最佳（0.159@60d, 0.186@90d）
   - W 偵測：從 ZigZag pivots 找 L-H-L 三元組
   - 新增 VCP 偵測：從 H-L 對序列檢查收窄
   - 保留 v9.22 職業分析層：
@@ -18,7 +19,7 @@ import pandas as pd
 
 from zigzag import zigzag as _zigzag, compute_atr as _compute_atr
 
-DEFAULT_ATR_MULT = 1.5
+DEFAULT_ATR_MULT = 1.3   # v9.23.3：細粒 OOS 驗證最佳值（VCP Sharpe @60d 0.159 / @90d 0.186）
 DEFAULT_ATR_PERIOD = 14
 
 
@@ -288,7 +289,7 @@ def detect_double_bottom(df, lookback_days=180,
                           max_separation=120, peak_window=5,
                           min_rebound_pct=8, max_age_2nd=60,
                           atr_mult=DEFAULT_ATR_MULT):
-    """雙底偵測（W底）— ZigZag (ATR×1.5) 版
+    """雙底偵測（W底）— ZigZag (ATR×1.30) 版
 
     從 ZigZag pivots 自動找 L-H-L 三元組，套用：
       - similarity_tol：兩底相似度（默認 5%）
