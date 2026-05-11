@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.22.6"
-APP_UPDATED   = "2026-05-11 11:00"
+APP_VERSION   = "v9.23"
+APP_UPDATED   = "2026-05-11 13:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1689,18 +1689,21 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 }))
                 d['vcp_info'] = _vcp_info
 
-                # 🆕 v9.21：雙底雙頂偵測
+                # 🆕 v9.23：雙底雙頂 + ZigZag VCP（統一 ATR×1.5 引擎）
                 try:
-                    from double_pattern import detect_double_bottom, detect_double_top
+                    from double_pattern import (detect_double_bottom, detect_double_top,
+                                                  detect_vcp_zigzag)
                     _df_for_dbl = pd.DataFrame({
                         'Open': o_s.values, 'High': h, 'Low': l,
                         'Close': c, 'Volume': v
                     })
                     d['double_bottom_info'] = detect_double_bottom(_df_for_dbl)
                     d['double_top_info'] = detect_double_top(_df_for_dbl)
+                    d['vcp_zigzag_info'] = detect_vcp_zigzag(_df_for_dbl)
                 except Exception:
                     d['double_bottom_info'] = {'is_double_bottom': False, 'status': 'none'}
                     d['double_top_info'] = {'is_double_top': False, 'status': 'none'}
+                    d['vcp_zigzag_info'] = {'is_vcp': False}
 
                 # 🆕 v9.20.5：RS Rating — 優先讀 rs_ratings dict（所有 ticker 都有）
                 # fallback：從 by_filter 結果反查（舊 JSON 沒 rs_ratings）

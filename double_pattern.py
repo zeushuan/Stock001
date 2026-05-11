@@ -1,67 +1,30 @@
-"""雙底雙頂進階分析（v9.22）— 職業交易員方法論
+"""雙底雙頂 + VCP 偵測（v9.23）— ZigZag (ATR×1.5) 統一引擎
 ============================================================
-核心觀念：雙底雙頂的真正核心 不是「形態本身」
-        而是「第二次攻擊時，原本趨勢的動能有沒有衰減」
-- 雙底：第二次空方有沒有沒力？
-- 雙頂：第二次多方有沒有推不動？
-
-五大關鍵過濾網
----------------
-1. 位置（context）：大週期方向 + 小週期回測位置
-   - 高勝率：大週期上升 + 小週期回測支撐 / 下跌末端
-   - 陷阱：剛反轉後的第一波底（= 中繼，非反轉）
-2. 動能衰減（momentum decay）— 核心
-   - 量縮：第二次量 < 第一次量
-   - 黑K實體變短（雙底）/ 紅K實體變短（雙頂）
-   - 下影線變多（雙底）/ 上影線變多（雙頂）
-   - 反向 K 數量增加
-3. 第二次回到關鍵位置的「表態」
-   - 反應 K 棒：錘子線 / 多方吞噬（雙底）/ 射擊之星 / 空方吞噬（雙頂）
-   - 掃流動性（liquidity sweep）：刺穿前低 / 前高後拉回
-4. 後續量價配合：突破要帶量
-5. 頸線突破有效性：實體突破 + 帶量 + 後續確認
-
-三段式建倉
------------
-A. 底部附近 1/3 試單（出現反應 K 棒）
-B. 頸線整理後帶量突破，補滿到 2/3 ~ 3/3
-C. 突破後回踩頸線有效，補剩餘部位
-
-每個 entry 點都有對應的 stop-loss（結構低點）
+v9.23 重大改寫：
+  - 取代 v9.22 的 _find_local_extremes + 4 道嚴格檢查
+  - 改用 ZigZag (ATR×1.5) pivot 偵測（OOS 驗證 win@60d 51%/54%）
+  - W 偵測：從 ZigZag pivots 找 L-H-L 三元組
+  - 新增 VCP 偵測：從 H-L 對序列檢查收窄
+  - 保留 v9.22 職業分析層：
+    * 動能衰減 4-metric
+    * 反應 K 棒 / 掃流動性
+    * 突破有效性
+    * 位置 context
+    * Quality A/B/C/D
+    * A_test / B_breakout / C_retest 三段建倉
 """
 import numpy as np
 import pandas as pd
 
+from zigzag import zigzag as _zigzag, compute_atr as _compute_atr
+
+DEFAULT_ATR_MULT = 1.5
+DEFAULT_ATR_PERIOD = 14
+
 
 # ────────────────────────────────────────────────────────────────
-# Helpers
+# v9.22 既有的職業分析層 helpers（保留）
 # ────────────────────────────────────────────────────────────────
-
-def _find_local_extremes(values, window=5, find_min=False):
-    n = len(values)
-    out = []
-    for i in range(window, n - window):
-        if np.isnan(values[i]): continue
-        win_l = values[i-window:i]
-        win_r = values[i+1:i+window+1]
-        if len(win_l) == 0 or len(win_r) == 0: continue
-        if find_min:
-            if values[i] <= np.nanmin(win_l) and values[i] <= np.nanmin(win_r):
-                out.append(i)
-        else:
-            if values[i] >= np.nanmax(win_l) and values[i] >= np.nanmax(win_r):
-                out.append(i)
-    return out
-
-
-def _filter_close_extremes(extremes, min_separation=10):
-    if not extremes: return []
-    out = [extremes[0]]
-    for e in extremes[1:]:
-        if e - out[-1] >= min_separation:
-            out.append(e)
-    return out
-
 
 def _kbar_features(o, h, l, c):
     """單根 K 棒特徵"""
@@ -72,11 +35,9 @@ def _kbar_features(o, h, l, c):
     lower_shadow = min(c, o) - l
     is_red = c >= o
     return {
-        'range': rng,
-        'body': body,
+        'range': rng, 'body': body,
         'body_pct': body / rng if rng > 0 else 0,
-        'upper': upper_shadow,
-        'lower': lower_shadow,
+        'upper': upper_shadow, 'lower': lower_shadow,
         'upper_pct': upper_shadow / rng if rng > 0 else 0,
         'lower_pct': lower_shadow / rng if rng > 0 else 0,
         'is_red': is_red,
@@ -84,32 +45,24 @@ def _kbar_features(o, h, l, c):
 
 
 def _detect_reaction_kbar(df, idx, side='bull', window=3):
-    """偵測底部 / 頂部「表態」反應 K 棒
-    side='bull': 錘子線 / 多方吞噬 / 紅 K 大實體
-    side='bear': 射擊之星 / 空方吞噬 / 黑 K 大實體
-    回傳 dict {has_reaction, type, idx}"""
+    """偵測底部 / 頂部「表態」反應 K 棒"""
     if df is None or idx < 1 or idx >= len(df):
         return {'has_reaction': False}
     n = len(df)
-    o = df['Open'].values
-    h = df['High'].values
-    l = df['Low'].values
-    c = df['Close'].values
+    o = df['Open'].values; h = df['High'].values
+    l = df['Low'].values;  c = df['Close'].values
 
-    # 檢查 idx 前後 window 天，找最強反應 K 棒
     best = {'has_reaction': False, 'type': None, 'idx': None, 'desc': ''}
     for k in range(max(0, idx-1), min(n, idx + window + 1)):
         kf = _kbar_features(o[k], h[k], l[k], c[k])
         if kf is None: continue
 
         if side == 'bull':
-            # ① 錘子線：下影線 ≥ 2× 實體 + 小上影
             if (kf['range'] > 0 and kf['lower'] >= kf['body'] * 2
                 and kf['upper_pct'] < 0.2 and kf['body'] > 0):
                 best = {'has_reaction': True, 'type': 'hammer', 'idx': k,
                         'desc': '錘子線（下影 ≥ 2× 實體）'}
                 break
-            # ② 多方吞噬：紅 K 實體完全包覆前一根黑 K
             if k > 0 and not np.isnan(o[k-1]) and not np.isnan(c[k-1]):
                 prev_kf = _kbar_features(o[k-1], h[k-1], l[k-1], c[k-1])
                 if (prev_kf and not prev_kf['is_red'] and kf['is_red']
@@ -117,19 +70,16 @@ def _detect_reaction_kbar(df, idx, side='bull', window=3):
                     best = {'has_reaction': True, 'type': 'bull_engulfing', 'idx': k,
                             'desc': '多方吞噬（紅 K 完全包前黑 K）'}
                     break
-            # ③ 大紅 K（實體 ≥ 70% range）
             if kf['is_red'] and kf['body_pct'] >= 0.7:
                 best = {'has_reaction': True, 'type': 'big_bullish', 'idx': k,
                         'desc': f'大實體紅 K（{kf["body_pct"]*100:.0f}% range）'}
 
         elif side == 'bear':
-            # ① 射擊之星：上影線 ≥ 2× 實體
             if (kf['range'] > 0 and kf['upper'] >= kf['body'] * 2
                 and kf['lower_pct'] < 0.2 and kf['body'] > 0):
                 best = {'has_reaction': True, 'type': 'shooting_star', 'idx': k,
                         'desc': '射擊之星（上影 ≥ 2× 實體）'}
                 break
-            # ② 空方吞噬
             if k > 0 and not np.isnan(o[k-1]) and not np.isnan(c[k-1]):
                 prev_kf = _kbar_features(o[k-1], h[k-1], l[k-1], c[k-1])
                 if (prev_kf and prev_kf['is_red'] and not kf['is_red']
@@ -137,7 +87,6 @@ def _detect_reaction_kbar(df, idx, side='bull', window=3):
                     best = {'has_reaction': True, 'type': 'bear_engulfing', 'idx': k,
                             'desc': '空方吞噬（黑 K 完全包前紅 K）'}
                     break
-            # ③ 大黑 K
             if not kf['is_red'] and kf['body_pct'] >= 0.7:
                 best = {'has_reaction': True, 'type': 'big_bearish', 'idx': k,
                         'desc': f'大實體黑 K（{kf["body_pct"]*100:.0f}% range）'}
@@ -145,10 +94,7 @@ def _detect_reaction_kbar(df, idx, side='bull', window=3):
 
 
 def _detect_liquidity_sweep(df, ref_idx, second_idx, side='bull'):
-    """掃流動性 / 假突破偵測
-    side='bull'：第 2 底刺穿第 1 底（前低）後拉回 + 紅 K 實體
-    side='bear'：第 2 頂刺穿第 1 頂（前高）後拉回 + 黑 K 實體
-    """
+    """掃流動性 / 假突破偵測"""
     if ref_idx >= len(df) or second_idx >= len(df): return False
     o = df['Open'].iloc[second_idx]
     h = df['High'].iloc[second_idx]
@@ -158,18 +104,16 @@ def _detect_liquidity_sweep(df, ref_idx, second_idx, side='bull'):
     ref_h = df['High'].iloc[ref_idx]
     if any(np.isnan(x) for x in [o, h, l, c, ref_l, ref_h]): return False
     if side == 'bull':
-        return l < ref_l and c > ref_l and c >= o   # 跌破前低後收紅
+        return l < ref_l and c > ref_l and c >= o
     else:
-        return h > ref_h and c < ref_h and c <= o   # 突破前高後收黑
+        return h > ref_h and c < ref_h and c <= o
 
 
 def _classify_position(df, lookback_long=200):
-    """位置判別：大週期方向（簡化）
-    回傳 'uptrend' / 'downtrend' / 'sideways'"""
+    """位置判別：大週期方向"""
     if df is None or len(df) < 60: return 'unknown'
     n = len(df)
     c = df['Close'].values
-    # 用 200/120/60 MA 判斷
     if n >= 200:
         sma200 = np.nanmean(c[-200:])
         sma200_30d = np.nanmean(c[-230:-30]) if n >= 230 else None
@@ -190,34 +134,15 @@ def _classify_position(df, lookback_long=200):
     return 'sideways'
 
 
-# ────────────────────────────────────────────────────────────────
-# 動能衰減量化（核心 metric）
-# ────────────────────────────────────────────────────────────────
-
 def _measure_momentum_decay(df, first_idx, second_idx, side='bull', window=3):
-    """測量第二次測試時，原趨勢動能是否衰減
-
-    side='bull': 雙底 — 看空方衰減（量縮 / 黑K縮 / 下影增）
-    side='bear': 雙頂 — 看多方衰減（量縮 / 紅K縮 / 上影增）
-
-    回傳 dict {
-        'volume_ratio': 第二次量 / 第一次量（< 0.8 = 量縮）
-        'body_ratio': 第二次反方向K實體 / 第一次反方向K實體（< 0.7 = 縮短）
-        'shadow_ratio': 第二次反向影線 / 第一次反向影線（> 1.2 = 影線變長）
-        'rev_kbar_count_diff': 第二次反向K數量 - 第一次（> 0 = 增加）
-        'decay_score': 0-4（4 = 全 4 項過關 = 強衰減）
-    }"""
+    """測量第二次測試時，原趨勢動能是否衰減"""
     if df is None: return {}
     n = len(df)
     if first_idx >= n or second_idx >= n: return {}
 
-    o = df['Open'].values
-    h = df['High'].values
-    l = df['Low'].values
-    c = df['Close'].values
-    v = df['Volume'].values
+    o = df['Open'].values; h = df['High'].values
+    l = df['Low'].values;  c = df['Close'].values; v = df['Volume'].values
 
-    # ─── ① 量比 ───
     f_start = max(0, first_idx - window)
     f_end = min(n, first_idx + window + 1)
     s_start = max(0, second_idx - window)
@@ -226,23 +151,19 @@ def _measure_momentum_decay(df, first_idx, second_idx, side='bull', window=3):
     vol_second = float(np.nanmean(v[s_start:s_end])) if s_end > s_start else 0
     vol_ratio = (vol_second / vol_first) if vol_first > 0 else 1.0
 
-    # ─── ② 反向 K 棒實體比 ───
-    # 雙底：第二次測試時的「黑 K」實體應變短
-    # 雙頂：第二次測試時的「紅 K」實體應變短
     def _rev_body_avg(start, end):
         bodies = []
         for k in range(start, end):
             if any(np.isnan(x) for x in [o[k], c[k]]): continue
-            if side == 'bull':  # 看黑 K
+            if side == 'bull':
                 if c[k] < o[k]: bodies.append(o[k] - c[k])
-            else:  # 看紅 K
+            else:
                 if c[k] > o[k]: bodies.append(c[k] - o[k])
         return float(np.mean(bodies)) if bodies else 0
     body_first = _rev_body_avg(f_start, f_end)
     body_second = _rev_body_avg(s_start, s_end)
     body_ratio = (body_second / body_first) if body_first > 0 else 1.0
 
-    # ─── ③ 反方向影線（雙底看下影；雙頂看上影）──
     def _rev_shadow_avg(start, end):
         shads = []
         for k in range(start, end):
@@ -254,12 +175,11 @@ def _measure_momentum_decay(df, first_idx, second_idx, side='bull', window=3):
     shad_second = _rev_shadow_avg(s_start, s_end)
     shadow_ratio = (shad_second / shad_first) if shad_first > 0 else 1.0
 
-    # ─── ④ 反向 K 棒數量差（雙底看紅 K 增加；雙頂看黑 K 增加）──
     def _rev_count(start, end):
         cnt = 0
         for k in range(start, end):
             if any(np.isnan(x) for x in [o[k], c[k]]): continue
-            if side == 'bull':  # 雙底看紅 K 增加 = 多方力量增
+            if side == 'bull':
                 if c[k] > o[k]: cnt += 1
             else:
                 if c[k] < o[k]: cnt += 1
@@ -268,51 +188,29 @@ def _measure_momentum_decay(df, first_idx, second_idx, side='bull', window=3):
     cnt_second = _rev_count(s_start, s_end)
     rev_kbar_diff = cnt_second - cnt_first
 
-    # ─── 衰減 score（0-4） ──
     score = 0
-    if vol_ratio < 0.8: score += 1   # 量縮
-    if body_ratio < 0.7: score += 1   # 反向 K 實體縮短
-    if shadow_ratio > 1.2: score += 1  # 反方向影線變長（多/空 反擊增）
-    if rev_kbar_diff > 0: score += 1   # 反向 K 棒增加（攻守易位）
+    if vol_ratio < 0.8: score += 1
+    if body_ratio < 0.7: score += 1
+    if shadow_ratio > 1.2: score += 1
+    if rev_kbar_diff > 0: score += 1
 
     return {
         'volume_ratio':     round(vol_ratio, 2),
         'body_ratio':       round(body_ratio, 2),
         'shadow_ratio':     round(shadow_ratio, 2),
         'rev_kbar_count_diff': int(rev_kbar_diff),
-        'decay_score':      int(score),  # 0-4
+        'decay_score':      int(score),
     }
 
 
-# ────────────────────────────────────────────────────────────────
-# 突破有效性（neckline breakout validity）
-# ────────────────────────────────────────────────────────────────
-
 def _check_breakout_validity(df, mid_idx, neckline, side='bull',
                               vol_avg_window=20):
-    """檢查頸線突破是否有效
-    1. 帶量（突破日量 ≥ 1.5× 20 日均量）
-    2. 實體突破（不是上下影刺）
-    3. 後續無實體跌回另一側
-
-    回傳 dict {
-        'breakout_idx': 哪一天突破,
-        'volume_surge': bool,
-        'body_breakout': bool,
-        'no_pull_back': bool,
-        'validity_score': 0-3,
-        'breakout_close': 突破日收盤,
-        'breakout_vol_ratio': 突破日量比,
-    }"""
+    """檢查頸線突破是否有效"""
     if df is None or mid_idx >= len(df): return {}
     n = len(df)
-    o = df['Open'].values
-    h = df['High'].values
-    l = df['Low'].values
-    c = df['Close'].values
-    v = df['Volume'].values
+    o = df['Open'].values; h = df['High'].values
+    l = df['Low'].values;  c = df['Close'].values; v = df['Volume'].values
 
-    # 從 mid_idx 後找第一個收盤站上 / 跌破 neckline 的日子
     breakout_idx = None
     for k in range(mid_idx + 1, n):
         if np.isnan(c[k]): continue
@@ -327,19 +225,16 @@ def _check_breakout_validity(df, mid_idx, neckline, side='bull',
                 'no_pull_back': False}
 
     bi = breakout_idx
-    # 量比
     vol_avg = (float(np.nanmean(v[max(0, bi-vol_avg_window):bi]))
                 if bi >= 5 else 0)
     bi_vol_ratio = (float(v[bi]) / vol_avg) if vol_avg > 0 else 1.0
     volume_surge = bi_vol_ratio >= 1.5
 
-    # 實體突破：開盤 + 收盤都站上 / 跌破
     if side == 'bull':
         body_breakout = o[bi] > neckline * 0.99 and c[bi] > neckline
     else:
         body_breakout = o[bi] < neckline * 1.01 and c[bi] < neckline
 
-    # 後續確認：突破後 N 天無實體跌回 / 漲回另一側
     n_check = min(5, n - bi - 1)
     no_pull_back = True
     for j in range(bi + 1, bi + 1 + n_check):
@@ -357,185 +252,117 @@ def _check_breakout_validity(df, mid_idx, neckline, side='bull',
         'volume_surge': bool(volume_surge),
         'body_breakout': bool(body_breakout),
         'no_pull_back': bool(no_pull_back),
-        'validity_score': score,  # 0-3
+        'validity_score': score,
         'breakout_close': round(float(c[bi]), 2),
         'breakout_vol_ratio': round(bi_vol_ratio, 2),
     }
 
 
 # ────────────────────────────────────────────────────────────────
-# 主入口：detect_double_bottom（W底）
+# v9.23 ZigZag pivot helper
+# ────────────────────────────────────────────────────────────────
+
+def _get_zigzag_pivots(df, lookback_days, atr_mult=DEFAULT_ATR_MULT):
+    """跑 ZigZag，回傳 (pivots_with_global_idx, df_offset_in_full)
+
+    pivots 內的 'idx' 已經轉成「相對 lookback slice 的 index」。
+    我們也存 'global_idx' 為相對 full df 的 index。
+    """
+    n_full = len(df)
+    start = max(0, n_full - lookback_days)
+    df_slice = df.iloc[start:].copy()
+    pivots = _zigzag(df_slice, mode='atr', atr_mult=atr_mult,
+                       atr_period=DEFAULT_ATR_PERIOD)
+    # 加 global_idx
+    for p in pivots:
+        p['global_idx'] = start + p['idx']
+    return pivots, start
+
+
+# ────────────────────────────────────────────────────────────────
+# 主入口：detect_double_bottom（W底）— v9.23 ZigZag 版
 # ────────────────────────────────────────────────────────────────
 
 def detect_double_bottom(df, lookback_days=180,
                           similarity_tol=0.05, min_separation=15,
                           max_separation=120, peak_window=5,
-                          min_rebound_pct=8, max_age_2nd=60):
-    """雙底偵測（W底，看多反轉）
+                          min_rebound_pct=8, max_age_2nd=60,
+                          atr_mult=DEFAULT_ATR_MULT):
+    """雙底偵測（W底）— ZigZag (ATR×1.5) 版
 
-    新增 v9.22：
-    - 動能衰減量化
-    - 位置判別（uptrend / downtrend / sideways）
-    - 反應 K 棒偵測
-    - 掃流動性偵測
-    - 頸線突破有效性
-    - 五大關鍵 score（0-5）+ Quality 分級
+    從 ZigZag pivots 自動找 L-H-L 三元組，套用：
+      - similarity_tol：兩底相似度（默認 5%）
+      - min_rebound_pct：中間反彈幅度
+      - max_separation / max_age_2nd：時效窗口
 
-    Returns:
-      {
-        'is_double_bottom': bool,
-        'status': 'none' | 'forming' | 'A_test_buy' | 'confirmed' |
-                  'B_breakout_buy' | 'C_retest_buy' | 'failed',
-        'left_bottom', 'right_bottom', 'middle_peak',
-        'neckline_price', 'pattern_height', 'target_price',
-        # 🆕 v9.22
-        'position_context': 'uptrend' / 'downtrend' / 'sideways',
-        'position_quality': 'high_prob' / 'trap_risk' / 'neutral',
-        'momentum_decay': dict,
-        'reaction_kbar': dict,
-        'liquidity_sweep': bool,
-        'breakout_validity': dict,
-        'quality_score': 0-5（5 大關鍵過關數）,
-        'quality_grade': 'A' / 'B' / 'C' / 'D',  # 5/4/3/<3
-        'entry_stage': 'A_test' / 'B_breakout' / 'C_retest' / 'wait',
-        'stop_loss': float,  # 結構低點
-      }
+    再套用 v9.22 職業分析層計算 Quality A-D。
     """
     if df is None or len(df) < 60:
         return {'is_double_bottom': False, 'status': 'none'}
 
-    h = df['High'].values
-    l = df['Low'].values
-    c = df['Close'].values
-    n = len(df)
-    start = max(0, n - lookback_days)
-    h_s = h[start:]; l_s = l[start:]; c_s = c[start:]
-    m = len(c_s)
-    if m < 30:
+    n_full = len(df)
+    pivots, slice_start = _get_zigzag_pivots(df, lookback_days, atr_mult)
+    if len(pivots) < 3:
         return {'is_double_bottom': False, 'status': 'none'}
 
-    minima = _find_local_extremes(l_s, window=peak_window, find_min=True)
-    minima = _filter_close_extremes(minima, min_separation=10)
-    if len(minima) < 2:
+    # 找最近一個合格 L-H-L 三元組（從新到舊掃，回第一個過關的）
+    best = None
+    for i in range(len(pivots) - 3, -1, -1):
+        a, b, c = pivots[i], pivots[i+1], pivots[i+2]
+        if a['type'] != 'L' or b['type'] != 'H' or c['type'] != 'L':
+            continue
+        # 在這個 L-H-L 三元組之後可能還有 pivots（H/L），但我們選這個三元組做 W
+
+        sep = c['idx'] - a['idx']
+        if sep < min_separation: continue
+        if sep > max_separation: continue
+
+        L1_p = a['price']; L2_p = c['price']
+        if min(L1_p, L2_p) <= 0: continue
+        sim = abs(L2_p - L1_p) / min(L1_p, L2_p)
+        if sim > similarity_tol: continue
+
+        neckline = b['price']
+        rebound_pct = (neckline - L1_p) / L1_p * 100
+        if rebound_pct < min_rebound_pct: continue
+
+        # age check
+        n_slice = n_full - slice_start
+        days_since = n_slice - 1 - c['idx']
+        if days_since > max_age_2nd: continue
+
+        best = (a, b, c, sim, rebound_pct)
+        break
+
+    if not best:
         return {'is_double_bottom': False, 'status': 'none'}
 
-    # 🆕 v9.22.5：強化驗證
-    # 1. 兩底之間不能有更深的低點（否則不是真雙底）
-    # 2. L1 / L2 必須是 lookback 期間的「相對深底」（前後 N 天最低）
-    best_pair = None
-    for i in range(len(minima)-1, 0, -1):
-        for j in range(i-1, -1, -1):
-            sep = minima[i] - minima[j]
-            if sep < min_separation: continue
-            if sep > max_separation: break
-            p_low_left = float(l_s[minima[j]])
-            p_low_right = float(l_s[minima[i]])
-            if min(p_low_left, p_low_right) <= 0: continue
-            sim = abs(p_low_right - p_low_left) / min(p_low_left, p_low_right)
-            if sim > similarity_tol: continue
-
-            # 🆕 嚴格檢查 1：兩底之間 (exclusive) 不能有更深的低點
-            #   容差 2%（允許微小破底但不算大破壞）
-            min_anchor = min(p_low_left, p_low_right)
-            between_low = float(np.nanmin(l_s[minima[j]+1:minima[i]])) if minima[i] > minima[j]+1 else min_anchor
-            if between_low < min_anchor * 0.98:
-                continue  # 中間有更深低點 → 不是真雙底，跳過
-
-            # 🆕 嚴格檢查 2：L1 / L2 必須是「相對深底」
-            all_lows_sorted = sorted([l_s[idx] for idx in minima])
-            depth_threshold = all_lows_sorted[int(len(all_lows_sorted) * 0.4)]
-            if p_low_left > depth_threshold or p_low_right > depth_threshold:
-                continue
-
-            # 中間 peak (neckline)
-            mid_slice = h_s[minima[j]:minima[i]+1]
-            if len(mid_slice) == 0: continue
-            mid_idx_local = int(np.nanargmax(mid_slice))
-            mid_idx = minima[j] + mid_idx_local
-            neckline = float(h_s[mid_idx])
-            rebound_pct = (neckline - p_low_left) / p_low_left * 100
-            if rebound_pct < min_rebound_pct: continue
-
-            # 🆕 v9.22.6 嚴格檢查 3：neckline 必須在 L1-L2 中段（不能緊貼 L1 或 L2）
-            #   neckline_pos_pct = neckline 相對位置 (0=L1, 1=L2)
-            neckline_pos_pct = (mid_idx - minima[j]) / sep
-            if neckline_pos_pct < 0.20 or neckline_pos_pct > 0.80:
-                continue  # neckline 太靠邊 = 沒有真正的「中段反彈」
-
-            # 🆕 嚴格檢查 4：價格從 L1 反彈後，必須持續在 neckline 區域 ≥ 5 天
-            #   (反彈不是 1-2 天就跌回，而是真正攻擊頸線失敗)
-            rebound_zone = neckline * 0.97   # neckline 97% 以下算「攻擊區」
-            days_in_zone = 0
-            for k_chk in range(minima[j]+1, minima[i]):
-                if h_s[k_chk] >= rebound_zone:
-                    days_in_zone += 1
-            if days_in_zone < 5:
-                continue  # 反彈太短 = 不是真 W
-
-            days_since = m - 1 - minima[i]
-            if days_since > max_age_2nd: continue
-
-            best_pair = (j, i, mid_idx, sim, rebound_pct)
-            break
-        if best_pair:
-            break
-
-    if not best_pair:
-        return {'is_double_bottom': False, 'status': 'none'}
-
-    j_idx, i_idx, mid_idx, sim, rebound_pct = best_pair
-    left_idx = minima[j_idx]
-    right_idx = minima[i_idx]
-
-    p_low_left = float(l_s[left_idx])
-    p_low_right = float(l_s[right_idx])
+    L1, NK, L2, sim, rebound_pct = best
+    real_left = L1['global_idx']
+    real_right = L2['global_idx']
+    real_mid = NK['global_idx']
+    p_low_left = L1['price']; p_low_right = L2['price']
+    neckline = NK['price']
     avg_bottom = (p_low_left + p_low_right) / 2
-    neckline = float(h_s[mid_idx])
     height = neckline - avg_bottom
     target = neckline + height
-    cur_close = float(c_s[-1])
-
-    # 轉成原 df idx
-    real_left = start + left_idx
-    real_right = start + right_idx
-    real_mid = start + mid_idx
+    cur_close = float(df['Close'].iloc[-1])
     df_idx = df.index
 
-    # ─── 五大關鍵分析 ────
-    # 1. 位置（context）
+    # ─── 五大關鍵分析（v9.22 layer）────
     pos_ctx = _classify_position(df)
-    # 雙底高勝率位置：downtrend 末端 OR uptrend 中的回測支撐
-    if pos_ctx == 'downtrend':
-        pos_quality = 'high_prob'  # 下跌末端反轉
-    elif pos_ctx == 'uptrend':
-        pos_quality = 'high_prob'  # 上升回測（continuation）
-    elif pos_ctx == 'sideways':
-        pos_quality = 'neutral'
-    else:
-        pos_quality = 'neutral'
+    pos_quality = 'high_prob' if pos_ctx in ('uptrend', 'downtrend') else 'neutral'
 
-    # 2. 動能衰減
     decay = _measure_momentum_decay(df, real_left, real_right, side='bull', window=3)
-
-    # 3. 反應 K 棒（在第 2 底附近找）
     reaction = _detect_reaction_kbar(df, real_right, side='bull', window=3)
-
-    # 4. 掃流動性（第 2 底是否刺穿第 1 底）
     liq_sweep = _detect_liquidity_sweep(df, real_left, real_right, side='bull')
-
-    # 5. 頸線突破有效性
     valid = _check_breakout_validity(df, real_mid, neckline, side='bull')
 
-    # ─── 五大關鍵 score（0-5） ───
     quality_score = 0
     if pos_quality == 'high_prob': quality_score += 1
-    if (decay or {}).get('decay_score', 0) >= 2: quality_score += 1   # 動能衰減 ≥ 2/4
+    if (decay or {}).get('decay_score', 0) >= 2: quality_score += 1
     if reaction.get('has_reaction'): quality_score += 1
-    if liq_sweep or reaction.get('type') in ('hammer', 'bull_engulfing'):
-        # 掃流動性 OR 強反應 K → 加分（避免重複，這裡用 OR 而非 +1）
-        pass
-    if valid.get('validity_score', 0) >= 2: quality_score += 1   # 突破 ≥ 2/3
-    # 第 5 項：rebound 強度 + similarity tightness
+    if valid.get('validity_score', 0) >= 2: quality_score += 1
     if rebound_pct >= 12 and sim <= 0.03:
         quality_score += 1
 
@@ -543,33 +370,26 @@ def detect_double_bottom(df, lookback_days=180,
                     else ('C' if quality_score >= 3 else 'D'))
 
     # ─── 三段建倉狀態 ───
-    days_since_2nd = m - 1 - right_idx
-    breakout_idx_real = (start + valid['breakout_idx']) if valid.get('breakout_idx') is not None else None
+    days_since_2nd = (n_full - slice_start) - 1 - L2['idx']
+    n = n_full
+    breakout_idx_real = valid.get('breakout_idx')
 
     if cur_close < min(p_low_left, p_low_right) * 0.97:
         status = 'failed'
         entry_stage = 'wait'
     elif breakout_idx_real and cur_close < neckline and cur_close > p_low_right:
-        # 已突破過但目前回測 neckline → C 補滿
         if reaction.get('has_reaction') and breakout_idx_real < n - 3:
-            status = 'C_retest_buy'
-            entry_stage = 'C_retest'
+            status = 'C_retest_buy'; entry_stage = 'C_retest'
         else:
-            status = 'confirmed'
-            entry_stage = 'wait'
+            status = 'confirmed'; entry_stage = 'wait'
     elif cur_close > neckline and breakout_idx_real:
-        status = 'B_breakout_buy'
-        entry_stage = 'B_breakout'
-    elif reaction.get('has_reaction') and right_idx >= m - 5:
-        # 第 2 底剛形成 + 反應 K → A 試單
-        status = 'A_test_buy'
-        entry_stage = 'A_test'
-    elif right_idx >= m - 5:
-        status = 'forming'
-        entry_stage = 'wait'
+        status = 'B_breakout_buy'; entry_stage = 'B_breakout'
+    elif reaction.get('has_reaction') and days_since_2nd <= 5:
+        status = 'A_test_buy'; entry_stage = 'A_test'
+    elif days_since_2nd <= 5:
+        status = 'forming'; entry_stage = 'wait'
     else:
-        status = 'confirmed'
-        entry_stage = 'wait'
+        status = 'confirmed'; entry_stage = 'wait'
 
     # 結構停損
     if entry_stage == 'A_test':
@@ -578,8 +398,8 @@ def detect_double_bottom(df, lookback_days=180,
         stop_loss = float(neckline) * 0.97
     elif entry_stage == 'C_retest':
         if reaction.get('idx') is not None:
-            stop_loss = float(min(l[reaction['idx']],
-                                    l[real_right]) * 0.98)
+            stop_loss = float(min(df['Low'].iloc[reaction['idx']],
+                                    df['Low'].iloc[real_right]) * 0.98)
         else:
             stop_loss = float(neckline) * 0.97
     else:
@@ -602,132 +422,83 @@ def detect_double_bottom(df, lookback_days=180,
         'stop_loss': round(stop_loss, 2),
         'similarity_pct': round(sim * 100, 2),
         'rebound_pct': round(rebound_pct, 2),
-        'separation_days': int(right_idx - left_idx),
+        'separation_days': int(L2['idx'] - L1['idx']),
         'days_since_2nd_bottom': int(days_since_2nd),
-        # 🆕 v9.22 五大關鍵
         'position_context': pos_ctx,
         'position_quality': pos_quality,
         'momentum_decay': decay,
         'reaction_kbar': reaction,
         'liquidity_sweep': bool(liq_sweep),
         'breakout_validity': valid,
-        'quality_score': quality_score,  # 0-5
-        'quality_grade': quality_grade,  # A/B/C/D
+        'quality_score': quality_score,
+        'quality_grade': quality_grade,
+        # 🆕 v9.23
+        'detector_version': 'v9.23_zigzag',
+        'atr_mult_used': atr_mult,
     }
 
 
 # ────────────────────────────────────────────────────────────────
-# detect_double_top（M頂）— 鏡像
+# detect_double_top（M頂）— ZigZag 版（鏡像）
 # ────────────────────────────────────────────────────────────────
 
 def detect_double_top(df, lookback_days=180,
                        similarity_tol=0.05, min_separation=15,
                        max_separation=120, peak_window=5,
-                       min_pullback_pct=8, max_age_2nd=60):
-    """雙頂偵測（M頂，看空反轉）— 結構同 detect_double_bottom 鏡像"""
+                       min_pullback_pct=8, max_age_2nd=60,
+                       atr_mult=DEFAULT_ATR_MULT):
+    """雙頂偵測（M頂，看空反轉）— ZigZag 版鏡像"""
     if df is None or len(df) < 60:
         return {'is_double_top': False, 'status': 'none'}
 
-    h = df['High'].values
-    l = df['Low'].values
-    c = df['Close'].values
-    n = len(df)
-    start = max(0, n - lookback_days)
-    h_s = h[start:]; l_s = l[start:]; c_s = c[start:]
-    m = len(c_s)
-    if m < 30:
+    n_full = len(df)
+    pivots, slice_start = _get_zigzag_pivots(df, lookback_days, atr_mult)
+    if len(pivots) < 3:
         return {'is_double_top': False, 'status': 'none'}
 
-    maxima = _find_local_extremes(h_s, window=peak_window, find_min=False)
-    maxima = _filter_close_extremes(maxima, min_separation=10)
-    if len(maxima) < 2:
+    # 找 H-L-H 三元組
+    best = None
+    for i in range(len(pivots) - 3, -1, -1):
+        a, b, c = pivots[i], pivots[i+1], pivots[i+2]
+        if a['type'] != 'H' or b['type'] != 'L' or c['type'] != 'H':
+            continue
+        sep = c['idx'] - a['idx']
+        if sep < min_separation: continue
+        if sep > max_separation: continue
+
+        H1_p = a['price']; H2_p = c['price']
+        if min(H1_p, H2_p) <= 0: continue
+        sim = abs(H2_p - H1_p) / min(H1_p, H2_p)
+        if sim > similarity_tol: continue
+
+        neckline = b['price']
+        pullback_pct = (H1_p - neckline) / H1_p * 100
+        if pullback_pct < min_pullback_pct: continue
+
+        n_slice = n_full - slice_start
+        days_since = n_slice - 1 - c['idx']
+        if days_since > max_age_2nd: continue
+
+        best = (a, b, c, sim, pullback_pct)
+        break
+
+    if not best:
         return {'is_double_top': False, 'status': 'none'}
 
-    # 🆕 v9.22.5：強化驗證（雙頂鏡像）
-    best_pair = None
-    for i in range(len(maxima)-1, 0, -1):
-        for j in range(i-1, -1, -1):
-            sep = maxima[i] - maxima[j]
-            if sep < min_separation: continue
-            if sep > max_separation: break
-            p_high_left = float(h_s[maxima[j]])
-            p_high_right = float(h_s[maxima[i]])
-            if min(p_high_left, p_high_right) <= 0: continue
-            sim = abs(p_high_right - p_high_left) / min(p_high_left, p_high_right)
-            if sim > similarity_tol: continue
-
-            # 🆕 嚴格檢查 1：兩頂之間 (exclusive) 不能有更高的高點
-            max_anchor = max(p_high_left, p_high_right)
-            between_high = float(np.nanmax(h_s[maxima[j]+1:maxima[i]])) if maxima[i] > maxima[j]+1 else max_anchor
-            if between_high > max_anchor * 1.02:
-                continue   # 中間更高 → 不是真雙頂
-
-            # 🆕 嚴格檢查 2：L1 / L2 必須是「相對高頂」
-            all_highs_sorted = sorted([h_s[idx] for idx in maxima], reverse=True)
-            height_threshold = all_highs_sorted[int(len(all_highs_sorted) * 0.4)]
-            if p_high_left < height_threshold or p_high_right < height_threshold:
-                continue
-
-            mid_slice = l_s[maxima[j]:maxima[i]+1]
-            if len(mid_slice) == 0: continue
-            mid_idx_local = int(np.nanargmin(mid_slice))
-            mid_idx = maxima[j] + mid_idx_local
-            neckline = float(l_s[mid_idx])
-            pullback_pct = (p_high_left - neckline) / p_high_left * 100
-            if pullback_pct < min_pullback_pct: continue
-
-            # 🆕 v9.22.6 嚴格檢查 3：neckline（中間最低）必須在 H1-H2 中段
-            neckline_pos_pct = (mid_idx - maxima[j]) / sep
-            if neckline_pos_pct < 0.20 or neckline_pos_pct > 0.80:
-                continue  # neckline 太靠邊 = 沒有真正的「中段回落」
-
-            # 🆕 嚴格檢查 4：價格從 H1 回落後，必須持續在 neckline 區域 ≥ 5 天
-            pullback_zone = neckline * 1.03   # neckline 103% 以上算「回落區」
-            days_in_zone = 0
-            for k_chk in range(maxima[j]+1, maxima[i]):
-                if l_s[k_chk] <= pullback_zone:
-                    days_in_zone += 1
-            if days_in_zone < 5:
-                continue  # 回落太短 = 不是真 M
-
-            days_since = m - 1 - maxima[i]
-            if days_since > max_age_2nd: continue
-
-            best_pair = (j, i, mid_idx, sim, pullback_pct)
-            break
-        if best_pair:
-            break
-
-    if not best_pair:
-        return {'is_double_top': False, 'status': 'none'}
-
-    j_idx, i_idx, mid_idx, sim, pullback_pct = best_pair
-    left_idx = maxima[j_idx]
-    right_idx = maxima[i_idx]
-
-    p_high_left = float(h_s[left_idx])
-    p_high_right = float(h_s[right_idx])
+    H1, NK, H2, sim, pullback_pct = best
+    real_left = H1['global_idx']
+    real_right = H2['global_idx']
+    real_mid = NK['global_idx']
+    p_high_left = H1['price']; p_high_right = H2['price']
+    neckline = NK['price']
     avg_top = (p_high_left + p_high_right) / 2
-    neckline = float(l_s[mid_idx])
     height = avg_top - neckline
     target = neckline - height
-    cur_close = float(c_s[-1])
-
-    real_left = start + left_idx
-    real_right = start + right_idx
-    real_mid = start + mid_idx
+    cur_close = float(df['Close'].iloc[-1])
     df_idx = df.index
 
-    # 位置：雙頂高勝率位置 = uptrend 末端 OR downtrend 反彈到壓力
     pos_ctx = _classify_position(df)
-    if pos_ctx == 'uptrend':
-        pos_quality = 'high_prob'
-    elif pos_ctx == 'downtrend':
-        pos_quality = 'high_prob'
-    elif pos_ctx == 'sideways':
-        pos_quality = 'neutral'
-    else:
-        pos_quality = 'neutral'
+    pos_quality = 'high_prob' if pos_ctx in ('uptrend', 'downtrend') else 'neutral'
 
     decay = _measure_momentum_decay(df, real_left, real_right, side='bear', window=3)
     reaction = _detect_reaction_kbar(df, real_right, side='bear', window=3)
@@ -745,31 +516,25 @@ def detect_double_top(df, lookback_days=180,
     quality_grade = 'A' if quality_score >= 5 else ('B' if quality_score >= 4
                     else ('C' if quality_score >= 3 else 'D'))
 
-    days_since_2nd = m - 1 - right_idx
-    breakdown_idx_real = (start + valid['breakout_idx']) if valid.get('breakout_idx') is not None else None
+    days_since_2nd = (n_full - slice_start) - 1 - H2['idx']
+    n = n_full
+    breakdown_idx_real = valid.get('breakout_idx')
 
     if cur_close > max(p_high_left, p_high_right) * 1.03:
-        status = 'failed'
-        entry_stage = 'wait'
+        status = 'failed'; entry_stage = 'wait'
     elif breakdown_idx_real and cur_close > neckline and cur_close < p_high_right:
         if reaction.get('has_reaction') and breakdown_idx_real < n - 3:
-            status = 'C_retest_short'
-            entry_stage = 'C_retest'
+            status = 'C_retest_short'; entry_stage = 'C_retest'
         else:
-            status = 'confirmed'
-            entry_stage = 'wait'
+            status = 'confirmed'; entry_stage = 'wait'
     elif cur_close < neckline and breakdown_idx_real:
-        status = 'B_breakdown_short'
-        entry_stage = 'B_breakout'
-    elif reaction.get('has_reaction') and right_idx >= m - 5:
-        status = 'A_test_short'
-        entry_stage = 'A_test'
-    elif right_idx >= m - 5:
-        status = 'forming'
-        entry_stage = 'wait'
+        status = 'B_breakdown_short'; entry_stage = 'B_breakout'
+    elif reaction.get('has_reaction') and days_since_2nd <= 5:
+        status = 'A_test_short'; entry_stage = 'A_test'
+    elif days_since_2nd <= 5:
+        status = 'forming'; entry_stage = 'wait'
     else:
-        status = 'confirmed'
-        entry_stage = 'wait'
+        status = 'confirmed'; entry_stage = 'wait'
 
     if entry_stage == 'A_test':
         stop_loss = float(p_high_right) * 1.02
@@ -777,8 +542,8 @@ def detect_double_top(df, lookback_days=180,
         stop_loss = float(neckline) * 1.03
     elif entry_stage == 'C_retest':
         if reaction.get('idx') is not None:
-            stop_loss = float(max(h[reaction['idx']],
-                                    h[real_right]) * 1.02)
+            stop_loss = float(max(df['High'].iloc[reaction['idx']],
+                                    df['High'].iloc[real_right]) * 1.02)
         else:
             stop_loss = float(neckline) * 1.03
     else:
@@ -801,9 +566,8 @@ def detect_double_top(df, lookback_days=180,
         'stop_loss': round(stop_loss, 2),
         'similarity_pct': round(sim * 100, 2),
         'pullback_pct': round(pullback_pct, 2),
-        'separation_days': int(right_idx - left_idx),
+        'separation_days': int(H2['idx'] - H1['idx']),
         'days_since_2nd_top': int(days_since_2nd),
-        # 🆕 v9.22
         'position_context': pos_ctx,
         'position_quality': pos_quality,
         'momentum_decay': decay,
@@ -812,4 +576,44 @@ def detect_double_top(df, lookback_days=180,
         'breakout_validity': valid,
         'quality_score': quality_score,
         'quality_grade': quality_grade,
+        'detector_version': 'v9.23_zigzag',
+        'atr_mult_used': atr_mult,
     }
+
+
+# ────────────────────────────────────────────────────────────────
+# 🆕 v9.23 VCP 偵測（收口序列）
+# ────────────────────────────────────────────────────────────────
+
+def detect_vcp_zigzag(df, lookback_days=180,
+                       min_contractions=3, max_contractions=8,
+                       vol_dryup_threshold=0.75,
+                       atr_mult=DEFAULT_ATR_MULT):
+    """VCP（Volatility Contraction Pattern）偵測
+
+    從 ZigZag pivots 找連續 H-L 對，檢查：
+      - 收口寬度逐次遞減
+      - 最後一次收口 ≤ 5-10%
+      - 量逐次衰減
+      - 目前接近最後 pivot H = 突破前準備位置
+
+    Returns dict, schema 同 vcp_from_pivots.detect_vcp_from_pivots
+    額外多 'detector_version', 'atr_mult_used'
+    """
+    if df is None or len(df) < 60:
+        return {'is_vcp': False, 'reason': '資料不足'}
+
+    pivots, slice_start = _get_zigzag_pivots(df, lookback_days, atr_mult)
+    if len(pivots) < 4:
+        return {'is_vcp': False, 'reason': 'pivots 不足'}
+
+    # 用 vcp_from_pivots 邏輯
+    df_slice = df.iloc[slice_start:].copy()
+    from vcp_from_pivots import detect_vcp_from_pivots
+    result = detect_vcp_from_pivots(df_slice, pivots,
+                                       min_contractions=min_contractions,
+                                       max_contractions=max_contractions,
+                                       vol_dryup_threshold=vol_dryup_threshold)
+    result['detector_version'] = 'v9.23_zigzag'
+    result['atr_mult_used'] = atr_mult
+    return result
