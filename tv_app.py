@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.22.3"
-APP_UPDATED   = "2026-05-11 09:00"
+APP_VERSION   = "v9.22.4"
+APP_UPDATED   = "2026-05-11 09:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -7906,28 +7906,35 @@ def _render_screener_panel():
             # 全選 / 全消選 按鈕（在表上方）
             _sel_cols = st.columns([1, 1, 1, 4])
             _ss_key = f'screener_select_state_{last_filter}'
+            _ver_key = f'screener_editor_ver_{last_filter}'
+            # 🐛 v9.22.4：用 ver 計數器強制 data_editor 在 全選/全消 時重置 cached state
+            _select_ver = st.session_state.get(_ver_key, 0)
             with _sel_cols[0]:
                 if st.button('✓ 全選', key='screener_select_all', use_container_width=True):
                     st.session_state[_ss_key] = 'all'
+                    st.session_state[_ver_key] = _select_ver + 1
+                    st.rerun()
             with _sel_cols[1]:
                 if st.button('✗ 全消', key='screener_select_none', use_container_width=True):
                     st.session_state[_ss_key] = 'none'
+                    st.session_state[_ver_key] = _select_ver + 1
+                    st.rerun()
             with _sel_cols[2]:
                 if st.button('🟢 只勾多頭', key='screener_select_bull', use_container_width=True):
                     st.session_state[_ss_key] = 'bull'
+                    st.session_state[_ver_key] = _select_ver + 1
+                    st.rerun()
 
-            # 套用 select state
-            _action = st.session_state.get(_ss_key)
+            # 套用 select state（影響 DataFrame default 值）
+            _action = st.session_state.pop(_ss_key, None)  # 消費後清掉，避免下次 render 又套
             if _action == 'all':
                 _df_results['✓選'] = True
             elif _action == 'none':
                 _df_results['✓選'] = False
             elif _action == 'bull':
                 _df_results['✓選'] = _df_results['多空'] == '🟢'
-            # 消費後清空，避免下次 render 又套
-            if _action:
-                st.session_state[_ss_key] = None
 
+            # 🐛 v9.22.4：key 含 ver 計數，全選/全消 時 key 改變 → data_editor 重新讀 DataFrame
             edited_df = st.data_editor(
                 _df_results,
                 hide_index=True,
@@ -7947,7 +7954,7 @@ def _render_screener_panel():
                     '%B':  st.column_config.NumberColumn('%B', format='%.2f', width='small'),
                     '距高': st.column_config.NumberColumn('距高%', format='%.0f', width='small'),
                 },
-                key=f'screener_editor_{last_filter}',
+                key=f'screener_editor_{last_filter}_v{_select_ver}',
                 height=min(600, max(150, len(_display_rows) * 35 + 50)),
             )
 
@@ -8850,7 +8857,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 157  # v9.22.3：篩選結果加 checkbox 勾選 + 全選/全消/只勾多頭按鈕 2026-05-11
+_RESULTS_VERSION = 158  # v9.22.4：修「全選儲存失敗」bug（data_editor cached state 用 ver key 重置）2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
