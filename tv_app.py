@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.23.1"
-APP_UPDATED   = "2026-05-11 14:00"
+APP_VERSION   = "v9.23.2"
+APP_UPDATED   = "2026-05-11 14:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4054,19 +4054,10 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         action_bg, action_fg = "#0a1628", "#7a9ab0"
 
     # ── 🆕 v9.23：ZigZag 對照圖（W底 / M頂 / VCP 視覺化）─────────────
-    def _build_zigzag_chart_img(d_local, max_bars=180):
-        """從 d['_swing_history'] 渲染 ZigZag 對照圖，回傳 base64 data URI"""
+    def _build_zigzag_chart_img(d_local, ticker_local=None, max_bars=180):
+        """從 d['_swing_history'] 或 data_cache 渲染 ZigZag 對照圖
+        回傳 base64 data URI（或 None）"""
         try:
-            sh = d_local.get('_swing_history') or {}
-            dates_arr = sh.get('dates') or []
-            opens = sh.get('open') or []
-            highs = sh.get('high') or []
-            lows  = sh.get('low')  or []
-            closes = sh.get('close') or []
-            vols = sh.get('volume') or []
-            if not dates_arr or len(closes) < 30:
-                return None
-
             import io, base64
             import pandas as _pd
             import numpy as _np
@@ -4079,10 +4070,39 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                                                    'SimHei', 'Arial Unicode MS']
             _mpl.rcParams['axes.unicode_minus'] = False
 
-            df_plot = _pd.DataFrame({
-                'Open': opens, 'High': highs, 'Low': lows,
-                'Close': closes, 'Volume': vols,
-            }, index=_pd.to_datetime(dates_arr))
+            df_plot = None
+
+            # 路徑 A：從 _swing_history 重建（雲端 path，主要來源）
+            sh = d_local.get('_swing_history') or {}
+            closes = sh.get('close') or []
+            if closes and len(closes) >= 30:
+                dates_arr = sh.get('dates') or []
+                # 🆕 v9.23.2：若無 dates（舊 cron 資料），用 business days 反推
+                if not dates_arr or len(dates_arr) != len(closes):
+                    _today = _pd.Timestamp.now().normalize()
+                    dates_arr = _pd.bdate_range(end=_today, periods=len(closes))
+                try:
+                    df_plot = _pd.DataFrame({
+                        'Open':   sh.get('open') or closes,
+                        'High':   sh.get('high') or closes,
+                        'Low':    sh.get('low')  or closes,
+                        'Close':  closes,
+                        'Volume': sh.get('volume') or [0]*len(closes),
+                    }, index=_pd.to_datetime(dates_arr))
+                except Exception:
+                    df_plot = None
+
+            # 路徑 B：fallback 到 data_cache（local dev path）
+            if df_plot is None or len(df_plot) < 30:
+                if ticker_local:
+                    try:
+                        import data_loader as _dl
+                        df_plot = _dl.load_from_cache(ticker_local)
+                    except Exception:
+                        df_plot = None
+
+            if df_plot is None or len(df_plot) < 30:
+                return None
             df_plot = df_plot.dropna()
             if len(df_plot) > max_bars:
                 df_plot = df_plot.tail(max_bars)
@@ -4855,7 +4875,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             swing_rows.append(_build_double_block(_dt, side='bear'))
 
         # 🆕 v9.23：ZigZag 對照圖（W/M/VCP 共用）
-        _zz_data_uri = _build_zigzag_chart_img(d)
+        _zz_data_uri = _build_zigzag_chart_img(d, ticker_local=ticker)
         if _zz_data_uri:
             swing_rows.append(
                 f'<div style="margin-top:8px;padding:6px;background:#0a1828;'
