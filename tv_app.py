@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.22.2"
-APP_UPDATED   = "2026-05-11 08:30"
+APP_VERSION   = "v9.22.3"
+APP_UPDATED   = "2026-05-11 09:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -7872,75 +7872,99 @@ def _render_screener_panel():
                 unsafe_allow_html=True
             )
 
-            # 表格 HTML
-            rows_html = []
+            # 🆕 v9.22.3：用 st.data_editor 帶 checkbox 讓用戶選擇要存的個股
+            _display_rows = []
             for r in results[:limit_n]:
                 flag = '🇹🇼' if r['market'] == 'tw' else '🇺🇸'
-                bull_tag = ('🟢 多頭' if r.get('is_bull') else '🔴 空頭')
-                dc_warn = ' ⚠️死叉' if r.get('imminent_dc') else ''
                 cd = r.get('cross_days')
-                # 🆕 v9.14：顯示「篩選時 cross_days + 推算今日」
                 if cd is not None and cd > 0:
-                    if json_age_days >= 1:
-                        cd_str = f'+{cd}d→今 +{cd+json_age_days}d'
-                    else:
-                        cd_str = f'+{cd}d'
+                    cd_str = (f'+{cd}d→今+{cd+json_age_days}d'
+                                if json_age_days >= 1 else f'+{cd}d')
                 elif cd:
                     cd_str = f'{cd}d'
                 else:
                     cd_str = '-'
-                row_bg = ';background:#1a0a0a' if r.get('imminent_dc') else ''
-                pctb_str = f'{r["pct_b"]:.2f}' if r.get('pct_b') is not None else '-'
-                # 🆕 v9.20.3：加 RS Rating 欄位（避免與 RSI 混淆）
                 rs_v = r.get('rs_rating')
-                rs_str = f'{rs_v:.0f}' if rs_v is not None else '-'
-                rs_color = ('#3dbb6a' if rs_v and rs_v >= 80 else
-                             '#7abadd' if rs_v and rs_v >= 70 else
-                             '#7a8899')
-                rows_html.append(
-                    f'<div style="display:flex;gap:8px;align-items:center;'
-                    f'padding:4px 8px;border-bottom:1px solid #1a2a3a;font-size:.78rem{row_bg}">'
-                    f'<span style="font-weight:700;font-family:monospace;'
-                    f'min-width:60px;color:#7abadd">{flag} {r["ticker"]}</span>'
-                    f'<span style="color:#a8cce8;flex:1;overflow:hidden;'
-                    f'text-overflow:ellipsis;max-width:140px">{r.get("name", "")[:14]}</span>'
-                    f'<span style="color:#e8f4fd;font-family:monospace;min-width:60px">{r["close"]:.2f}</span>'
-                    f'<span style="color:{"#3dbb6a" if r.get("is_bull") else "#ff5555"};'
-                    f'font-size:.7rem;min-width:50px">{bull_tag}</span>'
-                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem" '
-                    f'title="RSI 相對強弱指標 0-100（不是 RS Rating）">'
-                    f'RSI {r.get("rsi") or "-"}</span>'
-                    f'<span style="color:{rs_color};font-family:monospace;min-width:55px;font-size:.72rem;font-weight:700" '
-                    f'title="RS Rating 相對強度評分（vs universe 同期百分位）— Minervini 建議 ≥70">'
-                    f'RS{rs_str}</span>'
-                    f'<span style="color:#7a8899;font-family:monospace;min-width:50px;font-size:.72rem">'
-                    f'ADX {r.get("adx") or "-"}</span>'
-                    f'<span style="color:#7a8899;font-family:monospace;min-width:90px;font-size:.72rem" '
-                    f'title="EMA20 cross 天數（篩選時點 → 推算今日）">cross {cd_str}</span>'
-                    f'<span style="color:#5a9acf;font-family:monospace;min-width:55px;font-size:.72rem" '
-                    f'title="BB %B">%B {pctb_str}</span>'
-                    f'<span style="color:#a8c8d8;font-family:monospace;min-width:55px;font-size:.72rem" '
-                    f'title="距 60d 高">距高 {r["from_high"]:.0f}%</span>'
-                    + (f'<span style="color:#ff7755;font-size:.7rem;font-weight:700">{dc_warn}</span>' if dc_warn else '')
-                    + f'</div>'
-                )
+                pctb = r.get('pct_b')
+                _display_rows.append({
+                    '✓選': False,
+                    '市場': flag,
+                    '代號': r['ticker'],
+                    '名稱': (r.get('name', '') or '')[:14],
+                    '現價': r['close'],
+                    '多空': '🟢' if r.get('is_bull') else '🔴',
+                    'RSI':  round(r['rsi'], 1) if r.get('rsi') is not None else None,
+                    'RS':   round(rs_v, 1) if rs_v is not None else None,
+                    'ADX':  round(r['adx'], 1) if r.get('adx') is not None else None,
+                    'cross': cd_str,
+                    '%B':   round(pctb, 2) if pctb is not None else None,
+                    '距高': r.get('from_high', 0),
+                    'DC警示': '⚠️' if r.get('imminent_dc') else '',
+                })
+            _df_results = pd.DataFrame(_display_rows)
+
+            # 全選 / 全消選 按鈕（在表上方）
+            _sel_cols = st.columns([1, 1, 1, 4])
+            _ss_key = f'screener_select_state_{last_filter}'
+            with _sel_cols[0]:
+                if st.button('✓ 全選', key='screener_select_all', use_container_width=True):
+                    st.session_state[_ss_key] = 'all'
+            with _sel_cols[1]:
+                if st.button('✗ 全消', key='screener_select_none', use_container_width=True):
+                    st.session_state[_ss_key] = 'none'
+            with _sel_cols[2]:
+                if st.button('🟢 只勾多頭', key='screener_select_bull', use_container_width=True):
+                    st.session_state[_ss_key] = 'bull'
+
+            # 套用 select state
+            _action = st.session_state.get(_ss_key)
+            if _action == 'all':
+                _df_results['✓選'] = True
+            elif _action == 'none':
+                _df_results['✓選'] = False
+            elif _action == 'bull':
+                _df_results['✓選'] = _df_results['多空'] == '🟢'
+            # 消費後清空，避免下次 render 又套
+            if _action:
+                st.session_state[_ss_key] = None
+
+            edited_df = st.data_editor(
+                _df_results,
+                hide_index=True,
+                use_container_width=True,
+                disabled=['市場', '代號', '名稱', '現價', '多空', 'RSI', 'RS',
+                          'ADX', 'cross', '%B', '距高', 'DC警示'],
+                column_config={
+                    '✓選': st.column_config.CheckboxColumn(
+                        '✓選', width='small',
+                        help='勾選後按下方「存選取的」按鈕'),
+                    '代號': st.column_config.TextColumn('代號', width='small'),
+                    '名稱': st.column_config.TextColumn('名稱', width='medium'),
+                    '現價': st.column_config.NumberColumn('現價', format='%.2f', width='small'),
+                    'RSI': st.column_config.NumberColumn('RSI', help='相對強弱指標（個股動能）', width='small'),
+                    'RS':  st.column_config.NumberColumn('RS', help='RS Rating（vs universe 百分位 — Minervini ≥70）', width='small'),
+                    'ADX': st.column_config.NumberColumn('ADX', width='small'),
+                    '%B':  st.column_config.NumberColumn('%B', format='%.2f', width='small'),
+                    '距高': st.column_config.NumberColumn('距高%', format='%.0f', width='small'),
+                },
+                key=f'screener_editor_{last_filter}',
+                height=min(600, max(150, len(_display_rows) * 35 + 50)),
+            )
+
+            # 計算已勾選的 tickers
+            _selected_tickers = (edited_df.loc[edited_df['✓選'] == True, '代號'].tolist()
+                                  if edited_df is not None and '✓選' in edited_df.columns
+                                  else [])
+            n_sel = len(_selected_tickers)
             st.markdown(
-                f'<div style="background:#0a1422;border:1px solid #1a3050;'
-                f'border-radius:6px;padding:4px 0;margin:5px 0">'
-                + ''.join(rows_html)
-                + '</div>',
+                f'<div style="font-size:.78rem;color:#7abadd;margin-top:4px">'
+                f'已勾選 <b style="color:#3dbb6a">{n_sel}</b> 檔 / 共 {len(_display_rows)} 檔</div>',
                 unsafe_allow_html=True
             )
 
             # 存成自選股
-            st.markdown(
-                '<div style="font-size:.7rem;color:#7a8899;margin-top:8px">'
-                '💾 存進自選股清單（一鍵把篩選結果加進主掃描）</div>',
-                unsafe_allow_html=True
-            )
             _scols = st.columns([3, 1, 1])
             today_str = pd.Timestamp.now().strftime('%Y%m%d')
-            # 🆕 v9.13：多條件名稱
             _filter_label = filter_names[0] if len(filter_names) == 1 else f'{len(filter_names)}條件'
             default_name = f'篩選_{_filter_label[:12].strip()}_{today_str}'.replace(' ', '_')
             with _scols[0]:
@@ -7950,19 +7974,23 @@ def _render_screener_panel():
                     placeholder='清單名稱'
                 )
             with _scols[1]:
-                save_btn = st.button('💾 存成自選股', key='screener_save_btn',
-                                       use_container_width=True)
+                save_btn = st.button(f'💾 存 ({n_sel})',
+                                       key='screener_save_btn',
+                                       use_container_width=True,
+                                       disabled=(n_sel == 0))
             with _scols[2]:
-                add_btn = st.button('➕ 加入既有', key='screener_add_btn',
-                                      use_container_width=True)
+                add_btn = st.button(f'➕ 加入 ({n_sel})',
+                                      key='screener_add_btn',
+                                      use_container_width=True,
+                                      disabled=(n_sel == 0))
 
             if save_btn or add_btn:
                 if not save_name.strip():
                     st.warning('請輸入清單名稱')
-                elif not results:
-                    st.warning('沒結果可存')
+                elif n_sel == 0:
+                    st.warning('請至少勾選一檔')
                 else:
-                    tickers_text = '\n'.join(r['ticker'] for r in results)
+                    tickers_text = '\n'.join(_selected_tickers)
                     _wl_path = _P(__file__).parent / 'watchlists.json'
                     try:
                         from streamlit_local_storage import LocalStorage
@@ -7983,12 +8011,12 @@ def _render_screener_panel():
                     name = save_name.strip()
                     if add_btn and name in wls:
                         existing = set(wls[name].split('\n')) if isinstance(wls[name], str) else set()
-                        new_set = existing | set(r['ticker'] for r in results)
+                        new_set = existing | set(_selected_tickers)
                         wls[name] = '\n'.join(sorted(new_set))
                         msg = f'➕ 已合併進「{name}」（共 {len(new_set)} 檔）'
                     else:
                         wls[name] = tickers_text
-                        msg = f'💾 已儲存「{name}」（{len(results)} 檔）'
+                        msg = f'💾 已儲存「{name}」（勾選 {n_sel} 檔）'
 
                     text = _json.dumps(wls, ensure_ascii=False, indent=2)
                     if _ls:
@@ -8822,7 +8850,7 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
 
 # ── 版本標記：格式變更時自動清除舊快取 ──────────────────────────
-_RESULTS_VERSION = 156  # v9.22.2：移除 TW TOP 200 + US TOP panel（用戶要求清乾淨）2026-05-11
+_RESULTS_VERSION = 157  # v9.22.3：篩選結果加 checkbox 勾選 + 全選/全消/只勾多頭按鈕 2026-05-11
 if st.session_state.get("results_version") != _RESULTS_VERSION:
     for _k in ["results", "debug_msgs"]:
         st.session_state.pop(_k, None)
