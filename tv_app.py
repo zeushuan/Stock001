@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.23"
-APP_UPDATED   = "2026-05-11 13:30"
+APP_VERSION   = "v9.23.1"
+APP_UPDATED   = "2026-05-11 14:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -1633,7 +1633,16 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             sma50_s_ = ta.trend.SMAIndicator(c, 50).sma_indicator()
             sma150_s_ = ta.trend.SMAIndicator(c, 150).sma_indicator()
             sma200_s_ = ta.trend.SMAIndicator(c, 200).sma_indicator()
+            # 🆕 v9.23: 加 dates 給 detail card ZigZag chart 用
+            try:
+                _idx_arr = df.index if hasattr(df, 'index') else None
+                _dates_tail = ([str(x)[:10] for x in _idx_arr[-tail:]]
+                                if _idx_arr is not None and len(_idx_arr) >= tail
+                                else [str(x)[:10] for x in (_idx_arr or [])])
+            except Exception:
+                _dates_tail = []
             d['_swing_history'] = {
+                'dates':  _dates_tail,
                 'open':   _np_tail(o_s),
                 'high':   _np_tail(h),
                 'low':    _np_tail(l),
@@ -4044,6 +4053,169 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                           f"等 T3 拉回（RSI<50）出現再進場")
         action_bg, action_fg = "#0a1628", "#7a9ab0"
 
+    # ── 🆕 v9.23：ZigZag 對照圖（W底 / M頂 / VCP 視覺化）─────────────
+    def _build_zigzag_chart_img(d_local, max_bars=180):
+        """從 d['_swing_history'] 渲染 ZigZag 對照圖，回傳 base64 data URI"""
+        try:
+            sh = d_local.get('_swing_history') or {}
+            dates_arr = sh.get('dates') or []
+            opens = sh.get('open') or []
+            highs = sh.get('high') or []
+            lows  = sh.get('low')  or []
+            closes = sh.get('close') or []
+            vols = sh.get('volume') or []
+            if not dates_arr or len(closes) < 30:
+                return None
+
+            import io, base64
+            import pandas as _pd
+            import numpy as _np
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as _plt
+            import matplotlib.dates as _mdates
+            import matplotlib as _mpl
+            _mpl.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Microsoft YaHei',
+                                                   'SimHei', 'Arial Unicode MS']
+            _mpl.rcParams['axes.unicode_minus'] = False
+
+            df_plot = _pd.DataFrame({
+                'Open': opens, 'High': highs, 'Low': lows,
+                'Close': closes, 'Volume': vols,
+            }, index=_pd.to_datetime(dates_arr))
+            df_plot = df_plot.dropna()
+            if len(df_plot) > max_bars:
+                df_plot = df_plot.tail(max_bars)
+            if len(df_plot) < 30:
+                return None
+
+            from zigzag import zigzag as _zz
+            pivots = _zz(df_plot, mode='atr', atr_mult=1.5, atr_period=14)
+
+            fig, (ax1, ax2) = _plt.subplots(2, 1, figsize=(13, 6.5),
+                                              gridspec_kw={'height_ratios': [3, 1]},
+                                              sharex=True)
+
+            # 蠟燭線
+            for _d, _row in df_plot.iterrows():
+                _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
+                ax1.plot([_d, _d], [_row['Low'], _row['High']],
+                          color=_c, linewidth=0.5, alpha=0.65, zorder=1)
+                ax1.add_patch(_plt.Rectangle(
+                    (_mdates.date2num(_d) - 0.3, min(_row['Open'], _row['Close'])),
+                    0.6, abs(_row['Close'] - _row['Open']),
+                    facecolor=_c, edgecolor=_c, alpha=0.65, zorder=2))
+
+            # ZigZag 線
+            if pivots:
+                xs = [p['date'] for p in pivots]
+                ys = [p['price'] for p in pivots]
+                ax1.plot(xs, ys, color='#ff6b35', linewidth=2.3, alpha=0.9,
+                          marker='o', markersize=8,
+                          markerfacecolor='gold', markeredgecolor='#cc4400',
+                          markeredgewidth=1.6,
+                          label=f'ZigZag ATR×1.5 ({len(pivots)} pivots)', zorder=5)
+
+            # W 底標註
+            _dbi = d_local.get('double_bottom_info') or {}
+            if _dbi.get('is_double_bottom'):
+                try:
+                    L1d = _pd.to_datetime(_dbi['left_bottom']['date'])
+                    L2d = _pd.to_datetime(_dbi['right_bottom']['date'])
+                    NKd = _pd.to_datetime(_dbi['middle_peak']['date'])
+                    L1p = _dbi['left_bottom']['price']
+                    L2p = _dbi['right_bottom']['price']
+                    NKp = _dbi['middle_peak']['price']
+                    ax1.scatter([L1d, L2d], [L1p, L2p], s=300,
+                                 facecolor='none', edgecolor='red', linewidth=3,
+                                 marker='o', zorder=7,
+                                 label=f'W底 L1/L2 Grade {_dbi.get("quality_grade","")}')
+                    ax1.scatter([NKd], [NKp], s=300, facecolor='none',
+                                 edgecolor='blue', linewidth=3, marker='o', zorder=7,
+                                 label=f'Neckline ${NKp:.2f}')
+                    ax1.axhline(NKp, color='blue', linestyle='--', linewidth=1.2, alpha=0.5)
+                except Exception:
+                    pass
+
+            # M 頂標註
+            _dti = d_local.get('double_top_info') or {}
+            if _dti.get('is_double_top'):
+                try:
+                    H1d = _pd.to_datetime(_dti['left_top']['date'])
+                    H2d = _pd.to_datetime(_dti['right_top']['date'])
+                    H1p = _dti['left_top']['price']
+                    H2p = _dti['right_top']['price']
+                    ax1.scatter([H1d, H2d], [H1p, H2p], s=300,
+                                 facecolor='none', edgecolor='purple', linewidth=3,
+                                 marker='s', zorder=7,
+                                 label=f'M頂 H1/H2 Grade {_dti.get("quality_grade","")}')
+                except Exception:
+                    pass
+
+            # VCP 收口 box
+            _vcp = d_local.get('vcp_zigzag_info') or {}
+            _ctr = _vcp.get('contractions') or []
+            if _ctr:
+                vcp_colors = ['#42a5f5', '#1e88e5', '#1565c0', '#0d47a1']
+                for _i, _c in enumerate(_ctr):
+                    try:
+                        cc = vcp_colors[_i % len(vcp_colors)]
+                        _ax, _aH = _c['L_date'], _c['H_date']
+                        _aLp, _aHp = _c['L_price'], _c['H_price']
+                        x_start = min(_ax, _aH); x_end = max(_ax, _aH)
+                        import matplotlib.patches as _mp
+                        rect = _mp.Rectangle(
+                            (_mdates.date2num(x_start), _aLp),
+                            _mdates.date2num(x_end) - _mdates.date2num(x_start),
+                            _aHp - _aLp,
+                            linewidth=1.3, edgecolor=cc, facecolor=cc,
+                            alpha=0.10, zorder=3, linestyle='--')
+                        ax1.add_patch(rect)
+                    except Exception:
+                        continue
+                _top = _vcp.get('consolidation_top')
+                if _top:
+                    ax1.axhline(_top, color='purple', linestyle='-',
+                                 linewidth=1.4, alpha=0.55,
+                                 label=f'VCP 整理頂 ${_top:.2f}')
+
+            # 標題
+            _has_db = _dbi.get('is_double_bottom', False)
+            _has_dt = _dti.get('is_double_top', False)
+            _has_vcp = _vcp.get('is_vcp', False)
+            tags = []
+            if _has_db: tags.append(f'W底-{_dbi.get("quality_grade","")} ({_dbi.get("status","")})')
+            if _has_dt: tags.append(f'M頂-{_dti.get("quality_grade","")} ({_dti.get("status","")})')
+            if _has_vcp: tags.append(f'VCP-{_vcp.get("vcp_grade","")} ({_vcp.get("num_contractions",0)}收口 {_vcp.get("breakout_status","")})')
+            elif _ctr:
+                tags.append(f'VCP候選 ({len(_ctr)}收口，未達標)')
+            title = f'ZigZag (ATR×1.5) {len(pivots)} pivots'
+            if tags: title += '   |   ' + '  ｜  '.join(tags)
+            ax1.set_title(title, fontsize=10, fontweight='bold', pad=6)
+            ax1.set_ylabel('Price', fontsize=9)
+            ax1.legend(loc='upper left', fontsize=7.5)
+            ax1.grid(True, alpha=0.3)
+
+            # Volume
+            for _d, _row in df_plot.iterrows():
+                _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
+                ax2.bar(_d, _row['Volume'], color=_c, alpha=0.55, width=0.7)
+            ax2.set_ylabel('Vol', fontsize=8)
+            ax2.grid(True, alpha=0.3)
+            ax2.xaxis.set_major_locator(_mdates.MonthLocator())
+            ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%Y-%m'))
+            _plt.setp(ax2.xaxis.get_majorticklabels(), rotation=25, fontsize=8)
+
+            _plt.tight_layout()
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+            _plt.close(fig)
+            buf.seek(0)
+            data_b64 = base64.b64encode(buf.read()).decode('ascii')
+            return f'data:image/png;base64,{data_b64}'
+        except Exception:
+            return None
+
     # ── 🌊 波段診斷（v9.15）— 基於 walk-forward OOS 驗證的 Strategy B 推薦 ──
     # OOS robust（TW + US 雙市場）：
     #   B + rsi_70：65% win, +1.3% mean (保守)
@@ -4681,6 +4853,18 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             swing_rows.append(_build_double_block(_db, side='bull'))
         if _has_dt:
             swing_rows.append(_build_double_block(_dt, side='bear'))
+
+        # 🆕 v9.23：ZigZag 對照圖（W/M/VCP 共用）
+        _zz_data_uri = _build_zigzag_chart_img(d)
+        if _zz_data_uri:
+            swing_rows.append(
+                f'<div style="margin-top:8px;padding:6px;background:#0a1828;'
+                f'border:1px solid #1a2a3a;border-radius:6px">'
+                f'<div style="font-size:.7rem;color:#7abadd;font-weight:700;'
+                f'margin-bottom:4px">📊 ZigZag 對照圖（ATR×1.5）— W 底 / M 頂 / VCP 共用視覺</div>'
+                f'<img src="{_zz_data_uri}" style="width:100%;border-radius:4px"/>'
+                f'</div>'
+            )
     except Exception:
         pass
 
