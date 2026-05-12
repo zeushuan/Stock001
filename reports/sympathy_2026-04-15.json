@@ -1,0 +1,59 @@
+{
+  "date": "2026-04-15",
+  "leaders": [
+    {
+      "ticker": "2376.TW",
+      "group": "AI_Server_TW",
+      "return_pct": 0.0588,
+      "volume_ratio": 3.55,
+      "close": 279.0,
+      "detected_at": "2026-04-15"
+    },
+    {
+      "ticker": "3711.TW",
+      "group": "TW_Semi_OSAT",
+      "return_pct": 0.0531,
+      "volume_ratio": 1.65,
+      "close": 446.5,
+      "detected_at": "2026-04-15"
+    }
+  ],
+  "candidates": [
+    {
+      "ticker": "2449.TW",
+      "leader": "3711.TW",
+      "group": "TW_Semi_OSAT",
+      "score": 0.87,
+      "corr_60d": 0.778,
+      "spread_pctile": 0.0,
+      "lag_today": 0.0863,
+      "leader_today_pct": 0.0531,
+      "peer_today_pct": -0.0332,
+      "signal_date": "2026-04-15"
+    },
+    {
+      "ticker": "3231.TW",
+      "leader": "2376.TW",
+      "group": "AI_Server_TW",
+      "score": 0.853,
+      "corr_60d": 0.748,
+      "spread_pctile": 0.0,
+      "lag_today": 0.0845,
+      "leader_today_pct": 0.0588,
+      "peer_today_pct": -0.0256,
+      "signal_date": "2026-04-15"
+    },
+    {
+      "ticker": "2317.TW",
+      "leader": "2376.TW",
+      "group": "AI_Server_TW",
+      "score": 0.745,
+      "corr_60d": 0.671,
+      "spread_pctile": 0.0,
+      "lag_today": 0.0588,
+      "leader_today_pct": 0.0588,
+      "peer_today_pct": 0.0,
+      "signal_date": "2026-04-15"
+    }
+  ]
+}

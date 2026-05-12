@@ -1,0 +1,53 @@
+# Stock001 — Sympathy Play 族群映射表
+#
+# 維護原則：
+#  - 每月檢視一次
+#  - 新概念股加入時務必 ticker 格式對齊（TW 帶 .TW 後綴；US 純大寫）
+#  - leader_candidates 是預設權重最高的領漲候選，但 detect_leaders 仍會掃 members
+
+groups:
+  AI_Storage_US:
+    description: "AI 儲存超循環族群（HBM/NAND/HDD）"
+    leader_candidates: [MU, SNDK]
+    members: [MU, SNDK, WDC, STX]
+    catalyst_keywords: [HBM, NAND, hyperscaler capex, AI storage]
+
+  AI_Power_US:
+    description: "AI 能源基礎設施"
+    leader_candidates: [CEG, VST]
+    members: [CEG, VST, GEV, PWR, OKLO, BE, CCJ]
+    catalyst_keywords: [PJM, PPA, data center power, SMR]
+
+  AI_Chip_US:
+    description: "AI 晶片設計"
+    leader_candidates: [NVDA, AVGO]
+    members: [NVDA, AVGO, AMD, MRVL, ARM]
+    catalyst_keywords: [GPU, accelerator, AI chip, datacenter]
+
+  AI_Server_TW:
+    description: "台股 AI 伺服器供應鏈"
+    leader_candidates: [2317.TW, 2376.TW]
+    members: [2317.TW, 2376.TW, 3017.TW, 3231.TW, 2313.TW]
+    catalyst_keywords: [AI server, GB200, liquid cooling]
+
+  TW_Semi_OSAT:
+    description: "台股半導體封測（含日月光投控）"
+    leader_candidates: [3711.TW, 2449.TW]
+    members: [3711.TW, 2449.TW, 2441.TW, 2369.TW, 6147.TW]
+    catalyst_keywords: [封測, OSAT, advanced packaging]
+
+  TW_IC_Design:
+    description: "台股 IC 設計"
+    leader_candidates: [2454.TW, 3034.TW]
+    members: [2454.TW, 3034.TW, 6669.TW, 3035.TW, 3443.TW]
+    catalyst_keywords: [IC design, AI inference, edge AI]
+
+settings:
+  default_lookback_days: 60
+  min_correlation: 0.6
+  max_spread_percentile: 0.35
+  min_lag_today: 0.02       # 今日落後 ≥ 2%
+  signal_validity_days: 5
+  # Leader thresholds
+  leader_return_pct: 0.05    # 漲幅 ≥ 5%
+  leader_volume_ratio: 1.5   # 量比 ≥ 1.5
