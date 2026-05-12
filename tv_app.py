@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.25.1"
-APP_UPDATED   = "2026-05-12 17:30"
+APP_VERSION   = "v9.25.3"
+APP_UPDATED   = "2026-05-12 18:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4680,6 +4680,46 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
+    # ── 🆕 v9.25.3：Sympathy Play 補漲訊號 detail card banner ─────
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        sp = _P(__file__).parent / 'sympathy_latest.json'
+        if sp.exists():
+            d_sym = _json.loads(sp.read_text(encoding='utf-8'))
+            _tk_search = ticker.replace('.TW', '')
+            _sym_match = None
+            for c in d_sym.get('candidates', []):
+                if c.get('ticker') in (ticker, _tk_search) or \
+                   c.get('ticker', '').replace('.TW', '') == _tk_search:
+                    _sym_match = c
+                    break
+            if _sym_match:
+                from sympathy.signal_integrator import apply_sympathy_bonus
+                base_score = d.get('decision_score', 0) or 0
+                bonus_info = apply_sympathy_bonus(base_score, _sym_match)
+                _color = ('#3dbb6a' if _sym_match['score'] >= 0.75 else
+                          '#7acc7a' if _sym_match['score'] >= 0.60 else '#a8d4a8')
+                swing_rows.append(
+                    f'<div style="background:linear-gradient(90deg,#0a2810,#0d1828);'
+                    f'border-left:4px solid #66ff99;padding:8px 10px;'
+                    f'border-radius:6px;margin-top:6px">'
+                    f'<div style="font-size:.78rem;color:{_color};font-weight:700;margin-bottom:3px">'
+                    f'🚀 補漲候選 · Score {_sym_match["score"]:.3f} · '
+                    f'Leader {_sym_match["leader"]} ({_sym_match.get("group","")})'
+                    f'</div>'
+                    f'<div style="font-size:.7rem;color:#9fcc9f">'
+                    f'Corr60d <b>{_sym_match["corr_60d"]:.3f}</b>｜'
+                    f'SprdP <b>{_sym_match["spread_pctile"]:.3f}</b>｜'
+                    f'今日落後 <b>+{_sym_match["lag_today"]*100:.2f}%</b>｜'
+                    f'T3 加成 <b>+{bonus_info["bonus_applied"]:.0f}</b> 分'
+                    f' (到 {bonus_info["signal_expires"]})'
+                    f'</div>'
+                    f'</div>'
+                )
+    except Exception:
+        pass
+
     # ── 🆕 v9.24：RS Leading High（紫色點訊號）detail card banner ─────
     try:
         # 試從 screener_results.json 撈該 ticker 的訊號
@@ -8383,6 +8423,125 @@ def _render_rs_leading_high_panel():
 
 
 _render_rs_leading_high_panel()
+
+
+def _render_sympathy_panel():
+    """🆕 v9.25.3：補漲候選股 panel（Sympathy Play）
+
+    讀 sympathy_latest.json 顯示當日 leader + 補漲候選清單
+    """
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        sp = _P(__file__).parent / 'sympathy_latest.json'
+        if not sp.exists():
+            return
+
+        d = _json.loads(sp.read_text(encoding='utf-8'))
+        leaders = d.get('leaders', [])
+        candidates = d.get('candidates', [])
+        date_str = d.get('date', '?')
+
+        if not leaders and not candidates:
+            return
+
+        # Header
+        st.markdown(
+            f'<div style="margin-top:18px;padding:12px 14px;'
+            f'background:linear-gradient(90deg,#1a2810,#0a2010);'
+            f'border-left:4px solid #66ff99;border-radius:8px">'
+            f'<div style="font-size:1rem;font-weight:700;color:#9fff9f">'
+            f'🚀 補漲候選股 — Sympathy Play ({date_str})'
+            f'</div>'
+            f'<div style="font-size:.75rem;color:#7acc7a;margin-top:2px">'
+            f'同族群中相關性高、漲幅落後的個股 — 機構買盤 leader 大漲後，'
+            f'1-5 個交易日內常出現補漲。OOS 12 月回測：勝率 72.7%、Sharpe 1.7（score≥0.75 勝率 85.7%）'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        # Leaders 區塊
+        if leaders:
+            st.markdown(f'**今日 Leaders（{len(leaders)} 檔）**')
+            import pandas as _pd
+            ld_rows = []
+            for ld in leaders:
+                flag = '🇹🇼' if '.TW' in ld['ticker'] else '🇺🇸'
+                ld_rows.append({
+                    'Market': flag,
+                    'Ticker': ld['ticker'],
+                    'Group': ld['group'],
+                    'Ret%': round(ld['return_pct'] * 100, 2),
+                    'VolR': ld['volume_ratio'],
+                    'Close': ld['close'],
+                })
+            st.dataframe(_pd.DataFrame(ld_rows), hide_index=True,
+                          use_container_width=True,
+                          column_config={
+                              'Ret%': st.column_config.NumberColumn('Ret%', format='%+.2f%%'),
+                              'VolR': st.column_config.NumberColumn('VolR', format='%.2fx'),
+                              'Close': st.column_config.NumberColumn('Close', format='%.2f'),
+                          })
+
+        # Candidates 區塊
+        if candidates:
+            high_n = sum(1 for c in candidates if c['score'] >= 0.75)
+            theme_n = sum(1 for c in candidates if 'AI_' in (c.get('group') or ''))
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric('總候選', f'{len(candidates)}')
+            with c2:
+                st.metric('高品質 (score≥0.75)', f'{high_n}',
+                          help='OOS 該區間勝率 85.7%')
+            with c3:
+                st.metric('AI 主題', f'{theme_n}')
+
+            cand_rows = []
+            for i, c in enumerate(candidates, 1):
+                flag = '🇹🇼' if '.TW' in c['ticker'] else '🇺🇸'
+                cand_rows.append({
+                    '#': i,
+                    'Market': flag,
+                    'Ticker': c['ticker'],
+                    'Group': c.get('group', ''),
+                    'Leader': c['leader'],
+                    'Score': c['score'],
+                    'Corr60d': c['corr_60d'],
+                    'SprdPct': c['spread_pctile'],
+                    'Lag%': round(c['lag_today'] * 100, 2),
+                })
+            df_cand = _pd.DataFrame(cand_rows)
+            st.dataframe(
+                df_cand,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    'Score': st.column_config.ProgressColumn(
+                        'Score', min_value=0, max_value=1,
+                        format='%.3f',
+                        help='≥0.75 強訊號，≥0.6 中，≥0.45 弱'),
+                    'Corr60d': st.column_config.NumberColumn(
+                        'Corr60d', format='%.3f', help='與 leader 60 日相關性'),
+                    'SprdPct': st.column_config.NumberColumn(
+                        'SprdPct', format='%.3f',
+                        help='peer/leader 價格比百分位（越低越落後）'),
+                    'Lag%': st.column_config.NumberColumn(
+                        'Lag%', format='%+.2f%%', help='今日落後 leader 幅度'),
+                }
+            )
+
+            st.markdown(
+                f'<div style="font-size:.72rem;color:#7a8899;margin-top:4px">'
+                f'💡 訊號有效期 5 個交易日；持有規則：+8% TP / -4% SL / 5d 收盤出'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    except Exception:
+        pass
+
+
+_render_sympathy_panel()
 
 
 def _render_hit_rate_panel():

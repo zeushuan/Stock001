@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pandas numpy ta twstock requests
+          pip install yfinance pandas numpy ta twstock requests pyyaml tqdm
 
       - name: Scan full TW + US T1 imminent
         run: |
@@ -63,12 +63,18 @@ jobs:
           python screener_full_cloud.py 2>&1 | tee /tmp/screener.log
         continue-on-error: true
 
+      # 🆕 v9.25.2：Sympathy Play 掃描（族群補漲候選）→ sympathy_latest.json
+      - name: Sympathy Play scan
+        run: |
+          python -m sympathy.scan --json sympathy_latest.json 2>&1 | tee /tmp/sympathy.log
+        continue-on-error: true
+
       - name: Commit and push if changed
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          FILES="t1_imminent_full.json t1_imminent_history.json screener_results.json"
+          FILES="t1_imminent_full.json t1_imminent_history.json screener_results.json sympathy_latest.json"
           if [[ -n $(git status --porcelain $FILES) ]]; then
             git add $FILES
             git commit -m "auto: 全市場 T1 + 篩選器預計算 ($(date +%Y-%m-%d))"
