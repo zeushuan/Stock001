@@ -1,0 +1,43 @@
+name: RS Validation Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rs_line.py'
+      - 'sepa_vcp.py'
+      - 'tests/rs_validation/**'
+      - '.github/workflows/rs_validation.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rs_line.py'
+      - 'sepa_vcp.py'
+      - 'tests/rs_validation/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pandas numpy yfinance matplotlib
+
+      - name: Run RS validation tests
+        run: |
+          pytest tests/rs_validation/ -v --tb=short
+
+      - name: Coverage report
+        run: |
+          pytest tests/rs_validation/ --cov=rs_line --cov=sepa_vcp --cov-report=term-missing
