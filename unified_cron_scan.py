@@ -42,6 +42,7 @@ def main():
     }
     all_combined = {}
     rs_all = {}
+    all_df_dicts = {}   # 🆕 v9.25.6：保留 fetch 結果給後續 sympathy 用
 
     for market in ['tw', 'us']:
         print(f'\n{"="*60}\n📍 Market: {market.upper()}\n{"="*60}')
@@ -53,9 +54,10 @@ def main():
         name_map = scr.load_name_maps(market)
 
         # 2. Fetch ONCE (refactored fetch_market_data)
-        print(f'\n[Fetch] {market.upper()} — 共用此 df_dict 給 T1 + Screener')
+        print(f'\n[Fetch] {market.upper()} — 共用此 df_dict 給 T1 + Screener + Sympathy')
         t_fetch = time.time()
         df_dict = scr.fetch_market_data(market, uni)
+        all_df_dicts[market] = df_dict   # 留給 sympathy
         print(f'[Fetch] 完成 {time.time()-t_fetch:.1f}s')
 
         # 3. T1 imminent（從 df_dict）
@@ -99,17 +101,60 @@ def main():
         json.dump(scr_output, f, indent=2, ensure_ascii=False)
     print(f'✅ 寫入 screener_results.json')
 
-    # 6. Sympathy（獨立資料源，但只 ~3-5 分鐘）
+    # 6. Sympathy（共用前面 fetch 的 df_dict — 避免重複 yfinance + rate limit）
     print(f'\n[Sympathy] 跑補漲掃描...')
     t_sym = time.time()
     try:
         from sympathy.peer_mapping import get_default_mapping
         from sympathy.leader_detector import detect_leaders
         from sympathy.laggard_scorer import scan_all_groups
-        mapping = get_default_mapping()
+        from sympathy._data import set_injected_data, clear_injected_data
+        # 合併 TW + US df_dict（前面 step 已 fetch 過，無需再抓）
+        merged_df_dict = {}
+        for mk, dfd in all_df_dicts.items():
+            merged_df_dict.update(dfd)
+
+        # 🆕 v9.25.6：補抓 peer 成員（universe 可能漏掉小型成員如 SNDK/CEG/GEV 等）
+        all_members = set()
+        for g in mapping.list_groups():
+            all_members.update(mapping.get_members(g))
+        missing = [m for m in all_members if m not in merged_df_dict
+                    and m.replace('.TW', '') not in merged_df_dict]
+        if missing:
+            print(f'  補抓 {len(missing)} 個 sympathy 成員: {missing[:10]}{"..." if len(missing)>10 else ""}')
+            try:
+                import yfinance as yf, io, contextlib, logging
+                logging.getLogger('yfinance').setLevel(logging.CRITICAL)
+                with contextlib.redirect_stderr(io.StringIO()), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    _bulk = yf.download(missing, period='14mo',
+                                          interval='1d', progress=False,
+                                          auto_adjust=True, group_by='ticker',
+                                          timeout=30)
+                # 拆成 dict
+                if isinstance(_bulk.columns, pd.MultiIndex):
+                    for tk in missing:
+                        if tk in _bulk.columns.get_level_values(0):
+                            try:
+                                sub = _bulk[tk].dropna(how='all')
+                                if len(sub) >= 50:
+                                    merged_df_dict[tk] = sub
+                            except Exception: pass
+                elif len(missing) == 1:
+                    sub = _bulk.dropna(how='all')
+                    if len(sub) >= 50:
+                        merged_df_dict[missing[0]] = sub
+                ok_n = sum(1 for m in missing if m in merged_df_dict)
+                print(f'  補抓完成: {ok_n}/{len(missing)} 成功')
+            except Exception as e:
+                print(f'  補抓失敗 {type(e).__name__}: {e}')
+
+        set_injected_data(merged_df_dict)
+        print(f'  Sympathy 用 df_dict: {len(merged_df_dict)} ticker')
         as_of = pd.Timestamp.now().normalize()
         leaders = detect_leaders(as_of, mapping)
         candidates = scan_all_groups(as_of, mapping)
+        clear_injected_data()
         sym_out = {
             'date': as_of.strftime('%Y-%m-%d'),
             'computed_at': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),

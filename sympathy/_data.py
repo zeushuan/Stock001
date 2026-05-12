@@ -1,17 +1,51 @@
 """sympathy 模組共用的 data loader
 
 優先順序：
+  0. 注入的 df_dict（unified scan 共用，最快）
   1. data_loader.load_from_cache（local data_cache）
   2. yfinance fallback（cache miss 才下載）
 """
 import os
 import pandas as pd
 import numpy as np
-from typing import Optional
+from typing import Optional, Dict
 
 
 _CACHE_DIR = '.cache/sympathy'
 os.makedirs(_CACHE_DIR, exist_ok=True)
+
+# 🆕 v9.25.6：可注入外部 df_dict（unified_cron_scan 共用 fetch 結果）
+_INJECTED_DF_DICT: Dict[str, pd.DataFrame] = {}
+
+
+def set_injected_data(df_dict: Dict[str, pd.DataFrame]):
+    """注入預抓的 df_dict（unified scan 用）。Key 為 ticker 名稱。"""
+    global _INJECTED_DF_DICT
+    _INJECTED_DF_DICT = df_dict or {}
+
+
+def clear_injected_data():
+    global _INJECTED_DF_DICT
+    _INJECTED_DF_DICT = {}
+
+
+def _lookup_injected(ticker: str) -> Optional[pd.DataFrame]:
+    """在 injected df_dict 中找 ticker（容忍 .TW 後綴差異）"""
+    if not _INJECTED_DF_DICT: return None
+    # 直接命中
+    if ticker in _INJECTED_DF_DICT:
+        return _INJECTED_DF_DICT[ticker]
+    # 試 strip .TW
+    if ticker.endswith('.TW'):
+        bare = ticker[:-3]
+        if bare in _INJECTED_DF_DICT:
+            return _INJECTED_DF_DICT[bare]
+    else:
+        # 試 加 .TW
+        wt = ticker + '.TW'
+        if wt in _INJECTED_DF_DICT:
+            return _INJECTED_DF_DICT[wt]
+    return None
 
 
 def load_history(ticker: str, lookback_days: int = 90,
@@ -22,12 +56,15 @@ def load_history(ticker: str, lookback_days: int = 90,
     若資料不足或載入失敗回 None
     """
     df = None
+    # Path 0: injected df_dict（unified scan 共用）
+    df = _lookup_injected(ticker)
     # Path A: data_cache
-    try:
-        import data_loader as _dl
-        df = _dl.load_from_cache(ticker)
-    except Exception:
-        df = None
+    if df is None:
+        try:
+            import data_loader as _dl
+            df = _dl.load_from_cache(ticker)
+        except Exception:
+            df = None
 
     # Path B: yfinance fallback（silence stderr，部分 ticker 會 404）
     if df is None or len(df) < lookback_days:
