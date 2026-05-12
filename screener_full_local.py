@@ -99,6 +99,56 @@ def scan(market, tickers, name_map):
         if ticker in ticker_states:
             ticker_states[ticker]['rs_rating'] = rs
 
+    # ── 🆕 v9.24 Pass 2.5：RS Leading High（紫色點訊號）──
+    try:
+        from scanners.rs_leading_high import (detect_rs_leading_high,
+                                                apply_quality_filters, score_signal)
+        from universes.us_universe import get_theme_for_ticker
+        idx_tk = '^GSPC' if market == 'us' else '^TWII'
+        idx_df = dl.load_from_cache(idx_tk)
+        if idx_df is not None:
+            idx_close = idx_df['Close'].astype(float)
+            raw_sigs = []
+            for ticker, state in ticker_states.items():
+                try:
+                    df = dl.load_from_cache(ticker)
+                    if df is None or len(df) < 200: continue
+                    sig = detect_rs_leading_high(
+                        stock_prices=df['Close'].astype(float),
+                        index_prices=idx_close,
+                        stock_volumes=df['Volume'].astype(float),
+                        ticker=ticker,
+                        as_of_date=df.index[-1],
+                    )
+                    if sig is None: continue
+                    if apply_quality_filters(sig, df['Close'], df['Volume'],
+                                              market=('US' if market == 'us' else 'TW')):
+                        raw_sigs.append((ticker, sig, df['Close']))
+                except Exception: continue
+
+            # 用 universe context 算分
+            if raw_sigs:
+                rs_slopes = [s.rs_slope_50d for _, s, _ in raw_sigs]
+                ctx = {'rs_slopes': rs_slopes}
+                for tk, sig, sp in raw_sigs:
+                    recent = sp.tail(30)
+                    if len(recent) >= 10 and recent.mean() > 0:
+                        ctx[f'cv_{tk}'] = float(recent.std() / recent.mean())
+                for tk, sig, _ in raw_sigs:
+                    score_signal(sig, ctx)
+                # 排序給 rank
+                raw_sigs.sort(key=lambda x: -(x[1].quality_score or 0))
+                for r, (tk, sig, _) in enumerate(raw_sigs):
+                    ticker_states[tk]['rs_leading_high_passed'] = True
+                    ticker_states[tk]['rs_leading_high_score'] = sig.quality_score
+                    ticker_states[tk]['rs_leading_high_purple_dots'] = sig.purple_dot_count_recent
+                    ticker_states[tk]['rs_leading_high_distance'] = round(sig.stock_distance_from_high_pct * 100, 2)
+                    ticker_states[tk]['rs_leading_high_rank'] = r + 1
+                    ticker_states[tk]['rs_leading_high_theme'] = sig.theme
+            print(f"  RS leading high: {len(raw_sigs)} signals")
+    except Exception as e:
+        print(f"  RS leading high skipped: {type(e).__name__}: {e}")
+
     # ── Pass 3：filter ──
     for ticker, state in ticker_states.items():
         for fname, fn in FILTERS.items():
@@ -122,6 +172,12 @@ def scan(market, tickers, name_map):
                         'sepa_n_met': state.get('sepa_n_met', 0),
                         'vcp_is_vcp': state.get('vcp_is_vcp', False),
                         'vcp_near_pivot_pct': state.get('vcp_near_pivot_pct', 0),
+                        # 🆕 v9.24 RS Leading High
+                        'rs_leading_high_score': state.get('rs_leading_high_score'),
+                        'rs_leading_high_purple_dots': state.get('rs_leading_high_purple_dots'),
+                        'rs_leading_high_distance': state.get('rs_leading_high_distance'),
+                        'rs_leading_high_rank': state.get('rs_leading_high_rank'),
+                        'rs_leading_high_theme': state.get('rs_leading_high_theme'),
                     })
             except Exception: continue
 

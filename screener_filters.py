@@ -611,6 +611,33 @@ def f_double_top_grade_AB(s):
             and s.get('double_top_quality') in ('A', 'B'))
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🟣 v9.24：RS Leading High 紫色點訊號（TraderLion 機構累積足跡）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_rs_leading_high_signal(s):
+    """🟣 RS 領先創新高（任何分數）— RS 創新高但股價未創新高"""
+    return s.get('rs_leading_high_passed', False)
+
+
+def f_rs_leading_high_top(s):
+    """🟣 RS 領先創新高 — 高品質（score ≥ 60）"""
+    return (s.get('rs_leading_high_passed', False)
+            and (s.get('rs_leading_high_score') or 0) >= 60)
+
+
+def f_rs_leading_high_purple_5plus(s):
+    """🟣 紫色點密集（近 20d ≥ 5 次）— 機構買盤明顯"""
+    return (s.get('rs_leading_high_passed', False)
+            and (s.get('rs_leading_high_purple_dots') or 0) >= 5)
+
+
+def f_rs_leading_high_eddy_theme(s):
+    """🟣 RS 領先創新高 — Eddy 主題（AI 儲存 / AI 能源）"""
+    return (s.get('rs_leading_high_passed', False)
+            and s.get('rs_leading_high_theme') in ('AI_storage', 'AI_energy'))
+
+
 # 三段式建倉 stage filters
 def f_double_bottom_stage_A(s):
     """🟢 雙底 A 段試單（底部反應K + 第2底剛現）"""
@@ -811,6 +838,11 @@ FILTERS = {
     # 🆕 v9.22：三段建倉
     '🟢 雙底 A 段試單（底部反應K + 第2底剛現）': f_double_bottom_stage_A,
     '🟢 雙底 C 段補滿（突破後回踩有效）': f_double_bottom_stage_C,
+    # 🆕 v9.24：RS Leading High（紫色點訊號 — 機構累積足跡）
+    '🟣 RS 領先創新高（任何分數）': f_rs_leading_high_signal,
+    '🟣 RS 領先創新高 — 高品質 (score≥60)': f_rs_leading_high_top,
+    '🟣 RS 領先創新高 — 紫色點密集 (≥5次)': f_rs_leading_high_purple_5plus,
+    '🟣 RS 領先創新高 — Eddy 主題 (AI 儲存/能源)': f_rs_leading_high_eddy_theme,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,

@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.23.3"
-APP_UPDATED   = "2026-05-11 15:00"
+APP_VERSION   = "v9.24"
+APP_UPDATED   = "2026-05-12 16:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4680,6 +4680,56 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
+    # ── 🆕 v9.24：RS Leading High（紫色點訊號）detail card banner ─────
+    try:
+        # 試從 screener_results.json 撈該 ticker 的訊號
+        _rsh_data = None
+        try:
+            from pathlib import Path as _P
+            import json as _json
+            _sj = _P(__file__).parent / 'screener_results.json'
+            if _sj.exists():
+                _sd = _json.load(open(_sj, encoding='utf-8'))
+                _bf = _sd.get('by_filter', {})
+                _tk_pure = ticker.replace('.TW', '')
+                for _fname, _items in _bf.items():
+                    if not _fname.startswith('🟣 RS 領先創新高'): continue
+                    for _it in _items:
+                        if _it.get('ticker') == _tk_pure and _it.get('rs_leading_high_score') is not None:
+                            _rsh_data = _it
+                            break
+                    if _rsh_data: break
+        except Exception:
+            _rsh_data = None
+
+        if _rsh_data:
+            _score = _rsh_data.get('rs_leading_high_score') or 0
+            _purp = _rsh_data.get('rs_leading_high_purple_dots') or 0
+            _dist = _rsh_data.get('rs_leading_high_distance') or 0
+            _rank = _rsh_data.get('rs_leading_high_rank') or '?'
+            _theme = _rsh_data.get('rs_leading_high_theme') or ''
+            _theme_badge = (f' · <span style="color:#ffaa55">[{_theme}]</span>'
+                            if _theme else '')
+            # 顏色按分數
+            _color = ('#3dbb6a' if _score >= 80 else
+                      '#a866ff' if _score >= 60 else
+                      '#c294d6')
+            swing_rows.append(
+                f'<div style="background:linear-gradient(90deg,#1a0828,#0d1828);'
+                f'border-left:4px solid #b266ff;padding:8px 10px;'
+                f'border-radius:6px;margin-top:6px">'
+                f'<div style="font-size:.78rem;color:{_color};font-weight:700;margin-bottom:3px">'
+                f'🟣 RS 領先創新高 · Score {_score:.1f}/100 · Rank #{_rank}{_theme_badge}'
+                f'</div>'
+                f'<div style="font-size:.7rem;color:#a87acc">'
+                f'紫色點 <b>{_purp}</b> 次（近 20d）｜距 63d 高 <b>{_dist:.1f}%</b>｜'
+                f'機構累積足跡訊號 — RS 線創高，但股價仍在整理'
+                f'</div>'
+                f'</div>'
+            )
+    except Exception:
+        pass
+
     # ── 🆕 v9.22：雙底雙頂進階分析（職業交易員五大關鍵 + 三段建倉） ─────
     try:
         _db = d.get('double_bottom_info') or {}
@@ -8253,6 +8303,126 @@ def _render_screener_panel():
 
 
 _render_screener_panel()
+
+
+def _render_rs_leading_high_panel():
+    """🆕 v9.24：紫色點訊號專屬 panel（RS 領先創新高）
+
+    讀 screener_results.json 的 by_filter，列出通過 RS Leading High 的標的
+    """
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        sj = _P(__file__).parent / 'screener_results.json'
+        if not sj.exists():
+            return
+
+        d = _json.loads(sj.read_text(encoding='utf-8'))
+        bf = d.get('by_filter', {})
+        # 從所有 RS Leading High 變體 filter 中蒐集 ticker 集合
+        rs_filter_keys = [k for k in bf.keys() if k.startswith('🟣 RS 領先創新高')]
+        if not rs_filter_keys:
+            return
+
+        # 用「任何分數」filter 做總清單（最寬鬆的）
+        main_key = next((k for k in rs_filter_keys if '任何分數' in k), rs_filter_keys[0])
+        items = bf.get(main_key, [])
+        if not items:
+            return
+
+        # 按 rs_leading_high_score DESC 排序
+        items_sorted = sorted(items,
+                                key=lambda x: -(x.get('rs_leading_high_score') or 0))
+
+        st.markdown(
+            f'<div style="margin-top:18px;padding:12px 14px;'
+            f'background:linear-gradient(90deg,#2a1042,#1a0828);'
+            f'border-left:4px solid #b266ff;border-radius:8px">'
+            f'<div style="font-size:1rem;font-weight:700;color:#d99fff">'
+            f'🟣 RS 領先創新高訊號（紫色點）'
+            f'</div>'
+            f'<div style="font-size:.75rem;color:#a87acc;margin-top:2px">'
+            f'TraderLion / William O\'Neil / Mark Minervini 視為機構累積足跡 —'
+            f' RS 線創新高但股價未創新高 = 機構安靜累積中'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        # Summary
+        tw_n = sum(1 for i in items_sorted if i.get('market') == 'tw')
+        us_n = sum(1 for i in items_sorted if i.get('market') == 'us')
+        themed = [i for i in items_sorted if i.get('rs_leading_high_theme')]
+        high_quality = [i for i in items_sorted
+                         if (i.get('rs_leading_high_score') or 0) >= 60]
+        dense_purple = [i for i in items_sorted
+                         if (i.get('rs_leading_high_purple_dots') or 0) >= 5]
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric('總訊號', f'{len(items_sorted)}',
+                       help=f'TW {tw_n} / US {us_n}')
+        with c2:
+            st.metric('高品質 (≥60 分)', f'{len(high_quality)}')
+        with c3:
+            st.metric('紫色點密集 (≥5)', f'{len(dense_purple)}')
+        with c4:
+            st.metric('Eddy 主題', f'{len(themed)}')
+
+        # 主表格
+        import pandas as _pd
+        rows = []
+        for i, item in enumerate(items_sorted, 1):
+            rows.append({
+                '#': i,
+                'Ticker': item.get('ticker'),
+                'Name': item.get('name', '')[:20],
+                'Market': '🇺🇸' if item.get('market') == 'us' else '🇹🇼',
+                'Score': item.get('rs_leading_high_score'),
+                'Close': item.get('close'),
+                'DistHi%': item.get('rs_leading_high_distance'),
+                'PurpD': item.get('rs_leading_high_purple_dots'),
+                'RS Rating': item.get('rs_rating'),
+                'Theme': item.get('rs_leading_high_theme', ''),
+            })
+        df_rs = _pd.DataFrame(rows)
+
+        st.dataframe(
+            df_rs,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                'Score': st.column_config.ProgressColumn(
+                    'Score', min_value=0, max_value=100, format='%.1f',
+                    help='品質分數 0-100，>60 = 高品質'),
+                'PurpD': st.column_config.NumberColumn(
+                    'PurpD', help='近 20 日 RS 創新高次數（紫色點密度）'),
+                'DistHi%': st.column_config.NumberColumn(
+                    'DistHi%', format='%.1f%%',
+                    help='股價距 63 日高點百分比；5-15% 區間最佳'),
+                'Theme': st.column_config.TextColumn(
+                    'Theme', help='Eddy 關注主題（AI 儲存 / AI 能源）')
+            }
+        )
+
+        # 操作提示
+        st.markdown(
+            f'<div style="font-size:.72rem;color:#7a8899;margin-top:4px">'
+            f'💡 點 Ticker 進入個股 detail card 查看完整 ZigZag 對照圖、'
+            f'動能衰減、3 段建倉等資訊。OOS 回測 21d 勝率 78%、Sharpe 1.71'
+            f'（樣本 SP500 50 檔 × 2023-2024，p=0.20 統計顯著性未達；'
+            f'建議作為 T3 子集輸入而非獨立策略）'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        try:
+            st.markdown(f'RS Leading High panel 載入失敗: {type(e).__name__}')
+        except Exception:
+            pass
+
+
+_render_rs_leading_high_panel()
 
 
 def _render_hit_rate_panel():

@@ -208,6 +208,66 @@ def scan_market(market, tickers, name_map):
         if ticker in ticker_states:
             ticker_states[ticker]['rs_rating'] = rs
 
+    # ── 🆕 v9.24 Pass 2.5：RS Leading High（紫色點訊號）──
+    try:
+        from scanners.rs_leading_high import (detect_rs_leading_high,
+                                                apply_quality_filters, score_signal)
+        idx_yf = '^GSPC' if market == 'us' else '^TWII'
+        # 從 df_dict 取得指數，若無則跳過
+        idx_df = df_dict.get(idx_yf) or df_dict.get('SPY')
+        if idx_df is None:
+            # 嘗試額外抓指數
+            import yfinance as yf
+            try:
+                idx_df = yf.download(idx_yf, period='14mo', interval='1d',
+                                      progress=False, auto_adjust=True)
+                if isinstance(idx_df.columns, pd.MultiIndex):
+                    idx_df.columns = idx_df.columns.get_level_values(0)
+            except Exception:
+                idx_df = None
+
+        if idx_df is not None and len(idx_df) > 100:
+            idx_close = idx_df['Close'].astype(float)
+            raw_sigs = []
+            for yf_t, df in df_dict.items():
+                ticker = yf_t.replace('.TW', '') if (market == 'tw' and '.TW' in yf_t) else yf_t
+                if ticker not in ticker_states: continue
+                if df is None or len(df) < 200: continue
+                try:
+                    sig = detect_rs_leading_high(
+                        stock_prices=df['Close'].astype(float),
+                        index_prices=idx_close,
+                        stock_volumes=df['Volume'].astype(float),
+                        ticker=ticker,
+                        as_of_date=df.index[-1],
+                    )
+                    if sig is None: continue
+                    if apply_quality_filters(sig, df['Close'], df['Volume'],
+                                              market=('US' if market == 'us' else 'TW')):
+                        raw_sigs.append((ticker, sig, df['Close']))
+                except Exception: continue
+
+            if raw_sigs:
+                rs_slopes = [s.rs_slope_50d for _, s, _ in raw_sigs]
+                ctx = {'rs_slopes': rs_slopes}
+                for tk, sig, sp in raw_sigs:
+                    recent = sp.tail(30)
+                    if len(recent) >= 10 and recent.mean() > 0:
+                        ctx[f'cv_{tk}'] = float(recent.std() / recent.mean())
+                for tk, sig, _ in raw_sigs:
+                    score_signal(sig, ctx)
+                raw_sigs.sort(key=lambda x: -(x[1].quality_score or 0))
+                for r, (tk, sig, _) in enumerate(raw_sigs):
+                    ticker_states[tk]['rs_leading_high_passed'] = True
+                    ticker_states[tk]['rs_leading_high_score'] = sig.quality_score
+                    ticker_states[tk]['rs_leading_high_purple_dots'] = sig.purple_dot_count_recent
+                    ticker_states[tk]['rs_leading_high_distance'] = round(sig.stock_distance_from_high_pct * 100, 2)
+                    ticker_states[tk]['rs_leading_high_rank'] = r + 1
+                    ticker_states[tk]['rs_leading_high_theme'] = sig.theme
+            print(f"  Pass 2.5 RS Leading High: {len(raw_sigs)} signals")
+    except Exception as e:
+        print(f"  RS Leading High skipped: {type(e).__name__}: {e}")
+
     # ── Pass 3：跑 filter ─────────────────────────
     print(f"  Pass 3: 跑 filter ...")
     for ticker, state in ticker_states.items():
@@ -233,6 +293,12 @@ def scan_market(market, tickers, name_map):
                         'sepa_n_met': state.get('sepa_n_met', 0),
                         'vcp_is_vcp': state.get('vcp_is_vcp', False),
                         'vcp_near_pivot_pct': state.get('vcp_near_pivot_pct', 0),
+                        # 🆕 v9.24 RS Leading High
+                        'rs_leading_high_score': state.get('rs_leading_high_score'),
+                        'rs_leading_high_purple_dots': state.get('rs_leading_high_purple_dots'),
+                        'rs_leading_high_distance': state.get('rs_leading_high_distance'),
+                        'rs_leading_high_rank': state.get('rs_leading_high_rank'),
+                        'rs_leading_high_theme': state.get('rs_leading_high_theme'),
                     })
             except Exception:
                 continue
