@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "generated_at": "2026-05-12T12:15:49.168988",
+    "scanner": "rs_leading_high",
+    "version": "1.0",
+    "total_signals": 1
+  },
+  "signals": [
+    {
+      "ticker": "LLY",
+      "signal_date": "2025-11-30",
+      "rs_value": 0.15702377910614265,
+      "rs_lookback_high": 0.16404960783088282,
+      "days_since_rs_high": 2,
+      "purple_dot_count_recent": 15,
+      "stock_price": 1075.469970703125,
+      "stock_distance_from_high_pct": 0.03105570798673387,
+      "rs_above_wma21": true,
+      "rs_long_term_trend_up": true,
+      "volume_ratio": 0.6868175376025186,
+      "passed_quality_filters": true,
+      "filter_failed_reasons": [],
+      "quality_score": 41.06,
+      "score_breakdown": {
+        "purple_dots": 20.0,
+        "rs_slope": 20.0,
+        "base_quality": 0.0,
+        "volume": 0.0,
+        "distance": 1.0557079867338712
+      },
+      "rank": 1,
+      "theme": null,
+      "above_sma200": true,
+      "dollar_volume_50d": 3534310365.708252,
+      "rs_slope_50d": 0.0010280038127097085
+    }
+  ]
+}

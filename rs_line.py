@@ -40,6 +40,16 @@ def calculate_rs_line(stock: pd.Series, index: pd.Series,
     if not isinstance(index.index, pd.DatetimeIndex):
         raise TypeError('index.index 必須是 DatetimeIndex')
 
+    # 🆕 時區正規化：把兩邊都去 tz 並 normalize 到日期，避免 tz mismatch 導致 intersection 空
+    stock = stock.copy()
+    index = index.copy()
+    if stock.index.tz is not None:
+        stock.index = stock.index.tz_localize(None)
+    if index.index.tz is not None:
+        index.index = index.index.tz_localize(None)
+    stock.index = stock.index.normalize()
+    index.index = index.index.normalize()
+
     # 對齊兩個序列的日期交集
     common_dates = stock.index.intersection(index.index)
     if len(common_dates) == 0:
