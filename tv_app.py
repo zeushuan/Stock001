@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.24"
-APP_UPDATED   = "2026-05-12 16:00"
+APP_VERSION   = "v9.25"
+APP_UPDATED   = "2026-05-12 17:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -8129,7 +8129,7 @@ def _render_screener_panel():
                 unsafe_allow_html=True
             )
 
-            # 🆕 v9.22.3：用 st.data_editor 帶 checkbox 讓用戶選擇要存的個股
+            # 🆕 v9.25：移除勾選功能，改用純展示表格
             _display_rows = []
             for r in results[:limit_n]:
                 flag = '🇹🇼' if r['market'] == 'tw' else '🇺🇸'
@@ -8144,7 +8144,6 @@ def _render_screener_panel():
                 rs_v = r.get('rs_rating')
                 pctb = r.get('pct_b')
                 _display_rows.append({
-                    '✓選': False,
                     '市場': flag,
                     '代號': r['ticker'],
                     '名稱': (r.get('name', '') or '')[:14],
@@ -8160,48 +8159,11 @@ def _render_screener_panel():
                 })
             _df_results = pd.DataFrame(_display_rows)
 
-            # 全選 / 全消選 按鈕（在表上方）
-            _sel_cols = st.columns([1, 1, 1, 4])
-            _ss_key = f'screener_select_state_{last_filter}'
-            _ver_key = f'screener_editor_ver_{last_filter}'
-            # 🐛 v9.22.4：用 ver 計數器強制 data_editor 在 全選/全消 時重置 cached state
-            _select_ver = st.session_state.get(_ver_key, 0)
-            with _sel_cols[0]:
-                if st.button('✓ 全選', key='screener_select_all', use_container_width=True):
-                    st.session_state[_ss_key] = 'all'
-                    st.session_state[_ver_key] = _select_ver + 1
-                    st.rerun()
-            with _sel_cols[1]:
-                if st.button('✗ 全消', key='screener_select_none', use_container_width=True):
-                    st.session_state[_ss_key] = 'none'
-                    st.session_state[_ver_key] = _select_ver + 1
-                    st.rerun()
-            with _sel_cols[2]:
-                if st.button('🟢 只勾多頭', key='screener_select_bull', use_container_width=True):
-                    st.session_state[_ss_key] = 'bull'
-                    st.session_state[_ver_key] = _select_ver + 1
-                    st.rerun()
-
-            # 套用 select state（影響 DataFrame default 值）
-            _action = st.session_state.pop(_ss_key, None)  # 消費後清掉，避免下次 render 又套
-            if _action == 'all':
-                _df_results['✓選'] = True
-            elif _action == 'none':
-                _df_results['✓選'] = False
-            elif _action == 'bull':
-                _df_results['✓選'] = _df_results['多空'] == '🟢'
-
-            # 🐛 v9.22.4：key 含 ver 計數，全選/全消 時 key 改變 → data_editor 重新讀 DataFrame
-            edited_df = st.data_editor(
+            st.dataframe(
                 _df_results,
                 hide_index=True,
                 use_container_width=True,
-                disabled=['市場', '代號', '名稱', '現價', '多空', 'RSI', 'RS',
-                          'ADX', 'cross', '%B', '距高', 'DC警示'],
                 column_config={
-                    '✓選': st.column_config.CheckboxColumn(
-                        '✓選', width='small',
-                        help='勾選後按下方「存選取的」按鈕'),
                     '代號': st.column_config.TextColumn('代號', width='small'),
                     '名稱': st.column_config.TextColumn('名稱', width='medium'),
                     '現價': st.column_config.NumberColumn('現價', format='%.2f', width='small'),
@@ -8211,85 +8173,8 @@ def _render_screener_panel():
                     '%B':  st.column_config.NumberColumn('%B', format='%.2f', width='small'),
                     '距高': st.column_config.NumberColumn('距高%', format='%.0f', width='small'),
                 },
-                key=f'screener_editor_{last_filter}_v{_select_ver}',
                 height=min(600, max(150, len(_display_rows) * 35 + 50)),
             )
-
-            # 計算已勾選的 tickers
-            _selected_tickers = (edited_df.loc[edited_df['✓選'] == True, '代號'].tolist()
-                                  if edited_df is not None and '✓選' in edited_df.columns
-                                  else [])
-            n_sel = len(_selected_tickers)
-            st.markdown(
-                f'<div style="font-size:.78rem;color:#7abadd;margin-top:4px">'
-                f'已勾選 <b style="color:#3dbb6a">{n_sel}</b> 檔 / 共 {len(_display_rows)} 檔</div>',
-                unsafe_allow_html=True
-            )
-
-            # 存成自選股
-            _scols = st.columns([3, 1, 1])
-            today_str = pd.Timestamp.now().strftime('%Y%m%d')
-            _filter_label = filter_names[0] if len(filter_names) == 1 else f'{len(filter_names)}條件'
-            default_name = f'篩選_{_filter_label[:12].strip()}_{today_str}'.replace(' ', '_')
-            with _scols[0]:
-                save_name = st.text_input(
-                    '清單名稱', value=default_name,
-                    label_visibility='collapsed', key='screener_save_name',
-                    placeholder='清單名稱'
-                )
-            with _scols[1]:
-                save_btn = st.button(f'💾 存 ({n_sel})',
-                                       key='screener_save_btn',
-                                       use_container_width=True,
-                                       disabled=(n_sel == 0))
-            with _scols[2]:
-                add_btn = st.button(f'➕ 加入 ({n_sel})',
-                                      key='screener_add_btn',
-                                      use_container_width=True,
-                                      disabled=(n_sel == 0))
-
-            if save_btn or add_btn:
-                if not save_name.strip():
-                    st.warning('請輸入清單名稱')
-                elif n_sel == 0:
-                    st.warning('請至少勾選一檔')
-                else:
-                    tickers_text = '\n'.join(_selected_tickers)
-                    _wl_path = _P(__file__).parent / 'watchlists.json'
-                    try:
-                        from streamlit_local_storage import LocalStorage
-                        _ls = LocalStorage()
-                    except Exception:
-                        _ls = None
-                    wls = {}
-                    if _ls is not None:
-                        try:
-                            v = _ls.getItem('stock001_watchlists')
-                            if v:
-                                wls = _json.loads(v) if isinstance(v, str) else v
-                        except Exception: pass
-                    if not wls and _wl_path.exists():
-                        try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
-                        except Exception: wls = {}
-
-                    name = save_name.strip()
-                    if add_btn and name in wls:
-                        existing = set(wls[name].split('\n')) if isinstance(wls[name], str) else set()
-                        new_set = existing | set(_selected_tickers)
-                        wls[name] = '\n'.join(sorted(new_set))
-                        msg = f'➕ 已合併進「{name}」（共 {len(new_set)} 檔）'
-                    else:
-                        wls[name] = tickers_text
-                        msg = f'💾 已儲存「{name}」（勾選 {n_sel} 檔）'
-
-                    text = _json.dumps(wls, ensure_ascii=False, indent=2)
-                    if _ls:
-                        try: _ls.setItem('stock001_watchlists', text)
-                        except: pass
-                    try: _wl_path.write_text(text, encoding='utf-8')
-                    except: pass
-                    st.success(msg)
-                    st.rerun()
     except Exception as e:
         try:
             st.markdown(
