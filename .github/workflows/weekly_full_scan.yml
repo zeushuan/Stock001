@@ -29,7 +29,7 @@ env:
 jobs:
   full_scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 60   # 預估 15-25 分鐘（新版用 TWSE/TPEX），預留 buffer
+    timeout-minutes: 90   # v9.25.2：60→90，因為 v9.24 加 RS Leading High Pass 2.5 後總時長 ~70 分
     steps:
       - name: Checkout repo
         uses: actions/checkout@v5
