@@ -158,6 +158,26 @@ def scan_market(market, tickers, name_map):
         df_dict = _fetch_batch(tickers, period='14mo', is_tw=False)
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(tickers)}")
 
+    # 🆕 v9.25.4：抓索引一次（給 Pass 2.5 用），避免 Pass 2.5 內 yfinance fallback 觸發 rate limit
+    idx_yf = '^GSPC' if market == 'us' else '^TWII'
+    if idx_yf not in df_dict:
+        try:
+            import yfinance as yf, io, contextlib, logging
+            logging.getLogger('yfinance').setLevel(logging.CRITICAL)
+            with contextlib.redirect_stderr(io.StringIO()), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                _idx = yf.download(idx_yf, period='14mo', interval='1d',
+                                     progress=False, auto_adjust=True, timeout=30)
+            if _idx is not None and len(_idx) > 100:
+                if isinstance(_idx.columns, pd.MultiIndex):
+                    _idx.columns = _idx.columns.get_level_values(0)
+                df_dict[idx_yf] = _idx
+                print(f"  抓索引 {idx_yf} OK ({len(_idx)} bars)")
+            else:
+                print(f"  抓索引 {idx_yf} 失敗（資料太短），Pass 2.5 將略過")
+        except Exception as e:
+            print(f"  抓索引 {idx_yf} 失敗: {type(e).__name__}，Pass 2.5 將略過")
+
     # 算指標 + 跑所有 filter
     print(f"  🧮 計算指標 + 跑 filter...")
     t0 = time.time()
@@ -209,22 +229,26 @@ def scan_market(market, tickers, name_map):
             ticker_states[ticker]['rs_rating'] = rs
 
     # ── 🆕 v9.24 Pass 2.5：RS Leading High（紫色點訊號）──
+    # 🐛 v9.25.4：取消 yfinance fallback — 在 cron 中容易觸發 rate limit 卡住整個 screener
     try:
         from scanners.rs_leading_high import (detect_rs_leading_high,
                                                 apply_quality_filters, score_signal)
         idx_yf = '^GSPC' if market == 'us' else '^TWII'
-        # 從 df_dict 取得指數，若無則跳過
+        # 1. 先試 df_dict
         idx_df = df_dict.get(idx_yf) or df_dict.get('SPY')
+        # 2. 試 data_cache（推薦 — 不會觸發 rate limit）
         if idx_df is None:
-            # 嘗試額外抓指數
-            import yfinance as yf
             try:
-                idx_df = yf.download(idx_yf, period='14mo', interval='1d',
-                                      progress=False, auto_adjust=True)
-                if isinstance(idx_df.columns, pd.MultiIndex):
-                    idx_df.columns = idx_df.columns.get_level_values(0)
+                import data_loader as _dl
+                idx_df = _dl.load_from_cache(idx_yf)
+                if idx_df is None and market == 'us':
+                    idx_df = _dl.load_from_cache('SPY')
             except Exception:
                 idx_df = None
+        # 3. 仍然沒有 → 跳過 Pass 2.5（不再 yfinance fallback）
+        if idx_df is None:
+            print(f"  Pass 2.5 skipped: 找不到 {idx_yf} 資料（df_dict + data_cache 都無）")
+            raise StopIteration  # 用 exception 跳出 try block
 
         if idx_df is not None and len(idx_df) > 100:
             idx_close = idx_df['Close'].astype(float)
@@ -265,6 +289,8 @@ def scan_market(market, tickers, name_map):
                     ticker_states[tk]['rs_leading_high_rank'] = r + 1
                     ticker_states[tk]['rs_leading_high_theme'] = sig.theme
             print(f"  Pass 2.5 RS Leading High: {len(raw_sigs)} signals")
+    except StopIteration:
+        pass   # 預期的跳出（idx_df 找不到）
     except Exception as e:
         print(f"  RS Leading High skipped: {type(e).__name__}: {e}")
 
