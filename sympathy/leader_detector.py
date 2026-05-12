@@ -16,12 +16,18 @@ from sympathy._data import load_history
 
 def _is_leader(df: pd.DataFrame, as_of_date: pd.Timestamp,
                 min_return: float = 0.05,
-                min_vol_ratio: float = 1.5) -> Optional[Dict]:
-    """判斷該 df 在 as_of_date 是否為 leader"""
+                min_vol_ratio: float = 1.5,
+                min_history_days: int = 252) -> Optional[Dict]:
+    """判斷該 df 在 as_of_date 是否為 leader
+
+    🆕 v9.25.1: 加 min_history_days — 新 IPO 不算 leader
+    （個股事件主導，非族群催化劑；e.g. SNDK 2025 Feb spin-off）
+    """
     if df is None or len(df) < 22: return None
     # 取截至 as_of_date 的 row
     sub = df.loc[:as_of_date]
-    if len(sub) < 22: return None
+    if len(sub) < max(22, min_history_days):
+        return None
     if sub.index[-1].date() != as_of_date.date():
         # 該日無交易（假日 / 停牌）
         return None
@@ -79,6 +85,7 @@ def detect_leaders(as_of_date,
 
     min_return = mapping.get_setting('leader_return_pct', 0.05)
     min_vol_ratio = mapping.get_setting('leader_volume_ratio', 1.5)
+    min_history = mapping.get_setting('leader_min_history_days', 252)
 
     groups_to_scan = group_filter or mapping.list_groups()
     leaders = []
@@ -87,10 +94,12 @@ def detect_leaders(as_of_date,
     for group_name in groups_to_scan:
         members = mapping.get_members(group_name)
         for tk in members:
-            df = load_history(tk, lookback_days=60, as_of_date=as_of_date)
+            df = load_history(tk, lookback_days=max(60, min_history + 20),
+                                as_of_date=as_of_date)
             res = _is_leader(df, as_of_date,
                               min_return=min_return,
-                              min_vol_ratio=min_vol_ratio)
+                              min_vol_ratio=min_vol_ratio,
+                              min_history_days=min_history)
             if res is None: continue
             key = (tk, group_name)
             if key in seen: continue

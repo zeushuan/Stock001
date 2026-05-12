@@ -59,7 +59,7 @@ def test_leader_detector_synthetic():
     v.iloc[-1] = 3e6     # 量增 3x
 
     df = pd.DataFrame({'Open': o, 'High': h, 'Low': l, 'Close': c, 'Volume': v})
-    res = _is_leader(df, dates[-1])
+    res = _is_leader(df, dates[-1], min_history_days=22)
     assert res is not None
     assert res['return_pct'] > 0.05
     assert res['volume_ratio'] > 1.5
@@ -80,7 +80,7 @@ def test_leader_detector_rejects_no_volume():
     v.iloc[-1] = 5e5    # 量縮
 
     df = pd.DataFrame({'Open': o, 'High': h, 'Low': l, 'Close': c, 'Volume': v})
-    assert _is_leader(df, dates[-1]) is None
+    assert _is_leader(df, dates[-1], min_history_days=22) is None
 
 
 def test_leader_detector_rejects_upper_pullback():
@@ -99,7 +99,7 @@ def test_leader_detector_rejects_upper_pullback():
     # close 106 vs (high+low)/2 = 107.5 → 在下半部
 
     df = pd.DataFrame({'Open': o, 'High': h, 'Low': l, 'Close': c, 'Volume': v})
-    assert _is_leader(df, dates[-1]) is None
+    assert _is_leader(df, dates[-1], min_history_days=22) is None
 
 
 # ────────────────────────────────────────────────────────────────

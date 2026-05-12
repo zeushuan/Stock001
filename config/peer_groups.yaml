@@ -51,3 +51,5 @@ settings:
   # Leader thresholds
   leader_return_pct: 0.05    # 漲幅 ≥ 5%
   leader_volume_ratio: 1.5   # 量比 ≥ 1.5
+  # 🆕 v9.25.1：新 IPO 不能當 leader（個股事件主導，非族群催化劑）
+  leader_min_history_days: 252

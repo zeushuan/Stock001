@@ -1,0 +1,38 @@
+=== AI_Storage_US trades: 27 ===
+
+Score bucket breakdown:
+Bucket           n    Win%   AvgRet%      TP/SL/TIME
+0.60-0.70        4    0.0%    -4.00%    0/ 4/  0
+0.70-0.80        9   88.9%    +5.76%    6/ 1/  2
+0.80-0.90       13   30.8%    -0.31%    4/ 9/  0
+0.90+            1  100.0%    +8.00%    1/ 0/  0
+
+By leader:
+  Leader=SNDK   n=22  Win= 45.5%  Avg= +1.39%
+  Leader=WDC    n= 4  Win= 75.0%  Avg= +3.32%
+  Leader=MU     n= 1  Win=  0.0%  Avg= -4.00%
+
+By peer ticker:
+  Peer=MU     n=10  Win= 50.0%  Avg= +1.85%
+  Peer=STX    n=10  Win= 60.0%  Avg= +2.53%
+  Peer=WDC    n= 7  Win= 28.6%  Avg= -0.57%
+
+=== 4-member correlation matrix (last 12M) ===
+  SNDK: data_cache miss
+  WDC: data_cache miss
+  STX: data_cache miss
+Common trading days: 247, tickers: ['MU']
+     MU
+MU  1.0
+
+=== Sample leader-peer 比較 ===
+  2025-09-11  Leader=SNDK  → Peer=MU     Score=0.740  Exit=TP  Return=+8.00%
+  2025-09-29  Leader=SNDK  → Peer=MU     Score=0.866  Exit=TP  Return=+8.00%
+  2025-09-29  Leader=WDC   → Peer=STX    Score=0.746  Exit=TP  Return=+8.00%
+  2025-10-31  Leader=WDC   → Peer=STX    Score=0.962  Exit=TP  Return=+8.00%
+  2025-11-07  Leader=SNDK  → Peer=MU     Score=0.886  Exit=SL  Return=-4.00%
+  2025-11-07  Leader=SNDK  → Peer=WDC    Score=0.862  Exit=SL  Return=-4.00%
+  2025-11-07  Leader=SNDK  → Peer=STX    Score=0.845  Exit=SL  Return=-4.00%
+  2025-11-10  Leader=SNDK  → Peer=MU     Score=0.734  Exit=SL  Return=-4.00%
+  2025-11-10  Leader=SNDK  → Peer=WDC    Score=0.696  Exit=SL  Return=-4.00%
+  2025-12-19  Leader=MU    → Peer=STX    Score=0.645  Exit=SL  Return=-4.00%
