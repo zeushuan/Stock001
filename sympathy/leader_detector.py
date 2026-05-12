@@ -8,7 +8,7 @@
 """
 from typing import List, Dict, Optional
 import pandas as pd
-import numpy as np
+import numpy as np  # noqa: F401
 
 from sympathy.peer_mapping import PeerMapping, get_default_mapping
 from sympathy._data import load_history
@@ -17,17 +17,35 @@ from sympathy._data import load_history
 def _is_leader(df: pd.DataFrame, as_of_date: pd.Timestamp,
                 min_return: float = 0.05,
                 min_vol_ratio: float = 1.5,
-                min_history_days: int = 252) -> Optional[Dict]:
+                min_history_days: int = 252,
+                max_atr_pct: float = 0.08) -> Optional[Dict]:
     """判斷該 df 在 as_of_date 是否為 leader
 
-    🆕 v9.25.1: 加 min_history_days — 新 IPO 不算 leader
-    （個股事件主導，非族群催化劑；e.g. SNDK 2025 Feb spin-off）
+    🆕 v9.25.1: min_history_days — 新 IPO 不算 leader
+    🆕 v9.25.5: max_atr_pct — 超高波動（ATR/Close > 8%）視為個股事件
     """
     if df is None or len(df) < 22: return None
-    # 取截至 as_of_date 的 row
     sub = df.loc[:as_of_date]
     if len(sub) < max(22, min_history_days):
         return None
+
+    # 🆕 v9.25.5：超高波動股排除（個股事件主導）
+    if max_atr_pct is not None and max_atr_pct > 0:
+        try:
+            h_arr = sub['High'].values[-14:]
+            l_arr = sub['Low'].values[-14:]
+            c_arr = sub['Close'].values[-15:]   # 多 1 個給 prev_close
+            tr = np.maximum.reduce([
+                h_arr - l_arr,
+                np.abs(h_arr - c_arr[:-1]),
+                np.abs(l_arr - c_arr[:-1]),
+            ])
+            atr = float(np.nanmean(tr))
+            cur_close = float(c_arr[-1])
+            if cur_close > 0 and (atr / cur_close) > max_atr_pct:
+                return None  # 太高波動
+        except Exception:
+            pass
     if sub.index[-1].date() != as_of_date.date():
         # 該日無交易（假日 / 停牌）
         return None
@@ -86,10 +104,11 @@ def detect_leaders(as_of_date,
     min_return = mapping.get_setting('leader_return_pct', 0.05)
     min_vol_ratio = mapping.get_setting('leader_volume_ratio', 1.5)
     min_history = mapping.get_setting('leader_min_history_days', 252)
+    max_atr_pct = mapping.get_setting('leader_max_atr_pct', 0.08)
 
     groups_to_scan = group_filter or mapping.list_groups()
     leaders = []
-    seen = set()  # 避免同一檔在多 group 中重複 detect 多次
+    seen = set()
 
     for group_name in groups_to_scan:
         members = mapping.get_members(group_name)
@@ -99,7 +118,8 @@ def detect_leaders(as_of_date,
             res = _is_leader(df, as_of_date,
                               min_return=min_return,
                               min_vol_ratio=min_vol_ratio,
-                              min_history_days=min_history)
+                              min_history_days=min_history,
+                              max_atr_pct=max_atr_pct)
             if res is None: continue
             key = (tk, group_name)
             if key in seen: continue

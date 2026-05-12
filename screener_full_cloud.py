@@ -143,22 +143,19 @@ def _fetch_tw_via_official(tickers):
     return out
 
 
-def scan_market(market, tickers, name_map):
-    """掃描某市場，跑全部 filter"""
+def fetch_market_data(market, tickers):
+    """🆕 v9.25.5：抽出 fetch 邏輯，供 unified_cron_scan 共用 df_dict"""
     flag = '🇹🇼' if market == 'tw' else '🇺🇸'
-    print(f"\n{flag} {market.upper()} 掃描: {len(tickers)} 檔")
-
+    print(f"\n{flag} {market.upper()} fetch: {len(tickers)} 檔")
     t0 = time.time()
     if market == 'tw':
-        # 🆕 v9.14：TW 改用 TWSE/TPEX 官方 API（不依賴第三方套件，~6 分鐘）
         df_dict = _fetch_tw_via_official(tickers)
     else:
-        # US 維持 yfinance batch
-        print(f"  📥 yfinance batch（period=1y, batch=50）...")
+        print(f"  📥 yfinance batch（period=14mo, batch=50）...")
         df_dict = _fetch_batch(tickers, period='14mo', is_tw=False)
     print(f"  完成 {time.time()-t0:.1f}s，成功 {len(df_dict)}/{len(tickers)}")
 
-    # 🆕 v9.25.4：抓索引一次（給 Pass 2.5 用），避免 Pass 2.5 內 yfinance fallback 觸發 rate limit
+    # 抓索引一次（給 Pass 2.5 用）
     idx_yf = '^GSPC' if market == 'us' else '^TWII'
     if idx_yf not in df_dict:
         try:
@@ -173,10 +170,21 @@ def scan_market(market, tickers, name_map):
                     _idx.columns = _idx.columns.get_level_values(0)
                 df_dict[idx_yf] = _idx
                 print(f"  抓索引 {idx_yf} OK ({len(_idx)} bars)")
-            else:
-                print(f"  抓索引 {idx_yf} 失敗（資料太短），Pass 2.5 將略過")
         except Exception as e:
-            print(f"  抓索引 {idx_yf} 失敗: {type(e).__name__}，Pass 2.5 將略過")
+            print(f"  抓索引 {idx_yf} 失敗: {type(e).__name__}")
+    return df_dict
+
+
+def scan_market(market, tickers, name_map, df_dict=None):
+    """掃描某市場，跑全部 filter
+
+    🆕 v9.25.5：df_dict 參數 — 若已有預抓資料就直接用，省 fetch 時間
+    """
+    flag = '🇹🇼' if market == 'tw' else '🇺🇸'
+    if df_dict is None:
+        df_dict = fetch_market_data(market, tickers)
+    else:
+        print(f"\n{flag} {market.upper()} 使用預抓 df_dict ({len(df_dict)} 檔)")
 
     # 算指標 + 跑所有 filter
     print(f"  🧮 計算指標 + 跑 filter...")

@@ -53,3 +53,5 @@ settings:
   leader_volume_ratio: 1.5   # 量比 ≥ 1.5
   # 🆕 v9.25.1：新 IPO 不能當 leader（個股事件主導，非族群催化劑）
   leader_min_history_days: 252
+  # 🆕 v9.25.5：超高波動股不能當 leader（ATR/Close > N% 視為個股事件而非族群動）
+  leader_max_atr_pct: 0.08    # 8% — 平均 ATR/Close > 8% 排除
