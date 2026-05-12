@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.25"
-APP_UPDATED   = "2026-05-12 17:00"
+APP_VERSION   = "v9.25.1"
+APP_UPDATED   = "2026-05-12 17:30"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -8175,6 +8175,81 @@ def _render_screener_panel():
                 },
                 height=min(600, max(150, len(_display_rows) * 35 + 50)),
             )
+
+            # 🆕 v9.25.1：儲存「整個篩選結果」為自選股（不需勾選 — 直接全部）
+            _all_tickers = [r['代號'] for r in _display_rows]
+            n_all = len(_all_tickers)
+            st.markdown(
+                f'<div style="font-size:.78rem;color:#7abadd;margin-top:6px">'
+                f'💾 把這 <b style="color:#3dbb6a">{n_all}</b> 檔結果全部存成自選股清單'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            _scols = st.columns([3, 1, 1])
+            today_str = pd.Timestamp.now().strftime('%Y%m%d')
+            _filter_label = (filter_names[0] if len(filter_names) == 1
+                              else f'{len(filter_names)}條件')
+            default_name = f'篩選_{_filter_label[:12].strip()}_{today_str}'.replace(' ', '_')
+            with _scols[0]:
+                save_name = st.text_input(
+                    '清單名稱', value=default_name,
+                    label_visibility='collapsed', key='screener_save_name',
+                    placeholder='清單名稱'
+                )
+            with _scols[1]:
+                save_btn = st.button(f'💾 存 ({n_all})',
+                                       key='screener_save_btn',
+                                       use_container_width=True,
+                                       disabled=(n_all == 0),
+                                       help='覆寫此清單名稱')
+            with _scols[2]:
+                add_btn = st.button(f'➕ 加入 ({n_all})',
+                                      key='screener_add_btn',
+                                      use_container_width=True,
+                                      disabled=(n_all == 0),
+                                      help='合併進已存在的清單')
+
+            if save_btn or add_btn:
+                if not save_name.strip():
+                    st.warning('請輸入清單名稱')
+                else:
+                    tickers_text = '\n'.join(_all_tickers)
+                    _wl_path = _P(__file__).parent / 'watchlists.json'
+                    try:
+                        from streamlit_local_storage import LocalStorage
+                        _ls = LocalStorage()
+                    except Exception:
+                        _ls = None
+                    wls = {}
+                    if _ls is not None:
+                        try:
+                            v = _ls.getItem('stock001_watchlists')
+                            if v:
+                                wls = _json.loads(v) if isinstance(v, str) else v
+                        except Exception: pass
+                    if not wls and _wl_path.exists():
+                        try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                        except Exception: wls = {}
+
+                    name = save_name.strip()
+                    if add_btn and name in wls:
+                        existing = (set(wls[name].split('\n'))
+                                     if isinstance(wls[name], str) else set())
+                        new_set = existing | set(_all_tickers)
+                        wls[name] = '\n'.join(sorted(new_set))
+                        msg = f'➕ 已合併進「{name}」（共 {len(new_set)} 檔）'
+                    else:
+                        wls[name] = tickers_text
+                        msg = f'💾 已儲存「{name}」（{n_all} 檔）'
+
+                    text = _json.dumps(wls, ensure_ascii=False, indent=2)
+                    if _ls:
+                        try: _ls.setItem('stock001_watchlists', text)
+                        except: pass
+                    try: _wl_path.write_text(text, encoding='utf-8')
+                    except: pass
+                    st.success(msg)
+                    st.rerun()
     except Exception as e:
         try:
             st.markdown(
