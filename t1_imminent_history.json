@@ -693,10 +693,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 27.65,
+          "crossed": true,
+          "ret_pct": 3.17,
+          "actual_date": "2026-05-13",
+          "checked_at": "2026-05-13"
         },
         "15d": {
           "close": null,
@@ -877,7 +878,17 @@
       },
       "15d": null,
       "30d": null
+    },
+    "tw_L2_medium_dc": {
+      "5d": {
+        "n": 1,
+        "cross_rate": 100.0,
+        "mean_ret": 3.17,
+        "win_rate": 100.0
+      },
+      "15d": null,
+      "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-12 15:38:08"
+  "last_outcomes_update": "2026-05-13 04:48:32"
 }
