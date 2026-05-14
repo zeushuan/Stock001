@@ -108,6 +108,25 @@ def scan(market, tickers, name_map):
         idx_df = dl.load_from_cache(idx_tk)
         if idx_df is not None:
             idx_close = idx_df['Close'].astype(float)
+
+            # 🆕 v9.27 Pass 2.6：Beta（共用 idx_close）
+            try:
+                from beta_helpers import compute_beta, classify_beta
+                _beta_n = 0
+                for ticker, state in ticker_states.items():
+                    try:
+                        df = dl.load_from_cache(ticker)
+                        if df is None or len(df) < 70: continue
+                        b = compute_beta(df['Close'], idx_close, lookback=60)
+                        if b is not None:
+                            ticker_states[ticker]['beta_60d'] = b
+                            ticker_states[ticker]['beta_class'] = classify_beta(b)
+                            _beta_n += 1
+                    except Exception: continue
+                print(f"  Pass 2.6 Beta: {_beta_n} tickers")
+            except Exception as e:
+                print(f"  Pass 2.6 Beta skipped: {type(e).__name__}: {e}")
+
             raw_sigs = []
             for ticker, state in ticker_states.items():
                 try:
@@ -178,6 +197,9 @@ def scan(market, tickers, name_map):
                         'rs_leading_high_distance': state.get('rs_leading_high_distance'),
                         'rs_leading_high_rank': state.get('rs_leading_high_rank'),
                         'rs_leading_high_theme': state.get('rs_leading_high_theme'),
+                        # 🆕 v9.27 Beta
+                        'beta_60d': state.get('beta_60d'),
+                        'beta_class': state.get('beta_class'),
                     })
             except Exception: continue
 

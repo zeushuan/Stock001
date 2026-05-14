@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.25.6"
-APP_UPDATED   = "2026-05-12 19:30"
+APP_VERSION   = "v9.27"
+APP_UPDATED   = "2026-05-14 10:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -8183,6 +8183,7 @@ def _render_screener_panel():
                     cd_str = '-'
                 rs_v = r.get('rs_rating')
                 pctb = r.get('pct_b')
+                _beta = r.get('beta_60d')
                 _display_rows.append({
                     '市場': flag,
                     '代號': r['ticker'],
@@ -8191,6 +8192,7 @@ def _render_screener_panel():
                     '多空': '🟢' if r.get('is_bull') else '🔴',
                     'RSI':  round(r['rsi'], 1) if r.get('rsi') is not None else None,
                     'RS':   round(rs_v, 1) if rs_v is not None else None,
+                    'β':    round(_beta, 2) if _beta is not None else None,
                     'ADX':  round(r['adx'], 1) if r.get('adx') is not None else None,
                     'cross': cd_str,
                     '%B':   round(pctb, 2) if pctb is not None else None,
@@ -8209,6 +8211,7 @@ def _render_screener_panel():
                     '現價': st.column_config.NumberColumn('現價', format='%.2f', width='small'),
                     'RSI': st.column_config.NumberColumn('RSI', help='相對強弱指標（個股動能）', width='small'),
                     'RS':  st.column_config.NumberColumn('RS', help='RS Rating（vs universe 百分位 — Minervini ≥70）', width='small'),
+                    'β':   st.column_config.NumberColumn('β', help='60 日 Beta（vs ^GSPC / ^TWII）— >1.5 高 Beta，<0.7 防禦', width='small', format='%.2f'),
                     'ADX': st.column_config.NumberColumn('ADX', width='small'),
                     '%B':  st.column_config.NumberColumn('%B', format='%.2f', width='small'),
                     '距高': st.column_config.NumberColumn('距高%', format='%.0f', width='small'),

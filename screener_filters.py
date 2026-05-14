@@ -638,6 +638,49 @@ def f_rs_leading_high_eddy_theme(s):
             and s.get('rs_leading_high_theme') in ('AI_storage', 'AI_energy'))
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔥 v9.27：Beta 過濾（高 Beta 飆股 / 低 Beta 防禦）
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def f_high_beta(s):
+    """🔥 高 Beta（β ≥ 1.5）— 動能 / 飆股候選"""
+    b = s.get('beta_60d')
+    return b is not None and b >= 1.5
+
+
+def f_very_high_beta(s):
+    """🚀 超高 Beta（β ≥ 2.0）— 爆炸性（含槓桿 ETF）"""
+    b = s.get('beta_60d')
+    return b is not None and b >= 2.0
+
+
+def f_high_beta_bull(s):
+    """⚡ 高 Beta + 多頭排列（動能初啟 + 結構強）"""
+    b = s.get('beta_60d')
+    return (b is not None and b >= 1.5 and s.get('is_bull', False))
+
+
+def f_high_beta_bull_strong(s):
+    """🏆 高 Beta + 多頭 + ADX≥22 + RSI<70（健康強勢）"""
+    b = s.get('beta_60d')
+    return (b is not None and b >= 1.5
+            and s.get('is_bull', False)
+            and (s.get('adx') or 0) >= 22
+            and (s.get('rsi') or 99) < 70)
+
+
+def f_low_beta_defensive(s):
+    """🛡️ 低 Beta（β ≤ 0.7）— 防禦性 / 避險"""
+    b = s.get('beta_60d')
+    return b is not None and 0 <= b <= 0.7
+
+
+def f_inverse_beta(s):
+    """🔄 反向 Beta（β < 0）— 與大盤反向（避險資產）"""
+    b = s.get('beta_60d')
+    return b is not None and b < 0
+
+
 # 三段式建倉 stage filters
 def f_double_bottom_stage_A(s):
     """🟢 雙底 A 段試單（底部反應K + 第2底剛現）"""
@@ -843,6 +886,13 @@ FILTERS = {
     '🟣 RS 領先創新高 — 高品質 (score≥60)': f_rs_leading_high_top,
     '🟣 RS 領先創新高 — 紫色點密集 (≥5次)': f_rs_leading_high_purple_5plus,
     '🟣 RS 領先創新高 — Eddy 主題 (AI 儲存/能源)': f_rs_leading_high_eddy_theme,
+    # 🆕 v9.27：Beta 過濾（高 Beta 飆股 / 低 Beta 防禦）
+    '🔥 高 Beta (β≥1.5) — 動能/飆股': f_high_beta,
+    '🚀 超高 Beta (β≥2.0) — 爆炸性': f_very_high_beta,
+    '⚡ 高 Beta + 多頭排列': f_high_beta_bull,
+    '🏆 高 Beta + 多頭 + ADX≥22 + RSI<70（強勢健康）': f_high_beta_bull_strong,
+    '🛡️ 低 Beta (β≤0.7) — 防禦/避險': f_low_beta_defensive,
+    '🔄 反向 Beta (β<0) — 與大盤反向': f_inverse_beta,
     '⚡ T1 黃金交叉 sweet spot（5-7天）': f_t1_sweet_spot,
     '🟢 T1 剛黃金交叉（1-10天）': f_t1_fresh,
     '🟢 T3 多頭拉回（RSI<50）': f_t3_pullback,
