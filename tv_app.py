@@ -8,8 +8,8 @@ warnings.filterwarnings("ignore")
 # ─────────────────────────────────────────────────────────────────
 # 應用版本資訊
 # ─────────────────────────────────────────────────────────────────
-APP_VERSION   = "v9.27"
-APP_UPDATED   = "2026-05-14 10:00"
+APP_VERSION   = "v9.28"
+APP_UPDATED   = "2026-05-14 11:00"
 APP_NOTES     = (
     "🆕 detail card 加 SEPA / VCP / RS 詳細診斷 section（8 條件逐項打勾）"
     "  ── 動態進出場建議：完整 setup → 強烈進場；跌破 SMA50/200 → 出場 ｜ "
@@ -4680,6 +4680,51 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
+    # ── 🆕 v9.28：個股備註 banner（用戶寫的筆記）─────────────────
+    try:
+        from pathlib import Path as _P
+        import json as _json
+        _wl_path = _P(__file__).parent / 'watchlists.json'
+        _user_note = None
+        # 從 watchlists.json 撈 _ticker_notes
+        if _wl_path.exists():
+            try:
+                _wld = _json.loads(_wl_path.read_text(encoding='utf-8'))
+                _notes = _wld.get('_ticker_notes') or {}
+                _tk_pure = ticker.replace('.TW', '').upper()
+                # 同時試 ticker 和純 ticker
+                _user_note = _notes.get(ticker) or _notes.get(_tk_pure)
+            except Exception: pass
+        # 也試 localStorage（雲端版）
+        if not _user_note:
+            try:
+                from streamlit_local_storage import LocalStorage
+                _ls = LocalStorage()
+                _v = _ls.getItem('stock001_watchlists')
+                if _v:
+                    _wld = _json.loads(_v) if isinstance(_v, str) else _v
+                    _notes = _wld.get('_ticker_notes') or {}
+                    _tk_pure = ticker.replace('.TW', '').upper()
+                    _user_note = _notes.get(ticker) or _notes.get(_tk_pure)
+            except Exception: pass
+
+        if _user_note:
+            # 把備註當成 entry_rows 第一條（很顯眼）
+            entry_rows.insert(0,
+                f'<div style="background:linear-gradient(90deg,#2a1a3a,#1a2a4a);'
+                f'border-left:4px solid #ffcc55;padding:8px 12px;'
+                f'border-radius:6px;margin-bottom:6px">'
+                f'<div style="font-size:.72rem;color:#ffcc55;font-weight:700;margin-bottom:2px">'
+                f'📝 我的備註'
+                f'</div>'
+                f'<div style="font-size:.85rem;color:#ffe">'
+                f'{_user_note}'
+                f'</div>'
+                f'</div>'
+            )
+    except Exception:
+        pass
+
     # ── 🆕 v9.25.3：Sympathy Play 補漲訊號 detail card banner ─────
     try:
         from pathlib import Path as _P
@@ -8955,6 +9000,61 @@ with st.sidebar:
                 success, push_msg = result
                 msg += f" ｜ {push_msg}"
             st.session_state['_wl_pending_msg'] = (msg, 'success' if (result is None or result[0]) else 'error')
+            st.rerun()
+
+    # ── 🆕 v9.28：個股備註區 ─────────────────────────────────
+    with st.expander("📝 個股備註（自行寫筆記）", expanded=False):
+        st.caption(
+            '為個股寫備註（如開倉成本、停損價、催化劑等），detail card 會自動顯示。'
+            '格式：每行一筆「TICKER: 備註內容」'
+        )
+        # 取當前 ticker_notes
+        _notes_dict = (_wls.get('_ticker_notes', {})
+                        if isinstance(_wls.get('_ticker_notes'), dict) else {})
+
+        # 把當前清單中的 ticker 預先帶出來
+        _current_tickers = []
+        try:
+            for line in (stock_input or '').split('\n'):
+                line = line.split('#', 1)[0].strip()
+                if line: _current_tickers.append(line.upper())
+        except Exception: pass
+
+        # Compose default text — 既有的 notes 全部 + 當前清單中沒備註的 ticker
+        _lines = []
+        for tk, note in sorted(_notes_dict.items()):
+            _lines.append(f'{tk}: {note}')
+        seen = set(_notes_dict.keys())
+        for tk in _current_tickers:
+            if tk not in seen and tk not in [l.split(':')[0].strip() for l in _lines]:
+                _lines.append(f'{tk}: ')   # 空備註 placeholder
+        _notes_default = '\n'.join(_lines)
+
+        _notes_input = st.text_area(
+            '備註內容',
+            value=_notes_default, height=200,
+            key='ticker_notes_input',
+            help='每行格式：TICKER: 備註內容\n空白備註會被忽略不存',
+            label_visibility='collapsed',
+        )
+
+        if st.button('💾 存備註', use_container_width=True, key='wl_notes_save'):
+            new_notes = {}
+            for line in (_notes_input or '').split('\n'):
+                if ':' not in line: continue
+                tk, _, note = line.partition(':')
+                tk = tk.strip().upper()
+                note = note.strip()
+                if tk and note:   # 兩者都要有
+                    new_notes[tk] = note
+            _wls['_ticker_notes'] = new_notes
+            push_ok = st.session_state.get('wl_push_github', False)
+            result = _save_watchlists(_wls, push_github=push_ok)
+            msg = f'✓ 已存 {len(new_notes)} 個備註'
+            if result is not None:
+                msg += f' ｜ {result[1]}'
+            st.session_state['_wl_pending_msg'] = (
+                msg, 'success' if (result is None or result[0]) else 'error')
             st.rerun()
 
     # ── 🆕 匯出 / 匯入 JSON 永久備份 ────────────────────────────
