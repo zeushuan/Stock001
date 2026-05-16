@@ -43,12 +43,14 @@ jobs:
       - name: Update TW + US signals (cloud script)
         id: update
         run: |
+          set -eo pipefail
           python update_signals_cloud.py 2>&1 | tee /tmp/update.log
         continue-on-error: true
 
       # 🆕 v9.11：回算過去 alerts 的 5/15/30 天實際漲跌（live 命中率追蹤）
       - name: Update alert outcomes (live hit-rate)
         run: |
+          set -eo pipefail
           python update_alert_outcomes.py 2>&1 | tee /tmp/outcomes.log
         continue-on-error: true
 

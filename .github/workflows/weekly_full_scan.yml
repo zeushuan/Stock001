@@ -48,13 +48,16 @@ jobs:
           pip install yfinance pandas numpy ta twstock requests pyyaml tqdm
 
       # 🆕 v9.25.5：Unified scan — T1 + Screener + Sympathy 共用 df_dict，省 ~25 分
+      # 🆕 v9.28：set -eo pipefail 讓 python crash 時 step 也跟著失敗（之前 tee 屏蔽了 exit code）
       - name: Unified scan (T1 + Screener + Sympathy)
         run: |
+          set -eo pipefail
           python unified_cron_scan.py 2>&1 | tee /tmp/unified.log
 
       # 🆕 v9.12：回算過去候選的 5/15/30d outcomes（precision + 報酬）
       - name: Update T1 outcomes (hit-rate tracking)
         run: |
+          set -eo pipefail
           python update_t1_outcomes.py 2>&1 | tee /tmp/t1_outcomes.log
         continue-on-error: true
 
@@ -175,6 +178,7 @@ jobs:
           LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
+          set -eo pipefail
           python notify_swing_exit.py 2>&1 | tee /tmp/notify_swing.log
         continue-on-error: true
 
@@ -185,6 +189,7 @@ jobs:
           LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
+          set -eo pipefail
           python notify_sepa_candidates.py 2>&1 | tee /tmp/notify_sepa.log
         continue-on-error: true
 

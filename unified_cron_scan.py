@@ -47,7 +47,7 @@ def main():
     for market in ['tw', 'us']:
         print(f'\n{"="*60}\n📍 Market: {market.upper()}\n{"="*60}')
         # 1. Universe
-        uni = scr.get_universe(market)
+        uni = scr.get_full_universe(market)
         if not uni:
             print(f'  no universe for {market}, skip')
             continue
@@ -109,6 +109,7 @@ def main():
         from sympathy.leader_detector import detect_leaders
         from sympathy.laggard_scorer import scan_all_groups
         from sympathy._data import set_injected_data, clear_injected_data
+        mapping = get_default_mapping()
         # 合併 TW + US df_dict（前面 step 已 fetch 過，無需再抓）
         merged_df_dict = {}
         for mk, dfd in all_df_dicts.items():
