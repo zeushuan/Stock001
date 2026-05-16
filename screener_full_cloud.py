@@ -356,6 +356,23 @@ def scan_market(market, tickers, name_map, df_dict=None):
                         # 🆕 v9.27 Beta
                         'beta_60d': state.get('beta_60d'),
                         'beta_class': state.get('beta_class'),
+                        # 🆕 v9.28 杯柄 / 平台底 / Stan Weinstein Stage
+                        'cup_detected': state.get('cup_detected', False),
+                        'cup_score': state.get('cup_score', 0.0),
+                        'cup_pivot': state.get('cup_pivot'),
+                        'cup_variant': state.get('cup_variant', ''),
+                        'cup_breakout': state.get('cup_breakout', False),
+                        'flat_detected': state.get('flat_detected', False),
+                        'flat_score': state.get('flat_score', 0.0),
+                        'flat_depth': state.get('flat_depth', 0.0),
+                        'flat_pivot': state.get('flat_pivot'),
+                        'flat_breakout': state.get('flat_breakout', False),
+                        'flat_base_count': state.get('flat_base_count', 1),
+                        'stage': state.get('stage', 0),
+                        'stage_name': state.get('stage_name', 'Unknown'),
+                        'stage_sub': state.get('stage_sub', ''),
+                        'stage_confidence': state.get('stage_confidence', 0.0),
+                        'stage_sma30w_slope': state.get('stage_sma30w_slope', 0.0),
                     })
             except Exception:
                 continue
