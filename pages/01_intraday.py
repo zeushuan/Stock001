@@ -1,12 +1,12 @@
-"""Intraday Analysis Page — Stock001 v9.29
+"""Intraday Analysis Page — Stock001 v9.30
 =============================================
 
-Streamlit multi-page：與 tv_app.py 共享 sidebar，但獨立操作。
-網址會自動變成 /Intraday（從檔名 01_intraday → "Intraday"）
+每個 timeframe 一個 tab，內容**完全等同 tv_app 個股詳細卡**（用同一套
+detail_card_render module 渲染），唯一差別是底層資料是該 TF 的 bar。
 
-用法：
+啟動：
   streamlit run tv_app.py
-  → 側邊欄會看到 "Intraday" 選項，點進來就是本頁
+  → 側邊欄選 "intraday"
 """
 import sys
 import os
@@ -14,399 +14,228 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 
 from intraday.config import TIMEFRAMES, get_tf_config
 from intraday.data import get_intraday, market_info
-from intraday.indicators import (
-    vwap_session, orb_levels, floor_pivots_from_df,
-    gap_metrics, relative_volume, add_standard_indicators,
+from intraday.builder import build_d_from_intraday
+from detail_card_render import (
+    GROUP_NAMES, GROUP_WEIGHTS, GROUP_COLORS,
+    TREND_W, POSITION_W, MOMENTUM_W, AUX_W,
+    judge_trend, judge_position, judge_momentum, judge_aux,
+    calc_summary, _calc_aux_summary, compute_momentum_grade,
+    _rec, apply_cap, badge, get_rec_label, render_detail,
 )
-from intraday.alignment import compute_mtf_state
 
 
-st.set_page_config(page_title="Intraday 分析 | Stock001",
+st.set_page_config(page_title="Intraday 個股詳細 | Stock001",
                     page_icon="⏱️", layout="wide")
 
 
-# ─── 共享 session state（與 tv_app.py 通用）──
+# 共享 session state
 if 'selected_ticker_intraday' not in st.session_state:
-    # 試從 tv_app 主頁的選股繼承
     inherited = st.session_state.get('current_ticker') or 'AAPL'
     st.session_state['selected_ticker_intraday'] = inherited
 
 
-# ─── 頂部標頭 ──
-st.title("⏱️ Intraday 多時間框架分析")
-st.caption("選股 + 選週期 → 跨 5m / 15m / 1h / 1d 對齊狀態 + VWAP / ORB / Pivots / Stage")
+# ── tv_app CSS（讓 ind-item/ind-grid/badge 樣式生效）──
+st.markdown("""
+<style>
+/* — ind-grid（與 tv_app render_detail 同樣 class）— */
+.ind-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ind-item {
+  background: #0a1628;
+  border: 1px solid #1a2f48;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+.ind-item.ind-buy   { border-color: #1a4a80; background: #08152a; }
+.ind-item.ind-sell  { border-color: #6a1a1a; background: #1a0808; }
+.ind-item.ind-neu   { border-color: #1a2f48; }
+.ind-label {
+  display: block;
+  font-size: .68rem;
+  color: #7ab0d0;
+  margin-bottom: 3px;
+}
+.ind-val {
+  font-size: .9rem;
+  color: #e8f4fd;
+  font-family: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+  font-weight: 600;
+}
+/* — badge — */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: .7rem;
+  font-weight: 700;
+  margin: 0 4px;
+}
+.badge-strong-buy    { background:#0D47A1; color:#60CFFF; }
+.badge-buy           { background:#0D2E50; color:#60B3FF; }
+.badge-buy-limit     { background:#3A2A00; color:#F0C030; }
+.badge-strong-sell   { background:#4A0A0A; color:#FF6B6B; }
+.badge-sell          { background:#3B0D0D; color:#FF8080; }
+.badge-overheat      { background:#3A1800; color:#FF8830; }
+.badge-bearish       { background:#3A0808; color:#FF5555; }
+.badge-neutral       { background:#1A2030; color:#9AAABB; }
+</style>
+""", unsafe_allow_html=True)
 
 
-# ─── 控制列 ──
-c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+# ── 頂部標題 + 控制 ──
+st.title("⏱️ Intraday 個股詳細指標（多時間框架）")
+st.caption("與 tv_app 主頁同樣的 4 群指標 + 操作建議邏輯，唯一差別是底層 bar 為該 TF（1m/5m/15m/30m/1h/1d）")
+
+c1, c2, c3 = st.columns([3, 2, 1])
 with c1:
     ticker_input = st.text_input(
-        "股票代號（US: AAPL / TW: 2330）",
+        "股票代號",
         value=st.session_state['selected_ticker_intraday'],
-        help="不需加 .TW；自動判斷市場",
+        help="US: AAPL / TW: 2330（不需 .TW）",
     )
     st.session_state['selected_ticker_intraday'] = ticker_input.strip().upper()
 ticker = st.session_state['selected_ticker_intraday']
 
 with c2:
-    primary_tf = st.selectbox(
-        "主圖週期",
+    timeframes_selected = st.multiselect(
+        "Timeframes",
         options=['1m', '5m', '15m', '30m', '1h', '1d'],
-        index=1,
-        help="主圖顯示用的 timeframe",
+        default=['5m', '15m', '1h', '1d'],
     )
 
 with c3:
-    show_mtf = st.checkbox("MTF 對齊", value=True,
-                            help="顯示多時間框架彙總狀態")
+    if st.button("🔄 重抓所有 TF"):
+        for tf in timeframes_selected:
+            get_intraday(ticker, tf, refresh=True)
+        st.success("已重抓")
+        st.rerun()
 
-with c4:
-    if st.button("🔄 強制重抓"):
-        # 清掉 cache 並重抓
-        df_test = get_intraday(ticker, primary_tf, refresh=True)
-        st.success(f"已重抓 {ticker} {primary_tf}: {len(df_test) if df_test is not None else 0} bars")
+if not timeframes_selected:
+    st.warning("至少選一個 timeframe")
+    st.stop()
 
 
-# ─── 市場 metadata ──
+# ── 市場 metadata ──
 info = market_info(ticker)
 st.markdown(
     f"**{info['ticker']}** · {('🇺🇸 US' if info['market']=='us' else '🇹🇼 TW')}"
-    f" · session: `{info['session']}` · yf_symbol: `{info['yf_symbol']}`"
+    f" · session: `{info['session_hours']}` · yf_symbol: `{info['yf_symbol']}`"
 )
 
 st.divider()
 
 
-# ─── MTF 對齊面板 ──
-if show_mtf:
-    st.subheader("🎯 MTF 多時間框架對齊")
-    with st.spinner(f"計算 {ticker} 的 5m / 15m / 1h / 1d 狀態..."):
-        mtf = compute_mtf_state(ticker, timeframes=['5m', '15m', '1h', '1d'])
+# ── 每個 TF 一個 tab ──
+tabs = st.tabs([f"⏱️ {tf}" for tf in timeframes_selected])
 
-    summary = mtf.get('summary', {})
-    align = summary.get('alignment', 'no_data')
-    align_colors = {
-        'bull_aligned': ('#3dbb6a', '🟢 全多頭對齊 — 最佳進場環境'),
-        'bull_leaning': ('#7abadd', '🔵 多頭偏向'),
-        'bear_aligned': ('#ff5555', '🔴 全空頭對齊 — 避免買進'),
-        'bear_leaning': ('#e89090', '🟠 空頭偏向'),
-        'mixed': ('#e8a020', '🟡 多空交雜 — 需更多訊號'),
-        'no_data': ('#7a8899', '⚪ 資料不足'),
-    }
-    color, label = align_colors.get(align, ('#7a8899', align))
-    best = summary.get('best_entry_tf')
-    if best:
-        label += f"  ｜建議進場觀察 timeframe: **{best}**"
-    st.markdown(
-        f"<div style='background:#0a1828;border-left:4px solid {color};"
-        f"padding:10px;border-radius:4px;margin-bottom:10px'>"
-        f"<b style='color:{color};font-size:1rem'>{label}</b>"
-        f"<div style='font-size:.85rem;color:#a8c0d0;margin-top:4px'>"
-        f"多頭 {summary.get('mtf_bullish_count',0)} / "
-        f"空頭 {summary.get('mtf_bearish_count',0)} / "
-        f"總 {summary.get('total_tf',0)} 個 timeframe"
-        f"</div></div>",
-        unsafe_allow_html=True,
-    )
-
-    # 4 個 timeframe 並列
-    cols = st.columns(4)
-    for col, (tf, state) in zip(cols, mtf['by_tf'].items()):
-        with col:
-            if not state.get('ok'):
-                st.error(f"**{tf}**: {state.get('reason','失敗')}")
+for tab, tf in zip(tabs, timeframes_selected):
+    with tab:
+        with st.spinner(f"計算 {ticker} @ {tf}..."):
+            df = get_intraday(ticker, tf, market=info['market'])
+            if df is None or len(df) < 30:
+                st.error(f"⚠️ {tf}: 資料不足或抓取失敗（bars={len(df) if df is not None else 0}）")
                 continue
-            trend = state.get('trend_emoji', '⚪')
-            close = state.get('close', 0)
-            rsi = state.get('rsi', '-')
-            adx = state.get('adx', '-')
-            stage_info = state.get('stage')
 
-            st.markdown(f"### {trend} **{tf}**")
-            st.markdown(f"**${close:.2f}**")
-            st.markdown(f"RSI: `{rsi}` ｜ ADX: `{adx}`")
+            d = build_d_from_intraday(df, tf=tf, ticker=ticker, market=info['market'])
 
-            # VWAP
-            if state.get('vwap'):
-                vw = state['vwap']
-                vw_pct = state.get('vs_vwap_pct', 0)
-                vw_color = '#3dbb6a' if state.get('above_vwap') else '#ff5555'
-                st.markdown(
-                    f"<div style='font-size:.85rem;color:{vw_color}'>"
-                    f"VWAP <b>${vw:.2f}</b> ({vw_pct:+.2f}%)</div>",
-                    unsafe_allow_html=True)
+            if d.get('_error'):
+                st.error(f"⚠️ {tf}: {d['_error']}")
+                continue
 
-            # ORB
-            orb = state.get('orb', {})
-            if orb.get('or_high'):
-                pos = orb.get('current_position', '?')
-                pos_emoji = {'above_high': '🚀', 'inside': '⏳',
-                              'below_low': '⛔'}.get(pos, '?')
-                st.markdown(
-                    f"<div style='font-size:.78rem'>"
-                    f"ORB {pos_emoji} H<b>${orb['or_high']:.2f}</b> L<b>${orb['or_low']:.2f}</b></div>",
-                    unsafe_allow_html=True)
+            # 顯示 TF metadata
+            cfg = get_tf_config(tf)
+            st.caption(
+                f"📊 **{tf}** ｜ {len(df)} bars ｜ "
+                f"每根 {cfg.minutes_per_bar} 分鐘 ｜ "
+                f"last bar: `{d.get('_intraday_last_ts', '?')}` "
+                f"｜ 週線 resample: {len(df)} bars / {cfg.bars_per_day*5:.0f} bar/week"
+            )
 
-            # Stage
-            if stage_info:
-                sg = stage_info
-                stage_color = {1: '#7abadd', 2: '#3dbb6a',
-                                3: '#e8a020', 4: '#ff5555'}.get(sg['stage'], '#7a8899')
-                st.markdown(
-                    f"<div style='font-size:.78rem;color:{stage_color}'>"
-                    f"Stage <b>{sg['stage']}</b> {sg['name']} ({sg['sub']})"
-                    f"<br>斜率 {sg['slope']:+.2f}% ｜ 信心 {int(sg['confidence']*100)}%"
-                    f"</div>",
-                    unsafe_allow_html=True)
+            # 警告短期 TF 不適用某些指標
+            warnings_list = []
+            if not cfg.supports_stage:
+                warnings_list.append("Stage 分析 (30W SMA) 對 " + tf + " 無意義 → 顯示但不要過度解讀")
+            if not cfg.supports_sepa:
+                warnings_list.append("SEPA Template (52w 高低) 對 " + tf + " 無意義")
+            if d.get('w_close') is None:
+                warnings_list.append("週線資料不足（< 20 週）→ 週線結構欄位會顯示 N/A")
+            if warnings_list:
+                st.warning("⚠️ TF 適用性提示：" + " ｜ ".join(warnings_list))
 
-            # Pattern detection
-            if state.get('cup'):
-                c = state['cup']
-                st.markdown(
-                    f"<div style='font-size:.78rem;color:#7abadd'>"
-                    f"☕ Cup {c['score']:.0f} ｜ pivot ${c['pivot']:.2f}</div>",
-                    unsafe_allow_html=True)
-            if state.get('flat'):
-                f = state['flat']
-                st.markdown(
-                    f"<div style='font-size:.78rem;color:#3dbb6a'>"
-                    f"🟨 Flat {f['score']:.0f} ｜ pivot ${f['pivot']:.2f}</div>",
-                    unsafe_allow_html=True)
+        # 跑完整 tv_app 詳細卡渲染流程
+        try:
+            gt = judge_trend(d)
+            gp = judge_position(d)
+            gm = judge_momentum(d)
+            ga = judge_aux(d)
+            ts = calc_summary(gt, TREND_W)
+            ps = calc_summary(gp, POSITION_W)
+            ms_b, ms_s, ms_n, _ = calc_summary(gm, MOMENTUM_W)
+            mg = compute_momentum_grade(d)
+            ms = (ms_b, ms_s, ms_n, mg)
+            xs = _calc_aux_summary(ga, AUX_W)
+            tb = round(ts[0] + ps[0] + ms[0] + xs[0], 1)
+            ts_ = round(ts[1] + ps[1] + ms[1] + xs[1], 1)
+            tn_ = round(ts[2] + ps[2] + ms[2] + xs[2], 1)
+            verdict_raw = _rec(tb, ts_)
+            verdict, cap = apply_cap(verdict_raw, d, mg)
+            groups = (gt, gp, gm, ga)
+            summs = (ts, ps, ms, xs)
+            tsumm = (tb, ts_, tn_, verdict)
 
-    st.divider()
+            # ── ④ 推薦策略 label（tv_app 表格欄那個小 badge）──
+            rec_label, rec_style = get_rec_label(d, ticker=ticker)
+            st.markdown(
+                f'<div style="display:inline-block;{rec_style};'
+                f'padding:5px 12px;border-radius:5px;font-size:.85rem;'
+                f'font-weight:700;margin-bottom:8px">'
+                f'④ 推薦策略：{rec_label}'
+                f'</div>',
+                unsafe_allow_html=True)
 
+            # ── 整體 verdict badge ──
+            cap_html = (
+                f'<span style="color:#aa6655;font-size:.72rem;margin-left:6px">{cap}</span>'
+                if cap else ''
+            )
+            st.markdown(
+                f'<div style="margin:6px 0;font-size:.95rem">'
+                f'<span style="color:#7ab0d0">{tf} 綜合判讀：</span>'
+                f'{badge(verdict)}'
+                f'<span style="color:#7a8899;font-size:.7rem;margin-left:8px">'
+                f'(買 {tb} ｜ 賣 {ts_} ｜ 中 {tn_})</span>'
+                f'{cap_html}'
+                f'</div>',
+                unsafe_allow_html=True)
 
-# ─── 主圖 ──
-st.subheader(f"📈 主圖：{ticker} {primary_tf}")
-df_main = get_intraday(ticker, primary_tf)
-if df_main is None or len(df_main) < 5:
-    st.error(f"⚠️ 無法取得 {ticker} 的 {primary_tf} 資料")
-    st.stop()
+            # ── 完整 detail card（concepts/advice/news 都 disable，因為這些跨 TF 無意義）──
+            # 直接呼叫 detail_card_render 版本，不走 tv_app wrapper（沒帶 advice/news callbacks）
+            html = render_detail(
+                ticker, d, groups, summs, tsumm, cap,
+                market=info['market'],
+                advice_fn=None,        # intraday 不顯示操作建議（暫定）
+                news_fn=None,          # 新聞不分 TF
+                concepts_fn=None,      # 概念股不分 TF
+            )
+            st.markdown(html, unsafe_allow_html=True)
 
-df_main = add_standard_indicators(df_main)
-
-# ── 顯示最後 N 根 ──
-n_show = st.slider("顯示最後 N 根 bar", min_value=50,
-                    max_value=min(2000, len(df_main)),
-                    value=min(300, len(df_main)),
-                    step=50)
-df_plot = df_main.iloc[-n_show:].copy()
-
-# VWAP + 標準指標
-df_plot['vwap'] = vwap_session(df_plot)
-
-# ── plotly 互動圖 ──
-try:
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-
-    fig = make_subplots(rows=3, cols=1,
-                          row_heights=[0.6, 0.2, 0.2],
-                          shared_xaxes=True, vertical_spacing=0.02,
-                          subplot_titles=(None, "Volume", "RSI"))
-
-    # Candlestick
-    fig.add_trace(go.Candlestick(
-        x=df_plot.index,
-        open=df_plot['Open'], high=df_plot['High'],
-        low=df_plot['Low'], close=df_plot['Close'],
-        name='Price',
-        increasing_line_color='#3dbb6a',
-        decreasing_line_color='#ff5555',
-    ), row=1, col=1)
-
-    # EMA
-    for ema, color in [('e10', '#ffaa55'), ('e20', '#5dccdd'), ('e60', '#aa66ff')]:
-        if ema in df_plot.columns:
-            fig.add_trace(go.Scatter(
-                x=df_plot.index, y=df_plot[ema],
-                name=ema.upper(), line=dict(width=1.2, color=color),
-            ), row=1, col=1)
-
-    # VWAP
-    if 'vwap' in df_plot.columns and df_plot['vwap'].notna().any():
-        fig.add_trace(go.Scatter(
-            x=df_plot.index, y=df_plot['vwap'],
-            name='VWAP', line=dict(width=1.5, color='#ffff66', dash='dot'),
-        ), row=1, col=1)
-
-    # Bollinger Bands
-    if 'bb_up' in df_plot.columns and 'bb_lo' in df_plot.columns:
-        fig.add_trace(go.Scatter(
-            x=df_plot.index, y=df_plot['bb_up'],
-            name='BB Upper', line=dict(width=0.8, color='#888', dash='dash'),
-            showlegend=False,
-        ), row=1, col=1)
-        fig.add_trace(go.Scatter(
-            x=df_plot.index, y=df_plot['bb_lo'],
-            name='BB Lower', line=dict(width=0.8, color='#888', dash='dash'),
-            fill='tonexty', fillcolor='rgba(120,120,120,0.08)',
-            showlegend=False,
-        ), row=1, col=1)
-
-    # Pivots — 畫水平線（從第一根 bar 拉到最後）
-    pivots = floor_pivots_from_df(df_main)
-    if pivots:
-        for level, color, dash in [('R2', '#ff7777', 'dot'),
-                                     ('R1', '#ff7777', 'dash'),
-                                     ('P',  '#aaaa66', 'solid'),
-                                     ('S1', '#77dd77', 'dash'),
-                                     ('S2', '#77dd77', 'dot')]:
-            if level in pivots:
-                fig.add_hline(y=pivots[level], line=dict(color=color, width=1, dash=dash),
-                                annotation_text=f"{level}: ${pivots[level]:.2f}",
-                                annotation_position="right",
-                                annotation_font_size=10,
-                                row=1, col=1)
-
-    # ORB
-    cfg = get_tf_config(primary_tf)
-    if cfg.supports_orb:
-        orb = orb_levels(df_main, minutes=30, tf_minutes=cfg.minutes_per_bar)
-        if orb.get('or_high'):
-            fig.add_hline(y=orb['or_high'],
-                            line=dict(color='#66ffff', width=1.5, dash='dashdot'),
-                            annotation_text=f"ORB H ${orb['or_high']:.2f}",
-                            annotation_position='right',
-                            annotation_font_size=10, row=1, col=1)
-            fig.add_hline(y=orb['or_low'],
-                            line=dict(color='#66ffff', width=1.5, dash='dashdot'),
-                            annotation_text=f"ORB L ${orb['or_low']:.2f}",
-                            annotation_position='right',
-                            annotation_font_size=10, row=1, col=1)
-
-    # Volume
-    vol_colors = ['#3dbb6a' if c >= o else '#ff5555'
-                   for c, o in zip(df_plot['Close'], df_plot['Open'])]
-    fig.add_trace(go.Bar(
-        x=df_plot.index, y=df_plot['Volume'],
-        name='Volume', marker=dict(color=vol_colors), showlegend=False,
-    ), row=2, col=1)
-
-    # RSI
-    if 'rsi' in df_plot.columns:
-        fig.add_trace(go.Scatter(
-            x=df_plot.index, y=df_plot['rsi'],
-            name='RSI', line=dict(width=1.3, color='#ffaa66'),
-            showlegend=False,
-        ), row=3, col=1)
-        fig.add_hline(y=70, line=dict(color='#ff5555', width=0.6, dash='dash'),
-                        row=3, col=1)
-        fig.add_hline(y=30, line=dict(color='#3dbb6a', width=0.6, dash='dash'),
-                        row=3, col=1)
-
-    fig.update_layout(
-        height=720,
-        xaxis_rangeslider_visible=False,
-        template='plotly_dark',
-        margin=dict(l=10, r=80, t=30, b=10),
-        legend=dict(orientation='h', y=1.02, x=0),
-        hovermode='x unified',
-    )
-    fig.update_yaxes(title_text=None, row=1, col=1)
-    fig.update_yaxes(title_text="Vol", row=2, col=1, showgrid=False)
-    fig.update_yaxes(title_text="RSI", row=3, col=1,
-                      range=[0, 100], showgrid=False)
-
-    st.plotly_chart(fig, use_container_width=True)
-except ImportError:
-    st.warning("⚠️ plotly 未安裝（pip install plotly），改用簡易表格顯示")
-    st.dataframe(df_plot[['Open', 'High', 'Low', 'Close', 'Volume',
-                            'rsi', 'adx', 'vwap']].tail(50),
-                  use_container_width=True)
+        except Exception as e:
+            import traceback
+            st.error(f"渲染失敗：{type(e).__name__}: {e}")
+            st.code(traceback.format_exc())
 
 
-# ─── 指標摘要 ──
 st.divider()
-st.subheader("📊 當前指標快照")
-
-last = df_main.iloc[-1]
-cols = st.columns(6)
-metrics = [
-    ('Close', f"${last['Close']:.2f}"),
-    ('EMA20', f"${last.get('e20', 0):.2f}" if 'e20' in df_main else '-'),
-    ('EMA60', f"${last.get('e60', 0):.2f}" if 'e60' in df_main else '-'),
-    ('RSI', f"{last.get('rsi', 0):.1f}" if 'rsi' in df_main else '-'),
-    ('ADX', f"{last.get('adx', 0):.1f}" if 'adx' in df_main else '-'),
-    ('ATR', f"{last.get('atr', 0):.2f}" if 'atr' in df_main else '-'),
-]
-for col, (label, value) in zip(cols, metrics):
-    col.metric(label, value)
-
-
-# ─── ORB / Gap / Relative Volume ──
-c1, c2, c3 = st.columns(3)
-cfg = get_tf_config(primary_tf)
-if cfg.supports_orb:
-    orb = orb_levels(df_main, minutes=30, tf_minutes=cfg.minutes_per_bar)
-    with c1:
-        st.markdown("#### 📐 Opening Range (30min)")
-        if orb.get('or_high'):
-            pos = orb.get('current_position', '?')
-            pos_label = {'above_high': '🚀 上軌突破',
-                          'inside': '⏳ 區間內',
-                          'below_low': '⛔ 下軌跌破'}.get(pos, '?')
-            st.markdown(f"**{pos_label}**")
-            st.markdown(f"- 上軌: `${orb['or_high']:.2f}`")
-            st.markdown(f"- 下軌: `${orb['or_low']:.2f}`")
-            st.markdown(f"- 持續: {orb['bars_used']} bars")
-        else:
-            st.markdown("_今日尚未產生 ORB_")
-
-if cfg.minutes_per_bar < 390:
-    gap = gap_metrics(df_main)
-    with c2:
-        st.markdown("#### 📈 跳空缺口")
-        if gap.get('gap_type') != 'none':
-            sign = '🟢' if gap['gap_type'] == 'up' else '🔴'
-            fill = '✅ 已回補' if gap.get('is_filled') else '❌ 未回補'
-            st.markdown(f"**{sign} {gap['gap_type'].upper()} {gap['gap_pct']:+.2f}%**")
-            st.markdown(f"- 前日收: `${gap['prev_close']:.2f}`")
-            st.markdown(f"- 今日開: `${gap['today_open']:.2f}`")
-            st.markdown(f"- 狀態: {fill}")
-        else:
-            st.markdown("_無明顯跳空（< 0.3%）_")
-
-    rv = relative_volume(df_main, lookback_sessions=20)
-    with c3:
-        st.markdown("#### 🔊 相對量（同時段）")
-        if rv is not None:
-            if rv >= 2.0:
-                st.markdown(f"**🔥 {rv:.2f}x — 爆量**")
-            elif rv >= 1.3:
-                st.markdown(f"**⚡ {rv:.2f}x — 放量**")
-            elif rv < 0.7:
-                st.markdown(f"**💧 {rv:.2f}x — 量縮**")
-            else:
-                st.markdown(f"**⚪ {rv:.2f}x — 正常**")
-            st.caption("vs 近 20 個交易日同時段平均")
-        else:
-            st.markdown("_資料不足_")
-
-
-# ─── Pivots 表格 ──
-st.divider()
-pivots = floor_pivots_from_df(df_main)
-if pivots:
-    st.markdown("#### 🎯 Floor Pivot Points（依前一日 HLC）")
-    pivot_df = pd.DataFrame({
-        'Level': ['R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3'],
-        'Price': [pivots.get(k) for k in ['R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3']],
-        'vs Close': [
-            f"{(pivots.get(k) / last['Close'] - 1) * 100:+.2f}%" if pivots.get(k) else '-'
-            for k in ['R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3']
-        ],
-    })
-    st.dataframe(pivot_df, hide_index=True, use_container_width=False)
-
-
 st.caption(
-    f"Stock001 v9.29 Intraday Module ｜ Last bar: `{df_main.index[-1]}` "
-    f"｜ Total bars in cache: {len(df_main)}"
+    f"Stock001 v9.30 ｜ {ticker} ｜ TFs: {', '.join(timeframes_selected)} ｜ "
+    f"使用 detail_card_render module（與 tv_app 主頁 100% 相同邏輯）"
 )
