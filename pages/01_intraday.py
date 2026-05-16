@@ -27,6 +27,8 @@ from detail_card_render import (
     calc_summary, _calc_aux_summary, compute_momentum_grade,
     _rec, apply_cap, badge, get_rec_label, render_detail,
 )
+# v9.31：操作建議 + 所有 banner（SEPA/VCP/Stage/Cup/Flat/雙底/綜合決策）
+from operation_advice import get_operation_advice
 
 
 st.set_page_config(page_title="Intraday 個股詳細 | Stock001",
@@ -217,14 +219,14 @@ for tab, tf in zip(tabs, timeframes_selected):
                 f'</div>',
                 unsafe_allow_html=True)
 
-            # ── 完整 detail card（concepts/advice/news 都 disable，因為這些跨 TF 無意義）──
-            # 直接呼叫 detail_card_render 版本，不走 tv_app wrapper（沒帶 advice/news callbacks）
+            # ── 完整 detail card（含 SEPA/VCP/Stage/Cup/Flat/雙底/綜合決策所有 banner）──
+            # 🆕 v9.31：傳入 get_operation_advice 讓 banner 也出現
             html = render_detail(
                 ticker, d, groups, summs, tsumm, cap,
                 market=info['market'],
-                advice_fn=None,        # intraday 不顯示操作建議（暫定）
-                news_fn=None,          # 新聞不分 TF
-                concepts_fn=None,      # 概念股不分 TF
+                advice_fn=get_operation_advice,   # 完整操作建議 + 所有 banner
+                news_fn=None,                       # 新聞不分 TF（跨 TF 一樣）
+                concepts_fn=None,                   # 概念股不分 TF（跨 TF 一樣）
             )
             st.markdown(html, unsafe_allow_html=True)
 
