@@ -5023,6 +5023,163 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     except Exception:
         pass
 
+    # ── 🆕 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析 banner ────
+    try:
+        from patterns.cup_and_handle import detect_cup_and_handle as _detect_cup
+        from patterns.flat_base import detect_flat_base as _detect_flat
+        from patterns.stage_analysis import classify_stage as _classify_stage
+
+        _df_pat = None
+        # 重用 swing 診斷的 df，若無則 fallback
+        try:
+            _df_pat = _df_for_state
+        except NameError:
+            _df_pat = None
+        if _df_pat is None and ticker:
+            try:
+                import data_loader as _dl_pat
+                _df_pat = _dl_pat.load_from_cache(ticker)
+            except Exception:
+                _df_pat = None
+
+        if _df_pat is not None and len(_df_pat) >= 200:
+            _rs_for_pat = d.get('rs_rating') if d else None
+            # ─── Stage Analysis ────────────────────────────────
+            try:
+                _sg = _classify_stage(_df_pat, rs_rating=_rs_for_pat)
+            except Exception:
+                _sg = None
+            if _sg is not None and _sg.stage > 0:
+                _stage_colors = {
+                    1: ('#7abadd', '#0a1828', '🏗️'),     # Basing
+                    2: ('#3dbb6a', '#0a2a14', '🚀'),     # Advancing
+                    3: ('#e8a020', '#1a1408', '⚠️'),     # Top
+                    4: ('#ff5555', '#3a0a0a', '❌'),     # Declining
+                }
+                _sc, _sbg, _sicon = _stage_colors.get(_sg.stage, ('#7a8899', '#0a1422', '⚪'))
+                _sub_label = {'early': '早期', 'mid': '中期', 'late': '末期'}.get(_sg.sub_stage, '')
+                _transitions_html = ''
+                if _sg.transition_signals:
+                    _transitions_html = (
+                        '<div style="margin-top:4px;font-size:.7rem;color:#ffd070">'
+                        + ' ｜ '.join(f'⚡ {t}' for t in _sg.transition_signals)
+                        + '</div>'
+                    )
+                _stage_help = {
+                    1: 'Basing：均線走平，價在底部整理 — 等待突破訊號',
+                    2: 'Advancing：均線上揚，價在均線上 — 持股 / 加碼期',
+                    3: 'Top：均線走平，價偏高 — 風險區，建議減倉',
+                    4: 'Declining：均線下彎，價跌破均線 — 不可介入',
+                }.get(_sg.stage, '')
+                swing_rows.append(
+                    f'<div style="background:{_sbg};border-left:4px solid {_sc};'
+                    f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                    f'<b style="color:{_sc};font-size:.92rem">'
+                    f'{_sicon} Stan Weinstein — Stage {_sg.stage} {_sg.stage_name} ({_sub_label})</b>'
+                    f'<div style="font-size:.72rem;color:#c8dff0;margin-top:3px">'
+                    f'30W SMA 斜率 <b>{_sg.sma30w_slope*100:+.2f}%</b> ｜ '
+                    f'價偏離 SMA <b>{_sg.price_vs_sma30w*100:+.2f}%</b> ｜ '
+                    f'信心 <b>{_sg.confidence*100:.0f}%</b>'
+                    f'</div>'
+                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:2px">{_stage_help}</div>'
+                    f'{_transitions_html}'
+                    f'</div>'
+                )
+
+            # ─── Cup and Handle ───────────────────────────────
+            try:
+                _cup = _detect_cup(_df_pat, rs_rating=_rs_for_pat)
+            except Exception:
+                _cup = None
+            if _cup is not None and _cup.detected and _cup.score > 0:
+                if _cup.score >= 75:
+                    _cc, _cbg, _clab = '#3dbb6a', '#0a2a14', '🏆 杯柄高品質'
+                elif _cup.score >= 60:
+                    _cc, _cbg, _clab = '#7abadd', '#0a1828', '⭐ 杯柄強訊號'
+                elif _cup.score >= 40:
+                    _cc, _cbg, _clab = '#e8a020', '#1a1408', '🟡 杯柄成形中'
+                else:
+                    _cc, _cbg, _clab = '#7a8899', '#0a1422', '⚪ 杯柄低分'
+                _cup_breakout_str = ''
+                if _cup.reasons and any('突破完成' in r for r in _cup.reasons):
+                    _cup_breakout_str = '<span style="color:#3dbb6a">🚀 突破完成（量爆）</span> ｜ '
+                elif _cup.reasons and any('突破但量' in r for r in _cup.reasons):
+                    _cup_breakout_str = '<span style="color:#e8a020">⚠️ 突破但量未跟</span> ｜ '
+                _cup_pivot_str = f'${_cup.pivot_price:.2f}' if _cup.pivot_price else '—'
+                _cup_target_str = f'${_cup.target_price:.2f}' if _cup.target_price else '—'
+                _cup_stop_str = f'${_cup.stop_loss:.2f}' if _cup.stop_loss else '—'
+                _cup_reasons_html = ''
+                if _cup.reasons:
+                    _cup_reasons_html = (
+                        '<div style="font-size:.66rem;color:#a8c0d0;margin-top:2px">'
+                        + ' ｜ '.join(_cup.reasons[:3])
+                        + '</div>'
+                    )
+                swing_rows.append(
+                    f'<div style="background:{_cbg};border-left:4px solid {_cc};'
+                    f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                    f'<b style="color:{_cc};font-size:.92rem">'
+                    f'☕ Cup and Handle — {_clab} ({_cup.pattern_variant}) · Score {_cup.score:.1f}/100</b>'
+                    f'<div style="font-size:.72rem;color:#c8dff0;margin-top:3px">'
+                    f'{_cup_breakout_str}'
+                    f'Pivot <b>{_cup_pivot_str}</b> ｜ '
+                    f'Target <b>{_cup_target_str}</b> ｜ '
+                    f'Stop <b>{_cup_stop_str}</b>'
+                    f'</div>'
+                    f'{_cup_reasons_html}'
+                    f'</div>'
+                )
+
+            # ─── Flat Base ────────────────────────────────────
+            try:
+                _flat = _detect_flat(_df_pat, rs_rating=_rs_for_pat)
+            except Exception:
+                _flat = None
+            if _flat is not None and _flat.detected and _flat.score > 0:
+                if _flat.score >= 75:
+                    _fc, _fbg, _flab = '#3dbb6a', '#0a2a14', '🏆 平台底高品質'
+                elif _flat.score >= 60:
+                    _fc, _fbg, _flab = '#7abadd', '#0a1828', '⭐ 平台底強訊號'
+                elif _flat.score >= 40:
+                    _fc, _fbg, _flab = '#e8a020', '#1a1408', '🟡 平台底成形中'
+                else:
+                    _fc, _fbg, _flab = '#7a8899', '#0a1422', '⚪ 平台底低分'
+                _flat_bo_str = ''
+                if _flat.breakout:
+                    _bvr = _flat.breakout_volume_ratio or 0
+                    _flat_bo_str = (f'<span style="color:#3dbb6a">'
+                                     f'🚀 突破完成（量增 {_bvr:.2f}x）</span> ｜ ')
+                _flat_pivot_str = f'${_flat.pivot_point:.2f}' if _flat.pivot_point else '—'
+                _flat_target_str = f'${_flat.target_price:.2f}' if _flat.target_price else '—'
+                _flat_stop_str = f'${_flat.stop_loss:.2f}' if _flat.stop_loss else '—'
+                _flat_extra = (f'Base #{_flat.base_count} ｜ '
+                                f'深度 {_flat.base_depth*100:.1f}% ｜ '
+                                f'時間 {_flat.base_duration_days}d')
+                _flat_notes_html = ''
+                if _flat.notes:
+                    _flat_notes_html = (
+                        '<div style="font-size:.66rem;color:#a8c0d0;margin-top:2px">'
+                        + ' ｜ '.join(_flat.notes[:3])
+                        + '</div>'
+                    )
+                swing_rows.append(
+                    f'<div style="background:{_fbg};border-left:4px solid {_fc};'
+                    f'padding:8px 12px;border-radius:4px;margin-top:6px">'
+                    f'<b style="color:{_fc};font-size:.92rem">'
+                    f'🟨 Flat Base — {_flab} · Score {_flat.score:.1f}/100</b>'
+                    f'<div style="font-size:.72rem;color:#c8dff0;margin-top:3px">'
+                    f'{_flat_bo_str}'
+                    f'Pivot <b>{_flat_pivot_str}</b> ｜ '
+                    f'Target <b>{_flat_target_str}</b> ｜ '
+                    f'Stop <b>{_flat_stop_str}</b>'
+                    f'</div>'
+                    f'<div style="font-size:.7rem;color:#a8c0d0;margin-top:2px">{_flat_extra}</div>'
+                    f'{_flat_notes_html}'
+                    f'</div>'
+                )
+    except Exception:
+        pass
+
     # ── 🆕 v9.20：綜合決策得分（Strategy B + SEPA + Recipes 加總） ──
     try:
         score = 0

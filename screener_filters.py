@@ -25,6 +25,14 @@ from sepa_vcp import (check_sepa_trend_template, detect_vcp,
                        compute_sma_helpers, compute_returns)
 # 🆕 v9.21：雙底雙頂偵測
 from double_pattern import detect_double_bottom, detect_double_top
+# 🆕 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析
+try:
+    from patterns.cup_and_handle import detect_cup_and_handle
+    from patterns.flat_base import detect_flat_base
+    from patterns.stage_analysis import classify_stage, apply_stage_filter, stage_score
+    _PATTERNS_AVAILABLE = True
+except ImportError:
+    _PATTERNS_AVAILABLE = False
 
 
 # ── Helper: 取得最後一日的關鍵指標 ──
@@ -171,6 +179,23 @@ def _get_state(df, market='tw'):
             dt_info = detect_double_top(df)
         except Exception:
             dt_info = {'is_double_top': False, 'status': 'none'}
+        # 🆕 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析
+        cup_info = None
+        flat_info = None
+        stage_info = None
+        if _PATTERNS_AVAILABLE:
+            try:
+                cup_info = detect_cup_and_handle(df)
+            except Exception:
+                cup_info = None
+            try:
+                flat_info = detect_flat_base(df)
+            except Exception:
+                flat_info = None
+            try:
+                stage_info = classify_stage(df)
+            except Exception:
+                stage_info = None
         # SEPA Trend Template 7 條件（cond8 RS 由外部注入）
         try:
             sepa_passed, sepa_n_met, sepa_details = check_sepa_trend_template(
@@ -228,6 +253,33 @@ def _get_state(df, market='tw'):
             'double_top_score': dt_info.get('quality_score', 0),
             'double_top_stage': dt_info.get('entry_stage', 'wait'),
             'double_top_info': dt_info,
+            # 🆕 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析
+            'cup_detected': bool(getattr(cup_info, 'detected', False)) if cup_info else False,
+            'cup_score': float(getattr(cup_info, 'score', 0.0)) if cup_info else 0.0,
+            'cup_pivot': float(getattr(cup_info, 'pivot_price', 0) or 0) if cup_info else None,
+            'cup_target': float(getattr(cup_info, 'target_price', 0) or 0) if cup_info else None,
+            'cup_stop': float(getattr(cup_info, 'stop_loss', 0) or 0) if cup_info else None,
+            'cup_variant': getattr(cup_info, 'pattern_variant', '') if cup_info else '',
+            'cup_breakout': bool(cup_info and any('突破完成' in r for r in getattr(cup_info, 'reasons', []) or [])),
+            'cup_info': cup_info,
+            'flat_detected': bool(getattr(flat_info, 'detected', False)) if flat_info else False,
+            'flat_score': float(getattr(flat_info, 'score', 0.0)) if flat_info else 0.0,
+            'flat_depth': float(getattr(flat_info, 'base_depth', 0)) if flat_info else 0.0,
+            'flat_duration': int(getattr(flat_info, 'base_duration_days', 0)) if flat_info else 0,
+            'flat_pivot': float(getattr(flat_info, 'pivot_point', 0) or 0) if flat_info else None,
+            'flat_target': float(getattr(flat_info, 'target_price', 0) or 0) if flat_info else None,
+            'flat_stop': float(getattr(flat_info, 'stop_loss', 0) or 0) if flat_info else None,
+            'flat_breakout': bool(getattr(flat_info, 'breakout', False)) if flat_info else False,
+            'flat_base_count': int(getattr(flat_info, 'base_count', 1)) if flat_info else 1,
+            'flat_info': flat_info,
+            'stage': int(getattr(stage_info, 'stage', 0)) if stage_info else 0,
+            'stage_name': getattr(stage_info, 'stage_name', 'Unknown') if stage_info else 'Unknown',
+            'stage_sub': getattr(stage_info, 'sub_stage', '') if stage_info else '',
+            'stage_confidence': float(getattr(stage_info, 'confidence', 0)) if stage_info else 0.0,
+            'stage_sma30w_slope': float(getattr(stage_info, 'sma30w_slope', 0)) if stage_info else 0.0,
+            'stage_price_vs_sma30w': float(getattr(stage_info, 'price_vs_sma30w', 0)) if stage_info else 0.0,
+            'stage_transitions': list(getattr(stage_info, 'transition_signals', []) or []) if stage_info else [],
+            'stage_info': stage_info,
             # 'rs_rating' 由 screener_full_cloud 在 universe-wide 計算後注入
             'adx_5d_prev': adx_5d, 'adx_rising': adx_rising, 'adx_falling': adx_falling,
             'is_bull': e20_v > e60_v, 'is_bear': e20_v < e60_v,
@@ -563,6 +615,121 @@ def f_pivot_near_breakout(s):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ☕ 🟨 📊 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ☕ Cup and Handle（杯柄型態 — O'Neil CANSLIM）
+def f_cup_handle_detected(s):
+    """☕ 杯柄型態偵測到（任何分數）"""
+    return bool(s.get('cup_detected', False))
+
+
+def f_cup_handle_strong(s):
+    """☕⭐ 杯柄型態強訊號（score ≥ 60）"""
+    return bool(s.get('cup_detected', False)) and (s.get('cup_score') or 0) >= 60
+
+
+def f_cup_handle_premium(s):
+    """☕🏆 杯柄高品質（score ≥ 75）"""
+    return bool(s.get('cup_detected', False)) and (s.get('cup_score') or 0) >= 75
+
+
+def f_cup_handle_breakout(s):
+    """☕🚀 杯柄突破完成（pivot 已突破 + 量爆）"""
+    return bool(s.get('cup_breakout', False))
+
+
+# 🟨 Flat Base（平台底 — O'Neil / Minervini）
+def f_flat_base_detected(s):
+    """🟨 平台底偵測到（任何分數）"""
+    return bool(s.get('flat_detected', False))
+
+
+def f_flat_base_strong(s):
+    """🟨⭐ 平台底強訊號（score ≥ 60）"""
+    return bool(s.get('flat_detected', False)) and (s.get('flat_score') or 0) >= 60
+
+
+def f_flat_base_premium(s):
+    """🟨🏆 平台底高品質（score ≥ 75）"""
+    return bool(s.get('flat_detected', False)) and (s.get('flat_score') or 0) >= 75
+
+
+def f_flat_base_breakout(s):
+    """🟨🚀 平台底突破（價突破 pivot + 量增 1.4x）"""
+    return bool(s.get('flat_breakout', False))
+
+
+def f_flat_base_first(s):
+    """🟨1️⃣ 平台底第 1 個 base（base_count=1，最佳）"""
+    return bool(s.get('flat_detected', False)) and (s.get('flat_base_count') or 9) == 1
+
+
+# 📊 Stan Weinstein Stage Analysis（30W SMA 四階段）
+def f_stage_2_advancing(s):
+    """📊2 Stage 2 上升期（任何子階段）"""
+    return (s.get('stage') or 0) == 2
+
+
+def f_stage_2_early(s):
+    """📊2🌱 Stage 2 早期（剛突破 1→2，最佳進場）"""
+    return (s.get('stage') or 0) == 2 and s.get('stage_sub') == 'early'
+
+
+def f_stage_2_mid(s):
+    """📊2⚡ Stage 2 中期（趨勢確立）"""
+    return (s.get('stage') or 0) == 2 and s.get('stage_sub') == 'mid'
+
+
+def f_stage_1_late(s):
+    """📊1🔜 Stage 1 末期（即將進入 Stage 2 — watchlist）"""
+    return (s.get('stage') or 0) == 1 and s.get('stage_sub') == 'late'
+
+
+def f_stage_3_top(s):
+    """📊3⚠️ Stage 3 頂部（風險區，建議減倉）"""
+    return (s.get('stage') or 0) == 3
+
+
+def f_stage_4_declining(s):
+    """📊4❌ Stage 4 下跌期（不可介入）"""
+    return (s.get('stage') or 0) == 4
+
+
+def f_stage_2_breakout_signal(s):
+    """📊1→2🚀 Stage 1→2 突破訊號（含量爆）"""
+    transitions = s.get('stage_transitions') or []
+    return any('1→2' in t and '量爆' in t for t in transitions)
+
+
+def f_stage_3_warning(s):
+    """📊2→3⚠️ Stage 2→3 警示（斜率轉緩）"""
+    transitions = s.get('stage_transitions') or []
+    return any('2→3' in t for t in transitions)
+
+
+# 🌟 組合 filter（Stage + Cup/Flat）
+def f_cup_in_stage_2(s):
+    """☕📊2 杯柄 + Stage 2（最佳組合）"""
+    return (bool(s.get('cup_detected', False))
+            and (s.get('cup_score') or 0) >= 60
+            and (s.get('stage') or 0) == 2)
+
+
+def f_flat_in_stage_2(s):
+    """🟨📊2 平台底 + Stage 2（教科書 setup）"""
+    return (bool(s.get('flat_detected', False))
+            and (s.get('flat_score') or 0) >= 60
+            and (s.get('stage') or 0) == 2)
+
+
+def f_breakout_in_stage_2(s):
+    """🚀📊2 杯柄/平台底突破 + Stage 2（買進訊號）"""
+    return ((s.get('cup_breakout', False) or s.get('flat_breakout', False))
+            and (s.get('stage') or 0) == 2)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🟢🔴 雙底雙頂（v9.21）— Double Bottom / Top reversal
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -868,6 +1035,27 @@ FILTERS = {
     '💪 RS Rating ≥ 90（飆股候選 強於前 10%）': f_rs_rating_90,
     '🏆⭐ Minervini 完整 setup（SEPA+VCP+RS≥70）': f_sepa_full_setup,
     '🎯 Pivot 接近突破（VCP+距pivot≤1%）': f_pivot_near_breakout,
+    # 🆕 v9.28：杯柄 / 平台底 / Stan Weinstein 階段分析
+    '☕ 杯柄型態偵測到（任何分數）': f_cup_handle_detected,
+    '☕⭐ 杯柄型態強訊號（≥60）': f_cup_handle_strong,
+    '☕🏆 杯柄高品質（≥75）': f_cup_handle_premium,
+    '☕🚀 杯柄突破完成（pivot+量爆）': f_cup_handle_breakout,
+    '🟨 平台底偵測到（任何分數）': f_flat_base_detected,
+    '🟨⭐ 平台底強訊號（≥60）': f_flat_base_strong,
+    '🟨🏆 平台底高品質（≥75）': f_flat_base_premium,
+    '🟨🚀 平台底突破（pivot+量增1.4x）': f_flat_base_breakout,
+    '🟨1️⃣ 平台底第1個 base（最佳）': f_flat_base_first,
+    '📊2 Stage 2 上升期': f_stage_2_advancing,
+    '📊2🌱 Stage 2 早期（剛突破1→2 最佳進場）': f_stage_2_early,
+    '📊2⚡ Stage 2 中期（趨勢確立）': f_stage_2_mid,
+    '📊1🔜 Stage 1 末期（即將進入 Stage 2）': f_stage_1_late,
+    '📊3⚠️ Stage 3 頂部（風險區）': f_stage_3_top,
+    '📊4❌ Stage 4 下跌期（不可介入）': f_stage_4_declining,
+    '📊1→2🚀 Stage 1→2 突破訊號（含量爆）': f_stage_2_breakout_signal,
+    '📊2→3⚠️ Stage 2→3 警示（斜率轉緩）': f_stage_3_warning,
+    '☕📊2 杯柄+Stage 2（最佳組合）': f_cup_in_stage_2,
+    '🟨📊2 平台底+Stage 2（教科書）': f_flat_in_stage_2,
+    '🚀📊2 杯柄/平台底突破+Stage 2': f_breakout_in_stage_2,
     # 🆕 v9.21：雙底雙頂（基本）
     '🟢 雙底突破（W底+突破neckline）': f_double_bottom_breakout,
     '🟢 雙底成形（待突破 watchlist）': f_double_bottom_confirmed,
