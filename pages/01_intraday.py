@@ -657,7 +657,7 @@ for tab, tf in zip(tabs, timeframes_selected):
                           f'｜ 滑鼠 hover 看 OHLC',
                     max_bars=_main_chart_bars,
                     show_bb=True,
-                    show_emas=[5, 20, 50, 150, 200],
+                    show_emas=[5, 20, 60, 150, 200],
                     show_macd=_main_show_macd,
                     theme=_theme,
                 )
@@ -751,8 +751,8 @@ for tab, tf in zip(tabs, timeframes_selected):
                     with _overlay_cols[1]:
                         _emas_selected = st.multiselect(
                             'EMA 線',
-                            options=[5, 20, 50, 150, 200],
-                            default=[5, 20, 50, 150, 200],
+                            options=[5, 20, 60, 150, 200],
+                            default=[5, 20, 60, 150, 200],
                             key=f'_show_emas_{tf}',
                         )
                 with _cols[1]:

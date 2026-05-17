@@ -1717,7 +1717,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _ema_specs = [
                 (5,   '#ffaa55', 1.1),
                 (20,  '#3b9eff', 1.5),
-                (50,  '#aa66ff', 1.1),
+                (60,  '#aa66ff', 1.1),
                 (150, '#ff6dc8', 1.1),
                 (200, '#cc3333', 1.5),
             ]

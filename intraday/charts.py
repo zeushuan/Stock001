@@ -76,7 +76,7 @@ def build_zigzag_compare_chart(
         PNG bytes 或 None（資料不足時）
     """
     if show_emas is None:
-        show_emas = [5, 20, 50, 150, 200]
+        show_emas = [5, 20, 60, 150, 200]
     if df is None or len(df) < 30:
         return None
     if atr_mults is None:
@@ -298,7 +298,7 @@ def build_zigzag_chart_plotly(
     if df is None or len(df) < 30:
         return None
     if show_emas is None:
-        show_emas = [5, 20, 50, 150, 200]
+        show_emas = [5, 20, 60, 150, 200]
 
     try:
         import plotly.graph_objects as go
@@ -443,7 +443,7 @@ def build_zigzag_chart_plotly(
         ), row=1, col=1)
 
     # ── EMA 線 ──
-    ema_colors = {5: '#ffaa55', 20: '#3b9eff', 50: '#aa66ff',
+    ema_colors = {5: '#ffaa55', 20: '#3b9eff', 60: '#aa66ff',
                    150: '#ff6dc8', 200: '#cc3333'}
     for p in show_emas:
         if p not in ema_plot:
@@ -589,63 +589,8 @@ def build_zigzag_chart_plotly(
         fig.add_hline(y=0, line=dict(color='#7a8899', width=0.7, dash='dot'),
                        row=2, col=1, opacity=0.5)
 
-        # 🆕 v9.32：MACD 黃金交叉 / 死亡交叉 偵測
-        gold_xs, gold_ys, gold_texts = [], [], []     # MACD 上穿 Signal
-        death_xs, death_ys, death_texts = [], [], []  # MACD 下穿 Signal
-        for i in range(1, len(macd_vals)):
-            if any(np.isnan(x) for x in (macd_vals[i], signal_vals[i],
-                                            macd_vals[i-1], signal_vals[i-1])):
-                continue
-            prev_diff = macd_vals[i-1] - signal_vals[i-1]
-            curr_diff = macd_vals[i] - signal_vals[i]
-            if prev_diff <= 0 and curr_diff > 0:
-                # 黃金交叉
-                gold_xs.append(i)
-                gold_ys.append(macd_vals[i])
-                gold_texts.append(
-                    f'<b>🟢 黃金交叉</b><br>{ts_strs[i]}<br>'
-                    f'MACD: {macd_vals[i]:.4f}<br>Signal: {signal_vals[i]:.4f}'
-                )
-            elif prev_diff >= 0 and curr_diff < 0:
-                # 死亡交叉
-                death_xs.append(i)
-                death_ys.append(macd_vals[i])
-                death_texts.append(
-                    f'<b>🔴 死亡交叉</b><br>{ts_strs[i]}<br>'
-                    f'MACD: {macd_vals[i]:.4f}<br>Signal: {signal_vals[i]:.4f}'
-                )
-
-        # MACD subplot 上的 marker
-        if gold_xs:
-            fig.add_trace(go.Scatter(
-                x=gold_xs, y=gold_ys, mode='markers',
-                name=f'🟢 黃金交叉 ({len(gold_xs)})',
-                marker=dict(
-                    symbol='triangle-up', size=12,
-                    color='#3dbb6a',
-                    line=dict(color='#0a4a14', width=1.5),
-                ),
-                text=gold_texts, hoverinfo='text',
-            ), row=2, col=1)
-        if death_xs:
-            fig.add_trace(go.Scatter(
-                x=death_xs, y=death_ys, mode='markers',
-                name=f'🔴 死亡交叉 ({len(death_xs)})',
-                marker=dict(
-                    symbol='triangle-down', size=12,
-                    color='#ff5555',
-                    line=dict(color='#4a0a0a', width=1.5),
-                ),
-                text=death_texts, hoverinfo='text',
-            ), row=2, col=1)
-
-        # 在 Price chart (row 1) 加細虛線標出 cross 點（可看價格對應位置）
-        for cx in gold_xs:
-            fig.add_vline(x=cx, line=dict(color='#3dbb6a', width=0.8, dash='dot'),
-                           row=1, col=1, opacity=0.35)
-        for cx in death_xs:
-            fig.add_vline(x=cx, line=dict(color='#ff5555', width=0.8, dash='dot'),
-                           row=1, col=1, opacity=0.35)
+        # MACD 交叉標示（v9.32 暫停）— 改用 K 線圖上的 EMA20/60 交叉作為主訊號
+        # 若要恢復可解除此段註解
 
     # ── Volume bar chart（row 2 or 3）──
     vol_row = 3 if _has_macd else 2
