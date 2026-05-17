@@ -45,6 +45,65 @@ if 'intraday_theme_mode' not in st.session_state:
     st.session_state['intraday_theme_mode'] = 'auto'
 
 
+# 🆕 v9.32：HTML 端硬性替換深色 hex（CSS attribute selector 對 inline style 不可靠）
+# 把 detail_card_render / operation_advice 產生的 HTML 內的深色背景/文字 hex
+# 替換成淺色版，這比 CSS [style*=] selector 更可靠
+_HEX_DARK_TO_LIGHT = {
+    # ─ 深藍底（17 個）→ 淺藍 #f5f7fa
+    '#050e1a':'#f5f7fa','#08131f':'#f5f7fa','#0a1020':'#f5f7fa',
+    '#0a1422':'#f5f7fa','#0a1626':'#f5f7fa','#0a1628':'#f5f7fa',
+    '#0a1825':'#f5f7fa','#0a1828':'#f5f7fa','#0a1830':'#f5f7fa',
+    '#0a1a2a':'#f5f7fa','#0a1e30':'#eef3f8','#0a2535':'#eef3f8',
+    '#0d1825':'#f5f7fa','#0f1f33':'#eef3f8','#0f2040':'#eef3f8',
+    '#0f2535':'#eef3f8','#08152a':'#e8f1ff',
+    # ─ 深紅底（賣警告，11 個）→ 淺紅 #ffeaea
+    '#1a0010':'#ffeaea','#1a0808':'#ffeaea','#1a0a00':'#ffeaea',
+    '#1a0a08':'#ffeaea','#1a1410':'#ffeaea','#2a0a0a':'#ffd5d5',
+    '#2a0008':'#ffd5d5','#3a0a0a':'#ffc8c8','#3a0808':'#ffc8c8',
+    '#3B0D0D':'#ffc8c8','#4A0A0A':'#ffbaba','#3b0d0d':'#ffc8c8',
+    '#4a0a0a':'#ffbaba',
+    # ─ 深綠底（OK / 進場 OK，7 個）→ 淺綠 #e6f7ec
+    '#0a1a0a':'#e6f7ec','#0a2014':'#d6f0df','#0a2018':'#d6f0df',
+    '#0a2a14':'#d6f0df','#0a2a18':'#d6f0df','#0d1f0d':'#e6f7ec',
+    '#0d2a10':'#d6f0df',
+    # ─ 深黃橘底（觀望警告，11 個）→ 淺黃 #fff4d6
+    '#1a1200':'#fff4d6','#1a1208':'#fff4d6','#1a1400':'#fff4d6',
+    '#1a1408':'#fff4d6','#1a1500':'#fff4d6','#1a1605':'#fff4d6',
+    '#1a1805':'#fff4d6','#2a1500':'#ffe9b3','#2a1605':'#ffe9b3',
+    '#3A2A00':'#ffd97a','#3A1800':'#ffd97a','#3a2a00':'#ffd97a',
+    '#3a1800':'#ffd97a',
+    # ─ 文字色：淺色字（深底用）→ 深字
+    '#e8f4fd':'#1a2a40','#c8dff0':'#1a2a40','#a8c0d0':'#1a2a40',
+    '#c8e0d0':'#1a2a40','#a8cce8':'#1a2a40',
+    # 中間色字
+    '#7ab0d0':'#4a6c88','#7abadd':'#4a6c88','#5dccdd':'#4a6c88',
+    '#7a9ab0':'#5a7090','#8ab0c8':'#5a7090','#7a8899':'#5a7090',
+    '#5a8ab0':'#5a7090','#9aaabb':'#5a7090','#3a5a7a':'#5a7090',
+    '#5a7a9a':'#5a7090','#9abacf':'#5a7090','#9fcc9f':'#5a7090',
+    '#90d0a0':'#5a7090','#a87acc':'#5a7090','#c294d6':'#5a7090',
+    # 強調色 — 加深適配淺底
+    # 注意：badge inline 用的色我們不動（強烈標示意義），但放在淺底也要可讀
+    # ─ 邊框（深 → 淺灰）
+    '#1a2f48':'#d0d7e0','#1a3055':'#d0d7e0','#2a3f5f':'#d0d7e0',
+    '#1a4030':'#bfe0c9','#1a6030':'#bfe0c9','#2a4060':'#d0d7e0',
+    '#5a4a10':'#e0d090','#1a4a80':'#a8c5e8','#6a1a1a':'#e0a8a8',
+    '#1a3050':'#d0d7e0',
+}
+
+
+def _convert_html_for_light_mode(html: str) -> str:
+    """直接替換 HTML 字串內的深色 hex（最可靠的 light mode 實現）"""
+    out = html
+    for dark, light in _HEX_DARK_TO_LIGHT.items():
+        out = out.replace(dark, light)
+        # 大小寫變體
+        if dark.lower() != dark:
+            out = out.replace(dark.lower(), light)
+        if dark.upper() != dark:
+            out = out.replace(dark.upper(), light)
+    return out
+
+
 def _detect_streamlit_theme() -> str:
     """多重 fallback 偵測 Streamlit 實際顯示 theme（不是 OS preference）
     return 'light' or 'dark'
@@ -340,28 +399,34 @@ for tab, tf in zip(tabs, timeframes_selected):
 
             # ── ④ 推薦策略 label（tv_app 表格欄那個小 badge）──
             rec_label, rec_style = get_rec_label(d, ticker=ticker)
-            st.markdown(
+            _badge_html = (
                 f'<div style="display:inline-block;{rec_style};'
                 f'padding:5px 12px;border-radius:5px;font-size:.85rem;'
                 f'font-weight:700;margin-bottom:8px">'
                 f'④ 推薦策略：{rec_label}'
-                f'</div>',
-                unsafe_allow_html=True)
+                f'</div>'
+            )
+            if _theme == 'light':
+                _badge_html = _convert_html_for_light_mode(_badge_html)
+            st.markdown(_badge_html, unsafe_allow_html=True)
 
             # ── 整體 verdict badge ──
             cap_html = (
                 f'<span style="color:#aa6655;font-size:.72rem;margin-left:6px">{cap}</span>'
                 if cap else ''
             )
-            st.markdown(
+            _verdict_html = (
                 f'<div style="margin:6px 0;font-size:.95rem">'
                 f'<span style="color:#7ab0d0">{tf} 綜合判讀：</span>'
                 f'{badge(verdict)}'
                 f'<span style="color:#7a8899;font-size:.7rem;margin-left:8px">'
                 f'(買 {tb} ｜ 賣 {ts_} ｜ 中 {tn_})</span>'
                 f'{cap_html}'
-                f'</div>',
-                unsafe_allow_html=True)
+                f'</div>'
+            )
+            if _theme == 'light':
+                _verdict_html = _convert_html_for_light_mode(_verdict_html)
+            st.markdown(_verdict_html, unsafe_allow_html=True)
 
             # ── 完整 detail card（含 SEPA/VCP/Stage/Cup/Flat/雙底/綜合決策所有 banner）──
             # 🆕 v9.31：傳入 get_operation_advice 讓 banner 也出現
@@ -372,6 +437,9 @@ for tab, tf in zip(tabs, timeframes_selected):
                 news_fn=None,                       # 新聞不分 TF（跨 TF 一樣）
                 concepts_fn=None,                   # 概念股不分 TF（跨 TF 一樣）
             )
+            # 🆕 v9.32：light mode 直接替換 HTML 字串內深色 hex（比 CSS 可靠）
+            if _theme == 'light':
+                html = _convert_html_for_light_mode(html)
             st.markdown(html, unsafe_allow_html=True)
 
         except Exception as e:
