@@ -264,8 +264,16 @@ def _check_entry_trigger(ind: dict, i: int) -> tuple:
 
 def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
                            entry_stop: float, market: str = 'us') -> tuple:
-    """檢查 i bar 是否該出場
+    """檢查 i bar 是否該出場（v9.33: 只防守性出場，不主動停利）
+
     Returns: (should_exit: bool, reason: str, exit_price: float)
+
+    出場原因（防守性）：
+      🚪 EOD 強制（買入當天必賣）
+      🛑 停損觸發
+      🚨 急停損 -3%
+      💀 死叉確認（EMA20<60 ≥ 2 bar）
+      💧 Close 連 5 bar < BB Mid（趨勢轉弱）
     """
     if i <= entry_idx:
         return False, '', None
@@ -279,8 +287,8 @@ def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
             return None
 
     c = _v('close'); l = _v('low'); h = _v('high')
-    bb_mid = _v('bb_mid'); bb_upper = _v('bb_upper'); bb_lower = _v('bb_lower')
-    e20 = _v('ema20'); e60 = _v('ema60'); adx = _v('adx'); rsi = _v('rsi')
+    bb_mid = _v('bb_mid')
+    e20 = _v('ema20'); e60 = _v('ema60')
 
     # 1. EOD 強制出場（最高優先）
     ts = ind['close'].index[i]
@@ -288,42 +296,24 @@ def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
     if eod['force_exit']:
         return True, f'🚪 EOD 強制出場 (距收盤 {eod["minutes_to_close"]}min)', c
 
-    # 2. 硬停損
+    # 2. 硬停損（防守）
     if l is not None and l <= entry_stop:
         return True, f'🛑 停損觸發 (${entry_stop:.2f})', entry_stop
 
-    # 3. 急跌 emergency floor
+    # 3. 急跌 emergency floor（防守）
     if c is not None and entry_price > 0:
         dd_pct = (c - entry_price) / entry_price * 100
         if dd_pct < -3:
             return True, f'🚨 緊急停損 (-{abs(dd_pct):.1f}%)', c
 
-    # 4. RSI 過熱
-    if rsi is not None and rsi > 75:
-        return True, f'💰 RSI {rsi:.1f} 過熱出場', c
-
-    # 5. 觸 BB Upper 部分停利（這裡簡化成全出，partial out 需要狀態追蹤）
-    if h is not None and bb_upper is not None and h >= bb_upper:
-        return True, f'🎯 觸 BB Upper ${bb_upper:.2f} 停利', bb_upper
-
-    # 6. 死亡交叉 + active exit mode
+    # 4. 死亡交叉確認（趨勢反轉，直接出場 — 不等彈點不找最佳賣價）
     if e20 is not None and e60 is not None and e20 < e60:
-        # 確認死叉 ≥ 2 bar
         e20_prev = _v('ema20', i - 1)
         e60_prev = _v('ema60', i - 1)
         if e20_prev is not None and e60_prev is not None and e20_prev < e60_prev:
-            # 死叉確認 — 進入 active exit，找彈點
-            # 簡化：直接看當前 bar 是否反彈到 BB Mid (±0.3%)
-            if bb_mid is not None and c is not None:
-                dist_mid_pct = abs(c - bb_mid) / bb_mid * 100 if bb_mid > 0 else 99
-                if dist_mid_pct <= 0.3:
-                    return True, f'💰 死叉後彈到 BB Mid 出場', c
-            # 或超過 5 bar 還沒彈 → 強制出
-            if i - entry_idx > 5 and i - entry_idx > 0:
-                # 找出死叉發生的位置（找最近 2 bar 內死叉）
-                return True, f'⏰ 死叉超過 5 bar 強制出場', c
+            return True, f'💀 死叉確認出場', c
 
-    # 7. Close < BB Mid 連續 5 bar
+    # 5. Close 連 5 bar < BB Mid（趨勢轉弱）
     if bb_mid is not None and c is not None and c < bb_mid:
         cnt_below = 0
         for j in range(i, max(entry_idx, i - 10), -1):
@@ -333,7 +323,7 @@ def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
             else:
                 break
         if cnt_below >= 5:
-            return True, f'💧 Close < BB Mid 連 {cnt_below}b 出場', c
+            return True, f'💧 Close<BB Mid 連 {cnt_below}b 出場', c
 
     return False, '', None
 
