@@ -664,15 +664,19 @@ for _tf in timeframes_selected:
                     _re_color = '#e8a020'; _re_bg = '#1a1500'
                 else:
                     _re_color = '#7a8899'; _re_bg = '#0a1422'
+                _re_price = _sig.get('close', 0)
+                # 建議部位百分比（越多規則同時觸發 = 訊號越強）
+                _re_pos_pct = {0:0, 1:25, 2:33, 3:50, 4:67, 5:100}.get(_re_cnt, 25)
                 if _re_cnt > 0:
                     _re_short = ' '.join(_re_abbrev.get(k, k) for k in _re_fired)
-                    _re_label = f'💪 加碼 ×{_re_cnt}: {_re_short}'
+                    _re_label = (f'💪 加碼 ×{_re_cnt}: {_re_short} '
+                                  f'@ ${_re_price:.2f} (建議 {_re_pos_pct}% 部位)')
                     _re_tooltip = ' ｜ '.join(
                         f'{_re_abbrev.get(k, k)}={_re_fullname.get(k, k)}' for k in _re_fired
                     ).replace('"', '&quot;')
                 else:
-                    _re_label = '💤 無加碼'
-                    _re_tooltip = '無任何加碼規則觸發'
+                    _re_label = '💤 無加碼訊號'
+                    _re_tooltip = '5 規則皆未觸發'
                 _re_html = (
                     f'<div style="background:{_re_bg};color:{_re_color};'
                     f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
@@ -872,17 +876,26 @@ for tab, tf in zip(tabs, timeframes_selected):
                     help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
-                # 🆕 v9.38：戰法 marker 改用 bb_p1sig + mid_ema_down (放任利潤)
+                # 🆕 v9.38：戰法 marker 改用 bb_p1sig + mid_ema_down
+                # 🆕 v9.40：加上歷史加碼 marker（黃色星形）
                 _swing_trades_main = None
+                _reentry_events_main = None
                 try:
-                    from intraday.strategy import scan_with_exit_rule, summarize_trades
+                    from intraday.strategy import (
+                        scan_with_exit_rule, summarize_trades,
+                        scan_historical_reentry,
+                    )
                     _swing_trades_main = scan_with_exit_rule(
                         df, market=info['market'],
                         lookback_bars=_main_chart_bars, tf=tf,
                         exit_rule='mid_ema_down',
                         entry_mode='bb_p1sig')
+                    _reentry_events_main = scan_historical_reentry(
+                        df, market=info['market'],
+                        lookback_bars=_main_chart_bars, tf=tf)
                 except Exception:
                     _swing_trades_main = None
+                    _reentry_events_main = None
                 main_fig = build_zigzag_chart_plotly(
                     df,
                     atr_mult=_atr_global,
@@ -894,6 +907,7 @@ for tab, tf in zip(tabs, timeframes_selected):
                     show_macd=_main_show_macd,
                     theme=_theme,
                     swing_trades=_swing_trades_main,
+                    reentry_events=_reentry_events_main,
                 )
             if main_fig is not None:
                 st.plotly_chart(main_fig, use_container_width=True,

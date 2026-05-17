@@ -706,6 +706,51 @@ def _check_defensive_exit(ind: dict, i: int, entry_idx: int,
 # 對外主 API：偵測當前 bar 訊號
 # ────────────────────────────────────────────────────────────────
 
+def scan_historical_reentry(df: pd.DataFrame, market: str = 'us',
+                              lookback_bars: int = 252,
+                              tf: str = '1d') -> List[Dict]:
+    """🆕 v9.40：掃過去 N bar，找所有「主部位持倉期間」內的加碼訊號
+
+    流程：
+      1. 用 bb_p1sig + mid_ema_down 找主部位 (main positions)
+      2. 對每個主部位，從進場+1 ~ 出場-1 期間，每根 bar 檢查 5 加碼規則
+      3. 任一規則觸發 → 記錄一個加碼事件
+
+    Returns: list of {
+        'idx', 'time', 'price', 'rules': list[str], 'count': int,
+        'main_entry_idx', 'main_exit_idx',
+    }
+    """
+    if df is None or len(df) < 30:
+        return []
+
+    main_trades = scan_with_exit_rule(
+        df, market=market, lookback_bars=lookback_bars, tf=tf,
+        exit_rule='mid_ema_down', entry_mode='bb_p1sig')
+    if not main_trades:
+        return []
+
+    ind = _compute_indicators(df)
+    events: list = []
+    n = len(df)
+    for tr in main_trades:
+        entry_idx = tr['entry_idx']
+        exit_idx = tr.get('exit_idx') if tr.get('exit_idx') is not None else (n - 1)
+        for j in range(entry_idx + 1, exit_idx):
+            r = _check_reentry_all(df, ind, j)
+            if r['count'] > 0:
+                events.append({
+                    'idx': j,
+                    'time': df.index[j],
+                    'price': float(df['Close'].iloc[j]),
+                    'rules': r['fired'],
+                    'count': r['count'],
+                    'main_entry_idx': entry_idx,
+                    'main_exit_idx': exit_idx,
+                })
+    return events
+
+
 def _check_reentry_all(df: pd.DataFrame, ind: dict, i: int) -> dict:
     """🆕 v9.39 — 同時檢查所有 5 種加碼規則
 

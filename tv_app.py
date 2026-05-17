@@ -6566,6 +6566,20 @@ for item in results:
                         'Volume': _sh.get('volume') or [0] * len(_closes),
                     }, index=pd.to_datetime(_dates))
                     _atr_v = get_zigzag_atr_mult()
+                    # 🆕 v9.40：加上戰法 entry/exit + 歷史加碼 marker
+                    _swing_trades_tv = None
+                    _reentry_events_tv = None
+                    try:
+                        from intraday.strategy import (
+                            scan_with_exit_rule, scan_historical_reentry,
+                        )
+                        _swing_trades_tv = scan_with_exit_rule(
+                            _df_for_chart, market=market, lookback_bars=180, tf='1d',
+                            exit_rule='mid_ema_down', entry_mode='bb_p1sig')
+                        _reentry_events_tv = scan_historical_reentry(
+                            _df_for_chart, market=market, lookback_bars=180, tf='1d')
+                    except Exception:
+                        pass
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
@@ -6575,6 +6589,8 @@ for item in results:
                         show_emas=[5, 20, 60, 150, 200],
                         show_macd=True,
                         theme='dark',
+                        swing_trades=_swing_trades_tv,
+                        reentry_events=_reentry_events_tv,
                     )
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
@@ -6653,10 +6669,14 @@ for item in results:
                                     _re_col, _re_bg2 = '#e8a020', '#1a1500'
                                 else:
                                     _re_col, _re_bg2 = '#7a8899', '#0a1422'
+                                _re_price_tv = _sig.get('close', 0)
+                                _re_pos_pct_tv = {0:0, 1:25, 2:33, 3:50, 4:67, 5:100}.get(_re_cnt_tv, 25)
                                 if _re_cnt_tv > 0:
                                     _re_short = ' '.join(
                                         _re_abbrev_tv.get(k, k) for k in _re_fired_tv)
-                                    _re_lbl_tv = f'💪 加碼 ×{_re_cnt_tv}: {_re_short}'
+                                    _re_lbl_tv = (f'💪 加碼 ×{_re_cnt_tv}: {_re_short} '
+                                                   f'@ ${_re_price_tv:.2f} '
+                                                   f'(建議 {_re_pos_pct_tv}% 部位)')
                                     _re_tip = ' ｜ '.join(
                                         f'{_re_abbrev_tv.get(k, k)}={_re_full_tv.get(k, k)}'
                                         for k in _re_fired_tv).replace('"', '&quot;')
