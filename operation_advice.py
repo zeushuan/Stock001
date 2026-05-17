@@ -1622,6 +1622,18 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             from zigzag import zigzag as _zz
             pivots = _zz(df_plot, mode='atr', atr_mult=1.3, atr_period=14)
 
+            # 🆕 v9.31：依 bar 間隔自動 scale 蠟燭寬度
+            # 日線一根 = 1 day（width=0.6 OK）；5m 一根 = 0.0035 day → 0.6 太寬
+            try:
+                _diffs = df_plot.index.to_series().diff().dropna()
+                _bar_sec = _diffs.dt.total_seconds().quantile(0.25)
+                if _bar_sec is None or _bar_sec <= 0:
+                    _bar_sec = 86400
+            except Exception:
+                _bar_sec = 86400
+            _bar_w = (_bar_sec / 86400.0) * 0.75   # 75% 填滿避免黏在一起
+            _is_intraday = _bar_sec < 86400 * 0.9
+
             fig, (ax1, ax2) = _plt.subplots(2, 1, figsize=(13, 6.5),
                                               gridspec_kw={'height_ratios': [3, 1]},
                                               sharex=True)
@@ -1632,8 +1644,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 ax1.plot([_d, _d], [_row['Low'], _row['High']],
                           color=_c, linewidth=0.5, alpha=0.65, zorder=1)
                 ax1.add_patch(_plt.Rectangle(
-                    (_mdates.date2num(_d) - 0.3, min(_row['Open'], _row['Close'])),
-                    0.6, abs(_row['Close'] - _row['Open']),
+                    (_mdates.date2num(_d) - _bar_w/2, min(_row['Open'], _row['Close'])),
+                    _bar_w, abs(_row['Close'] - _row['Open']),
                     facecolor=_c, edgecolor=_c, alpha=0.65, zorder=2))
 
             # ZigZag 線
@@ -1729,11 +1741,24 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             # Volume
             for _d, _row in df_plot.iterrows():
                 _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
-                ax2.bar(_d, _row['Volume'], color=_c, alpha=0.55, width=0.7)
+                ax2.bar(_d, _row['Volume'], color=_c, alpha=0.55, width=_bar_w)
             ax2.set_ylabel('Vol', fontsize=8)
             ax2.grid(True, alpha=0.3)
-            ax2.xaxis.set_major_locator(_mdates.MonthLocator())
-            ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%Y-%m'))
+            # 🆕 v9.31：x-axis 依 bar 間隔選不同 locator/formatter
+            if _is_intraday:
+                # intraday：1h locator + 月-日 時:分 格式
+                if _bar_sec <= 300:        # ≤5min
+                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
+                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d %H:%M'))
+                elif _bar_sec <= 1800:     # ≤30min
+                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
+                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d %H:%M'))
+                else:                       # 1h
+                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
+                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d'))
+            else:
+                ax2.xaxis.set_major_locator(_mdates.MonthLocator())
+                ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%Y-%m'))
             _plt.setp(ax2.xaxis.get_majorticklabels(), rotation=25, fontsize=8)
 
             _plt.tight_layout()

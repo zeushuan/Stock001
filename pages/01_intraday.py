@@ -40,55 +40,146 @@ if 'selected_ticker_intraday' not in st.session_state:
     inherited = st.session_state.get('current_ticker') or 'AAPL'
     st.session_state['selected_ticker_intraday'] = inherited
 
+# 🆕 v9.32：偵測 Streamlit theme，預設用 Auto（跟隨系統）
+if 'intraday_theme_mode' not in st.session_state:
+    # 試 Streamlit 1.31+ 的 st.context.theme
+    try:
+        _detected = getattr(st.context.theme, 'type', None)
+        st.session_state['intraday_theme_mode'] = _detected or 'auto'
+    except Exception:
+        st.session_state['intraday_theme_mode'] = 'auto'
 
-# ── tv_app CSS（讓 ind-item/ind-grid/badge 樣式生效）──
-st.markdown("""
+
+def _build_dark_css() -> str:
+    """Dark mode（原本就有的）— class 樣式定義"""
+    return """
+.ind-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; margin-bottom:8px; }
+.ind-item { background:#0a1628; border:1px solid #1a2f48; border-radius:6px; padding:7px 10px; }
+.ind-item.ind-buy   { border-color:#1a4a80; background:#08152a; }
+.ind-item.ind-sell  { border-color:#6a1a1a; background:#1a0808; }
+.ind-item.ind-neu   { border-color:#1a2f48; }
+.ind-label { display:block; font-size:.68rem; color:#7ab0d0; margin-bottom:3px; }
+.ind-val   { font-size:.9rem; color:#e8f4fd; font-family:'IBM Plex Mono','SF Mono',Consolas,monospace; font-weight:600; }
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:.7rem; font-weight:700; margin:0 4px; }
+.badge-strong-buy { background:#0D47A1; color:#60CFFF; }
+.badge-buy        { background:#0D2E50; color:#60B3FF; }
+.badge-buy-limit  { background:#3A2A00; color:#F0C030; }
+.badge-strong-sell{ background:#4A0A0A; color:#FF6B6B; }
+.badge-sell       { background:#3B0D0D; color:#FF8080; }
+.badge-overheat   { background:#3A1800; color:#FF8830; }
+.badge-bearish    { background:#3A0808; color:#FF5555; }
+.badge-neutral    { background:#1A2030; color:#9AAABB; }
+"""
+
+
+def _build_light_css() -> str:
+    """Light mode — 反過來 + 用 attribute selector + !important 蓋過 inline 深色"""
+    return """
+/* —— class-based 樣式（淺色版）—— */
+.ind-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; margin-bottom:8px; }
+.ind-item { background:#f5f7fa !important; border:1px solid #d0d7e0 !important; border-radius:6px; padding:7px 10px; }
+.ind-item.ind-buy   { border-color:#8eb5e8 !important; background:#e8f1ff !important; }
+.ind-item.ind-sell  { border-color:#e89090 !important; background:#ffeaea !important; }
+.ind-item.ind-neu   { border-color:#d0d7e0 !important; }
+.ind-label { display:block; font-size:.68rem; color:#4a6c88 !important; margin-bottom:3px; }
+.ind-val   { font-size:.9rem; color:#1a2a40 !important; font-family:'IBM Plex Mono','SF Mono',Consolas,monospace; font-weight:600; }
+
+.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:.7rem; font-weight:700; margin:0 4px; }
+.badge-strong-buy { background:#1565C0 !important; color:#ffffff !important; }
+.badge-buy        { background:#1976D2 !important; color:#ffffff !important; }
+.badge-buy-limit  { background:#F0A030 !important; color:#ffffff !important; }
+.badge-strong-sell{ background:#B71C1C !important; color:#ffffff !important; }
+.badge-sell       { background:#D32F2F !important; color:#ffffff !important; }
+.badge-overheat   { background:#E65100 !important; color:#ffffff !important; }
+.badge-bearish    { background:#C62828 !important; color:#ffffff !important; }
+.badge-neutral    { background:#9AAABB !important; color:#ffffff !important; }
+
+/* —— inline-style overrides（蓋過 detail_card_render / operation_advice 寫死的深色）—— */
+/* 常見深色 panel 背景 → 淺色 */
+[style*="background:#0a1628"], [style*="background:#08131f"], [style*="background:#0a1422"],
+[style*="background:#08152a"], [style*="background:#0a1828"], [style*="background:#0a1020"],
+[style*="background:#050e1a"], [style*="background:#0f1f33"], [style*="background:#0a1e30"],
+[style*="background:#0f2535"]
+  { background:#f5f7fa !important; }
+
+[style*="background:#1a0808"], [style*="background:#3a0a0a"], [style*="background:#2a0a0a"],
+[style*="background:#1a0010"], [style*="background:#3B0D0D"], [style*="background:#3a0808"],
+[style*="background:#4A0A0A"]
+  { background:#ffeaea !important; }
+
+[style*="background:#0a2a14"], [style*="background:#0d2a10"], [style*="background:#0a1a0a"]
+  { background:#e6f7ec !important; }
+
+[style*="background:#1a1408"], [style*="background:#1a1805"], [style*="background:#2a1605"],
+[style*="background:#1a1200"], [style*="background:#1a1400"], [style*="background:#3A2A00"],
+[style*="background:#2a1500"], [style*="background:#3A1800"]
+  { background:#fff4d6 !important; }
+
+[style*="background:#1a0808"], [style*="background:#2a0008"], [style*="background:#1a0a08"]
+  { background:#ffeaea !important; }
+
+/* 深色文字 → 深色字（淺底配深字）*/
+[style*="color:#e8f4fd"], [style*="color:#c8dff0"], [style*="color:#a8c0d0"]
+  { color:#1a2a40 !important; }
+
+[style*="color:#7ab0d0"], [style*="color:#7abadd"], [style*="color:#5dccdd"],
+[style*="color:#7a9ab0"], [style*="color:#8ab0c8"], [style*="color:#7a8899"],
+[style*="color:#5a8ab0"], [style*="color:#9aaabb"], [style*="color:#3a5a7a"],
+[style*="color:#5a7a9a"]
+  { color:#4a6c88 !important; }
+
+/* 強調色（買/賣/中性）— 維持原色但加深一點 */
+[style*="color:#3b9eff"] { color:#1976d2 !important; }
+[style*="color:#60B3FF"] { color:#1565C0 !important; }
+[style*="color:#60CFFF"] { color:#0D47A1 !important; }
+[style*="color:#ff5555"] { color:#c62828 !important; }
+[style*="color:#FF6B6B"], [style*="color:#FF8080"], [style*="color:#FF7755"] { color:#b71c1c !important; }
+[style*="color:#3dbb6a"], [style*="color:#88c8a8"], [style*="color:#7acc7a"],
+[style*="color:#40c070"] { color:#2e7d32 !important; }
+[style*="color:#e8a020"], [style*="color:#ffaa55"], [style*="color:#e8c030"],
+[style*="color:#c8b87a"] { color:#ed6c02 !important; }
+[style*="color:#aa66ff"], [style*="color:#a866ff"], [style*="color:#a060ff"],
+[style*="color:#b266ff"] { color:#5e35b1 !important; }
+
+/* 邊框 / 分隔線 */
+[style*="border-top:1px solid #0f1f33"], [style*="border-top:1px solid #1a2f48"]
+  { border-top-color:#d0d7e0 !important; }
+[style*="border:1px solid #1a2f48"], [style*="border:1px solid #1a3055"],
+[style*="border:1px solid #2a3f5f"]
+  { border-color:#d0d7e0 !important; }
+"""
+
+
+# ── 主題 toggle ──
+_t1, _t2 = st.columns([5, 1])
+with _t2:
+    _theme_choice = st.radio(
+        '🌓 主題',
+        options=['Auto', 'Dark', 'Light'],
+        index={'auto':0,'dark':1,'light':2}.get(
+            st.session_state['intraday_theme_mode'], 0),
+        horizontal=True,
+        key='_theme_radio',
+    )
+    st.session_state['intraday_theme_mode'] = _theme_choice.lower()
+
+
+# ── 注入 CSS（Auto = 用 prefers-color-scheme media query）──
+_theme = st.session_state['intraday_theme_mode']
+if _theme == 'dark':
+    st.markdown(f'<style>{_build_dark_css()}</style>', unsafe_allow_html=True)
+elif _theme == 'light':
+    st.markdown(
+        f'<style>{_build_dark_css()}\n{_build_light_css()}</style>',
+        unsafe_allow_html=True)
+else:   # auto — system 偏好決定（光標暗黑就暗黑）
+    st.markdown(f"""
 <style>
-/* — ind-grid（與 tv_app render_detail 同樣 class）— */
-.ind-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.ind-item {
-  background: #0a1628;
-  border: 1px solid #1a2f48;
-  border-radius: 6px;
-  padding: 7px 10px;
-}
-.ind-item.ind-buy   { border-color: #1a4a80; background: #08152a; }
-.ind-item.ind-sell  { border-color: #6a1a1a; background: #1a0808; }
-.ind-item.ind-neu   { border-color: #1a2f48; }
-.ind-label {
-  display: block;
-  font-size: .68rem;
-  color: #7ab0d0;
-  margin-bottom: 3px;
-}
-.ind-val {
-  font-size: .9rem;
-  color: #e8f4fd;
-  font-family: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
-  font-weight: 600;
-}
-/* — badge — */
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: .7rem;
-  font-weight: 700;
-  margin: 0 4px;
-}
-.badge-strong-buy    { background:#0D47A1; color:#60CFFF; }
-.badge-buy           { background:#0D2E50; color:#60B3FF; }
-.badge-buy-limit     { background:#3A2A00; color:#F0C030; }
-.badge-strong-sell   { background:#4A0A0A; color:#FF6B6B; }
-.badge-sell          { background:#3B0D0D; color:#FF8080; }
-.badge-overheat      { background:#3A1800; color:#FF8830; }
-.badge-bearish       { background:#3A0808; color:#FF5555; }
-.badge-neutral       { background:#1A2030; color:#9AAABB; }
+{_build_dark_css()}
+
+@media (prefers-color-scheme: light) {{
+{_build_light_css()}
+}}
 </style>
 """, unsafe_allow_html=True)
 
