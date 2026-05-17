@@ -639,44 +639,23 @@ for _tf in timeframes_selected:
                 _exit_bg = '#0a1422'; _exit_color = '#7a8899'
             _exit_label = _exit.get('label', '⚪ 持有')
 
-            # 🆕 v9.39：加碼訊號（5 規則）
+            # 🆕 v9.41：加碼訊號（EMA5 反轉）
             _re = _sig.get('reentry', {})
             _re_html = ''
             if _re:
                 _re_fired = _re.get('fired', [])
                 _re_cnt = _re.get('count', 0)
-                _re_abbrev = {
-                    'r_p1sig_redo': 'P1', 'r_20d_high': 'HI',
-                    'r_mid_bounce': 'MB', 'r_ema5_pull': 'E5', 'r_ema20': 'E20',
-                }
-                _re_fullname = {
-                    'r_p1sig_redo': '重觸 BB+1σ',
-                    'r_20d_high': '破 20b 新高',
-                    'r_mid_bounce': 'BB 中軌反彈',
-                    'r_ema5_pull': 'EMA5 觸碰',
-                    'r_ema20': 'EMA20 觸碰',
-                }
-                if _re_cnt >= 3:
-                    _re_color = '#3dbb6a'; _re_bg = '#0d2a14'
-                elif _re_cnt >= 2:
-                    _re_color = '#5dccdd'; _re_bg = '#0a1828'
-                elif _re_cnt == 1:
-                    _re_color = '#e8a020'; _re_bg = '#1a1500'
+                _re_price = _sig.get('close', 0)
+                if _re_cnt > 0:
+                    _re_color = '#f0c030'; _re_bg = '#1a1500'
+                    _re_label = (f'🔄 加碼: EMA5 反轉 @ ${_re_price:.2f} '
+                                  f'(建議 33% 部位)')
+                    _re_tooltip = ('EMA5 向下後反轉向上 + Close 未跌破 BB Mid '
+                                   '→ 順勢拉回反彈確認').replace('"', '&quot;')
                 else:
                     _re_color = '#7a8899'; _re_bg = '#0a1422'
-                _re_price = _sig.get('close', 0)
-                # 建議部位百分比（越多規則同時觸發 = 訊號越強）
-                _re_pos_pct = {0:0, 1:25, 2:33, 3:50, 4:67, 5:100}.get(_re_cnt, 25)
-                if _re_cnt > 0:
-                    _re_short = ' '.join(_re_abbrev.get(k, k) for k in _re_fired)
-                    _re_label = (f'💪 加碼 ×{_re_cnt}: {_re_short} '
-                                  f'@ ${_re_price:.2f} (建議 {_re_pos_pct}% 部位)')
-                    _re_tooltip = ' ｜ '.join(
-                        f'{_re_abbrev.get(k, k)}={_re_fullname.get(k, k)}' for k in _re_fired
-                    ).replace('"', '&quot;')
-                else:
                     _re_label = '💤 無加碼訊號'
-                    _re_tooltip = '5 規則皆未觸發'
+                    _re_tooltip = 'EMA5 未反轉，或 Close 已跌破 BB Mid'
                 _re_html = (
                     f'<div style="background:{_re_bg};color:{_re_color};'
                     f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
@@ -836,73 +815,39 @@ if _theme == 'light':
 st.markdown(_sepa_legend_html, unsafe_allow_html=True)
 
 
-# 🆕 v9.40：加碼規則說明
+# 🆕 v9.41：加碼規則說明（單一規則：EMA5 反轉）
 _reentry_legend_html = (
     '<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;'
     'padding:10px 14px;margin-bottom:12px;font-size:.78rem">'
     '<div style="color:#f0c030;font-weight:700;margin-bottom:6px;font-size:.85rem">'
-    '💎 加碼規則說明（pyramiding — 主部位持倉期間加倉訊號）'
+    '🔄 加碼規則說明（v9.41 — EMA5 反轉確認）'
     '</div>'
     '<div style="color:#a8c0d0;margin-bottom:8px">'
     '格式：<code style="background:#0a1828;padding:1px 5px;border-radius:3px;color:#e8f4fd">'
-    '💪 加碼 ×N: P1 HI ... @ $price (建議 N% 部位)</code>'
-    '　｜　數字代表同時觸發的規則數，越多越強'
+    '🔄 加碼: EMA5 反轉 @ $price (建議 33% 部位)</code>'
     '</div>'
 
-    # 5 條規則 grid
-    '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));'
-    'gap:6px 14px;color:#c8dff0">'
-
-    '<div><b style="color:#f0c030">P1</b>'
-    '<span style="color:#5a7a9a;font-size:.7rem"> · 重觸 BB+1σ</span>'
-    '<br><span style="color:#e8f4fd;font-size:.75rem">'
-    'Close 離開 BB+1σ ≥ 2b 後重新回到 ≥ +1σ</span>'
-    '<br><span style="color:#7a9ab0;font-size:.7rem">'
-    '🏆 回測總報酬最高 +168k% / 平均 +7.42%</span></div>'
-
-    '<div><b style="color:#f0c030">HI</b>'
-    '<span style="color:#5a7a9a;font-size:.7rem"> · 破 20b 新高</span>'
-    '<br><span style="color:#e8f4fd;font-size:.75rem">'
-    'Close > 過去 20 bar 的最高（不含今日）</span>'
-    '<br><span style="color:#7a9ab0;font-size:.7rem">'
-    '⭐ 勝率最高 53.8% / 單筆品質最佳 +7.76%</span></div>'
-
-    '<div><b style="color:#f0c030">MB</b>'
-    '<span style="color:#5a7a9a;font-size:.7rem"> · BB 中軌反彈</span>'
-    '<br><span style="color:#e8f4fd;font-size:.75rem">'
-    '近 5b 內 Low ≤ BB Mid + 今日紅 K + Close > Mid</span>'
-    '<br><span style="color:#7a9ab0;font-size:.7rem">'
-    '💎 折扣加碼 / 平均 +6.44%</span></div>'
-
-    '<div><b style="color:#f0c030">E5</b>'
-    '<span style="color:#5a7a9a;font-size:.7rem"> · EMA5 觸碰</span>'
-    '<br><span style="color:#e8f4fd;font-size:.75rem">'
-    '|Low − EMA5| ≤ 0.3 × ATR + 今日紅 K</span>'
-    '<br><span style="color:#7a9ab0;font-size:.7rem">'
-    '⚡ 短線高頻 / 平均 +7.33%</span></div>'
-
-    '<div><b style="color:#f0c030">E20</b>'
-    '<span style="color:#5a7a9a;font-size:.7rem"> · EMA20 觸碰</span>'
-    '<br><span style="color:#e8f4fd;font-size:.75rem">'
-    '|Low − EMA20| ≤ 0.3 × ATR + 今日紅 K</span>'
-    '<br><span style="color:#7a9ab0;font-size:.7rem">'
-    '📊 Minervini 流派 / 平均 +5.89%</span></div>'
-
+    # 3 條件
+    '<div style="color:#c8dff0;line-height:1.7">'
+    '<div style="margin-bottom:4px"><b style="color:#f0c030">① 今日 EMA5 > 昨日 EMA5</b>'
+    '<span style="color:#7a9ab0;font-size:.72rem"> · EMA5 反轉向上 (今日轉揚)</span></div>'
+    '<div style="margin-bottom:4px"><b style="color:#f0c030">② 過去 5 bar 內 EMA5 至少有 2 次下降</b>'
+    '<span style="color:#7a9ab0;font-size:.72rem"> · 確認曾經拉回 (避免持續上升中誤觸發)</span></div>'
+    '<div style="margin-bottom:4px"><b style="color:#f0c030">③ 過去 5 bar Close 從未跌破 BB Mid</b>'
+    '<span style="color:#7a9ab0;font-size:.72rem"> · 趨勢結構保留 (回檔但未轉空)</span></div>'
     '</div>'
 
-    # 部位建議
+    # 邏輯說明
     '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #1a2f48;'
-    'color:#a8c0d0;font-size:.72rem">'
-    '<b style="color:#7ab0d0">建議部位（依命中規則數）：</b>'
-    '<span style="color:#7a8899">0 → </span><b>0%</b> '
-    '｜ <span style="color:#e8a020">1 → </span><b>25%</b> '
-    '｜ <span style="color:#5dccdd">2 → </span><b>33%</b> '
-    '｜ <span style="color:#3dbb6a">3 → </span><b>50%</b> '
-    '｜ <span style="color:#3dbb6a">4 → </span><b>67%</b> '
-    '｜ <span style="color:#3dbb6a">5 → </span><b>100%</b>'
+    'color:#a8c0d0;font-size:.74rem">'
+    '<b style="color:#7ab0d0">邏輯：</b>'
+    '主部位持倉中，價格小幅拉回但守住 BB Mid，EMA5 由跌轉揚 → '
+    '「**淺回檔反彈**」型加碼（健康的順勢回測）<br>'
+    '<b style="color:#7ab0d0">建議部位：</b>'
+    '<span style="color:#f0c030;font-weight:700">33%</span> '
+    '（標準 1/3 加碼）'
     '　／　<b style="color:#7ab0d0">圖示：</b>'
     'ZigZag 圖上的 <span style="color:#f0c030">⭐ 黃色星形</span> = 歷史加碼點'
-    '（越多規則 = 星形越大）'
     '</div>'
 
     '</div>'

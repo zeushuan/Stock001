@@ -6643,46 +6643,21 @@ for item in results:
                                     f' title="{_stip}">{_sepa_v9["label"]}</div>'
                                 )
 
-                            # 🆕 v9.39：加碼訊號 banner
+                            # 🆕 v9.41：加碼訊號 banner（EMA5 反轉）
                             _re_v9 = _sig.get('reentry', {})
                             _re_html_tv = ''
                             if _re_v9:
-                                _re_fired_tv = _re_v9.get('fired', [])
                                 _re_cnt_tv = _re_v9.get('count', 0)
-                                _re_abbrev_tv = {
-                                    'r_p1sig_redo': 'P1', 'r_20d_high': 'HI',
-                                    'r_mid_bounce': 'MB', 'r_ema5_pull': 'E5',
-                                    'r_ema20': 'E20',
-                                }
-                                _re_full_tv = {
-                                    'r_p1sig_redo': '重觸 BB+1σ',
-                                    'r_20d_high': '破 20b 新高',
-                                    'r_mid_bounce': 'BB 中軌反彈',
-                                    'r_ema5_pull': 'EMA5 觸碰',
-                                    'r_ema20': 'EMA20 觸碰',
-                                }
-                                if _re_cnt_tv >= 3:
-                                    _re_col, _re_bg2 = '#3dbb6a', '#0d2a14'
-                                elif _re_cnt_tv >= 2:
-                                    _re_col, _re_bg2 = '#5dccdd', '#0a1828'
-                                elif _re_cnt_tv == 1:
-                                    _re_col, _re_bg2 = '#e8a020', '#1a1500'
+                                _re_price_tv = _sig.get('close', 0)
+                                if _re_cnt_tv > 0:
+                                    _re_col, _re_bg2 = '#f0c030', '#1a1500'
+                                    _re_lbl_tv = (f'🔄 加碼: EMA5 反轉 @ ${_re_price_tv:.2f} '
+                                                   f'(建議 33% 部位)')
+                                    _re_tip = 'EMA5 向下後反轉向上 + Close 未跌破 BB Mid'
                                 else:
                                     _re_col, _re_bg2 = '#7a8899', '#0a1422'
-                                _re_price_tv = _sig.get('close', 0)
-                                _re_pos_pct_tv = {0:0, 1:25, 2:33, 3:50, 4:67, 5:100}.get(_re_cnt_tv, 25)
-                                if _re_cnt_tv > 0:
-                                    _re_short = ' '.join(
-                                        _re_abbrev_tv.get(k, k) for k in _re_fired_tv)
-                                    _re_lbl_tv = (f'💪 加碼 ×{_re_cnt_tv}: {_re_short} '
-                                                   f'@ ${_re_price_tv:.2f} '
-                                                   f'(建議 {_re_pos_pct_tv}% 部位)')
-                                    _re_tip = ' ｜ '.join(
-                                        f'{_re_abbrev_tv.get(k, k)}={_re_full_tv.get(k, k)}'
-                                        for k in _re_fired_tv).replace('"', '&quot;')
-                                else:
                                     _re_lbl_tv = '💤 無加碼訊號'
-                                    _re_tip = '5 規則皆未觸發'
+                                    _re_tip = 'EMA5 未反轉，或 Close 已跌破 BB Mid'
                                 _re_html_tv = (
                                     f'<div style="background:{_re_bg2};color:{_re_col};'
                                     f'padding:4px 8px;border-radius:4px;border-left:3px solid {_re_col};'

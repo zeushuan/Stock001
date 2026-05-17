@@ -629,14 +629,9 @@ def build_zigzag_chart_plotly(
                 text=exit_texts, hoverinfo='text',
             ), row=1, col=1)
 
-    # ── 🆕 v9.40：加碼 marker（黃色星形）──
+    # ── 🆕 v9.41：加碼 marker（黃色星形 — EMA5 反轉）──
     if reentry_events:
-        re_xs, re_ys, re_texts, re_sizes = [], [], [], []
-        # 縮寫 map
-        _re_abbrev_chart = {
-            'r_p1sig_redo': 'P1', 'r_20d_high': 'HI',
-            'r_mid_bounce': 'MB', 'r_ema5_pull': 'E5', 'r_ema20': 'E20',
-        }
+        re_xs, re_ys, re_texts = [], [], []
         for ev in reentry_events:
             try:
                 ts = pd.to_datetime(ev['time'])
@@ -644,26 +639,22 @@ def build_zigzag_chart_plotly(
                 if pos < 0 or pos >= N:
                     continue
                 re_xs.append(pos)
-                # 加碼點標在 bar 上方（略高於 Close）
                 re_ys.append(ev['price'] * 1.008)
-                rules_str = ' '.join(_re_abbrev_chart.get(k, k) for k in ev['rules'])
                 re_texts.append(
-                    f"<b>💎 加碼 ×{ev['count']}</b><br>"
+                    f"<b>🔄 加碼: EMA5 反轉</b><br>"
                     f"{ts.strftime('%Y-%m-%d %H:%M')}<br>"
                     f"${ev['price']:.4f}<br>"
-                    f"規則: {rules_str}"
+                    f"建議 33% 部位"
                 )
-                # marker size 依加碼規則數遞增
-                re_sizes.append(10 + ev['count'] * 2)
             except Exception:
                 continue
         if re_xs:
             fig.add_trace(go.Scatter(
                 x=re_xs, y=re_ys, mode='markers',
-                name=f'💎 加碼點 ({len(re_xs)})',
+                name=f'🔄 加碼點 ({len(re_xs)})',
                 marker=dict(
-                    symbol='star', size=re_sizes,
-                    color='#f0c030',   # 黃色
+                    symbol='star', size=12,
+                    color='#f0c030',
                     line=dict(color='#aa7700', width=1.5),
                 ),
                 text=re_texts, hoverinfo='text',

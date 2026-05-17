@@ -752,24 +752,24 @@ def scan_historical_reentry(df: pd.DataFrame, market: str = 'us',
 
 
 def _check_reentry_all(df: pd.DataFrame, ind: dict, i: int) -> dict:
-    """🆕 v9.39 — 同時檢查所有 5 種加碼規則
+    """🆕 v9.41 — 加碼規則：EMA5 向下後反轉 + 未跌破 BB Mid
+
+    條件（全 AND）：
+      1. 今日 EMA5 > 昨日 EMA5（反轉向上）
+      2. 過去 5 bar 內 EMA5 至少有 2 次下降（曾經向下）
+      3. 過去 5 bar 內，所有 Close 都 ≥ BB Mid（從未跌破中軌）
 
     Returns: {
-        'r_p1sig_redo': bool,    # 重新觸 BB+1σ (avg +7.42%, freq 9.96/pos)
-        'r_20d_high':   bool,    # 破近 20b 最高 (wr 53.8%, 單筆最強)
-        'r_mid_bounce': bool,    # 中軌反彈
-        'r_ema5_pull':  bool,    # EMA5 觸碰
-        'r_ema20':      bool,    # EMA20 觸碰 (Minervini)
-        'fired':        list[str],  # 命中清單
-        'count':        int,
+        'r_ema5_reversal': bool,
+        'fired': list[str],
+        'count': int,
     }
     """
-    results: dict = {
-        'r_p1sig_redo': False, 'r_20d_high': False,
-        'r_mid_bounce': False, 'r_ema5_pull': False, 'r_ema20': False,
-    }
-    if i < 20:
-        results['fired'] = []; results['count'] = 0
+    results: dict = {'r_ema5_reversal': False}
+    results['fired'] = []
+    results['count'] = 0
+
+    if i < 7:
         return results
 
     def _v(key, idx=None):
@@ -780,55 +780,36 @@ def _check_reentry_all(df: pd.DataFrame, ind: dict, i: int) -> dict:
         except Exception:
             return None
 
-    c = _v('close'); c_prev = _v('close', i - 1)
-    bb_mid = _v('bb_mid'); bb_p1 = _v('bb_p1sigma')
-    atr_v = _v('atr'); e5 = _v('ema5'); e20 = _v('ema20')
-    o = _v('open'); l = _v('low')
+    # 1. 今日 EMA5 > 昨日 EMA5（反轉向上）
+    e5_today = _v('ema5', i)
+    e5_yest = _v('ema5', i - 1)
+    if e5_today is None or e5_yest is None:
+        return results
+    if e5_today <= e5_yest:
+        return results
 
-    # R1: r_mid_bounce — 中軌反彈
-    if c is not None and c_prev is not None and bb_mid is not None:
-        if c > c_prev and c > bb_mid:
-            touched = False
-            for k in range(max(0, i - 5), i + 1):
-                lk = _v('low', k); mk = _v('bb_mid', k)
-                if lk is not None and mk is not None and lk <= mk:
-                    touched = True; break
-            results['r_mid_bounce'] = touched
+    # 2. 過去 5 bar 內 EMA5 至少有 2 次下降（曾向下）
+    declining = 0
+    for k in range(max(1, i - 5), i):
+        e_now = _v('ema5', k)
+        e_pre = _v('ema5', k - 1)
+        if e_now is not None and e_pre is not None and e_now < e_pre:
+            declining += 1
+    if declining < 2:
+        return results
 
-    # R2: r_ema20 — EMA20 觸碰
-    if (c is not None and o is not None and l is not None
-        and e20 is not None and atr_v is not None and atr_v > 0):
-        dist = abs(l - e20) / atr_v
-        results['r_ema20'] = (dist <= 0.3 and c > o)
+    # 3. 過去 5 bar 內 Close 從未 < BB Mid
+    for k in range(max(0, i - 5), i + 1):
+        ck = _v('close', k)
+        mk = _v('bb_mid', k)
+        if ck is None or mk is None:
+            continue
+        if ck < mk:
+            return results
 
-    # R3: r_p1sig_redo — BB+1σ 重新觸發
-    if (c is not None and bb_p1 is not None and atr_v is not None
-        and atr_v > 0 and bb_p1 > 0):
-        if c >= bb_p1 - atr_v * 0.3:
-            n_below = 0
-            for k in range(max(0, i - 10), i):
-                ck = _v('close', k); bk = _v('bb_p1sigma', k)
-                if ck is not None and bk is not None and ck < bk:
-                    n_below += 1
-            results['r_p1sig_redo'] = (n_below >= 2)
-
-    # R4: r_20d_high — 20b 新高
-    if c is not None and i >= 20:
-        try:
-            max_h = float(df['High'].iloc[max(0, i - 20):i].max())
-            results['r_20d_high'] = (c > max_h)
-        except Exception:
-            pass
-
-    # R5: r_ema5_pull — EMA5 觸碰
-    if (c is not None and o is not None and l is not None
-        and e5 is not None and atr_v is not None and atr_v > 0):
-        dist = abs(l - e5) / atr_v
-        results['r_ema5_pull'] = (dist <= 0.3 and c > o)
-
-    fired = [k for k, v in results.items() if v]
-    results['fired'] = fired
-    results['count'] = len(fired)
+    results['r_ema5_reversal'] = True
+    results['fired'] = ['r_ema5_reversal']
+    results['count'] = 1
     return results
 
 
