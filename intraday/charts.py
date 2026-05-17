@@ -457,6 +457,73 @@ def build_zigzag_chart_plotly(
             hovertemplate=f'EMA{p}: $%{{y:.4f}}<extra></extra>',
         ), row=1, col=1)
 
+    # ── 🆕 v9.32：EMA20/EMA60 黃金/死亡交叉標示 (K 線圖上的 T1 訊號) ──
+    # EMA60 不在預設 show_emas 中，這裡獨立計算（cross 偵測不受 show_emas 影響）
+    try:
+        _e20_full = close_full.ewm(span=20, adjust=False).mean()
+        _e60_full = close_full.ewm(span=60, adjust=False).mean()
+        e20_vals = _e20_full.tail(max_bars).values
+        e60_vals = _e60_full.tail(max_bars).values
+    except Exception:
+        e20_vals = None; e60_vals = None
+    if e20_vals is not None and e60_vals is not None and len(e20_vals) >= 2:
+        ema_gold_xs, ema_gold_ys, ema_gold_texts = [], [], []
+        ema_death_xs, ema_death_ys, ema_death_texts = [], [], []
+        close_vals = df_plot['Close'].values
+        for i in range(1, len(e20_vals)):
+            if any(np.isnan(x) for x in (e20_vals[i], e60_vals[i],
+                                            e20_vals[i-1], e60_vals[i-1])):
+                continue
+            prev_diff = e20_vals[i-1] - e60_vals[i-1]
+            curr_diff = e20_vals[i] - e60_vals[i]
+            if prev_diff <= 0 and curr_diff > 0:
+                # 黃金交叉：EMA20 上穿 EMA60
+                ema_gold_xs.append(i)
+                # 標記畫在該 bar 的 Low 下方一點（避免擋 candle）
+                ema_gold_ys.append(df_plot['Low'].iloc[i] * 0.998)
+                ema_gold_texts.append(
+                    f'<b>🌟 EMA 黃金交叉</b><br>{ts_strs[i]}<br>'
+                    f'EMA20: ${e20_vals[i]:.4f}<br>'
+                    f'EMA60: ${e60_vals[i]:.4f}<br>'
+                    f'Close: ${close_vals[i]:.4f}<br>'
+                    f'<b style="color:#3dbb6a">T1 進場訊號</b>'
+                )
+            elif prev_diff >= 0 and curr_diff < 0:
+                # 死亡交叉：EMA20 下穿 EMA60
+                ema_death_xs.append(i)
+                # 標記畫在該 bar 的 High 上方一點
+                ema_death_ys.append(df_plot['High'].iloc[i] * 1.002)
+                ema_death_texts.append(
+                    f'<b>💀 EMA 死亡交叉</b><br>{ts_strs[i]}<br>'
+                    f'EMA20: ${e20_vals[i]:.4f}<br>'
+                    f'EMA60: ${e60_vals[i]:.4f}<br>'
+                    f'Close: ${close_vals[i]:.4f}<br>'
+                    f'<b style="color:#ff5555">出場 / 不進場警示</b>'
+                )
+
+        if ema_gold_xs:
+            fig.add_trace(go.Scatter(
+                x=ema_gold_xs, y=ema_gold_ys, mode='markers',
+                name=f'🌟 EMA 金叉 ({len(ema_gold_xs)})',
+                marker=dict(
+                    symbol='triangle-up', size=16,
+                    color='#3dbb6a',
+                    line=dict(color='#0a4a14', width=2),
+                ),
+                text=ema_gold_texts, hoverinfo='text',
+            ), row=1, col=1)
+        if ema_death_xs:
+            fig.add_trace(go.Scatter(
+                x=ema_death_xs, y=ema_death_ys, mode='markers',
+                name=f'💀 EMA 死叉 ({len(ema_death_xs)})',
+                marker=dict(
+                    symbol='triangle-down', size=16,
+                    color='#ff5555',
+                    line=dict(color='#4a0a0a', width=2),
+                ),
+                text=ema_death_texts, hoverinfo='text',
+            ), row=1, col=1)
+
     # ── ZigZag ──
     try:
         pivots = _zz(df_plot, mode='atr', atr_mult=atr_mult, atr_period=14)
