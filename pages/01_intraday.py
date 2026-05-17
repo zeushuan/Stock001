@@ -307,25 +307,130 @@ else:  # light
 st.title("⏱️ Intraday 個股詳細指標（多時間框架）")
 st.caption("與 tv_app 主頁同樣的 4 群指標 + 操作建議邏輯，唯一差別是底層 bar 為該 TF（1m/5m/15m/30m/1h/1d）")
 
-c1, c2, c3 = st.columns([3, 2, 1])
+
+# 🆕 v9.32：自選股 + preset 載入
+@st.cache_data(ttl=60, show_spinner=False)
+def _load_all_watchlists() -> dict:
+    """合併 watchlists_user.json (本地) + watchlists_presets.json (預設)
+    + Streamlit localStorage（雲端唯一持久化）
+    回傳 {分類名: [ticker1, ticker2, ...]}
+    """
+    import json
+    from pathlib import Path
+    base = Path(__file__).parent.parent
+    out = {}
+
+    # ① watchlists_user.json — 用戶清單（newline 分隔字串）
+    p_user = base / 'watchlists_user.json'
+    if p_user.exists():
+        try:
+            d = json.loads(p_user.read_text(encoding='utf-8'))
+            for name, val in d.items():
+                if name.startswith('_'):
+                    continue
+                if isinstance(val, str):
+                    tks = [t.strip().upper() for t in val.split('\n') if t.strip()]
+                elif isinstance(val, list):
+                    tks = [str(t).strip().upper() for t in val if str(t).strip()]
+                else:
+                    continue
+                if tks:
+                    out[f'👤 {name}'] = tks
+        except Exception:
+            pass
+
+    # ② watchlists_presets.json — 預設清單
+    p_pre = base / 'watchlists_presets.json'
+    if p_pre.exists():
+        try:
+            d = json.loads(p_pre.read_text(encoding='utf-8'))
+            presets = d.get('presets', {})
+            for name, info in presets.items():
+                tks = info.get('tickers', [])
+                if tks:
+                    out[name] = [str(t).strip().upper() for t in tks]
+        except Exception:
+            pass
+
+    # ③ Streamlit localStorage（雲端模式）
+    try:
+        from streamlit_local_storage import LocalStorage
+        _ls = LocalStorage()
+        v = _ls.getItem("stock001_watchlists")
+        if v:
+            if isinstance(v, str):
+                d = json.loads(v)
+            elif isinstance(v, dict):
+                d = v
+            else:
+                d = {}
+            for name, val in d.items():
+                if name.startswith('_'):
+                    continue
+                if isinstance(val, str):
+                    tks = [t.strip().upper() for t in val.split('\n') if t.strip()]
+                elif isinstance(val, list):
+                    tks = [str(t).strip().upper() for t in val if str(t).strip()]
+                else:
+                    continue
+                if tks and f'👤 {name}' not in out:   # 不覆寫本地版
+                    out[f'👤 {name}'] = tks
+    except Exception:
+        pass
+
+    return out
+
+
+_all_watchlists = _load_all_watchlists()
+_watchlist_names = list(_all_watchlists.keys())
+
+# 控制列：自選股 → ticker → TF → 重抓
+c1, c2, c3, c4 = st.columns([2, 2, 2, 1])
+
 with c1:
-    ticker_input = st.text_input(
-        "股票代號",
-        value=st.session_state['selected_ticker_intraday'],
-        help="US: AAPL / TW: 2330（不需 .TW）",
+    _wl_options = ['（手動輸入）'] + _watchlist_names
+    _wl_choice = st.selectbox(
+        "📋 自選股清單",
+        options=_wl_options,
+        index=0,
+        key='_wl_picker',
+        help='挑一個 watchlist 從裡面選股；或選「手動輸入」自己打 ticker',
     )
-    st.session_state['selected_ticker_intraday'] = ticker_input.strip().upper()
-ticker = st.session_state['selected_ticker_intraday']
 
 with c2:
+    if _wl_choice and _wl_choice != '（手動輸入）':
+        _wl_tickers = _all_watchlists.get(_wl_choice, [])
+        # 預設值：若 session_state 的 ticker 已在這 watchlist 內就保留，否則取第一個
+        _cur_tk = st.session_state.get('selected_ticker_intraday', '').upper()
+        _default_idx = (_wl_tickers.index(_cur_tk)
+                         if _cur_tk in _wl_tickers else 0)
+        _picked = st.selectbox(
+            f"選股（{len(_wl_tickers)} 檔）",
+            options=_wl_tickers,
+            index=_default_idx,
+            key=f'_ticker_from_wl_{_wl_choice}',
+        )
+        ticker = _picked.strip().upper()
+        st.session_state['selected_ticker_intraday'] = ticker
+    else:
+        ticker_input = st.text_input(
+            "股票代號",
+            value=st.session_state.get('selected_ticker_intraday', 'AAPL'),
+            key='_manual_ticker',
+            help="US: AAPL / TW: 2330（不需 .TW）",
+        )
+        ticker = ticker_input.strip().upper()
+        st.session_state['selected_ticker_intraday'] = ticker
+
+with c3:
     timeframes_selected = st.multiselect(
         "Timeframes",
         options=['1m', '5m', '15m', '30m', '1h', '1d'],
         default=['1m', '5m', '15m', '30m', '1h', '1d'],
     )
 
-with c3:
-    if st.button("🔄 重抓所有 TF"):
+with c4:
+    if st.button("🔄 重抓", help='強制重抓所有 TF 的資料'):
         for tf in timeframes_selected:
             get_intraday(ticker, tf, refresh=True)
         st.success("已重抓")
