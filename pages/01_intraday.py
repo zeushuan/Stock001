@@ -639,6 +639,47 @@ for _tf in timeframes_selected:
                 _exit_bg = '#0a1422'; _exit_color = '#7a8899'
             _exit_label = _exit.get('label', '⚪ 持有')
 
+            # 🆕 v9.39：加碼訊號（5 規則）
+            _re = _sig.get('reentry', {})
+            _re_html = ''
+            if _re:
+                _re_fired = _re.get('fired', [])
+                _re_cnt = _re.get('count', 0)
+                _re_abbrev = {
+                    'r_p1sig_redo': 'P1', 'r_20d_high': 'HI',
+                    'r_mid_bounce': 'MB', 'r_ema5_pull': 'E5', 'r_ema20': 'E20',
+                }
+                _re_fullname = {
+                    'r_p1sig_redo': '重觸 BB+1σ',
+                    'r_20d_high': '破 20b 新高',
+                    'r_mid_bounce': 'BB 中軌反彈',
+                    'r_ema5_pull': 'EMA5 觸碰',
+                    'r_ema20': 'EMA20 觸碰',
+                }
+                if _re_cnt >= 3:
+                    _re_color = '#3dbb6a'; _re_bg = '#0d2a14'
+                elif _re_cnt >= 2:
+                    _re_color = '#5dccdd'; _re_bg = '#0a1828'
+                elif _re_cnt == 1:
+                    _re_color = '#e8a020'; _re_bg = '#1a1500'
+                else:
+                    _re_color = '#7a8899'; _re_bg = '#0a1422'
+                if _re_cnt > 0:
+                    _re_short = ' '.join(_re_abbrev.get(k, k) for k in _re_fired)
+                    _re_label = f'💪 加碼 ×{_re_cnt}: {_re_short}'
+                    _re_tooltip = ' ｜ '.join(
+                        f'{_re_abbrev.get(k, k)}={_re_fullname.get(k, k)}' for k in _re_fired
+                    ).replace('"', '&quot;')
+                else:
+                    _re_label = '💤 無加碼'
+                    _re_tooltip = '無任何加碼規則觸發'
+                _re_html = (
+                    f'<div style="background:{_re_bg};color:{_re_color};'
+                    f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
+                    f'border-left:3px solid {_re_color};font-size:.7rem"'
+                    f' title="{_re_tooltip}">{_re_label}</div>'
+                )
+
             # SEPA badge
             _sepa_html = ''
             if _sepa.get('available'):
@@ -682,9 +723,10 @@ for _tf in timeframes_selected:
                 f'border-left:3px solid {_entry_color}">'
                 f'{_entry_label}</div>'
                 f'<div style="background:{_exit_bg};color:{_exit_color};'
-                f'padding:3px 6px;border-radius:3px;'
+                f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
                 f'border-left:3px solid {_exit_color}">'
                 f'{_exit_label}</div>'
+                f'{_re_html}'
                 f'</td>'
             )
         except Exception as _e:

@@ -106,6 +106,8 @@ analyze_*.py
 # (double_pattern.py 不在 analyze_*.py 範圍，預設可入)
 # 🆕 v9.22.1：保留雙底雙頂 OOS 回測腳本
 !analyze_double_oos.py
+# 🆕 v9.39：保留加碼規則回測腳本
+!analyze_reentry.py
 test_thresholds.py
 test_v4.py
 backtest_etf.py

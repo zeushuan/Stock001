@@ -706,6 +706,87 @@ def _check_defensive_exit(ind: dict, i: int, entry_idx: int,
 # 對外主 API：偵測當前 bar 訊號
 # ────────────────────────────────────────────────────────────────
 
+def _check_reentry_all(df: pd.DataFrame, ind: dict, i: int) -> dict:
+    """🆕 v9.39 — 同時檢查所有 5 種加碼規則
+
+    Returns: {
+        'r_p1sig_redo': bool,    # 重新觸 BB+1σ (avg +7.42%, freq 9.96/pos)
+        'r_20d_high':   bool,    # 破近 20b 最高 (wr 53.8%, 單筆最強)
+        'r_mid_bounce': bool,    # 中軌反彈
+        'r_ema5_pull':  bool,    # EMA5 觸碰
+        'r_ema20':      bool,    # EMA20 觸碰 (Minervini)
+        'fired':        list[str],  # 命中清單
+        'count':        int,
+    }
+    """
+    results: dict = {
+        'r_p1sig_redo': False, 'r_20d_high': False,
+        'r_mid_bounce': False, 'r_ema5_pull': False, 'r_ema20': False,
+    }
+    if i < 20:
+        results['fired'] = []; results['count'] = 0
+        return results
+
+    def _v(key, idx=None):
+        idx = i if idx is None else idx
+        try:
+            x = ind[key].iloc[idx]
+            return None if pd.isna(x) else float(x)
+        except Exception:
+            return None
+
+    c = _v('close'); c_prev = _v('close', i - 1)
+    bb_mid = _v('bb_mid'); bb_p1 = _v('bb_p1sigma')
+    atr_v = _v('atr'); e5 = _v('ema5'); e20 = _v('ema20')
+    o = _v('open'); l = _v('low')
+
+    # R1: r_mid_bounce — 中軌反彈
+    if c is not None and c_prev is not None and bb_mid is not None:
+        if c > c_prev and c > bb_mid:
+            touched = False
+            for k in range(max(0, i - 5), i + 1):
+                lk = _v('low', k); mk = _v('bb_mid', k)
+                if lk is not None and mk is not None and lk <= mk:
+                    touched = True; break
+            results['r_mid_bounce'] = touched
+
+    # R2: r_ema20 — EMA20 觸碰
+    if (c is not None and o is not None and l is not None
+        and e20 is not None and atr_v is not None and atr_v > 0):
+        dist = abs(l - e20) / atr_v
+        results['r_ema20'] = (dist <= 0.3 and c > o)
+
+    # R3: r_p1sig_redo — BB+1σ 重新觸發
+    if (c is not None and bb_p1 is not None and atr_v is not None
+        and atr_v > 0 and bb_p1 > 0):
+        if c >= bb_p1 - atr_v * 0.3:
+            n_below = 0
+            for k in range(max(0, i - 10), i):
+                ck = _v('close', k); bk = _v('bb_p1sigma', k)
+                if ck is not None and bk is not None and ck < bk:
+                    n_below += 1
+            results['r_p1sig_redo'] = (n_below >= 2)
+
+    # R4: r_20d_high — 20b 新高
+    if c is not None and i >= 20:
+        try:
+            max_h = float(df['High'].iloc[max(0, i - 20):i].max())
+            results['r_20d_high'] = (c > max_h)
+        except Exception:
+            pass
+
+    # R5: r_ema5_pull — EMA5 觸碰
+    if (c is not None and o is not None and l is not None
+        and e5 is not None and atr_v is not None and atr_v > 0):
+        dist = abs(l - e5) / atr_v
+        results['r_ema5_pull'] = (dist <= 0.3 and c > o)
+
+    fired = [k for k, v in results.items() if v]
+    results['fired'] = fired
+    results['count'] = len(fired)
+    return results
+
+
 def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
                           tf: str = '15m') -> dict:
     """🆕 v9.38 戰法訊號 — bb_p1sig 進場 + mid_ema_down 出場
@@ -803,6 +884,9 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
     # SEPA
     sepa = compute_sepa_status(df)
 
+    # 🆕 v9.39：加碼訊號（5 規則）
+    reentry = _check_reentry_all(df, ind, i)
+
     # 給舊欄位 placeholder（page 不再用，但 backward compat）
     buy_target_low = bb_p1_v
     buy_target_high = (bb_p1_v + atr_v * 0.5) if bb_p1_v else None
@@ -830,6 +914,7 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
         'bb_p1sigma': bb_p1_v,
         'atr': atr_v,
         'sepa': sepa,
+        'reentry': reentry,    # 🆕 v9.39 5 加碼規則狀態
         'entry': {
             'setup_ok': setup_ok,
             'triggered': (entry_state == 'ENTER'),

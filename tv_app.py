@@ -6627,11 +6627,54 @@ for item in results:
                                     f' title="{_stip}">{_sepa_v9["label"]}</div>'
                                 )
 
+                            # 🆕 v9.39：加碼訊號 banner
+                            _re_v9 = _sig.get('reentry', {})
+                            _re_html_tv = ''
+                            if _re_v9:
+                                _re_fired_tv = _re_v9.get('fired', [])
+                                _re_cnt_tv = _re_v9.get('count', 0)
+                                _re_abbrev_tv = {
+                                    'r_p1sig_redo': 'P1', 'r_20d_high': 'HI',
+                                    'r_mid_bounce': 'MB', 'r_ema5_pull': 'E5',
+                                    'r_ema20': 'E20',
+                                }
+                                _re_full_tv = {
+                                    'r_p1sig_redo': '重觸 BB+1σ',
+                                    'r_20d_high': '破 20b 新高',
+                                    'r_mid_bounce': 'BB 中軌反彈',
+                                    'r_ema5_pull': 'EMA5 觸碰',
+                                    'r_ema20': 'EMA20 觸碰',
+                                }
+                                if _re_cnt_tv >= 3:
+                                    _re_col, _re_bg2 = '#3dbb6a', '#0d2a14'
+                                elif _re_cnt_tv >= 2:
+                                    _re_col, _re_bg2 = '#5dccdd', '#0a1828'
+                                elif _re_cnt_tv == 1:
+                                    _re_col, _re_bg2 = '#e8a020', '#1a1500'
+                                else:
+                                    _re_col, _re_bg2 = '#7a8899', '#0a1422'
+                                if _re_cnt_tv > 0:
+                                    _re_short = ' '.join(
+                                        _re_abbrev_tv.get(k, k) for k in _re_fired_tv)
+                                    _re_lbl_tv = f'💪 加碼 ×{_re_cnt_tv}: {_re_short}'
+                                    _re_tip = ' ｜ '.join(
+                                        f'{_re_abbrev_tv.get(k, k)}={_re_full_tv.get(k, k)}'
+                                        for k in _re_fired_tv).replace('"', '&quot;')
+                                else:
+                                    _re_lbl_tv = '💤 無加碼訊號'
+                                    _re_tip = '5 規則皆未觸發'
+                                _re_html_tv = (
+                                    f'<div style="background:{_re_bg2};color:{_re_col};'
+                                    f'padding:4px 8px;border-radius:4px;border-left:3px solid {_re_col};'
+                                    f'margin-top:3px;font-size:.76rem"'
+                                    f' title="{_re_tip}">{_re_lbl_tv}</div>'
+                                )
+
                             st.markdown(
                                 f'<div style="background:#080f1c;border:1px solid #1e3a5f;'
                                 f'border-radius:8px;padding:10px 14px;margin:8px 0">'
                                 f'<div style="color:#5dccdd;font-weight:700;font-size:.8rem;'
-                                f'margin-bottom:6px">🎯 波段戰法訊號 v9.38 '
+                                f'margin-bottom:6px">🎯 波段戰法訊號 v9.39 '
                                 f'<span style="color:#5a8ab0;font-weight:400;font-size:.7rem">'
                                 f'(進場: EMA5&gt;EMA20 + 5EMA全上揚 + Close≥BB+1σ｜'
                                 f'出場: Close&lt;BB Mid + EMA5/EMA20 下行)</span></div>'
@@ -6642,6 +6685,7 @@ for item in results:
                                 f'<div style="background:{_xbg};color:{_xc};padding:4px 8px;'
                                 f'border-radius:4px;border-left:3px solid {_xc};'
                                 f'font-size:.78rem">{_x_lbl}</div>'
+                                f'{_re_html_tv}'
                                 f'</div>',
                                 unsafe_allow_html=True)
                     except Exception:
