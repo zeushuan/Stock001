@@ -220,12 +220,19 @@ from operation_advice import (
 
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
-    """tv_app 版 render_detail wrapper — 把 get_operation_advice / get_news_sentiment
-    callbacks 注入 detail_card_render.render_detail，維持與舊版 100% 相同行為。"""
+    """tv_app 版 render_detail wrapper — 把 get_operation_advice callback
+    注入 detail_card_render.render_detail。
+    🆕 v9.32：取消新聞情感區塊（news_fn=None）— 不再呼叫網路抓新聞
+    🆕 v9.32：標記 _intraday_tf='1d' 讓 operation_advice 跳過靜態 ZigZag PNG，
+            由主流程改用 intraday plotly chart 渲染。"""
+    # 觸發 operation_advice 跳過內嵌靜態 ZigZag（外部 plotly 接手）
+    if isinstance(d, dict):
+        d.setdefault('_intraday_tf', '1d')
+        d.setdefault('_bar_unit', '天')
     return _render_detail_core(
         ticker, d, groups, group_summs, tsumm, cap, market=market,
         advice_fn=get_operation_advice,
-        news_fn=get_news_sentiment,
+        news_fn=None,                  # 🆕 v9.32：取消新聞讀取
         concepts_fn=_get_concepts,
         concept_chip_fn=_concept_chip_html,
     )
@@ -6539,7 +6546,42 @@ for item in results:
             st.markdown('<div style="color:#334455;padding:12px">無法取得資料，請確認代號是否正確</div>',
                         unsafe_allow_html=True)
         else:
-            # 新聞情感已整合進 render_detail（位於「當前策略風格」下方、「收盤價」上方）
+            # 🆕 v9.32：detail card 上方放 intraday-style plotly 互動 ZigZag chart（1d）
+            try:
+                from intraday.charts import build_zigzag_chart_plotly
+                from intraday.settings import get_zigzag_atr_mult
+                # 從 _swing_history 重建 df（fetch_indicators 已存 252 bars）
+                _sh = d.get('_swing_history') or {}
+                _closes = _sh.get('close') or []
+                if _closes and len(_closes) >= 30:
+                    _dates = _sh.get('dates') or []
+                    if not _dates or len(_dates) != len(_closes):
+                        _dates = pd.bdate_range(end=pd.Timestamp.now().normalize(),
+                                                  periods=len(_closes))
+                    _df_for_chart = pd.DataFrame({
+                        'Open':   _sh.get('open') or _closes,
+                        'High':   _sh.get('high') or _closes,
+                        'Low':    _sh.get('low')  or _closes,
+                        'Close':  _closes,
+                        'Volume': _sh.get('volume') or [0] * len(_closes),
+                    }, index=pd.to_datetime(_dates))
+                    _atr_v = get_zigzag_atr_mult()
+                    _fig = build_zigzag_chart_plotly(
+                        _df_for_chart,
+                        atr_mult=_atr_v,
+                        title=f'{ticker} 1d — ZigZag (ATR×{_atr_v:.2f}) + BB + EMA  ｜ hover 看 OHLC',
+                        max_bars=180,
+                        show_bb=True,
+                        show_emas=[5, 20, 60, 150, 200],
+                        show_macd=True,
+                        theme='dark',
+                    )
+                    if _fig is not None:
+                        st.plotly_chart(_fig, use_container_width=True,
+                                          key=f'_tvapp_zz_{ticker}')
+            except Exception:
+                pass   # plotly 失敗就跳過，detail card 仍可看
+            # detail card（v9.32 起 ZigZag PNG 由上面 plotly 取代、新聞已關閉）
             st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap, market=market),
                         unsafe_allow_html=True)
 
