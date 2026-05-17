@@ -59,12 +59,25 @@ def _compute_indicators(df: pd.DataFrame) -> dict:
 # EOD 時間檢查
 # ────────────────────────────────────────────────────────────────
 
-def _eod_status(ts, market: str = 'us') -> dict:
+def _eod_status(ts, market: str = 'us', tf: str = '15m') -> dict:
     """檢查當前 bar 距離收盤多遠（US summer DST 預設）
 
     US: 09:30-16:00 ET = 13:30-20:00 UTC (summer)
     TW: 09:00-13:30 TW time
+
+    🆕 v9.33：tf='1d' 時 EOD 概念不適用（每根 bar 已是一個交易日）
+              其他 intraday TF 都套 EOD 邏輯
     """
+    # 1d 不適用 EOD（每個 bar = 一個交易日，沒有「當天必賣」概念）
+    if tf == '1d':
+        return {
+            'in_regular_session': True,    # 概念上永遠 in session
+            'minutes_to_close': None,
+            'no_entry': False,
+            'warning': False,
+            'force_exit': False,
+        }
+
     h = ts.hour; m = ts.minute
     cur_min = h * 60 + m
 
@@ -78,12 +91,26 @@ def _eod_status(ts, market: str = 'us') -> dict:
     in_session = regular_open <= cur_min <= regular_close
     minutes_to_close = regular_close - cur_min if in_session else None
 
+    # EOD 警告 / 強制出場閾值依 TF bar 長度動態調整
+    # 1m bar：T-1 min 強制（最後一根 bar）
+    # 5m bar：T-5 min
+    # 15m bar：T-15 min
+    # 30m bar：T-30 min
+    # 1h bar：T-60 min
+    tf_minutes = {'1m': 1, '5m': 5, '15m': 15, '30m': 30, '1h': 60}.get(tf, 15)
+    force_exit_threshold = tf_minutes        # 最後一根 bar
+    warning_threshold = tf_minutes * 2       # 倒數第二根 bar
+    no_entry_threshold = max(60, tf_minutes * 4)  # 收盤前 1 hour 不新進場
+
     return {
         'in_regular_session': in_session,
         'minutes_to_close': minutes_to_close,
-        'no_entry': in_session and minutes_to_close is not None and minutes_to_close <= 60,
-        'warning': in_session and minutes_to_close is not None and 15 < minutes_to_close <= 30,
-        'force_exit': in_session and minutes_to_close is not None and minutes_to_close <= 15,
+        'no_entry': (in_session and minutes_to_close is not None and
+                     minutes_to_close <= no_entry_threshold),
+        'warning': (in_session and minutes_to_close is not None and
+                    force_exit_threshold < minutes_to_close <= warning_threshold),
+        'force_exit': (in_session and minutes_to_close is not None and
+                       minutes_to_close <= force_exit_threshold),
     }
 
 
@@ -263,7 +290,8 @@ def _check_entry_trigger(ind: dict, i: int) -> tuple:
 # ────────────────────────────────────────────────────────────────
 
 def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
-                           entry_stop: float, market: str = 'us') -> tuple:
+                           entry_stop: float, market: str = 'us',
+                           tf: str = '15m') -> tuple:
     """檢查 i bar 是否該出場（v9.33: 只防守性出場，不主動停利）
 
     Returns: (should_exit: bool, reason: str, exit_price: float)
@@ -290,9 +318,9 @@ def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
     bb_mid = _v('bb_mid')
     e20 = _v('ema20'); e60 = _v('ema60')
 
-    # 1. EOD 強制出場（最高優先）
+    # 1. EOD 強制出場（最高優先）— 1d 跳過此邏輯
     ts = ind['close'].index[i]
-    eod = _eod_status(ts, market)
+    eod = _eod_status(ts, market, tf=tf)
     if eod['force_exit']:
         return True, f'🚪 EOD 強制出場 (距收盤 {eod["minutes_to_close"]}min)', c
 
@@ -332,24 +360,16 @@ def _check_exit_condition(ind: dict, i: int, entry_idx: int, entry_price: float,
 # 對外主 API：偵測當前 bar 訊號
 # ────────────────────────────────────────────────────────────────
 
-def detect_swing_signal(df: pd.DataFrame, market: str = 'us') -> dict:
+def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
+                          tf: str = '15m') -> dict:
     """偵測 df 最後一根 bar 的戰法訊號（同時返回 entry + exit）
 
-    Returns: {
-      'ts': pd.Timestamp,
-      'close': float,
-      'entry': {
-        'triggered': bool,
-        'mode': 'A'/'B'/'C'/None,
-        'label': str,        # 顯示用
-        'detail': str,
-        'entry_price': float,
-        'stop_price': float,
-        'failed': [str],
-      },
-      'eod': {...},
-      'trend_pass': bool,
-    }
+    Args:
+        df: OHLCV DataFrame
+        market: 'us' or 'tw'
+        tf: timeframe — 影響 EOD 邏輯（1d 不套 EOD）
+
+    Returns: { ts, close, entry, exit, eod, trend_pass, ... }
     """
     if df is None or len(df) < 30:
         return {'error': '資料不足 (<30 bar)'}
@@ -359,11 +379,11 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us') -> dict:
     ts = df.index[i]
     close = float(df['Close'].iloc[i])
     atr_v = ind['atr'].iloc[i]
-    if pd.isna(atr_v): atr_v = close * 0.02   # fallback 2%
+    if pd.isna(atr_v): atr_v = close * 0.02
     atr_v = float(atr_v)
 
-    # EOD 檢查
-    eod = _eod_status(ts, market)
+    # EOD 檢查（依 TF 調整）
+    eod = _eod_status(ts, market, tf=tf)
 
     # 趨勢過濾
     trend_pass, trend_fails, trend_details = _check_trend_filter(ind, i)
@@ -447,7 +467,8 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us') -> dict:
 # ────────────────────────────────────────────────────────────────
 
 def scan_historical_signals(df: pd.DataFrame, market: str = 'us',
-                              lookback_bars: int = 180) -> List[Dict]:
+                              lookback_bars: int = 180,
+                              tf: str = '15m') -> List[Dict]:
     """掃過去 N bar，找完整的 entry → exit 交易
 
     Returns: [{
@@ -479,7 +500,7 @@ def scan_historical_signals(df: pd.DataFrame, market: str = 'us',
         if not in_position:
             # 檢查 EOD 是否允許進場
             ts = df.index[i]
-            eod = _eod_status(ts, market)
+            eod = _eod_status(ts, market, tf=tf)
             if eod['no_entry']:
                 continue
 
@@ -501,7 +522,7 @@ def scan_historical_signals(df: pd.DataFrame, market: str = 'us',
         else:
             # 檢查出場
             should_exit, reason, exit_p = _check_exit_condition(
-                ind, i, entry_idx, entry_price, entry_stop, market)
+                ind, i, entry_idx, entry_price, entry_stop, market, tf=tf)
             if should_exit:
                 exit_price = float(exit_p) if exit_p else float(df['Close'].iloc[i])
                 pnl_pct = (exit_price - entry_price) / entry_price * 100

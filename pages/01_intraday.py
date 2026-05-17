@@ -586,12 +586,12 @@ for _tf in timeframes_selected:
         f'color:{_adx_color}">{_adx_v:.1f}</td>' if _adx_v else f'<td>-</td>'
     )
 
-    # 🆕 v9.33：戰法訊號（只 15m 那行算）
+    # 🆕 v9.33：戰法訊號（全 TF 都顯示）
     _swing_cell = '<td style="padding:7px 8px;color:#5a7090;font-size:.7rem">—</td>'
-    if _tf == '15m':
+    if _tf in ('1m', '5m', '15m', '30m', '1h', '1d'):
         try:
             from intraday.strategy import detect_swing_signal
-            _sig = detect_swing_signal(_summ['df'], market=info['market'])
+            _sig = detect_swing_signal(_summ['df'], market=info['market'], tf=_tf)
             # Entry 部分
             _entry = _sig.get('entry', {})
             _exit = _sig.get('exit', {})
@@ -661,7 +661,7 @@ _table_html = (
     '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">交叉</th>'
     '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">RSI</th>'
     '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">ADX</th>'
-    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">📋 戰法訊號 (15m)</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">📋 戰法訊號</th>'
     '</tr></thead>'
     '<tbody>' + ''.join(_rows) + '</tbody>'
     '</table></div>'
@@ -711,15 +711,15 @@ for tab, tf in zip(tabs, timeframes_selected):
                     help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
-                # 🆕 v9.33：15m 加戰法歷史 trades markers
+                # 🆕 v9.33：全 TF 都加戰法歷史 trades markers
                 _swing_trades_main = None
-                if tf == '15m':
-                    try:
-                        from intraday.strategy import scan_historical_signals, summarize_trades
-                        _swing_trades_main = scan_historical_signals(
-                            df, market=info['market'], lookback_bars=_main_chart_bars)
-                    except Exception:
-                        _swing_trades_main = None
+                try:
+                    from intraday.strategy import scan_historical_signals, summarize_trades
+                    _swing_trades_main = scan_historical_signals(
+                        df, market=info['market'],
+                        lookback_bars=_main_chart_bars, tf=tf)
+                except Exception:
+                    _swing_trades_main = None
                 main_fig = build_zigzag_chart_plotly(
                     df,
                     atr_mult=_atr_global,
@@ -735,8 +735,8 @@ for tab, tf in zip(tabs, timeframes_selected):
             if main_fig is not None:
                 st.plotly_chart(main_fig, use_container_width=True,
                                   key=f'_main_zz_plotly_{tf}')
-                # 🆕 v9.33：15m tab 顯示戰法歷史統計
-                if tf == '15m' and _swing_trades_main:
+                # 🆕 v9.33：全 TF tab 顯示戰法歷史統計
+                if _swing_trades_main:
                     _stats = summarize_trades(_swing_trades_main)
                     if _stats.get('n', 0) > 0:
                         _wr = _stats['win_rate']
