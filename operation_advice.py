@@ -217,7 +217,7 @@ def _get_proximity_alerts(d: dict) -> list:
             if adx is not None and adx_prev is not None and adx < adx_prev:
                 alerts.append(('warning',
                     f'⚠️ <b style="color:#e8a020">趨勢轉弱預警</b>'
-                    f'：黃金交叉已 {cross_days} 天，ADX 從 {adx_prev:.1f} 降至 {adx:.1f}，'
+                    f'：黃金交叉已 {cross_days} {_bu}，ADX 從 {adx_prev:.1f} 降至 {adx:.1f}，'
                     f'趨勢動能減弱，可考慮收緊停損'))
 
     return alerts
@@ -239,6 +239,8 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
     adx_ok   = (adx is not None and adx >= 22)
     rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
+    # 🆕 v9.31：bar 單位（intraday 自動換）
+    _bu = d.get('_bar_unit', '天')
 
     # 反向ETF 名稱對照
     _inv_names = {
@@ -262,9 +264,9 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
 
     # ── ① 環境判斷 ──────────────────────────────────────────────
     if cross_days is not None and cross_days > 0:
-        cross_txt = f"，黃金交叉 {cross_days} 天前（= 大盤死亡交叉 {cross_days} 天前）"
+        cross_txt = f"，黃金交叉 {cross_days} {_bu}前（= 大盤死亡交叉 {cross_days} {_bu}前）"
     elif cross_days is not None and cross_days < 0:
-        cross_txt = f"，死亡交叉 {abs(cross_days)} 天前（= 大盤黃金交叉，反向ETF趨勢結束）"
+        cross_txt = f"，死亡交叉 {abs(cross_days)} {_bu}前（= 大盤黃金交叉，反向ETF趨勢結束）"
     else:
         cross_txt = ""
 
@@ -291,7 +293,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
     if is_bull and adx_ok:
         t1_ok = (cross_days is not None and 0 < cross_days <= 10)
         t1c   = "#40c070" if t1_ok else "#4a6070"
-        t1d   = f"{cross_days} 天前" if (cross_days and cross_days > 0) else "尚未發生"
+        t1d   = f"{cross_days} {_bu}前" if (cross_days and cross_days > 0) else "尚未發生"
         entry_rows.append(
             f'<div style="display:flex;gap:6px;align-items:baseline">'
             f'<span style="background:#0f2535;border-radius:3px;padding:0 5px;'
@@ -462,6 +464,8 @@ def render_confidence_dots(score: int, max_score: int = 5,
 def get_operation_advice(d: dict, ticker: str = "") -> str:
     """
     依 ⑦自適應趨勢 框架輸出 HTML 操作建議卡片。
+    🆕 v9.31：bar 單位自動偵測 — d['_bar_unit'] 為 '天' / '個 5m bar' / '個 1h bar' 等
+       intraday/builder.py 會注入；tv_app fetch_indicators 沒注入 → fallback 為「天」。
     回傳空字串表示無資料可顯示。
     ticker 用於特殊標的警告。
     """
@@ -470,11 +474,13 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     adx        = d.get("adx")
     rsi        = d.get("rsi")
     rsi_prev   = d.get("rsi_prev")
-    rsi_prev2  = d.get("rsi_prev2")          # T4：連續2天上升確認用
+    rsi_prev2  = d.get("rsi_prev2")          # T4：連續2 bar 上升確認用
     atr14      = d.get("atr14")
     close      = d.get("close")
     sma200     = d.get("sma200")
-    cross_days = d.get("ema20_cross_days")   # +N=黃金交叉N天前, -N=死亡交叉N天前
+    cross_days = d.get("ema20_cross_days")   # +N=黃金交叉N bar前, -N=死亡交叉N bar前
+    # 🆕 v9.31：bar 單位（intraday 自動換成「個 5m bar」等；日線維持「天」）
+    _bu = d.get('_bar_unit', '天')
 
     if ema20 is None or ema60 is None:
         return ""
@@ -625,7 +631,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="color:#3dbb6a;font-weight:700;font-size:.9rem">'
                 f'🚀🚀 極強看多警報 ★★★★★ — 三重底部訊號</div>'
                 f'<div style="color:#a8d8a8;font-size:.78rem;margin-top:3px">'
-                f'• 倒鎚 ({_recent_patterns["INV_HAMMER"].get("days_ago", 0)} 天前)<br/>'
+                f'• 倒鎚 ({_recent_patterns["INV_HAMMER"].get("days_ago", 0)} {_bu}前)<br/>'
                 f'• RSI {rsi:.1f} ≤ 25（極度超賣）<br/>'
                 f'• ADX 上升中（趨勢轉強）<br/>'
                 f'<b>實證：n=1223 / 漲機率 71.4% / 30d 均報 +9.36%</b>'
@@ -669,7 +675,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="color:#ff5555;font-weight:700;font-size:.9rem">'
                 f'🚨 強空頭警報 ★★★ — 三重條件達成</div>'
                 f'<div style="color:#ff9090;font-size:.78rem;margin-top:3px">'
-                f'• 空頭吞噬 ({_recent_patterns["BEAR_ENGULF"].get("days_ago", 0)} 天前)<br/>'
+                f'• 空頭吞噬 ({_recent_patterns["BEAR_ENGULF"].get("days_ago", 0)} {_bu}前)<br/>'
                 f'• RSI {rsi:.1f} ≥ 75（極度過熱）<br/>'
                 f'• ADX 下降中（趨勢轉弱）<br/>'
                 f'<b>實證：n=30 / 跌機率 60% / 30天均報 -0.24%</b>'
@@ -686,7 +692,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="color:#ff3333;font-weight:700;font-size:.9rem">'
                 f'🚨🚨 極強空頭警報 ★★★★ — 三隻烏鴉 + 高位量縮</div>'
                 f'<div style="color:#ff9090;font-size:.78rem;margin-top:3px">'
-                f'• 三隻烏鴉 ({_recent_patterns["THREE_CROWS"].get("days_ago", 0)} 天前)<br/>'
+                f'• 三隻烏鴉 ({_recent_patterns["THREE_CROWS"].get("days_ago", 0)} {_bu}前)<br/>'
                 f'• 距 60d 高僅 {_drawdown:.1f}%（極高位）<br/>'
                 f'• 量縮（vol/MA20 = {vol/vol_ma20:.2f}）<br/>'
                 f'<b>實證：n=7 / 跌機率 71% / 30天均報 -1.26%</b>'
@@ -834,7 +840,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if not is_bull:
         # 空頭：細分嚴重程度
         if cross_days is not None and cross_days < 0:
-            cross_txt = f"，死亡交叉 {abs(cross_days)} 天前"
+            cross_txt = f"，死亡交叉 {abs(cross_days)} {_bu}前"
         else:
             cross_txt = ""
         if _t4_rising:
@@ -888,10 +894,10 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 _perf_inline = (f" <span style='color:{_pcolor};font-weight:700'>"
                                 f"累計 {_psign}{_cross_pct:.2f}%</span>")
             if cross_days <= 10:
-                cross_info = (f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} 天前 🔥</b>"
+                cross_info = (f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} {_bu}前 🔥</b>"
                               f"{sweet_tag}{_perf_inline}｜")
             else:
-                cross_info = f"黃金交叉 {cross_days} 天前{sweet_tag}{_perf_inline}｜"
+                cross_info = f"黃金交叉 {cross_days} {_bu}前{sweet_tag}{_perf_inline}｜"
         else:
             cross_info = ""
         env_color, env_icon = "#3b9eff", "✅"
@@ -1029,7 +1035,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'margin-bottom:4px">'
             f'🛑 阻擋進場：即將死叉</div>'
             f'<div style="color:#ffaaaa;font-size:.78rem;line-height:1.5">'
-            f'EMA20 距 EMA60 已縮到 1 ATR 以內 + 多頭超過 30 天，'
+            f'EMA20 距 EMA60 已縮到 1 ATR 以內 + 多頭超過 30 {_bu}，'
             f'隨時可能死叉。<b>下方所有「可進場」「進場建議」「立即進場」訊號全部失效，</b>'
             f'此時若進場將陷入「進場 → 立刻死叉 → 出場」的尷尬。<br>'
             f'<b style="color:#ffd070">建議：等死叉發生後再評估，或改觀察 T4 反彈條件</b>'
@@ -1168,7 +1174,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<span style="color:#ffd700;font-weight:700;font-size:.9rem">'
             f'🎰 王炸組合：跌深 + T1 + 多頭 + ADX 達標 ⭐⭐⭐</span><br>'
             f'<span style="color:#e8d878;font-size:.78rem">'
-            f'跌 {_drawdown_pct:.1f}% + 黃金交叉 {cross_days} 天前 + ADX {adx_str} ｜'
+            f'跌 {_drawdown_pct:.1f}% + 黃金交叉 {cross_days} {_bu}前 + ADX {adx_str} ｜'
             f'🇹🇼 研究：RR <b>0.224</b>（baseline 0.038 → 5.9 倍）'
             f'，1839 樣本平均 +8.04%</span></div>'
         )
@@ -1178,7 +1184,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         t1_ok = (cross_days is not None and 0 < cross_days <= 10)
         # 🆕 v9.11：被 dc 阻擋時，t1_ok 顯示為「條件成立但已否決」
         t1c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t1_ok else "#4a6070"
-        t1d   = f"{cross_days} 天前" if (cross_days and cross_days > 0) else "尚未發生"
+        t1d   = f"{cross_days} {_bu}前" if (cross_days and cross_days > 0) else "尚未發生"
         # 🆕 v9.11：T1 觸發至今 % 變化
         cross_pct = d.get('cross_change_pct')
         cross_close = d.get('cross_day_close')
@@ -1233,8 +1239,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             # 5 個檢查項：close>EMA20 / EMA20上升 / EMA5上升 / EMA5>EMA20 / 雙均線都升
             _checks = [
                 ('close > EMA20',      'close>EMA20'  in _t3_hits),
-                ('EMA20 5 日上升',     'EMA20上升'    in _t3_hits),
-                ('EMA5 5 日上升',      'EMA5上升'     in _t3_hits),
+                ('EMA20 5 個 bar 上升',     'EMA20上升'    in _t3_hits),
+                ('EMA5 5 個 bar 上升',      'EMA5上升'     in _t3_hits),
                 ('EMA5 > EMA20（多頭排列）', 'EMA5>EMA20' in _t3_hits),
                 ('EMA5+EMA20 都上升',  '雙均線都升'   in _t3_hits),
             ]
@@ -1504,8 +1510,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     elif _entry_blocked_by_dc:
         gap_atr = (ema20 - ema60) / atr14 if atr14 and atr14 > 0 else 0
         action_label = "🛑 不建議進場（即將死叉）"
-        action_reason = (f"原因：雖 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} 天前 等進場條件成立，"
-                          f"但 EMA20 距 EMA60 僅 {gap_atr:.2f} ATR + 多頭已 {cross_days} 天，"
+        action_reason = (f"原因：雖 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} {_bu}前 等進場條件成立，"
+                          f"但 EMA20 距 EMA60 僅 {gap_atr:.2f} ATR + 多頭已 {cross_days} {_bu}，"
                           f"隨時可能死叉。等死叉發生後再評估")
         action_bg, action_fg = "#2a0a0a", "#ff7755"
     elif t1_ok or t3_ok:
@@ -1514,16 +1520,16 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         _is_fresh_a  = (cross_days is not None and 0 < cross_days <= 10)
         _is_pullback_a = (rsi is not None and rsi < 50)
         if t1_ok and t3_ok:
-            trigger = f"T1 黃金交叉 {cross_days} 天前 + T3 RSI {rsi_str}<50 拉回"
+            trigger = f"T1 黃金交叉 {cross_days} {_bu}前 + T3 RSI {rsi_str}<50 拉回"
         elif t1_ok:
-            trigger = f"T1 黃金交叉 {cross_days} 天前"
+            trigger = f"T1 黃金交叉 {cross_days} {_bu}前"
         else:
             trigger = f"T3 RSI {rsi_str}<50 拉回到位"
 
         # 細分四象限（呼應主表格的 飆股 / T3強拉 / T1 進場 / T3拉回進場）
         if _is_strong_a and _is_fresh_a:
             action_label = "🚀 飆股 進場（強趨勢主升段）"
-            action_reason = (f"原因：多頭排列 + ADX {adx_str} ≥30（強趨勢）+ 黃金交叉 {cross_days} 天（剛啟動）"
+            action_reason = (f"原因：多頭排列 + ADX {adx_str} ≥30（強趨勢）+ 黃金交叉 {cross_days} {_bu}（剛啟動）"
                               f"<br>⚠️ 飆股風險高但獲利空間大；採持到 EMA 死叉的策略，不設 RSI 出場")
             action_bg, action_fg = "#1a1400", "#f0c030"   # 金黃，呼應主表格 chip
         elif _is_strong_a and _is_pullback_a:
@@ -1532,7 +1538,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             action_bg, action_fg = "#0d2a10", "#3dbb6a"
         elif (not _is_strong_a) and _is_fresh_a:
             action_label = f"✅ T1 {cross_days}D 進場"
-            action_reason = (f"原因：多頭排列 + ADX {adx_str}（22-30 穩健）+ 黃金交叉 {cross_days} 天前")
+            action_reason = (f"原因：多頭排列 + ADX {adx_str}（22-30 穩健）+ 黃金交叉 {cross_days} {_bu}前")
             action_bg, action_fg = "#0d2a10", "#3dbb6a"
         elif (not _is_strong_a) and _is_pullback_a:
             action_label = "✅ T3 拉回進場"
@@ -1840,7 +1846,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'padding:8px 12px;border-radius:4px">'
             f'<b style="color:#ff9944;font-size:.92rem">⚠️ 波段持倉應重評（即將死叉）</b>'
             f'<div style="color:#ffd0a0;font-size:.74rem;margin-top:4px;line-height:1.5">'
-            f'多頭排列但 EMA20 距 EMA60 &lt; 1 ATR + 黃金交叉已 {cross_days or "?"} 天 + EMA20 走弱'
+            f'多頭排列但 EMA20 距 EMA60 &lt; 1 ATR + 黃金交叉已 {cross_days or "?"} {_bu} + EMA20 走弱'
             f'<br>📌 <b>波段已成熟，持倉者該設緊停損或主動出場</b>，不要等死叉發生'
             f'</div></div>'
         )
@@ -2495,7 +2501,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'{_r_label} {_r_data.get("date", "—")} ${_r_data.get("price", 0):.2f} '
                 f'(差 {_sim:.2f}%)<br>'
                 f'{_mid_label} {_m_data.get("date", "—")} ${_neck:.2f} = neckline'
-                f' ｜ 間距 {_sep} 天'
+                f' ｜ 間距 {_sep} {_bu}'
                 f'</div>'
                 f'<div style="margin-top:6px;padding:6px;background:#0a1422;border-radius:3px">'
                 f'<b style="color:#7abadd;font-size:.74rem">🔍 五大關鍵分析</b>'
@@ -2855,7 +2861,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             if ema_gap_pct < 1.0 and _just_crossed_up:
                 # 剛黃金交叉的擴張期
                 gap_color = "#3dbb6a"; gap_icon = "🔥"
-                gap_note = f"黃金交叉 {cross_days} 天前（擴張期，差距正常）"
+                gap_note = f"黃金交叉 {cross_days} {_bu}前（擴張期，差距正常）"
             elif ema_gap_pct < 1.0:
                 gap_color = "#ff5555"; gap_icon = "🚨"; gap_note = "即將死叉！準備出場"
             elif ema_gap_pct < 3.0:
@@ -3010,8 +3016,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_name   = "🛑 不進場 — 即將死叉"
             _rec_color  = "#ff7755"
             _rec_badge  = "background:#2a0a0a;color:#ff7755;border:1px solid #ff775566"
-            _rec_reason = (f"雖然 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} 天前 等進場條件成立，"
-                           f"但 EMA20 距 EMA60 僅 {(ema20-ema60)/atr14:.2f} ATR + 多頭已 {cross_days} 天，"
+            _rec_reason = (f"雖然 RSI {rsi_str} < 50 / 黃金交叉 {cross_days} {_bu}前 等進場條件成立，"
+                           f"但 EMA20 距 EMA60 僅 {(ema20-ema60)/atr14:.2f} ATR + 多頭已 {cross_days} {_bu}，"
                            f"隨時可能死叉。此時進場將陷入「進場 → 立刻死叉 → 出場」尷尬。")
             _rec_entry  = "❌ 不進場（等死叉發生後再評估，或改觀察 T4 反彈條件）"
             _rec_exit   = "—"
@@ -3023,7 +3029,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_name   = "② 趨勢EMA（飆股模式）"
             _rec_color  = "#f0c030"
             _rec_badge  = "background:#1a1400;color:#f0c030;border:1px solid #f0c03055"
-            _rec_reason = (f"ADX {adx_str} ≥ 30 且黃金交叉剛發生（{cross_days} 天前），"
+            _rec_reason = (f"ADX {adx_str} ≥ 30 且黃金交叉剛發生（{cross_days} {_bu}前），"
                            f"強趨勢啟動初期，②趨勢EMA回測勝率最高")
             _rec_entry  = "立即進場（T1 黃金交叉），不等拉回"
             _rec_exit   = "持到 EMA 死亡交叉才出場（回測：RSI出場會砍掉飆股主升段）"
@@ -3056,9 +3062,9 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _rec_name   = "⑦ 自適應T1（穩健進場）"
             _rec_color  = "#3dbb6a"
             _rec_badge  = "background:#0d2a10;color:#3dbb6a;border:1px solid #3dbb6a55"
-            _rec_reason = (f"黃金交叉 {cross_days} 天前，ADX {adx_str}（22~30 穩健趨勢），"
+            _rec_reason = (f"黃金交叉 {cross_days} {_bu}前，ADX {adx_str}（22~30 穩健趨勢），"
                            f"⑦T1 進場配合 ATR 停損，風報比合理")
-            _rec_entry  = f"立即進場（黃金交叉 {cross_days} 天前，T1）"
+            _rec_entry  = f"立即進場（黃金交叉 {cross_days} {_bu}前，T1）"
             _rec_exit   = "ADX < 25 時 RSI > 70 提前出場；ADX ≥ 25 持到死叉"
             _rec_stop   = "ATR × 2.5（ADX≥30 用 ×3.0）"
             _rec_warn   = "⚠️ 趨勢強度中等，需更嚴守停損"
@@ -3162,7 +3168,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _dc_status = (f"⏳ <b>EMA20 即將死叉</b>"
                           f"（距 EMA60 僅 {(ema20-ema60):.2f} 元 &lt; 1 ATR）")
         else:
-            _dc_status = f"💀 死叉 <b>{abs(cross_days)}</b> 天前"
+            _dc_status = f"💀 死叉 <b>{abs(cross_days)}</b> {_bu}前"
         _knife_header = (
             f"<b>🔪 接刀風險偵測</b>：{_dc_status} + "
             f"從 60 日高 <b>{high60:.2f}</b> 跌至 <b>{close:.2f}</b>"
@@ -3304,7 +3310,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _color = _side_color.get(k['side'], '#7a8899')
             _day_label = ('今日' if k['days_ago'] == 0 else
                           '昨日' if k['days_ago'] == 1 else
-                          f"{k['days_ago']} 日前")
+                          f"{k['days_ago']} {_bu}前")
             _chips.append(
                 f'<span style="background:{_color}22;color:{_color};'
                 f'border:1px solid {_color}66;border-radius:10px;'

@@ -22,6 +22,19 @@ import ta
 from intraday.config import get_tf_config, BARS_PER_WEEK
 
 
+def _bar_unit_for_tf(tf: str) -> str:
+    """timeframe → 顯示用 bar 單位（'天' / '個 5m bar' / '個 1h bar' 等）"""
+    units = {
+        '1m':  '個 1m bar',
+        '5m':  '個 5m bar',
+        '15m': '個 15m bar',
+        '30m': '個 30m bar',
+        '1h':  '個 1h bar',
+        '1d':  '天',
+    }
+    return units.get(tf, '個 bar')
+
+
 # ────────────────────────────────────────────────────────────────
 # Helper functions (從 fetch_indicators 內部複製)
 # ────────────────────────────────────────────────────────────────
@@ -347,7 +360,49 @@ def build_d_from_intraday(df: pd.DataFrame, tf: str = '5m',
         '_intraday_bars': len(df),
         '_intraday_last_ts': str(df.index[-1]),
         '_intraday_market': market,
+        '_bar_unit': _bar_unit_for_tf(tf),    # 🆕 v9.31：「天」/「個 5m bar」等
     }
+
+    # 🆕 v9.31：產生 _swing_history 讓 ZigZag chart 用 intraday df 而非 daily fallback
+    try:
+        import numpy as _np
+        tail = min(252, len(df))
+        def _np_tail(s, n=tail):
+            try:
+                arr = s.values if hasattr(s, 'values') else _np.asarray(s)
+                if len(arr) >= n:
+                    return arr[-n:].tolist()
+                return arr.tolist()
+            except Exception:
+                return []
+        sma50_s_ = ta.trend.SMAIndicator(c, 50).sma_indicator()
+        sma150_s_ = ta.trend.SMAIndicator(c, 150).sma_indicator()
+        ema10_s_ = ta.trend.EMAIndicator(c, 10).ema_indicator()
+        _idx_arr = df.index
+        # intraday 用完整 timestamp 字串（含小時分鐘）；daily 用 YYYY-MM-DD
+        if cfg.minutes_per_bar < 1440:
+            _dates_tail = [str(x) for x in (_idx_arr[-tail:] if len(_idx_arr) >= tail else _idx_arr)]
+        else:
+            _dates_tail = [str(x)[:10] for x in (_idx_arr[-tail:] if len(_idx_arr) >= tail else _idx_arr)]
+        d['_swing_history'] = {
+            'dates':  _dates_tail,
+            'open':   _np_tail(o),
+            'high':   _np_tail(h),
+            'low':    _np_tail(l),
+            'close':  _np_tail(c),
+            'volume': _np_tail(v),
+            'ema10':  _np_tail(ema10_s_),
+            'ema20':  _np_tail(ema20_s),
+            'ema60':  _np_tail(ema60_s),
+            'sma50':  _np_tail(sma50_s_),
+            'sma150': _np_tail(sma150_s_),
+            'sma200': _np_tail(sma200_s),
+            'adx':    _np_tail(adx_s),
+            'atr':    _np_tail(atr_s),
+            'rsi':    _np_tail(rsi_s),
+        }
+    except Exception:
+        d['_swing_history'] = None
 
     # ── K 線型態 ──
     d['kline_patterns'] = _detect_kline_patterns(df, lookback=5)
