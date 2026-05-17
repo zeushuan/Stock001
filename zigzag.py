@@ -34,80 +34,91 @@ def compute_atr(df, period=14):
     return atr
 
 
-def zigzag(df, mode='atr', atr_mult=5.0, pct=7.0, atr_period=14):
+def zigzag(df, mode='atr', atr_mult=5.0, pct=7.0, atr_period=14,
+             price_source='close'):
     """ZigZag pivot detection
 
     Args:
       mode: 'atr' 或 'pct'
       atr_mult: ATR 倍數（mode='atr' 時用）
       pct: 百分比門檻（mode='pct' 時用）
+      price_source: 'close'（預設，v9.32 起改用收盤價偵測 pivot — 抖動較小）
+                    或 'hl'（舊行為，用 High/Low）
 
     Returns:
       pivots: list of dicts [{'idx': int, 'type': 'H'|'L', 'price': float,
                               'date': Timestamp, 'tentative': bool}]
+
+    Note:
+      v9.32 改變：預設改用 close 當 pivot 偵測來源。對 intraday 特別重要
+      （5min bar 的 H/L 抖動大，close 更能代表市場「結論」）。
+      想要回到舊行為傳 price_source='hl'。
     """
-    h = df['High'].values.astype(float)
-    l = df['Low'].values.astype(float)
     n = len(df)
     if n < 3:
         return []
 
+    c = df['Close'].values.astype(float)
+    # 🆕 v9.32：用 close 還是 H/L
+    if price_source == 'close':
+        h_arr = c   # 「找高點」用 close
+        l_arr = c   # 「找低點」也用 close
+    else:  # 'hl' = 舊行為
+        h_arr = df['High'].values.astype(float)
+        l_arr = df['Low'].values.astype(float)
+
     if mode == 'atr':
         atr = compute_atr(df, atr_period)
         # ATR 還沒成熟前，用 close 的 pct 當 fallback
-        fallback = df['Close'].values * (pct/100.0)
+        fallback = c * (pct/100.0)
         def threshold(i):
             v = atr[i] * atr_mult
             return v if not np.isnan(v) and v > 0 else fallback[i]
     else:
-        c = df['Close'].values
         def threshold(i):
             return c[i] * (pct/100.0)
 
     pivots = []
     # Running extremes since last pivot
-    swing_h_idx, swing_h = 0, h[0]
-    swing_l_idx, swing_l = 0, l[0]
+    swing_h_idx, swing_h = 0, h_arr[0]
+    swing_l_idx, swing_l = 0, l_arr[0]
     mode_state = None    # None / 'up' (looking for new high) / 'down'
 
     for i in range(1, n):
         thr = threshold(i)
-        if h[i] > swing_h:
-            swing_h_idx, swing_h = i, h[i]
-        if l[i] < swing_l:
-            swing_l_idx, swing_l = i, l[i]
+        if h_arr[i] > swing_h:
+            swing_h_idx, swing_h = i, h_arr[i]
+        if l_arr[i] < swing_l:
+            swing_l_idx, swing_l = i, l_arr[i]
 
         if mode_state is None:
-            # 初始：等待第一次足夠大的擺盪以決定方向
             if swing_h - swing_l >= thr:
                 if swing_l_idx <= swing_h_idx:
-                    # 起步往上 → 第一個 pivot 是 swing low
                     pivots.append({'idx': swing_l_idx, 'type': 'L',
                                     'price': swing_l, 'tentative': False})
                     mode_state = 'up'
-                    swing_l_idx, swing_l = swing_h_idx, l[swing_h_idx]
+                    swing_l_idx, swing_l = swing_h_idx, l_arr[swing_h_idx]
                 else:
                     pivots.append({'idx': swing_h_idx, 'type': 'H',
                                     'price': swing_h, 'tentative': False})
                     mode_state = 'down'
-                    swing_h_idx, swing_h = swing_l_idx, h[swing_l_idx]
+                    swing_h_idx, swing_h = swing_l_idx, h_arr[swing_l_idx]
         elif mode_state == 'up':
-            # 等待回檔：當前 bar 的 low 比 swing_h 低於門檻
-            if swing_h - l[i] >= thr:
+            if swing_h - l_arr[i] >= thr:
                 pivots.append({'idx': swing_h_idx, 'type': 'H',
                                 'price': swing_h, 'tentative': False})
                 mode_state = 'down'
-                swing_l_idx, swing_l = i, l[i]
-                swing_h_idx, swing_h = i, h[i]
+                swing_l_idx, swing_l = i, l_arr[i]
+                swing_h_idx, swing_h = i, h_arr[i]
         elif mode_state == 'down':
-            if h[i] - swing_l >= thr:
+            if h_arr[i] - swing_l >= thr:
                 pivots.append({'idx': swing_l_idx, 'type': 'L',
                                 'price': swing_l, 'tentative': False})
                 mode_state = 'up'
-                swing_h_idx, swing_h = i, h[i]
-                swing_l_idx, swing_l = i, l[i]
+                swing_h_idx, swing_h = i, h_arr[i]
+                swing_l_idx, swing_l = i, l_arr[i]
 
-    # 末端 tentative pivot（還未被反向確認）
+    # 末端 tentative pivot
     if pivots:
         last = pivots[-1]
         if mode_state == 'up' and swing_h > last['price']:
