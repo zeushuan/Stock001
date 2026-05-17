@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import io
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import pandas as pd
 import numpy as np
@@ -279,6 +279,7 @@ def build_zigzag_chart_plotly(
     show_emas: List[int] = None,
     show_macd: bool = True,
     theme: str = 'dark',
+    swing_trades: Optional[List[Dict]] = None,
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -291,6 +292,7 @@ def build_zigzag_chart_plotly(
         show_emas: 要顯示哪些 EMA
         show_macd: 是否加 MACD 子圖
         theme: 'dark' / 'light'
+        swing_trades: 戰法歷史交易（給 entry/exit marker 用）
 
     Returns:
         plotly Figure 物件（給 st.plotly_chart() 用）
@@ -542,6 +544,98 @@ def build_zigzag_chart_plotly(
                          line=dict(color='#cc4400', width=1.5)),
             text=zz_text, hoverinfo='text',
         ), row=1, col=1)
+
+    # ── 🆕 v9.33：戰法歷史 entry/exit markers ──
+    if swing_trades:
+        # 轉換 trade 的時間到 plot position
+        entry_xs, entry_ys, entry_texts, entry_colors = [], [], [], []
+        exit_xs, exit_ys, exit_texts, exit_colors = [], [], [], []
+        # 連線 entry → exit
+        line_segments_x = []
+        line_segments_y = []
+        line_colors = []
+        for tr in swing_trades:
+            try:
+                e_ts = pd.to_datetime(tr['entry_time'])
+                e_pos = _to_pos(e_ts)
+                # 只顯示在 plot 範圍內的
+                if e_pos < 0 or e_pos >= N:
+                    continue
+                entry_xs.append(e_pos)
+                entry_ys.append(tr['entry_price'] * 0.997)   # 標在 bar 下方
+                entry_texts.append(
+                    f"<b>🟢 進場 {tr['entry_mode']}</b><br>"
+                    f"{e_ts.strftime('%Y-%m-%d %H:%M')}<br>"
+                    f"Entry: ${tr['entry_price']:.4f}"
+                )
+
+                if tr.get('exit_idx') is not None:
+                    x_ts = pd.to_datetime(tr['exit_time'])
+                    x_pos_v = _to_pos(x_ts)
+                    if 0 <= x_pos_v < N:
+                        exit_xs.append(x_pos_v)
+                        exit_ys.append(tr['exit_price'] * 1.003)   # 標在 bar 上方
+                        # exit 顏色：賺=綠、賠=紅
+                        if tr['pnl_pct'] > 0:
+                            exit_colors.append('#3dbb6a')
+                            color_emoji = '💰'
+                        else:
+                            exit_colors.append('#ff5555')
+                            color_emoji = '🛑'
+                        exit_texts.append(
+                            f"<b>{color_emoji} 出場</b><br>"
+                            f"{x_ts.strftime('%Y-%m-%d %H:%M')}<br>"
+                            f"Exit: ${tr['exit_price']:.4f}<br>"
+                            f"P/L: {tr['pnl_pct']:+.2f}%<br>"
+                            f"Reason: {tr['exit_reason']}<br>"
+                            f"Holding: {tr['holding_bars']} bars"
+                        )
+                        # 連線
+                        line_color = '#3dbb6a' if tr['pnl_pct'] > 0 else '#ff5555'
+                        line_segments_x.extend([e_pos, x_pos_v, None])
+                        line_segments_y.extend([
+                            tr['entry_price'], tr['exit_price'], None,
+                        ])
+                        line_colors.append(line_color)
+                else:
+                    # 持倉中（open）
+                    pass
+            except Exception:
+                continue
+
+        # 加連線（每筆交易一段）— 使用 None 分隔
+        if line_segments_x:
+            fig.add_trace(go.Scatter(
+                x=line_segments_x, y=line_segments_y, mode='lines',
+                line=dict(color='#7a8899', width=1.2, dash='dot'),
+                name='戰法 P/L 路徑',
+                hoverinfo='skip',
+                showlegend=False,
+                opacity=0.5,
+            ), row=1, col=1)
+
+        if entry_xs:
+            fig.add_trace(go.Scatter(
+                x=entry_xs, y=entry_ys, mode='markers',
+                name=f'🟢 戰法進場 ({len(entry_xs)})',
+                marker=dict(
+                    symbol='circle', size=14,
+                    color='#3dbb6a',
+                    line=dict(color='#0a4a14', width=2),
+                ),
+                text=entry_texts, hoverinfo='text',
+            ), row=1, col=1)
+        if exit_xs:
+            fig.add_trace(go.Scatter(
+                x=exit_xs, y=exit_ys, mode='markers',
+                name=f'💰 戰法出場 ({len(exit_xs)})',
+                marker=dict(
+                    symbol='x', size=14,
+                    color=exit_colors,
+                    line=dict(color='#000000', width=1.5),
+                ),
+                text=exit_texts, hoverinfo='text',
+            ), row=1, col=1)
 
     # ── MACD subplot（row 2，如果有）──
     if _has_macd:

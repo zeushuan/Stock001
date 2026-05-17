@@ -585,6 +585,66 @@ for _tf in timeframes_selected:
         f'<td style="padding:7px 8px;text-align:center;font-family:monospace;'
         f'color:{_adx_color}">{_adx_v:.1f}</td>' if _adx_v else f'<td>-</td>'
     )
+
+    # 🆕 v9.33：戰法訊號（只 15m 那行算）
+    _swing_cell = '<td style="padding:7px 8px;color:#5a7090;font-size:.7rem">—</td>'
+    if _tf == '15m':
+        try:
+            from intraday.strategy import detect_swing_signal
+            _sig = detect_swing_signal(_summ['df'], market=info['market'])
+            # Entry 部分
+            _entry = _sig.get('entry', {})
+            _exit = _sig.get('exit', {})
+            _eod = _sig.get('eod', {})
+            _entry_label = _entry.get('label', '⚪ -')
+            _exit_label = _exit.get('label', '⚪ -')
+            # 顏色 / 背景
+            if _entry.get('triggered'):
+                _entry_bg = '#0d2a14'; _entry_color = '#3dbb6a'
+            else:
+                _entry_bg = '#0a1422'; _entry_color = '#7a8899'
+            if _exit.get('triggered'):
+                _exit_bg = '#2a0a0a'; _exit_color = '#ff5555'
+            else:
+                _exit_bg = '#0a1422'; _exit_color = '#7a8899'
+
+            _eod_warn = ''
+            if _eod.get('force_exit'):
+                _eod_warn = (
+                    f'<br><span style="color:#ff5555;font-size:.62rem">'
+                    f'🚪 強制出場 (距收盤 {_eod["minutes_to_close"]}min)</span>')
+            elif _eod.get('warning'):
+                _eod_warn = (
+                    f'<br><span style="color:#e8a020;font-size:.62rem">'
+                    f'⏰ T-{_eod["minutes_to_close"]}min 準備出場</span>')
+            elif _eod.get('no_entry'):
+                _eod_warn = (
+                    f'<br><span style="color:#aa6655;font-size:.62rem">'
+                    f'❌ T-60min 不新進場</span>')
+
+            # 失敗原因（hover 用）
+            _fails = _entry.get('failed', [])
+            _fails_str = ('Trend fails: ' + ' / '.join(_fails[:4])) if _fails else ''
+
+            _swing_cell = (
+                f'<td style="padding:7px 8px;font-size:.72rem" title="{_fails_str}">'
+                f'<div style="background:{_entry_bg};color:{_entry_color};'
+                f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
+                f'border-left:3px solid {_entry_color}">'
+                f'{_entry_label}</div>'
+                f'<div style="background:{_exit_bg};color:{_exit_color};'
+                f'padding:3px 6px;border-radius:3px;'
+                f'border-left:3px solid {_exit_color}">'
+                f'{_exit_label}</div>'
+                f'{_eod_warn}'
+                f'</td>'
+            )
+        except Exception as _e:
+            _swing_cell = (
+                f'<td style="padding:7px 8px;color:#aa6655;font-size:.66rem">'
+                f'戰法 err: {type(_e).__name__}</td>')
+    _rows[-1] = _rows[-1] + _swing_cell
+
     # 加 closing </tr>
     _rows[-1] = _rows[-1] + '</tr>'
 
@@ -601,6 +661,7 @@ _table_html = (
     '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">交叉</th>'
     '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">RSI</th>'
     '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">ADX</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">📋 戰法訊號 (15m)</th>'
     '</tr></thead>'
     '<tbody>' + ''.join(_rows) + '</tbody>'
     '</table></div>'
@@ -650,6 +711,15 @@ for tab, tf in zip(tabs, timeframes_selected):
                     help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
+                # 🆕 v9.33：15m 加戰法歷史 trades markers
+                _swing_trades_main = None
+                if tf == '15m':
+                    try:
+                        from intraday.strategy import scan_historical_signals, summarize_trades
+                        _swing_trades_main = scan_historical_signals(
+                            df, market=info['market'], lookback_bars=_main_chart_bars)
+                    except Exception:
+                        _swing_trades_main = None
                 main_fig = build_zigzag_chart_plotly(
                     df,
                     atr_mult=_atr_global,
@@ -660,10 +730,38 @@ for tab, tf in zip(tabs, timeframes_selected):
                     show_emas=[5, 20, 60, 150, 200],
                     show_macd=_main_show_macd,
                     theme=_theme,
+                    swing_trades=_swing_trades_main,
                 )
             if main_fig is not None:
                 st.plotly_chart(main_fig, use_container_width=True,
                                   key=f'_main_zz_plotly_{tf}')
+                # 🆕 v9.33：15m tab 顯示戰法歷史統計
+                if tf == '15m' and _swing_trades_main:
+                    _stats = summarize_trades(_swing_trades_main)
+                    if _stats.get('n', 0) > 0:
+                        _wr = _stats['win_rate']
+                        _wr_color = ('#3dbb6a' if _wr >= 60 else
+                                      '#e8a020' if _wr >= 45 else '#ff5555')
+                        _avg = _stats['avg_pnl_pct']
+                        _avg_color = '#3dbb6a' if _avg >= 0 else '#ff5555'
+                        st.markdown(
+                            f'<div style="background:#0a1828;border-left:4px solid #5dccdd;'
+                            f'padding:8px 12px;border-radius:4px;margin-top:6px;'
+                            f'font-size:.8rem">'
+                            f'<b style="color:#5dccdd">📊 戰法歷史統計（{_main_chart_bars} bars）</b>'
+                            f'<br><span style="color:#a8c0d0">'
+                            f'交易 <b>{_stats["n"]}</b> 筆 ｜ '
+                            f'勝率 <b style="color:{_wr_color}">{_wr:.1f}%</b> '
+                            f'({_stats["win_n"]} 勝 / {_stats["loss_n"]} 敗) ｜ '
+                            f'平均 P/L <b style="color:{_avg_color}">{_avg:+.2f}%</b> ｜ '
+                            f'最佳 <b style="color:#3dbb6a">{_stats["best_pnl_pct"]:+.2f}%</b> ｜ '
+                            f'最差 <b style="color:#ff5555">{_stats["worst_pnl_pct"]:+.2f}%</b> ｜ '
+                            f'平均持倉 <b>{_stats["avg_holding_bars"]:.1f}</b> bars '
+                            f'({_stats["avg_holding_bars"] * 15:.0f} min)'
+                            f'</span></div>',
+                            unsafe_allow_html=True)
+                    if _stats.get('open', 0) > 0:
+                        st.warning(f'⚠️ 目前 {_stats["open"]} 筆持倉未平倉（戰法 simulation）')
             else:
                 # plotly 不可用 → fallback 到靜態 PNG（雲端常見：requirements 沒裝 plotly）
                 try:
