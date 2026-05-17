@@ -348,11 +348,10 @@ def build_zigzag_chart_plotly(
         except Exception:
             return 0
 
-    # ── 建立兩列 subplot ──
+    # ── 建立兩列 subplot（不用 subplot_titles 避免跟 legend 擠）──
     fig = make_subplots(
         rows=2, cols=1, shared_xaxes=True,
-        row_heights=[0.78, 0.22], vertical_spacing=0.02,
-        subplot_titles=(title or '', 'Volume'),
+        row_heights=[0.78, 0.22], vertical_spacing=0.04,
     )
 
     # ── Candlestick ──
@@ -489,19 +488,25 @@ def build_zigzag_chart_plotly(
         grid_color = '#1a2f48'
 
     fig.update_layout(
-        title=dict(text='', font=dict(size=14, color=font_color)),
-        height=620,
-        hovermode='x unified',   # 滑鼠 hover 整列高亮，所有 trace 一起顯示
+        title=dict(
+            text=title or '',
+            font=dict(size=13, color=font_color),
+            x=0.5, xanchor='center',
+            y=0.985, yanchor='top',
+        ),
+        height=680,
+        hovermode='x unified',   # 滑鼠 hover 整列高亮
         plot_bgcolor=bg,
         paper_bgcolor=paper_bg,
         font=dict(color=font_color, size=11),
         legend=dict(
-            orientation='h', y=1.05, x=0,
+            orientation='h',
+            y=-0.16, x=0.5, xanchor='center', yanchor='top',  # 放在 chart 下方
             bgcolor='rgba(0,0,0,0)', font=dict(size=10),
         ),
-        margin=dict(l=50, r=30, t=50, b=40),
-        xaxis_rangeslider_visible=False,   # 關掉 candlestick 預設下方滑桿
-        dragmode='pan',                     # 預設拖曳模式
+        margin=dict(l=55, r=30, t=45, b=110),   # 上留標題、下留 legend
+        xaxis_rangeslider_visible=False,
+        dragmode='pan',
     )
     fig.update_xaxes(
         tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
