@@ -21,6 +21,7 @@ from intraday.config import TIMEFRAMES, get_tf_config
 from intraday.data import get_intraday, market_info
 from intraday.builder import build_d_from_intraday
 from intraday.charts import build_zigzag_compare_chart
+from intraday.settings import get_zigzag_atr_mult, set_zigzag_atr_mult
 from detail_card_render import (
     GROUP_NAMES, GROUP_WEIGHTS, GROUP_COLORS,
     TREND_W, POSITION_W, MOMENTUM_W, AUX_W,
@@ -448,35 +449,69 @@ for tab, tf in zip(tabs, timeframes_selected):
                 html = _convert_html_for_light_mode(html)
             st.markdown(html, unsafe_allow_html=True)
 
-            # 🆕 v9.32：ZigZag ATR 倍數對照圖
-            with st.expander(f"📊 {tf} ZigZag ATR 倍數對照（高敏感→低敏感）", expanded=False):
-                _atr_choices = st.multiselect(
-                    "選擇 ATR 倍數",
-                    options=[0.8, 1.0, 1.3, 1.5, 2.0, 2.5, 3.0, 4.0],
-                    default=[1.0, 1.3, 1.5, 2.0, 3.0],
-                    key=f'_atr_mults_{tf}',
-                    help='ATR 倍數越小越敏感（pivot 越多）；越大越保守（只剩 major swing）'
+            # 🆕 v9.32：ZigZag ATR 倍數判讀工具（單張可調，「套用」後全域生效）
+            with st.expander(
+                f"📊 {tf} ZigZag ATR 調整工具（目前全域 ATR×{get_zigzag_atr_mult():.2f}）",
+                expanded=False,
+            ):
+                st.caption(
+                    '👉 拉滑桿預覽不同 ATR 倍數的 ZigZag，決定後按「套用此 ATR」— '
+                    '套用後**全域生效**：詳細卡上方 ZigZag 圖、雙底/雙頂、VCP 偵測都會用新值'
                 )
-                _max_bars_zz = st.slider(
-                    "顯示最後 N bars",
-                    min_value=60, max_value=min(500, len(df)),
-                    value=min(180, len(df)),
-                    step=20, key=f'_zz_max_bars_{tf}',
-                )
-                if _atr_choices:
-                    with st.spinner(f"渲染 ZigZag 對照圖..."):
-                        png = build_zigzag_compare_chart(
-                            df,
-                            atr_mults=sorted(_atr_choices),
-                            title=f'{ticker} {tf} — ZigZag ATR 倍數對照',
-                            max_bars=_max_bars_zz,
-                        )
-                    if png:
-                        st.image(png, use_container_width=True)
-                    else:
-                        st.warning('資料不足，無法渲染')
+                _cols = st.columns([3, 1])
+                with _cols[0]:
+                    _atr_preview = st.slider(
+                        "ATR 倍數預覽（0.5-5.0）",
+                        min_value=0.5, max_value=5.0,
+                        value=float(get_zigzag_atr_mult()),
+                        step=0.05,
+                        key=f'_atr_preview_{tf}',
+                    )
+                    _max_bars_zz = st.slider(
+                        "顯示最後 N bars",
+                        min_value=60, max_value=min(500, len(df)),
+                        value=min(180, len(df)),
+                        step=20, key=f'_zz_max_bars_{tf}',
+                    )
+                with _cols[1]:
+                    st.markdown(
+                        f'**目前全域**<br>'
+                        f'<span style="font-size:1.3rem;color:#3b9eff">ATR×{get_zigzag_atr_mult():.2f}</span>',
+                        unsafe_allow_html=True)
+                    st.markdown(
+                        f'**預覽**<br>'
+                        f'<span style="font-size:1.3rem;color:#e8a020">ATR×{_atr_preview:.2f}</span>',
+                        unsafe_allow_html=True)
+                    if st.button(
+                        f'✅ 套用 ATR×{_atr_preview:.2f}',
+                        key=f'_atr_apply_{tf}',
+                        type='primary',
+                        use_container_width=True,
+                    ):
+                        set_zigzag_atr_mult(_atr_preview)
+                        st.success(f'已套用 ATR×{_atr_preview:.2f}，重新整理頁面後全域生效')
+                        st.rerun()
+                    if st.button(
+                        '↻ 重置為 1.30',
+                        key=f'_atr_reset_{tf}',
+                        use_container_width=True,
+                    ):
+                        set_zigzag_atr_mult(1.30)
+                        st.success('已重置為 1.30')
+                        st.rerun()
+
+                # 渲染預覽圖（單一 ATR）
+                with st.spinner(f"渲染 ATR×{_atr_preview:.2f} 預覽..."):
+                    png = build_zigzag_compare_chart(
+                        df,
+                        atr_mults=[_atr_preview],
+                        title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) 預覽',
+                        max_bars=_max_bars_zz,
+                    )
+                if png:
+                    st.image(png, use_container_width=True)
                 else:
-                    st.info('請至少選一個 ATR 倍數')
+                    st.warning('資料不足，無法渲染')
 
         except Exception as e:
             import traceback

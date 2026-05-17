@@ -1620,7 +1620,13 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 return None
 
             from zigzag import zigzag as _zz
-            pivots = _zz(df_plot, mode='atr', atr_mult=1.3, atr_period=14)
+            # 🆕 v9.32：ATR 倍數從 intraday.settings 動態讀
+            try:
+                from intraday.settings import get_zigzag_atr_mult as _get_atr
+                _atr_mult_v = _get_atr()
+            except Exception:
+                _atr_mult_v = 1.3
+            pivots = _zz(df_plot, mode='atr', atr_mult=_atr_mult_v, atr_period=14)
 
             # 🆕 v9.32：用 categorical x-axis（TradingView 風格 / 等寬無間隔）
             # 偵測 bar 間隔（用於 label 格式 + intraday flag）
@@ -1674,7 +1680,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                           marker='o', markersize=8,
                           markerfacecolor='gold', markeredgecolor='#cc4400',
                           markeredgewidth=1.6,
-                          label=f'ZigZag ATR×1.3 ({len(pivots)} pivots)', zorder=5)
+                          label=f'ZigZag ATR×{_atr_mult_v:.2f} ({len(pivots)} pivots)', zorder=5)
 
             # W 底標註
             _dbi = d_local.get('double_bottom_info') or {}
@@ -1750,7 +1756,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             if _has_vcp: tags.append(f'VCP-{_vcp.get("vcp_grade","")} ({_vcp.get("num_contractions",0)}收口 {_vcp.get("breakout_status","")})')
             elif _ctr:
                 tags.append(f'VCP候選 ({len(_ctr)}收口，未達標)')
-            title = f'ZigZag (ATR×1.3) {len(pivots)} pivots'
+            title = f'ZigZag (ATR×{_atr_mult_v:.2f}) {len(pivots)} pivots'
             if tags: title += '   |   ' + '  ｜  '.join(tags)
             ax1.set_title(title, fontsize=10, fontweight='bold', pad=6)
             ax1.set_ylabel('Price', fontsize=9)
@@ -2576,7 +2582,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 f'<div style="margin-top:8px;padding:6px;background:#0a1828;'
                 f'border:1px solid #1a2a3a;border-radius:6px">'
                 f'<div style="font-size:.7rem;color:#7abadd;font-weight:700;'
-                f'margin-bottom:4px">📊 ZigZag 對照圖（ATR×1.3）— W 底 / M 頂 / VCP 共用視覺</div>'
+                f'margin-bottom:4px">📊 ZigZag 對照圖 — W 底 / M 頂 / VCP 共用視覺</div>'
                 f'<img src="{_zz_data_uri}" style="width:100%;border-radius:4px"/>'
                 f'</div>'
             )

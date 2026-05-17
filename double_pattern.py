@@ -19,7 +19,17 @@ import pandas as pd
 
 from zigzag import zigzag as _zigzag, compute_atr as _compute_atr
 
-DEFAULT_ATR_MULT = 1.3   # v9.23.3：細粒 OOS 驗證最佳值（VCP Sharpe @60d 0.159 / @90d 0.186）
+# 🆕 v9.32：ATR 倍數從 intraday.settings 動態讀（用戶可在 intraday page 調）
+# 沒有 intraday module 時 fallback 為 1.3
+def _default_atr_mult() -> float:
+    try:
+        from intraday.settings import get_zigzag_atr_mult
+        return get_zigzag_atr_mult()
+    except Exception:
+        return 1.3
+
+# 向後相容保留常數（但僅做 fallback，呼叫端應傳 atr_mult=None 走 _default_atr_mult()）
+DEFAULT_ATR_MULT = 1.3
 DEFAULT_ATR_PERIOD = 14
 
 
@@ -263,12 +273,14 @@ def _check_breakout_validity(df, mid_idx, neckline, side='bull',
 # v9.23 ZigZag pivot helper
 # ────────────────────────────────────────────────────────────────
 
-def _get_zigzag_pivots(df, lookback_days, atr_mult=DEFAULT_ATR_MULT):
+def _get_zigzag_pivots(df, lookback_days, atr_mult=None):
     """跑 ZigZag，回傳 (pivots_with_global_idx, df_offset_in_full)
 
     pivots 內的 'idx' 已經轉成「相對 lookback slice 的 index」。
     我們也存 'global_idx' 為相對 full df 的 index。
     """
+    if atr_mult is None:
+        atr_mult = _default_atr_mult()
     n_full = len(df)
     start = max(0, n_full - lookback_days)
     df_slice = df.iloc[start:].copy()
@@ -288,7 +300,7 @@ def detect_double_bottom(df, lookback_days=180,
                           similarity_tol=0.05, min_separation=15,
                           max_separation=120, peak_window=5,
                           min_rebound_pct=8, max_age_2nd=60,
-                          atr_mult=DEFAULT_ATR_MULT):
+                          atr_mult=None):
     """雙底偵測（W底）— ZigZag (ATR×1.30) 版
 
     從 ZigZag pivots 自動找 L-H-L 三元組，套用：
@@ -298,6 +310,8 @@ def detect_double_bottom(df, lookback_days=180,
 
     再套用 v9.22 職業分析層計算 Quality A-D。
     """
+    if atr_mult is None:
+        atr_mult = _default_atr_mult()
     if df is None or len(df) < 60:
         return {'is_double_bottom': False, 'status': 'none'}
 
@@ -447,8 +461,10 @@ def detect_double_top(df, lookback_days=180,
                        similarity_tol=0.05, min_separation=15,
                        max_separation=120, peak_window=5,
                        min_pullback_pct=8, max_age_2nd=60,
-                       atr_mult=DEFAULT_ATR_MULT):
+                       atr_mult=None):
     """雙頂偵測（M頂，看空反轉）— ZigZag 版鏡像"""
+    if atr_mult is None:
+        atr_mult = _default_atr_mult()
     if df is None or len(df) < 60:
         return {'is_double_top': False, 'status': 'none'}
 
@@ -589,7 +605,7 @@ def detect_double_top(df, lookback_days=180,
 def detect_vcp_zigzag(df, lookback_days=180,
                        min_contractions=3, max_contractions=8,
                        vol_dryup_threshold=0.75,
-                       atr_mult=DEFAULT_ATR_MULT):
+                       atr_mult=None):
     """VCP（Volatility Contraction Pattern）偵測
 
     從 ZigZag pivots 找連續 H-L 對，檢查：
@@ -601,6 +617,8 @@ def detect_vcp_zigzag(df, lookback_days=180,
     Returns dict, schema 同 vcp_from_pivots.detect_vcp_from_pivots
     額外多 'detector_version', 'atr_mult_used'
     """
+    if atr_mult is None:
+        atr_mult = _default_atr_mult()
     if df is None or len(df) < 60:
         return {'is_vcp': False, 'reason': '資料不足'}
 
