@@ -64,18 +64,24 @@ def _load_cache(path: Path) -> Optional[pd.DataFrame]:
         return None
 
 
-def _fetch_yfinance(ticker: str, tf: str, market: str) -> Optional[pd.DataFrame]:
-    """yfinance 抓取 — US 用裸 ticker、TW 加 .TW"""
+def _fetch_yfinance(ticker: str, tf: str, market: str,
+                      prepost: bool = True) -> Optional[pd.DataFrame]:
+    """yfinance 抓取 — US 用裸 ticker、TW 加 .TW
+    🆕 v9.32：prepost=True 預設開啟（含夜盤 pre/post-market）
+    """
     try:
         import yfinance as yf
     except ImportError:
         return None
     cfg = get_tf_config(tf)
     sym = ticker if market == 'us' else f"{ticker.replace('.TW','')}.TW"
+    # TW 股票沒有夜盤（期貨才有），prepost 對 .TW stock 等於 noop
+    use_prepost = prepost and market == 'us' and tf != '1d'
     try:
         df = yf.download(sym, period=cfg.yf_max_period,
                          interval=cfg.yf_interval,
-                         progress=False, auto_adjust=False, threads=False)
+                         progress=False, auto_adjust=False, threads=False,
+                         prepost=use_prepost)   # 🆕 v9.32：夜盤資料
         if df is None or df.empty:
             return None
         # 攤平 multi-index
@@ -115,7 +121,8 @@ def _fetch_fugle(ticker: str, tf: str) -> Optional[pd.DataFrame]:
 
 def get_intraday(ticker: str, tf: str = '5m',
                   market: str = 'auto',
-                  refresh: bool = False) -> Optional[pd.DataFrame]:
+                  refresh: bool = False,
+                  prepost: bool = True) -> Optional[pd.DataFrame]:
     """取得 intraday 資料
 
     Args:
@@ -123,6 +130,7 @@ def get_intraday(ticker: str, tf: str = '5m',
         tf: '1m' / '5m' / '15m' / '30m' / '1h' / '1d'
         market: 'tw' / 'us' / 'auto'（自動判斷）
         refresh: 強制重抓（跳過快取）
+        prepost: 是否含夜盤（pre/post-market）— 預設 True（v9.32）
 
     Returns:
         DataFrame [Open, High, Low, Close, Volume]，index=DatetimeIndex
@@ -143,14 +151,14 @@ def get_intraday(ticker: str, tf: str = '5m',
         if df is not None and len(df) > 0:
             return df
 
-    # 2. TW 優先試 Fugle（如果有 API key）
+    # 2. TW 優先試 Fugle（如果有 API key）— TW 股票沒夜盤，不需 prepost
     df = None
     if market == 'tw':
         df = _fetch_fugle(ticker, tf)
 
-    # 3. yfinance fallback
+    # 3. yfinance fallback（US 用 prepost=True 抓含夜盤）
     if df is None or len(df) == 0:
-        df = _fetch_yfinance(ticker, tf, market)
+        df = _fetch_yfinance(ticker, tf, market, prepost=prepost)
 
     # 4. 仍然失敗 → 試讀過期快取（總比沒有好）
     if df is None or len(df) == 0:
