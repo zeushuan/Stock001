@@ -664,6 +664,28 @@ for tab, tf in zip(tabs, timeframes_selected):
             if main_fig is not None:
                 st.plotly_chart(main_fig, use_container_width=True,
                                   key=f'_main_zz_plotly_{tf}')
+            else:
+                # plotly 不可用 → fallback 到靜態 PNG（雲端常見：requirements 沒裝 plotly）
+                try:
+                    import plotly  # noqa
+                    _plotly_ok = True
+                except ImportError:
+                    _plotly_ok = False
+                if not _plotly_ok:
+                    st.info('💡 plotly 未安裝，互動圖無法顯示。改用靜態圖（hover/縮放不可用）。'
+                            '雲端版可在 requirements.txt 加 `plotly>=5.18.0` 解決。')
+                png = build_zigzag_compare_chart(
+                    df,
+                    atr_mults=[_atr_global],
+                    title=f'{ticker} {tf} — ZigZag (ATR×{_atr_global:.2f}) + BB + EMA',
+                    max_bars=_main_chart_bars,
+                    show_bb=True,
+                    show_emas=[5, 20, 60, 150, 200],
+                )
+                if png:
+                    st.image(png, use_container_width=True)
+                else:
+                    st.warning(f'⚠️ {tf} 主圖渲染失敗（資料或繪圖套件異常）')
 
         # 🆕 v9.32：reuse pre-computed 結果（從 tf_summaries 拿）
         try:
