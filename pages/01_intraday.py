@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 from intraday.config import TIMEFRAMES, get_tf_config
 from intraday.data import get_intraday, market_info
 from intraday.builder import build_d_from_intraday
-from intraday.charts import build_zigzag_compare_chart
+from intraday.charts import build_zigzag_compare_chart, build_zigzag_chart_plotly
 from intraday.settings import get_zigzag_atr_mult, set_zigzag_atr_mult
 from detail_card_render import (
     GROUP_NAMES, GROUP_WEIGHTS, GROUP_COLORS,
@@ -607,20 +607,40 @@ for tab, tf in zip(tabs, timeframes_selected):
                         st.success('已重置為 1.30')
                         st.rerun()
 
-                # 渲染預覽圖（單一 ATR + BB + EMAs）
+                # 🆕 v9.32：互動式 plotly 圖（hover 顯示 OHLC）+ static fallback
+                _use_interactive = st.checkbox(
+                    '🖱️ 互動模式（hover 看 OHLC、滾輪縮放）',
+                    value=True, key=f'_interactive_{tf}',
+                )
                 with st.spinner(f"渲染 ATR×{_atr_preview:.2f} 預覽..."):
-                    png = build_zigzag_compare_chart(
-                        df,
-                        atr_mults=[_atr_preview],
-                        title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) + BB + EMA',
-                        max_bars=_max_bars_zz,
-                        show_bb=_show_bb,
-                        show_emas=_emas_selected,
-                    )
-                if png:
-                    st.image(png, use_container_width=True)
-                else:
-                    st.warning('資料不足，無法渲染')
+                    if _use_interactive:
+                        fig = build_zigzag_chart_plotly(
+                            df,
+                            atr_mult=_atr_preview,
+                            title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) + BB + EMA',
+                            max_bars=_max_bars_zz,
+                            show_bb=_show_bb,
+                            show_emas=_emas_selected,
+                            theme=_theme,
+                        )
+                        if fig is not None:
+                            st.plotly_chart(fig, use_container_width=True,
+                                              key=f'_plotly_chart_{tf}')
+                        else:
+                            st.warning('plotly 未安裝或資料不足，請改用靜態模式')
+                    else:
+                        png = build_zigzag_compare_chart(
+                            df,
+                            atr_mults=[_atr_preview],
+                            title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) + BB + EMA',
+                            max_bars=_max_bars_zz,
+                            show_bb=_show_bb,
+                            show_emas=_emas_selected,
+                        )
+                        if png:
+                            st.image(png, use_container_width=True)
+                        else:
+                            st.warning('資料不足，無法渲染')
 
         except Exception as e:
             import traceback

@@ -264,3 +264,254 @@ def build_zigzag_compare_chart_b64(
     if png is None:
         return None
     return f'data:image/png;base64,{base64.b64encode(png).decode("ascii")}'
+
+
+# ════════════════════════════════════════════════════════════
+# 🆕 v9.32：Plotly 互動版（hover 顯示 OHLC）
+# ════════════════════════════════════════════════════════════
+
+def build_zigzag_chart_plotly(
+    df: pd.DataFrame,
+    atr_mult: float = 1.3,
+    title: str = '',
+    max_bars: int = 180,
+    show_bb: bool = True,
+    show_emas: List[int] = None,
+    theme: str = 'dark',
+):
+    """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
+
+    Args:
+        df: OHLCV DataFrame
+        atr_mult: 單一 ATR 倍數
+        title: 圖標題
+        max_bars: 顯示最後 N bars
+        show_bb: 是否疊 BB
+        show_emas: 要顯示哪些 EMA
+        theme: 'dark' / 'light'
+
+    Returns:
+        plotly Figure 物件（給 st.plotly_chart() 用）
+    """
+    if df is None or len(df) < 30:
+        return None
+    if show_emas is None:
+        show_emas = [5, 20, 50, 150, 200]
+
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+    except ImportError:
+        return None
+    from zigzag import zigzag as _zz
+
+    # 在 slice 前算 BB + EMA（避免 EMA200 全 NaN）
+    df_full = df.dropna().copy()
+    close_full = df_full['Close']
+    bb_mid_full = close_full.rolling(20).mean() if len(close_full) >= 20 else None
+    bb_std_full = close_full.rolling(20).std() if len(close_full) >= 20 else None
+    ema_full = {}
+    for p in show_emas:
+        if len(close_full) >= p:
+            ema_full[p] = close_full.ewm(span=p, adjust=False).mean()
+
+    # 截尾
+    df_plot = df_full.tail(max_bars).copy()
+    if len(df_plot) < 30:
+        return None
+
+    bb_mid_plot = bb_mid_full.tail(max_bars) if bb_mid_full is not None else None
+    bb_std_plot = bb_std_full.tail(max_bars) if bb_std_full is not None else None
+    ema_plot = {p: s.tail(max_bars) for p, s in ema_full.items()}
+
+    # 偵測 bar 間隔
+    try:
+        diffs = df_plot.index.to_series().diff().dropna()
+        bar_sec = diffs.dt.total_seconds().quantile(0.25)
+    except Exception:
+        bar_sec = 86400
+    is_intraday = bar_sec < 86400 * 0.9
+
+    # 用整數 position 當 x 軸（categorical 無 gap）
+    N = len(df_plot)
+    x_pos = list(range(N))
+    # ts strings（hover 用）
+    ts_strs = [t.strftime('%Y-%m-%d %H:%M' if is_intraday else '%Y-%m-%d')
+                for t in df_plot.index]
+    _idx_dates = pd.to_datetime(df_plot.index)
+
+    def _to_pos(ts):
+        try:
+            ts = pd.to_datetime(ts)
+            diffs = abs(_idx_dates - ts)
+            return int(np.argmin(diffs))
+        except Exception:
+            return 0
+
+    # ── 建立兩列 subplot ──
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True,
+        row_heights=[0.78, 0.22], vertical_spacing=0.02,
+        subplot_titles=(title or '', 'Volume'),
+    )
+
+    # ── Candlestick ──
+    fig.add_trace(
+        go.Candlestick(
+            x=x_pos,
+            open=df_plot['Open'].values,
+            high=df_plot['High'].values,
+            low=df_plot['Low'].values,
+            close=df_plot['Close'].values,
+            name='K 線',
+            increasing_line_color='#26a69a',
+            decreasing_line_color='#ef5350',
+            increasing_fillcolor='#26a69a',
+            decreasing_fillcolor='#ef5350',
+            # hover template：日期 + OHLC + 漲跌幅
+            text=[
+                f"<b>{ts}</b><br>"
+                f"Open: ${o:.4f}<br>"
+                f"High: ${h:.4f}<br>"
+                f"Low: ${l:.4f}<br>"
+                f"Close: ${c:.4f}<br>"
+                f"漲跌: {(c-o):.4f} ({(c/o-1)*100:+.2f}%)"
+                for ts, o, h, l, c in zip(
+                    ts_strs, df_plot['Open'], df_plot['High'],
+                    df_plot['Low'], df_plot['Close'])
+            ],
+            hoverinfo='text',
+        ),
+        row=1, col=1)
+
+    # ── Bollinger Bands ──
+    if show_bb and bb_mid_plot is not None and bb_std_plot is not None:
+        bb_up2 = (bb_mid_plot + 2 * bb_std_plot).values
+        bb_lo2 = (bb_mid_plot - 2 * bb_std_plot).values
+        bb_up1 = (bb_mid_plot + 1 * bb_std_plot).values
+        bb_lo1 = (bb_mid_plot - 1 * bb_std_plot).values
+
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=bb_up2, mode='lines', name='BB +2σ',
+            line=dict(color='#7a8899', width=1, dash='solid'),
+            hovertemplate='BB+2σ: $%{y:.4f}<extra></extra>',
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=bb_lo2, mode='lines', name='BB -2σ',
+            line=dict(color='#7a8899', width=1, dash='solid'),
+            fill='tonexty', fillcolor='rgba(122,136,153,0.08)',
+            hovertemplate='BB-2σ: $%{y:.4f}<extra></extra>',
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=bb_up1, mode='lines', name='BB +1σ',
+            line=dict(color='#aabacc', width=1, dash='dot'),
+            hovertemplate='BB+1σ: $%{y:.4f}<extra></extra>',
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=bb_lo1, mode='lines', name='BB -1σ',
+            line=dict(color='#aabacc', width=1, dash='dot'),
+            hovertemplate='BB-1σ: $%{y:.4f}<extra></extra>',
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=bb_mid_plot.values, mode='lines',
+            name='BB Mid(20)',
+            line=dict(color='#9aaabb', width=1.2, dash='dash'),
+            hovertemplate='BB Mid: $%{y:.4f}<extra></extra>',
+        ), row=1, col=1)
+
+    # ── EMA 線 ──
+    ema_colors = {5: '#ffaa55', 20: '#3b9eff', 50: '#aa66ff',
+                   150: '#ff6dc8', 200: '#cc3333'}
+    for p in show_emas:
+        if p not in ema_plot:
+            continue
+        color = ema_colors.get(p, '#888888')
+        lw = 2.0 if p in (20, 200) else 1.5
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=ema_plot[p].values, mode='lines',
+            name=f'EMA{p}',
+            line=dict(color=color, width=lw),
+            hovertemplate=f'EMA{p}: $%{{y:.4f}}<extra></extra>',
+        ), row=1, col=1)
+
+    # ── ZigZag ──
+    try:
+        pivots = _zz(df_plot, mode='atr', atr_mult=atr_mult, atr_period=14)
+    except Exception:
+        pivots = []
+    if pivots:
+        zz_xs = [_to_pos(p['date']) for p in pivots]
+        zz_ys = [p['price'] for p in pivots]
+        zz_types = [p['type'] for p in pivots]
+        zz_text = [f"ZigZag {t}<br>${y:.4f}" for t, y in zip(zz_types, zz_ys)]
+        fig.add_trace(go.Scatter(
+            x=zz_xs, y=zz_ys, mode='lines+markers',
+            name=f'ZigZag ATR×{atr_mult:.2f} ({len(pivots)} pivots)',
+            line=dict(color='#ff6b35', width=2.5),
+            marker=dict(size=8, color='gold',
+                         line=dict(color='#cc4400', width=1.5)),
+            text=zz_text, hoverinfo='text',
+        ), row=1, col=1)
+
+    # ── Volume bar chart ──
+    vol_colors = ['#26a69a' if c >= o else '#ef5350'
+                   for o, c in zip(df_plot['Open'], df_plot['Close'])]
+    fig.add_trace(go.Bar(
+        x=x_pos, y=df_plot['Volume'].values,
+        name='Volume',
+        marker=dict(color=vol_colors),
+        opacity=0.55,
+        text=[
+            f"<b>{ts}</b><br>Vol: {v:,.0f}"
+            for ts, v in zip(ts_strs, df_plot['Volume'])
+        ],
+        hoverinfo='text',
+        showlegend=False,
+    ), row=2, col=1)
+
+    # ── X-axis tick labels ──
+    n_ticks = min(10, N)
+    tick_pos = sorted(set(
+        int(round(i * (N - 1) / (n_ticks - 1))) for i in range(n_ticks)
+    )) if n_ticks > 1 else [0]
+    tick_labels = [ts_strs[p] for p in tick_pos]
+
+    # ── 主題色 ──
+    if theme == 'light':
+        bg = '#ffffff'
+        paper_bg = '#ffffff'
+        font_color = '#1a2a40'
+        grid_color = '#e0e4ea'
+    else:  # dark
+        bg = '#0a1628'
+        paper_bg = '#08131f'
+        font_color = '#c8dff0'
+        grid_color = '#1a2f48'
+
+    fig.update_layout(
+        title=dict(text='', font=dict(size=14, color=font_color)),
+        height=620,
+        hovermode='x unified',   # 滑鼠 hover 整列高亮，所有 trace 一起顯示
+        plot_bgcolor=bg,
+        paper_bgcolor=paper_bg,
+        font=dict(color=font_color, size=11),
+        legend=dict(
+            orientation='h', y=1.05, x=0,
+            bgcolor='rgba(0,0,0,0)', font=dict(size=10),
+        ),
+        margin=dict(l=50, r=30, t=50, b=40),
+        xaxis_rangeslider_visible=False,   # 關掉 candlestick 預設下方滑桿
+        dragmode='pan',                     # 預設拖曳模式
+    )
+    fig.update_xaxes(
+        tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
+        gridcolor=grid_color, showgrid=True, row=1, col=1,
+    )
+    fig.update_xaxes(
+        tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
+        gridcolor=grid_color, showgrid=True, row=2, col=1,
+    )
+    fig.update_yaxes(gridcolor=grid_color, title_text='Price', row=1, col=1)
+    fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
+
+    return fig
