@@ -1662,15 +1662,66 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                                               gridspec_kw={'height_ratios': [3, 1]},
                                               sharex=True)
 
-            # 蠟燭線（position-based）
+            # 蠟燭線（position-based）— 主圖 alpha 提高，疊圖時也清晰
             for i, (_d, _row) in enumerate(df_plot.iterrows()):
                 _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
                 ax1.plot([i, i], [_row['Low'], _row['High']],
-                          color=_c, linewidth=0.7, alpha=0.7, zorder=1)
+                          color=_c, linewidth=0.7, alpha=0.55, zorder=1)
                 ax1.add_patch(_plt.Rectangle(
                     (i - _bar_w/2, min(_row['Open'], _row['Close'])),
                     _bar_w, abs(_row['Close'] - _row['Open']),
-                    facecolor=_c, edgecolor=_c, alpha=0.7, zorder=2))
+                    facecolor=_c, edgecolor=_c, alpha=0.55, zorder=2))
+
+            # 🆕 v9.32：布林通道 + 5 條 EMA 疊圖
+            # 用 full df 預算，避免 EMA200 因 slice 後資料不足全 NaN
+            _df_full = d_local.get('_swing_history')
+            if isinstance(_df_full, dict) and _df_full.get('close'):
+                # 從 _swing_history dict 重建完整 close series
+                _full_close = _pd.Series(_df_full['close'])
+            else:
+                _full_close = df_plot['Close']  # fallback
+            _x_arr = list(range(N))
+
+            # 取 plot 範圍對應的 tail
+            _plot_len = N
+            # BB(20, 2σ) — 從 full 算後 slice
+            if len(_full_close) >= 20:
+                try:
+                    _bb_mid_full = _full_close.rolling(20).mean()
+                    _bb_std_full = _full_close.rolling(20).std()
+                    _bb_mid = _bb_mid_full.tail(_plot_len).values
+                    _bb_std_arr = _bb_std_full.tail(_plot_len).values
+                    _bb_up = _bb_mid + 2 * _bb_std_arr
+                    _bb_lo = _bb_mid - 2 * _bb_std_arr
+                    ax1.plot(_x_arr, _bb_mid, color='#9aaabb', linewidth=0.9,
+                              alpha=0.55, linestyle='--', label='BB Mid(20)', zorder=3)
+                    ax1.plot(_x_arr, _bb_up, color='#7a8899', linewidth=0.7,
+                              alpha=0.5, linestyle='-', zorder=3)
+                    ax1.plot(_x_arr, _bb_lo, color='#7a8899', linewidth=0.7,
+                              alpha=0.5, linestyle='-', label='BB ±2σ', zorder=3)
+                    ax1.fill_between(_x_arr, _bb_up, _bb_lo,
+                                       color='#7a8899', alpha=0.06, zorder=2)
+                except Exception:
+                    pass
+
+            # EMA 5/20/50/150/200 — 從 full 算後 slice
+            _ema_specs = [
+                (5,   '#ffaa55', 1.1),
+                (20,  '#3b9eff', 1.5),
+                (50,  '#aa66ff', 1.1),
+                (150, '#ff6dc8', 1.1),
+                (200, '#cc3333', 1.5),
+            ]
+            for _ep, _ec, _elw in _ema_specs:
+                if len(_full_close) < _ep:
+                    continue
+                try:
+                    _ema_full = _full_close.ewm(span=_ep, adjust=False).mean()
+                    _ema_vals = _ema_full.tail(_plot_len).values
+                    ax1.plot(_x_arr, _ema_vals, color=_ec, linewidth=_elw,
+                              alpha=0.85, label=f'EMA{_ep}', zorder=4)
+                except Exception:
+                    pass
 
             # ZigZag 線（用 position）
             if pivots:

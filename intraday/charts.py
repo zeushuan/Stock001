@@ -58,6 +58,8 @@ def build_zigzag_compare_chart(
     title: str = '',
     max_bars: int = 180,
     figsize: tuple = (13, 7),
+    show_bb: bool = True,
+    show_emas: List[int] = None,
 ) -> Optional[bytes]:
     """畫多 ATR ZigZag 對照圖（同一張 candle、多條 ZigZag 線疊上去）
 
@@ -67,10 +69,14 @@ def build_zigzag_compare_chart(
         title: 圖標題
         max_bars: 最多顯示幾根 bar（從尾端取）
         figsize: matplotlib figure size
+        show_bb: 是否疊布林通道 (20, 2σ)
+        show_emas: 要疊哪些 EMA 週期（預設 [5,20,50,150,200]）
 
     Returns:
         PNG bytes 或 None（資料不足時）
     """
+    if show_emas is None:
+        show_emas = [5, 20, 50, 150, 200]
     if df is None or len(df) < 30:
         return None
     if atr_mults is None:
@@ -79,10 +85,24 @@ def build_zigzag_compare_chart(
     plt = _setup_matplotlib()
     from zigzag import zigzag as _zz
 
+    # 🆕 v9.32：在 slice 前先用「full df」算 EMA + BB（讓 EMA200 / BB 在 plot 範圍內有值）
+    df_full = df.dropna().copy()
+    close_full = df_full['Close']
+    bb_mid_full = close_full.rolling(20).mean() if len(close_full) >= 20 else None
+    bb_std_full = close_full.rolling(20).std() if len(close_full) >= 20 else None
+    ema_full = {}
+    for p in (show_emas or []):
+        if len(close_full) >= p:
+            ema_full[p] = close_full.ewm(span=p, adjust=False).mean()
+
     # 截尾
-    df_plot = df.dropna().tail(max_bars).copy()
+    df_plot = df_full.tail(max_bars).copy()
     if len(df_plot) < 30:
         return None
+    # 把 BB / EMA 對應 slice 到 plot 範圍
+    bb_mid_plot = bb_mid_full.tail(max_bars) if bb_mid_full is not None else None
+    bb_std_plot = bb_std_full.tail(max_bars) if bb_std_full is not None else None
+    ema_plot = {p: s.tail(max_bars) for p, s in ema_full.items()}
 
     # categorical x-axis
     N = len(df_plot)
@@ -124,6 +144,44 @@ def build_zigzag_compare_chart(
             bar_w, abs(_row['Close'] - _row['Open']),
             facecolor=c, edgecolor=c, alpha=0.45, zorder=2))
 
+    # ── 🆕 v9.32：布林通道 + 多 EMA 疊圖（用 full df 預算的 series）──
+    x_arr = list(range(N))
+
+    # Bollinger Bands (20, 2σ)
+    if show_bb and bb_mid_plot is not None and bb_std_plot is not None:
+        try:
+            bb_up = bb_mid_plot + 2 * bb_std_plot
+            bb_lo = bb_mid_plot - 2 * bb_std_plot
+            ax1.plot(x_arr, bb_mid_plot.values, color='#9aaabb', linewidth=0.9,
+                      alpha=0.6, linestyle='--', label='BB Mid(20)', zorder=3)
+            ax1.plot(x_arr, bb_up.values, color='#7a8899', linewidth=0.7,
+                      alpha=0.55, linestyle='-', zorder=3)
+            ax1.plot(x_arr, bb_lo.values, color='#7a8899', linewidth=0.7,
+                      alpha=0.55, linestyle='-', label='BB ±2σ', zorder=3)
+            ax1.fill_between(x_arr, bb_up.values, bb_lo.values,
+                              color='#7a8899', alpha=0.08, zorder=2)
+        except Exception:
+            pass
+
+    # 5 條 EMA（用 full df 預算）
+    ema_colors = {
+        5:   '#ffaa55',   # 橘 — 短期快線
+        20:  '#3b9eff',   # 藍 — 中短期
+        50:  '#aa66ff',   # 紫 — Minervini
+        150: '#ff6dc8',   # 粉 — SEPA
+        200: '#cc3333',   # 紅 — 死叉指標
+    }
+    for p in show_emas:
+        if p not in ema_plot:
+            continue
+        try:
+            color = ema_colors.get(p, '#888888')
+            lw = 1.4 if p in (20, 200) else 1.1
+            ax1.plot(x_arr, ema_plot[p].values, color=color, linewidth=lw,
+                      alpha=0.85, label=f'EMA{p}', zorder=4)
+        except Exception:
+            pass
+
     # ── 對每個 ATR 倍數畫 ZigZag ──
     # 從敏感（亮色）到不敏感（深色）疊上去 — 淺色在底、深色在上方
     for atr_m in sorted(atr_mults):
@@ -151,9 +209,9 @@ def build_zigzag_compare_chart(
         title = f'ZigZag ATR 倍數對照 ({len(df_plot)} bars, 5 條線)'
     ax1.set_title(title, fontsize=11, fontweight='bold', pad=8)
     ax1.set_ylabel('Price', fontsize=9)
-    ax1.legend(loc='upper left', fontsize=8, ncol=len(atr_mults),
-                framealpha=0.92, title='敏感度（高→低）',
-                title_fontsize=8)
+    # 🆕 v9.32：legend 用 2 row 排版（容納 BB + 5 EMA + ZigZag）
+    ax1.legend(loc='upper left', fontsize=7.5, ncol=4,
+                framealpha=0.92, columnspacing=0.8)
     ax1.grid(True, alpha=0.25)
     ax1.set_xlim(-1, N)
 

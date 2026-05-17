@@ -462,6 +462,19 @@ for tab, tf in zip(tabs, timeframes_selected):
                         value=min(180, len(df)),
                         step=20, key=f'_zz_max_bars_{tf}',
                     )
+                    # 🆕 v9.32：疊圖選項
+                    _overlay_cols = st.columns([1, 4])
+                    with _overlay_cols[0]:
+                        _show_bb = st.checkbox(
+                            'BB(20,2σ)', value=True, key=f'_show_bb_{tf}',
+                            help='布林通道：中軌 (20MA) ± 2 標準差')
+                    with _overlay_cols[1]:
+                        _emas_selected = st.multiselect(
+                            'EMA 線',
+                            options=[5, 20, 50, 150, 200],
+                            default=[5, 20, 50, 150, 200],
+                            key=f'_show_emas_{tf}',
+                        )
                 with _cols[1]:
                     st.markdown(
                         f'**目前全域**<br>'
@@ -489,13 +502,15 @@ for tab, tf in zip(tabs, timeframes_selected):
                         st.success('已重置為 1.30')
                         st.rerun()
 
-                # 渲染預覽圖（單一 ATR）
+                # 渲染預覽圖（單一 ATR + BB + EMAs）
                 with st.spinner(f"渲染 ATR×{_atr_preview:.2f} 預覽..."):
                     png = build_zigzag_compare_chart(
                         df,
                         atr_mults=[_atr_preview],
-                        title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) 預覽',
+                        title=f'{ticker} {tf} — ZigZag (ATR×{_atr_preview:.2f}) + BB + EMA',
                         max_bars=_max_bars_zz,
+                        show_bb=_show_bb,
+                        show_emas=_emas_selected,
                     )
                 if png:
                     st.image(png, use_container_width=True)
