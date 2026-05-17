@@ -1622,8 +1622,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             from zigzag import zigzag as _zz
             pivots = _zz(df_plot, mode='atr', atr_mult=1.3, atr_period=14)
 
-            # 🆕 v9.31：依 bar 間隔自動 scale 蠟燭寬度
-            # 日線一根 = 1 day（width=0.6 OK）；5m 一根 = 0.0035 day → 0.6 太寬
+            # 🆕 v9.32：用 categorical x-axis（TradingView 風格 / 等寬無間隔）
+            # 偵測 bar 間隔（用於 label 格式 + intraday flag）
             try:
                 _diffs = df_plot.index.to_series().diff().dropna()
                 _bar_sec = _diffs.dt.total_seconds().quantile(0.25)
@@ -1631,26 +1631,44 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                     _bar_sec = 86400
             except Exception:
                 _bar_sec = 86400
-            _bar_w = (_bar_sec / 86400.0) * 0.75   # 75% 填滿避免黏在一起
             _is_intraday = _bar_sec < 86400 * 0.9
+
+            # categorical x-axis：每根 bar 對應整數 position 0..N-1
+            N = len(df_plot)
+            x_positions = list(range(N))
+            # date → position map（用於 ZigZag / W 底 / M 頂 / VCP marker 定位）
+            _idx_dates = _pd.to_datetime(df_plot.index)
+            _date_to_pos = {ts: i for i, ts in enumerate(_idx_dates)}
+            def _to_pos(ts):
+                """把 timestamp 轉成最接近的 bar position（容錯：超出範圍取 nearest）"""
+                try:
+                    ts = _pd.to_datetime(ts)
+                    if ts in _date_to_pos:
+                        return _date_to_pos[ts]
+                    # nearest neighbor
+                    diffs_pos = abs(_idx_dates - ts)
+                    return int(_np.argmin(diffs_pos))
+                except Exception:
+                    return 0
+            _bar_w = 0.7   # categorical 等寬
 
             fig, (ax1, ax2) = _plt.subplots(2, 1, figsize=(13, 6.5),
                                               gridspec_kw={'height_ratios': [3, 1]},
                                               sharex=True)
 
-            # 蠟燭線
-            for _d, _row in df_plot.iterrows():
+            # 蠟燭線（position-based）
+            for i, (_d, _row) in enumerate(df_plot.iterrows()):
                 _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
-                ax1.plot([_d, _d], [_row['Low'], _row['High']],
-                          color=_c, linewidth=0.5, alpha=0.65, zorder=1)
+                ax1.plot([i, i], [_row['Low'], _row['High']],
+                          color=_c, linewidth=0.7, alpha=0.7, zorder=1)
                 ax1.add_patch(_plt.Rectangle(
-                    (_mdates.date2num(_d) - _bar_w/2, min(_row['Open'], _row['Close'])),
+                    (i - _bar_w/2, min(_row['Open'], _row['Close'])),
                     _bar_w, abs(_row['Close'] - _row['Open']),
-                    facecolor=_c, edgecolor=_c, alpha=0.65, zorder=2))
+                    facecolor=_c, edgecolor=_c, alpha=0.7, zorder=2))
 
-            # ZigZag 線
+            # ZigZag 線（用 position）
             if pivots:
-                xs = [p['date'] for p in pivots]
+                xs = [_to_pos(p['date']) for p in pivots]
                 ys = [p['price'] for p in pivots]
                 ax1.plot(xs, ys, color='#ff6b35', linewidth=2.3, alpha=0.9,
                           marker='o', markersize=8,
@@ -1662,17 +1680,17 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _dbi = d_local.get('double_bottom_info') or {}
             if _dbi.get('is_double_bottom'):
                 try:
-                    L1d = _pd.to_datetime(_dbi['left_bottom']['date'])
-                    L2d = _pd.to_datetime(_dbi['right_bottom']['date'])
-                    NKd = _pd.to_datetime(_dbi['middle_peak']['date'])
+                    L1x = _to_pos(_dbi['left_bottom']['date'])
+                    L2x = _to_pos(_dbi['right_bottom']['date'])
+                    NKx = _to_pos(_dbi['middle_peak']['date'])
                     L1p = _dbi['left_bottom']['price']
                     L2p = _dbi['right_bottom']['price']
                     NKp = _dbi['middle_peak']['price']
-                    ax1.scatter([L1d, L2d], [L1p, L2p], s=300,
+                    ax1.scatter([L1x, L2x], [L1p, L2p], s=300,
                                  facecolor='none', edgecolor='red', linewidth=3,
                                  marker='o', zorder=7,
                                  label=f'W底 L1/L2 Grade {_dbi.get("quality_grade","")}')
-                    ax1.scatter([NKd], [NKp], s=300, facecolor='none',
+                    ax1.scatter([NKx], [NKp], s=300, facecolor='none',
                                  edgecolor='blue', linewidth=3, marker='o', zorder=7,
                                  label=f'Neckline ${NKp:.2f}')
                     ax1.axhline(NKp, color='blue', linestyle='--', linewidth=1.2, alpha=0.5)
@@ -1683,18 +1701,18 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _dti = d_local.get('double_top_info') or {}
             if _dti.get('is_double_top'):
                 try:
-                    H1d = _pd.to_datetime(_dti['left_top']['date'])
-                    H2d = _pd.to_datetime(_dti['right_top']['date'])
+                    H1x = _to_pos(_dti['left_top']['date'])
+                    H2x = _to_pos(_dti['right_top']['date'])
                     H1p = _dti['left_top']['price']
                     H2p = _dti['right_top']['price']
-                    ax1.scatter([H1d, H2d], [H1p, H2p], s=300,
+                    ax1.scatter([H1x, H2x], [H1p, H2p], s=300,
                                  facecolor='none', edgecolor='purple', linewidth=3,
                                  marker='s', zorder=7,
                                  label=f'M頂 H1/H2 Grade {_dti.get("quality_grade","")}')
                 except Exception:
                     pass
 
-            # VCP 收口 box
+            # VCP 收口 box（用 position）
             _vcp = d_local.get('vcp_zigzag_info') or {}
             _ctr = _vcp.get('contractions') or []
             if _ctr:
@@ -1702,13 +1720,14 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 for _i, _c in enumerate(_ctr):
                     try:
                         cc = vcp_colors[_i % len(vcp_colors)]
-                        _ax, _aH = _c['L_date'], _c['H_date']
+                        x_L = _to_pos(_c['L_date'])
+                        x_H = _to_pos(_c['H_date'])
                         _aLp, _aHp = _c['L_price'], _c['H_price']
-                        x_start = min(_ax, _aH); x_end = max(_ax, _aH)
+                        x_start = min(x_L, x_H); x_end = max(x_L, x_H)
                         import matplotlib.patches as _mp
                         rect = _mp.Rectangle(
-                            (_mdates.date2num(x_start), _aLp),
-                            _mdates.date2num(x_end) - _mdates.date2num(x_start),
+                            (x_start, _aLp),
+                            max(1, x_end - x_start),
                             _aHp - _aLp,
                             linewidth=1.3, edgecolor=cc, facecolor=cc,
                             alpha=0.10, zorder=3, linestyle='--')
@@ -1737,29 +1756,34 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             ax1.set_ylabel('Price', fontsize=9)
             ax1.legend(loc='upper left', fontsize=7.5)
             ax1.grid(True, alpha=0.3)
+            # 限定 x 範圍避免留邊
+            ax1.set_xlim(-1, N)
 
-            # Volume
-            for _d, _row in df_plot.iterrows():
+            # Volume（position-based）
+            for i, (_d, _row) in enumerate(df_plot.iterrows()):
                 _c = '#26a69a' if _row['Close'] >= _row['Open'] else '#ef5350'
-                ax2.bar(_d, _row['Volume'], color=_c, alpha=0.55, width=_bar_w)
+                ax2.bar(i, _row['Volume'], color=_c, alpha=0.55, width=_bar_w)
             ax2.set_ylabel('Vol', fontsize=8)
             ax2.grid(True, alpha=0.3)
-            # 🆕 v9.31：x-axis 依 bar 間隔選不同 locator/formatter
-            if _is_intraday:
-                # intraday：1h locator + 月-日 時:分 格式
-                if _bar_sec <= 300:        # ≤5min
-                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
-                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d %H:%M'))
-                elif _bar_sec <= 1800:     # ≤30min
-                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
-                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d %H:%M'))
-                else:                       # 1h
-                    ax2.xaxis.set_major_locator(_mdates.AutoDateLocator(maxticks=8))
-                    ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%m-%d'))
-            else:
-                ax2.xaxis.set_major_locator(_mdates.MonthLocator())
-                ax2.xaxis.set_major_formatter(_mdates.DateFormatter('%Y-%m'))
-            _plt.setp(ax2.xaxis.get_majorticklabels(), rotation=25, fontsize=8)
+            ax2.set_xlim(-1, N)
+
+            # 🆕 v9.32：categorical x-axis 自訂 tick label
+            # 平均分散 ~8 個 tick 標 timestamp
+            _n_ticks = min(8, N)
+            if _n_ticks > 1:
+                _tick_pos = [int(round(i * (N - 1) / (_n_ticks - 1))) for i in range(_n_ticks)]
+                _tick_pos = sorted(set(_tick_pos))
+                if _is_intraday:
+                    if _bar_sec <= 1800:
+                        _fmt = '%m-%d %H:%M'
+                    else:
+                        _fmt = '%m-%d %H:%M'
+                else:
+                    _fmt = '%Y-%m-%d'
+                _tick_labels = [_idx_dates[p].strftime(_fmt) for p in _tick_pos]
+                ax2.set_xticks(_tick_pos)
+                ax2.set_xticklabels(_tick_labels)
+            _plt.setp(ax2.xaxis.get_majorticklabels(), rotation=20, fontsize=8)
 
             _plt.tight_layout()
             buf = io.BytesIO()
