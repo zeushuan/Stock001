@@ -42,12 +42,30 @@ if 'selected_ticker_intraday' not in st.session_state:
 
 # 🆕 v9.32：偵測 Streamlit theme，預設用 Auto（跟隨系統）
 if 'intraday_theme_mode' not in st.session_state:
-    # 試 Streamlit 1.31+ 的 st.context.theme
+    st.session_state['intraday_theme_mode'] = 'auto'
+
+
+def _detect_streamlit_theme() -> str:
+    """多重 fallback 偵測 Streamlit 實際顯示 theme（不是 OS preference）
+    return 'light' or 'dark'
+    """
+    # 1. Streamlit 1.31+ context.theme.type
     try:
-        _detected = getattr(st.context.theme, 'type', None)
-        st.session_state['intraday_theme_mode'] = _detected or 'auto'
+        t = getattr(st.context.theme, 'type', None)
+        if t in ('light', 'dark'):
+            return t
     except Exception:
-        st.session_state['intraday_theme_mode'] = 'auto'
+        pass
+    # 2. config.toml 的 theme.base
+    try:
+        base = st.get_option('theme.base')
+        if base in ('light', 'dark'):
+            return base
+    except Exception:
+        pass
+    # 3. 用 JavaScript-driven CSS class 偵測（Streamlit 在 body 有 theme indicator）
+    # fallback：light（多數情境）
+    return 'light'
 
 
 def _build_dark_css() -> str:
@@ -199,28 +217,24 @@ with _t2:
             st.session_state['intraday_theme_mode'], 0),
         horizontal=True,
         key='_theme_radio',
+        help='Auto = 跟隨 Streamlit 設定（不靠 OS）；強制 Light/Dark 用 toggle',
     )
     st.session_state['intraday_theme_mode'] = _theme_choice.lower()
 
 
-# ── 注入 CSS（Auto = 用 prefers-color-scheme media query）──
+# ── 注入 CSS ──
 _theme = st.session_state['intraday_theme_mode']
+if _theme == 'auto':
+    # Auto = 偵測 Streamlit 實際 theme（不靠 OS prefers-color-scheme）
+    _theme = _detect_streamlit_theme()
+    st.caption(f'🌓 Auto 偵測到 Streamlit theme: **{_theme}**')
+
 if _theme == 'dark':
     st.markdown(f'<style>{_build_dark_css()}</style>', unsafe_allow_html=True)
-elif _theme == 'light':
+else:  # light
     st.markdown(
         f'<style>{_build_dark_css()}\n{_build_light_css()}</style>',
         unsafe_allow_html=True)
-else:   # auto — system 偏好決定（光標暗黑就暗黑）
-    st.markdown(f"""
-<style>
-{_build_dark_css()}
-
-@media (prefers-color-scheme: light) {{
-{_build_light_css()}
-}}
-</style>
-""", unsafe_allow_html=True)
 
 
 # ── 頂部標題 + 控制 ──
