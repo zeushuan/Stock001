@@ -598,12 +598,12 @@ for _tf in timeframes_selected:
             _exit = _sig.get('exit', {})
             _sepa = _sig.get('sepa', {})
 
-            # 🆕 v9.34：Entry 渲染 — 依 state (BUY/WAIT_BUY/NO_SETUP)
+            # 🆕 v9.38：Entry 渲染 — bb_p1sig (ENTER/WAIT_BB_P1/NO_SETUP)
             _entry_state = _entry.get('state', 'NO_SETUP')
-            if _entry_state == 'BUY':
+            if _entry_state == 'ENTER':
                 _entry_bg = '#0d2a14'; _entry_color = '#3dbb6a'
                 _entry_label = _entry.get('label')
-            elif _entry_state == 'WAIT_BUY':
+            elif _entry_state == 'WAIT_BB_P1':
                 _entry_bg = '#0a1828'; _entry_color = '#5dccdd'
                 _entry_label = _entry.get('label')
             else:
@@ -629,15 +629,15 @@ for _tf in timeframes_selected:
                     _entry_color = '#7a8899'; _entry_bg = '#0a1422'
                     _entry_label = '⚪ 無進場訊號'
 
-            # 🆕 v9.34：Exit 渲染 — 依 state (SELL/WAIT_SELL/HOLD)
+            # 🆕 v9.38：Exit 渲染 — mid_ema_down (EXIT/WARN_PRICE/WARN_EMA/HOLD)
             _exit_state = _exit.get('state', 'HOLD')
-            if _exit_state == 'SELL':
+            if _exit_state == 'EXIT':
                 _exit_bg = '#2a0a0a'; _exit_color = '#ff5555'
-            elif _exit_state == 'WAIT_SELL':
+            elif _exit_state in ('WARN_PRICE', 'WARN_EMA'):
                 _exit_bg = '#1a1500'; _exit_color = '#e8a020'
             else:
                 _exit_bg = '#0a1422'; _exit_color = '#7a8899'
-            _exit_label = _exit.get('label', '⚪ 持有（無風險訊號）')
+            _exit_label = _exit.get('label', '⚪ 持有')
 
             # SEPA badge
             _sepa_html = ''
@@ -830,13 +830,15 @@ for tab, tf in zip(tabs, timeframes_selected):
                     help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
-                # 🆕 v9.34：改用波段獲利回測（look-forward swing high exit）
+                # 🆕 v9.38：戰法 marker 改用 bb_p1sig + mid_ema_down (放任利潤)
                 _swing_trades_main = None
                 try:
-                    from intraday.strategy import scan_swing_profit_signals, summarize_trades
-                    _swing_trades_main = scan_swing_profit_signals(
+                    from intraday.strategy import scan_with_exit_rule, summarize_trades
+                    _swing_trades_main = scan_with_exit_rule(
                         df, market=info['market'],
-                        lookback_bars=_main_chart_bars, tf=tf)
+                        lookback_bars=_main_chart_bars, tf=tf,
+                        exit_rule='mid_ema_down',
+                        entry_mode='bb_p1sig')
                 except Exception:
                     _swing_trades_main = None
                 main_fig = build_zigzag_chart_plotly(
@@ -867,8 +869,8 @@ for tab, tf in zip(tabs, timeframes_selected):
                             f'<div style="background:#0a1828;border-left:4px solid #5dccdd;'
                             f'padding:8px 12px;border-radius:4px;margin-top:6px;'
                             f'font-size:.8rem">'
-                            f'<b style="color:#5dccdd">🎯 波段獲利回測 — {_main_chart_bars} bars '
-                            f'(look-forward swing high exit)</b>'
+                            f'<b style="color:#5dccdd">🎯 戰法回測 — {_main_chart_bars} bars '
+                            f'(bb_p1sig 進場 + mid_ema_down 出場)</b>'
                             f'<br><span style="color:#a8c0d0">'
                             f'交易 <b>{_stats["n"]}</b> 筆 ｜ '
                             f'勝率 <b style="color:{_wr_color}">{_wr:.1f}%</b> '
@@ -880,8 +882,8 @@ for tab, tf in zip(tabs, timeframes_selected):
                             f'({_stats["avg_holding_bars"] * cfg.minutes_per_bar:.0f} min)'
                             f'</span><br>'
                             f'<span style="color:#7a9ab0;font-size:.7rem">'
-                            f'※ 出場價假設 = (隨後波段最高 + BB Mid) / 2，window=當日(intraday) / 30b(1d)，'
-                            f'若 hard stop 先觸發則出場於 stop</span></div>',
+                            f'※ 進場: EMA5&gt;EMA20 + 5EMA 全上揚 + Close ≥ BB+1σ ｜ '
+                            f'出場: Close&lt;BB Mid + EMA5/EMA20 下行</span></div>',
                             unsafe_allow_html=True)
                     if _stats.get('open', 0) > 0:
                         st.warning(f'⚠️ 目前 {_stats["open"]} 筆持倉未平倉（戰法 simulation）')

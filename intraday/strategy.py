@@ -173,16 +173,20 @@ def _compute_indicators(df: pd.DataFrame) -> dict:
 
     ind = {
         'open': o, 'high': h, 'low': l, 'close': c, 'volume': v,
-        'ema5':  c.ewm(span=5, adjust=False).mean(),
-        'ema20': c.ewm(span=20, adjust=False).mean(),
-        'ema60': c.ewm(span=60, adjust=False).mean(),
+        'ema5':   c.ewm(span=5,   adjust=False).mean(),
+        'ema20':  c.ewm(span=20,  adjust=False).mean(),
+        'ema60':  c.ewm(span=60,  adjust=False).mean(),
+        'ema150': c.ewm(span=150, adjust=False).mean(),   # 🆕 v9.35
+        'ema200': c.ewm(span=200, adjust=False).mean(),   # 🆕 v9.35
     }
-    # BB(20, 2σ) — SMA20 + 2σ
+    # BB(20, 2σ) — SMA20 ± 1σ / ± 2σ
     sma20 = c.rolling(20).mean()
     std20 = c.rolling(20).std()
     ind['bb_mid'] = sma20
     ind['bb_upper'] = sma20 + 2 * std20
     ind['bb_lower'] = sma20 - 2 * std20
+    ind['bb_p1sigma'] = sma20 + std20    # 🆕 v9.38：BB +1σ
+    ind['bb_m1sigma'] = sma20 - std20    # 🆕 v9.38：BB −1σ
 
     try:
         import ta
@@ -265,19 +269,20 @@ def _eod_status(ts, market: str = 'us', tf: str = '15m') -> dict:
 # ────────────────────────────────────────────────────────────────
 
 def _check_entry_setup(ind: dict, i: int) -> tuple:
-    """進場 setup — 3 條件（全 AND）
+    """🆕 v9.36 進場 setup — 3 條件（全 AND）
 
-    1. 明確黃金交叉 — EMA20 > EMA60 連續 ≥ 3 bar
-    2. 所有 EMA 上揚 — EMA5 / EMA20 / EMA60 之 5-bar 斜率皆 > 0
-    3. BB 保持中軌以上 — 最近 5 bar Close 都 > BB Mid（嚴格連續）
+    1. Close > EMA5（短期動能）
+    2. EMA20 > EMA60（黃金交叉，不要求 EMA150/200 排列）
+    3. EMA5 / EMA20 / EMA60 / EMA150 / EMA200 之 5-bar 斜率皆 > 0
+       （全部時間框架都在上揚）
 
     Returns: (setup_ok: bool, fails: list[str], details: dict)
     """
     fails: list = []
     details: dict = {}
 
-    if i < 20:
-        return False, ['資料不足（需 ≥ 20 bar）'], {}
+    if i < 200:
+        return False, [f'需 ≥ 200 bar (EMA200 計算，目前 i={i})'], {}
 
     def _v(key, idx=None):
         idx = i if idx is None else idx
@@ -287,54 +292,55 @@ def _check_entry_setup(ind: dict, i: int) -> tuple:
         except Exception:
             return None
 
+    c = _v('close')
     e5 = _v('ema5'); e20 = _v('ema20'); e60 = _v('ema60')
-    bb_mid = _v('bb_mid')
-    if None in (e5, e20, e60, bb_mid):
-        return False, ['EMA / BB 指標 NaN'], {}
-    details['ema5'] = e5; details['ema20'] = e20; details['ema60'] = e60
+    e150 = _v('ema150'); e200 = _v('ema200')
 
-    # 1. 明確黃金交叉 — EMA20 > EMA60 連續 ≥ 3 bar
-    gc_bars = 0
-    for j in range(i, max(-1, i - 100), -1):
-        v20 = _v('ema20', j); v60 = _v('ema60', j)
-        if v20 is None or v60 is None or v20 <= v60:
-            break
-        gc_bars += 1
-    details['gc_bars'] = gc_bars
-    if gc_bars < 3:
-        fails.append(f'金叉僅 {gc_bars}b (需 ≥3)')
+    if None in (c, e5, e20, e60, e150, e200):
+        return False, ['EMA 指標 NaN（含 EMA150/200）'], {}
 
-    # 2. 所有 EMA 上揚 — 5b 斜率 > 0
-    if i >= 5:
-        for ema_key, ema_label in (('ema5', 'EMA5'), ('ema20', 'EMA20'), ('ema60', 'EMA60')):
-            cur = _v(ema_key); past = _v(ema_key, i - 5)
-            if cur is None or past is None or past == 0:
-                fails.append(f'{ema_label} 斜率不可算')
-                continue
-            slope = (cur - past) / past * 100
-            details[f'{ema_key}_slope_5b'] = slope
-            if slope <= 0:
-                fails.append(f'{ema_label} 5b 斜率 {slope:+.2f}% ≤ 0')
+    details.update({
+        'close': c, 'ema5': e5, 'ema20': e20, 'ema60': e60,
+        'ema150': e150, 'ema200': e200,
+    })
 
-    # 3. BB 保持中軌以上 — 最近 5 bar Close 都 > BB Mid（嚴格連續）
-    above_streak = 0
-    for j in range(i, max(-1, i - 5), -1):
-        c = _v('close', j); m = _v('bb_mid', j)
-        if c is None or m is None or c <= m:
-            break
-        above_streak += 1
-    details['close_above_mid_streak'] = above_streak
-    if above_streak < 5:
-        fails.append(f'Close>BB Mid 連 {above_streak}b (需 ≥5)')
+    # 1. Close > EMA5
+    if c <= e5:
+        fails.append(f'Close ${c:.2f} ≤ EMA5 ${e5:.2f}')
+
+    # 2. EMA20 > EMA60（黃金交叉）
+    if e20 <= e60:
+        fails.append(f'EMA20 ${e20:.2f} ≤ EMA60 ${e60:.2f}')
+
+    # 3. 全部 EMA（5/20/60/150/200）5b 斜率 > 0
+    for ema_key, ema_label in (('ema5', 'E5'), ('ema20', 'E20'),
+                                  ('ema60', 'E60'), ('ema150', 'E150'),
+                                  ('ema200', 'E200')):
+        cur = _v(ema_key); past = _v(ema_key, i - 5)
+        if cur is None or past is None or past <= 0:
+            fails.append(f'{ema_label} 斜率不可算')
+            continue
+        slope = (cur - past) / past * 100
+        details[f'{ema_key}_slope_5b'] = slope
+        if slope <= 0:
+            fails.append(f'{ema_label} 5b 斜率 {slope:+.2f}% ≤ 0')
 
     return len(fails) == 0, fails, details
 
 
 def _check_entry_buypoint(ind: dict, i: int) -> tuple:
-    """買點觸發 — 條件：Close > BB Mid 且 |Close - BB Mid| ≤ 0.5 × ATR
+    """買點觸發 — v9.37 加入反彈確認
+
+    條件（全 AND）:
+      1. Close > BB Mid
+      2. |Close - BB Mid| ≤ 0.5 × ATR  (接近中軌)
+      3. Close > prev Close (今日收紅，反彈確認 — 避免接刀)
 
     Returns: (is_buypoint: bool, dist_pct: float|None, dist_atr: float|None)
     """
+    if i < 1:
+        return False, None, None
+
     def _v(key, idx=None):
         idx = i if idx is None else idx
         try:
@@ -344,16 +350,85 @@ def _check_entry_buypoint(ind: dict, i: int) -> tuple:
             return None
 
     c = _v('close'); bb_mid = _v('bb_mid'); atr = _v('atr')
+    c_prev = _v('close', i - 1)
     if c is None or bb_mid is None or atr is None or atr <= 0 or bb_mid <= 0:
+        return False, None, None
+    if c_prev is None:
         return False, None, None
 
     dist = c - bb_mid              # > 0 表示在 Mid 之上（理想拉回方向）
     dist_pct = dist / bb_mid * 100
     dist_atr = abs(dist) / atr
 
-    # 必須仍站在 Mid 之上（沒跌破），且距 Mid ≤ 0.5 ATR
-    is_buy = (c > bb_mid and dist_atr <= 0.5)
+    # 必須：仍站在 Mid 之上 + 距 Mid ≤ 0.5 ATR + 今日 Close 高於昨日（反彈確認）
+    is_buy = (c > bb_mid and dist_atr <= 0.5 and c > c_prev)
     return is_buy, dist_pct, dist_atr
+
+
+def _check_entry_bb_p1sig(ind: dict, i: int) -> tuple:
+    """🆕 v9.38 新進場規則：
+
+    條件（全 AND）：
+      1. EMA5 > EMA20
+      2. EMA5 / EMA20 / EMA60 / EMA150 / EMA200 之 5b 斜率皆 > 0
+      3. Close 接近或超過 BB +1σ
+         （Close ≥ BB+1σ − 0.3 × ATR，容忍小幅低於 +1σ）
+
+    Returns: (is_entry: bool, label: str, details: dict)
+    """
+    if i < 200:
+        return False, '', {}
+
+    def _v(key, idx=None):
+        idx = i if idx is None else idx
+        try:
+            x = ind[key].iloc[idx]
+            return None if pd.isna(x) else float(x)
+        except Exception:
+            return None
+
+    c = _v('close')
+    e5 = _v('ema5'); e20 = _v('ema20'); e60 = _v('ema60')
+    e150 = _v('ema150'); e200 = _v('ema200')
+    bb_p1 = _v('bb_p1sigma')
+    atr_v = _v('atr')
+
+    if None in (c, e5, e20, e60, e150, e200, bb_p1, atr_v):
+        return False, '', {}
+    if atr_v <= 0 or bb_p1 <= 0:
+        return False, '', {}
+
+    # 1. EMA5 > EMA20
+    if e5 <= e20:
+        return False, '', {'fail': 'EMA5<=EMA20'}
+
+    # 2. 全 5 EMAs slopes > 0
+    slopes = {}
+    for ema_key in ('ema5', 'ema20', 'ema60', 'ema150', 'ema200'):
+        past = _v(ema_key, i - 5)
+        cur = _v(ema_key)
+        if past is None or cur is None or past <= 0:
+            return False, '', {'fail': f'{ema_key} slope NaN'}
+        slope = (cur - past) / past * 100
+        slopes[ema_key] = slope
+        if slope <= 0:
+            return False, '', {'fail': f'{ema_key} slope {slope:+.2f}% ≤ 0',
+                                'slopes': slopes}
+
+    # 3. Close ≥ BB+1σ − 0.3 × ATR（接近或超過）
+    threshold = bb_p1 - atr_v * 0.3
+    if c < threshold:
+        dist_pct = (c - bb_p1) / bb_p1 * 100
+        return False, '', {
+            'fail': f'Close < BB+1σ-0.3ATR',
+            'close': c, 'bb_p1': bb_p1, 'dist_pct': dist_pct,
+        }
+
+    dist_pct = (c - bb_p1) / bb_p1 * 100
+    return True, f'BB+1σ entry (Close ${c:.2f} ≥ +1σ ${bb_p1:.2f} {dist_pct:+.2f}%)', {
+        'close': c, 'bb_p1': bb_p1,
+        'dist_pct': dist_pct, 'slopes': slopes,
+    }
 
 
 def _check_entry_sepa_vcp(df: pd.DataFrame, ind: dict, i: int,
@@ -612,12 +687,13 @@ def _check_defensive_exit(ind: dict, i: int, entry_idx: int,
     if l is not None and l <= entry_stop:
         return True, f'🛑 停損觸發 (${entry_stop:.2f})', entry_stop
 
-    # 2. 急跌 — 依 entry_kind 調整門檻
+    # 2. 急跌 — 依 entry_kind 調整門檻（🆕 v9.37：PB 放寬到 -5%）
     emergency_pct = {
         'breakout': -7.0,
         'sepa_vcp': -5.0,   # Minervini 經典 max loss
-        'pullback': -3.0,
-    }.get(entry_kind, -3.0)
+        'pullback': -5.0,   # v9.37: 從 -3% 放寬到 -5%，配合反彈確認
+        'bb_p1sig': -7.0,   # v9.38: BB+1σ 進場波動大，給更寬容忍度
+    }.get(entry_kind, -5.0)
     if c is not None and entry_price > 0:
         dd_pct = (c - entry_price) / entry_price * 100
         if dd_pct < emergency_pct:
@@ -632,16 +708,17 @@ def _check_defensive_exit(ind: dict, i: int, entry_idx: int,
 
 def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
                           tf: str = '15m') -> dict:
-    """偵測 df 最後一根 bar 的戰法訊號（v9.34 雙階段 setup + trigger）
+    """🆕 v9.38 戰法訊號 — bb_p1sig 進場 + mid_ema_down 出場
 
-    進場：3 條件 setup → Close 接近 BB Mid（≤0.5 ATR）觸發買點
-    出場：2 條件 sell setup → Close 反彈接近 BB Mid（≤0.5 ATR）觸發賣點
+    進場條件（全 AND）：
+      1. EMA5 > EMA20
+      2. EMA5/20/60/150/200 5b 斜率 > 0（全趨勢上揚）
+      3. Close 接近或超過 BB +1σ（Close ≥ BB+1σ − 0.3 × ATR）
 
-    Returns: {
-        ts, close, market, sepa,
-        entry: {setup_ok, triggered, state, label, fails, dist_pct, dist_atr, ...}
-        exit:  {setup_ok, triggered, state, label, fails, dist_pct, dist_atr, ...}
-    }
+    出場條件（全 AND）：
+      1. Close < BB Mid
+      2. EMA5 5b 斜率 < 0
+      3. EMA20 5b 斜率 < 0
     """
     if df is None or len(df) < 30:
         return {'error': '資料不足 (<30 bar)'}
@@ -655,81 +732,107 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
     atr_v = float(atr_v)
     bb_mid_v = ind['bb_mid'].iloc[i]
     bb_mid_v = float(bb_mid_v) if not pd.isna(bb_mid_v) else None
+    bb_p1_v = ind['bb_p1sigma'].iloc[i] if 'bb_p1sigma' in ind else None
+    bb_p1_v = float(bb_p1_v) if (bb_p1_v is not None and not pd.isna(bb_p1_v)) else None
 
-    # 價格格式化 helper（小數位依價位動態：< $10 用 4 位，否則 2 位）
     def _fmt(p):
         if p is None: return '-'
         return f'${p:.4f}' if p < 10 else f'${p:.2f}'
 
-    # ── 進場：setup + buypoint ──
-    setup_ok, setup_fails, setup_details = _check_entry_setup(ind, i)
-    is_buy, buy_dist_pct, buy_dist_atr = _check_entry_buypoint(ind, i)
+    def _v(key, idx=None):
+        idx = i if idx is None else idx
+        try:
+            x = ind[key].iloc[idx]
+            return None if pd.isna(x) else float(x)
+        except Exception:
+            return None
 
-    # 建議買入價格範圍：[BB Mid, BB Mid + 0.5×ATR]
-    # (中軌是理想下緣 — 不希望買在中軌以下；上緣是 buypoint trigger 的上限)
-    buy_target_low = bb_mid_v if bb_mid_v else None
-    buy_target_high = (bb_mid_v + atr_v * 0.5) if bb_mid_v else None
+    # ── 進場：bb_p1sig ──
+    is_entry, entry_label_raw, entry_details = _check_entry_bb_p1sig(ind, i)
 
-    if setup_ok and is_buy:
-        entry_state = 'BUY'
-        entry_label = (f'🟢 買點 · {_fmt(close)}'
-                       f'（建議區 {_fmt(buy_target_low)}–{_fmt(buy_target_high)}）')
-    elif setup_ok:
-        entry_state = 'WAIT_BUY'
-        if buy_dist_pct is not None:
-            entry_label = (f'⏳ 待買點 · 目標 {_fmt(buy_target_low)}'
-                           f'（距 {buy_dist_pct:+.2f}%）')
-        else:
-            entry_label = f'⏳ 待買點 · 目標 {_fmt(buy_target_low)}'
+    e5 = _v('ema5'); e20 = _v('ema20')
+    ema5_gt_ema20 = (e5 is not None and e20 is not None and e5 > e20)
+
+    # 所有 EMA slopes 是否上揚
+    all_slopes_up = True
+    for ema_key in ('ema5', 'ema20', 'ema60', 'ema150', 'ema200'):
+        cur = _v(ema_key); past = _v(ema_key, i - 5)
+        if cur is None or past is None or past <= 0:
+            all_slopes_up = False; break
+        if (cur - past) / past * 100 <= 0:
+            all_slopes_up = False; break
+
+    dist_to_p1_pct = None
+    if bb_p1_v is not None and bb_p1_v > 0:
+        dist_to_p1_pct = (close - bb_p1_v) / bb_p1_v * 100
+
+    if is_entry:
+        entry_state = 'ENTER'
+        entry_label = (f'🟢 進場 BB+1σ · {_fmt(close)} '
+                       f'(≥ +1σ {_fmt(bb_p1_v)} {dist_to_p1_pct:+.2f}%)')
+    elif ema5_gt_ema20 and all_slopes_up and bb_p1_v is not None:
+        entry_state = 'WAIT_BB_P1'
+        entry_label = (f'⏳ 待 BB+1σ · {_fmt(close)} → {_fmt(bb_p1_v)} '
+                       f'(距 {dist_to_p1_pct:+.2f}%)')
     else:
         entry_state = 'NO_SETUP'
-        entry_label = None    # page 用 ema cross status fallback
+        entry_label = None    # page 用 cross status fallback
 
-    # 計算建議進場價 / 停損（觸發時提供）
-    entry_price = None
-    stop_price = None
-    if entry_state == 'BUY':
-        entry_price = close
-        ema60 = float(ind['ema60'].iloc[i])
-        stop_price = max(close - atr_v * 1.5, ema60 - atr_v)
+    # ── 出場：mid_ema_down ──
+    e5_5b = _v('ema5', i - 5); e20_5b = _v('ema20', i - 5)
+    e5_slope = (e5 - e5_5b) / e5_5b * 100 if (e5 and e5_5b and e5_5b > 0) else None
+    e20_slope = (e20 - e20_5b) / e20_5b * 100 if (e20 and e20_5b and e20_5b > 0) else None
+    below_mid = (bb_mid_v is not None and close < bb_mid_v)
+    e5_down = (e5_slope is not None and e5_slope < 0)
+    e20_down = (e20_slope is not None and e20_slope < 0)
 
-    # ── 出場：sell setup + sellpoint ──
-    sell_setup_ok, sell_fails, sell_details = _check_exit_sell_setup(ind, i)
-    is_sell, sell_dist_pct, sell_dist_atr = _check_exit_sellpoint(ind, i)
-
-    # 建議賣出價格範圍：[BB Mid - 0.5×ATR, BB Mid]
-    # (中軌是反彈阻力上緣 — 不希望賣在中軌以上；下緣是 sellpoint trigger 的下限)
-    sell_target_low = (bb_mid_v - atr_v * 0.5) if bb_mid_v else None
-    sell_target_high = bb_mid_v if bb_mid_v else None
-
-    if sell_setup_ok and is_sell:
-        exit_state = 'SELL'
-        exit_label = (f'🔴 賣點 · {_fmt(close)}'
-                      f'（建議區 {_fmt(sell_target_low)}–{_fmt(sell_target_high)}）')
-    elif sell_setup_ok:
-        exit_state = 'WAIT_SELL'
-        if sell_dist_pct is not None:
-            exit_label = (f'⏳ 待賣點 · 目標 {_fmt(sell_target_high)}'
-                          f'（距 {sell_dist_pct:+.2f}%）')
-        else:
-            exit_label = f'⏳ 待賣點 · 目標 {_fmt(sell_target_high)}'
+    if below_mid and e5_down and e20_down:
+        exit_state = 'EXIT'
+        exit_label = (f'🔴 出場 · Mid破+EMA下行 {_fmt(close)} '
+                      f'(E5:{e5_slope:+.2f}% E20:{e20_slope:+.2f}%)')
+    elif below_mid:
+        exit_state = 'WARN_PRICE'
+        exit_label = f'⚠️ 警戒 · Close 破 Mid (EMA 未轉空)'
+    elif e5_down and e20_down:
+        exit_state = 'WARN_EMA'
+        exit_label = f'⚠️ 警戒 · EMA5/EMA20 下行 (Mid 未破)'
     else:
         exit_state = 'HOLD'
-        exit_label = '⚪ 持有（無風險訊號）'
+        exit_label = '⚪ 持有'
 
     # SEPA
     sepa = compute_sepa_status(df)
+
+    # 給舊欄位 placeholder（page 不再用，但 backward compat）
+    buy_target_low = bb_p1_v
+    buy_target_high = (bb_p1_v + atr_v * 0.5) if bb_p1_v else None
+    sell_target_low = (bb_mid_v - atr_v * 0.5) if bb_mid_v else None
+    sell_target_high = bb_mid_v
+    buy_dist_pct = dist_to_p1_pct; buy_dist_atr = None
+    sell_dist_pct = ((close - bb_mid_v) / bb_mid_v * 100) if bb_mid_v else None
+    sell_dist_atr = None
+    setup_ok = (ema5_gt_ema20 and all_slopes_up)
+    setup_fails = []
+    setup_details = {}
+    sell_setup_ok = (e5_down and e20_down)
+    sell_fails = []
+    sell_details = {}
+    entry_price = close if is_entry else None
+    stop_price = None
+    if is_entry and bb_mid_v is not None:
+        stop_price = max(close - atr_v * 2.0, bb_mid_v - atr_v * 0.5)
 
     return {
         'ts': ts,
         'close': close,
         'market': market,
         'bb_mid': bb_mid_v,
+        'bb_p1sigma': bb_p1_v,
         'atr': atr_v,
         'sepa': sepa,
         'entry': {
             'setup_ok': setup_ok,
-            'triggered': (entry_state == 'BUY'),
+            'triggered': (entry_state == 'ENTER'),
             'state': entry_state,
             'label': entry_label,
             'fails': setup_fails,
@@ -737,21 +840,24 @@ def detect_swing_signal(df: pd.DataFrame, market: str = 'us',
             'dist_atr': buy_dist_atr,
             'entry_price': entry_price,
             'stop_price': stop_price,
-            'target_low': buy_target_low,    # 建議買入下緣 = BB Mid
-            'target_high': buy_target_high,  # 建議買入上緣 = BB Mid + 0.5 ATR
+            'target_low': buy_target_low,
+            'target_high': buy_target_high,
             'details': setup_details,
         },
         'exit': {
             'setup_ok': sell_setup_ok,
-            'triggered': (exit_state == 'SELL'),
+            'triggered': (exit_state == 'EXIT'),
             'state': exit_state,
             'label': exit_label,
             'fails': sell_fails,
             'dist_pct': sell_dist_pct,
             'dist_atr': sell_dist_atr,
-            'target_low': sell_target_low,    # 建議賣出下緣 = BB Mid - 0.5 ATR
-            'target_high': sell_target_high,  # 建議賣出上緣 = BB Mid
+            'target_low': sell_target_low,
+            'target_high': sell_target_high,
             'details': sell_details,
+            'e5_slope': e5_slope,
+            'e20_slope': e20_slope,
+            'below_mid': below_mid,
         },
     }
 
@@ -954,6 +1060,46 @@ def _exit_time_stop_30(df, ind, i, entry_idx, entry_price, atr_at_entry):
     return False, '', None
 
 
+def _exit_mid_ema_down(df, ind, i, entry_idx, entry_price, atr_at_entry):
+    """🆕 v9.38 出場：Close < BB Mid 且 EMA5/EMA20 兩條 5b 斜率皆向下"""
+    if i <= entry_idx + 1:
+        return False, '', None
+
+    def _v(key, idx=None):
+        idx = i if idx is None else idx
+        try:
+            x = ind[key].iloc[idx]
+            return None if pd.isna(x) else float(x)
+        except Exception:
+            return None
+
+    c = _v('close'); bb_mid = _v('bb_mid')
+    if c is None or bb_mid is None:
+        return False, '', None
+    # 1. Close < BB Mid
+    if c >= bb_mid:
+        return False, '', None
+
+    # 2. EMA5 5b 斜率 < 0
+    e5 = _v('ema5'); e5_5b = _v('ema5', i - 5)
+    if e5 is None or e5_5b is None or e5_5b <= 0:
+        return False, '', None
+    e5_slope = (e5 - e5_5b) / e5_5b * 100
+    if e5_slope >= 0:
+        return False, '', None
+
+    # 3. EMA20 5b 斜率 < 0
+    e20 = _v('ema20'); e20_5b = _v('ema20', i - 5)
+    if e20 is None or e20_5b is None or e20_5b <= 0:
+        return False, '', None
+    e20_slope = (e20 - e20_5b) / e20_5b * 100
+    if e20_slope >= 0:
+        return False, '', None
+
+    return True, (f'📉 Mid破 + EMA5/EMA20 down '
+                  f'(E5:{e5_slope:+.2f}% E20:{e20_slope:+.2f}%)'), c
+
+
 def _exit_hybrid(df, ind, i, entry_idx, entry_price, atr_at_entry):
     """組合：Chandelier OR EMA20 break OR Climax Reverse 任一觸發"""
     for fn, _ in (
@@ -996,6 +1142,7 @@ EXIT_RULES = {
     'time_stop_30':     _exit_time_stop_30,
     'hybrid':           _exit_hybrid,
     'time30_or_sma40':  _exit_time30_or_sma40,
+    'mid_ema_down':     _exit_mid_ema_down,    # 🆕 v9.38
 }
 
 
@@ -1009,8 +1156,9 @@ def scan_with_exit_rule(df: pd.DataFrame, market: str = 'us',
       'pullback'  — 只用拉回 BB Mid 買點
       'breakout'  — 只用 fresh GC 突破買點
       'sepa_vcp'  — SEPA≥5 + VCP + pivot 突破（Minervini 經典）
+      'bb_p1sig'  — 🆕 v9.38 新規則：EMA5>EMA20 + 全 EMA 上揚 + Close ≥ BB+1σ
       'both'      — pullback OR breakout
-      'all'       — pullback OR breakout OR sepa_vcp（🆕 v9.34 強烈推薦）
+      'all'       — pullback OR breakout OR sepa_vcp
 
     支援 exit_rule:
       'lookforward_swing'  — look-forward swing high midpoint（作弊上限）
@@ -1047,24 +1195,36 @@ def scan_with_exit_rule(df: pd.DataFrame, market: str = 'us',
         if i <= last_exit_idx:
             continue
 
-        # 🆕 v9.34：進場 — pullback OR breakout OR sepa_vcp
+        # 🆕 v9.38：bb_p1sig 是獨立模式，不走 setup pre-filter
         is_pullback = False
         is_breakout = False
         is_sepavcp = False
-        if entry_mode in ('pullback', 'both', 'all'):
+        is_bb_p1sig = False
+        if entry_mode == 'bb_p1sig':
+            is_bb_p1sig, _, _ = _check_entry_bb_p1sig(ind, i)
+            if not is_bb_p1sig:
+                continue
+        else:
+            # 通用 setup 必須先通過（pullback/breakout/sepa_vcp/both/all）
             setup_ok, _, _ = _check_entry_setup(ind, i)
-            if setup_ok:
+            if not setup_ok:
+                continue
+
+            # 任一 buypoint trigger
+            if entry_mode in ('pullback', 'both', 'all'):
                 is_pullback, _, _ = _check_entry_buypoint(ind, i)
-        if not is_pullback and entry_mode in ('breakout', 'both', 'all'):
-            is_breakout, _, _ = _check_entry_breakout(ind, i)
-        if (not is_pullback and not is_breakout and
-            entry_mode in ('sepa_vcp', 'all')):
-            is_sepavcp, _, _ = _check_entry_sepa_vcp(df, ind, i)
-        if not (is_pullback or is_breakout or is_sepavcp):
-            continue
-        if is_pullback:    entry_kind = 'pullback'
-        elif is_breakout:  entry_kind = 'breakout'
-        else:              entry_kind = 'sepa_vcp'
+            if not is_pullback and entry_mode in ('breakout', 'both', 'all'):
+                is_breakout, _, _ = _check_entry_breakout(ind, i)
+            if (not is_pullback and not is_breakout and
+                entry_mode in ('sepa_vcp', 'all')):
+                is_sepavcp, _, _ = _check_entry_sepa_vcp(df, ind, i)
+            if not (is_pullback or is_breakout or is_sepavcp):
+                continue
+
+        if is_pullback:     entry_kind = 'pullback'
+        elif is_breakout:   entry_kind = 'breakout'
+        elif is_sepavcp:    entry_kind = 'sepa_vcp'
+        else:               entry_kind = 'bb_p1sig'
 
         entry_idx = i
         entry_price = float(df['Close'].iloc[i])
@@ -1077,16 +1237,20 @@ def scan_with_exit_rule(df: pd.DataFrame, market: str = 'us',
             entry_stop = max(entry_price - atr_v * 2.0,
                               recent_lo - atr_v * 0.3)
         elif entry_kind == 'sepa_vcp':
-            # SEPA+VCP: stop 在 pivot 下方（或近期低點 - 0.5 ATR）
             recent_lo = float(df['Low'].iloc[max(0, entry_idx - 10):entry_idx].min())
             entry_stop = max(entry_price - atr_v * 1.75,
                               recent_lo - atr_v * 0.2)
+        elif entry_kind == 'bb_p1sig':
+            # bb_p1sig 進場在 BB+1σ，停損用 BB Mid 為錨點
+            bb_mid_at_entry = float(ind['bb_mid'].iloc[i])
+            entry_stop = max(entry_price - atr_v * 2.0,
+                              bb_mid_at_entry - atr_v * 0.5)
         else:  # pullback
             entry_stop = max(entry_price - atr_v * 1.5, ema60_v - atr_v)
 
         # 出場 entry_mode 文字
         kind_tag = {'breakout': 'BO', 'sepa_vcp': 'SV',
-                     'pullback': 'PB'}.get(entry_kind, 'PB')
+                     'pullback': 'PB', 'bb_p1sig': 'B1'}.get(entry_kind, '??')
 
         # 找出場
         exit_found = False
@@ -1126,16 +1290,18 @@ def scan_with_exit_rule(df: pd.DataFrame, market: str = 'us',
                 'entry_idx': entry_idx,
                 'entry_time': df.index[entry_idx],
                 'entry_price': entry_price,
-                'entry_mode': 'BUY',
+                'entry_mode': 'BUY-' + kind_tag,
                 'exit_idx': None,
-                'exit_time': None,
-                'exit_price': None,
+                'exit_time': df.index[-1],
+                'exit_price': last_price,
                 'exit_reason': '🟡 持倉中（lookback 結束）',
                 'pnl_pct': round((last_price - entry_price) / entry_price * 100, 2),
                 'pnl_dollar': round(last_price - entry_price, 4),
                 'holding_bars': n - 1 - entry_idx,
                 'open': True,
             })
+            # 🆕 v9.37：bug fix — 開放中部位也要阻擋後續進場
+            last_exit_idx = n - 1
 
     return trades
 
@@ -1230,14 +1396,17 @@ def scan_swing_profit_signals(df: pd.DataFrame, market: str = 'us',
         if i <= last_exit_idx:
             continue
 
-        # 🆕 v9.34：進場 — pullback OR breakout OR sepa_vcp
+        # 🆕 v9.35：通用 setup 必須先通過
+        setup_ok, _, _ = _check_entry_setup(ind, i)
+        if not setup_ok:
+            continue
+
+        # 任一 buypoint trigger
         is_pullback = False
         is_breakout = False
         is_sepavcp = False
         if entry_mode in ('pullback', 'both', 'all'):
-            setup_ok, _, _ = _check_entry_setup(ind, i)
-            if setup_ok:
-                is_pullback, _, _ = _check_entry_buypoint(ind, i)
+            is_pullback, _, _ = _check_entry_buypoint(ind, i)
         if not is_pullback and entry_mode in ('breakout', 'both', 'all'):
             is_breakout, _, _ = _check_entry_breakout(ind, i)
         if (not is_pullback and not is_breakout and

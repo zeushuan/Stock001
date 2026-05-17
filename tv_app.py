@@ -6579,6 +6579,73 @@ for item in results:
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
                                           key=f'_tvapp_zz_{ticker}')
+
+                    # 🆕 v9.38：波段戰法訊號 banner
+                    try:
+                        from intraday.strategy import detect_swing_signal
+                        _sig = detect_swing_signal(_df_for_chart, market=market, tf='1d')
+                        if not _sig.get('error'):
+                            _entry_v9 = _sig.get('entry', {})
+                            _exit_v9 = _sig.get('exit', {})
+                            _sepa_v9 = _sig.get('sepa', {})
+
+                            _es = _entry_v9.get('state', 'NO_SETUP')
+                            if _es == 'ENTER':
+                                _ebg, _ec = '#0d2a14', '#3dbb6a'
+                                _e_lbl = _entry_v9.get('label')
+                            elif _es == 'WAIT_BB_P1':
+                                _ebg, _ec = '#0a1828', '#5dccdd'
+                                _e_lbl = _entry_v9.get('label')
+                            else:
+                                _ebg, _ec = '#0a1422', '#7a8899'
+                                _e_lbl = '⚪ 無進場訊號 (EMA5≤EMA20 或 趨勢未全揚)'
+
+                            _xs = _exit_v9.get('state', 'HOLD')
+                            if _xs == 'EXIT':
+                                _xbg, _xc = '#2a0a0a', '#ff5555'
+                            elif _xs in ('WARN_PRICE', 'WARN_EMA'):
+                                _xbg, _xc = '#1a1500', '#e8a020'
+                            else:
+                                _xbg, _xc = '#0a1422', '#7a8899'
+                            _x_lbl = _exit_v9.get('label', '⚪ 持有')
+
+                            _sepa_html_tv = ''
+                            if _sepa_v9.get('available'):
+                                _sc = _sepa_v9.get('score', 0)
+                                if _sc == 7:    _sbg, _scol = '#0a2a14', '#3dbb6a'
+                                elif _sc >= 5:  _sbg, _scol = '#0a2014', '#5dccdd'
+                                elif _sc >= 3:  _sbg, _scol = '#1a1500', '#e8a020'
+                                else:           _sbg, _scol = '#2a0a0a', '#ff5555'
+                                _stip = ' ｜ '.join(
+                                    f'{"✓" if _c2["pass"] else "✗"} {_c2["name"]}'
+                                    for _c2 in _sepa_v9.get('conditions', [])
+                                ).replace('"', '&quot;')
+                                _sepa_html_tv = (
+                                    f'<div style="background:{_sbg};color:{_scol};'
+                                    f'padding:4px 8px;border-radius:4px;border-left:3px solid {_scol};'
+                                    f'font-weight:700;font-size:.76rem;margin-bottom:4px"'
+                                    f' title="{_stip}">{_sepa_v9["label"]}</div>'
+                                )
+
+                            st.markdown(
+                                f'<div style="background:#080f1c;border:1px solid #1e3a5f;'
+                                f'border-radius:8px;padding:10px 14px;margin:8px 0">'
+                                f'<div style="color:#5dccdd;font-weight:700;font-size:.8rem;'
+                                f'margin-bottom:6px">🎯 波段戰法訊號 v9.38 '
+                                f'<span style="color:#5a8ab0;font-weight:400;font-size:.7rem">'
+                                f'(進場: EMA5&gt;EMA20 + 5EMA全上揚 + Close≥BB+1σ｜'
+                                f'出場: Close&lt;BB Mid + EMA5/EMA20 下行)</span></div>'
+                                f'{_sepa_html_tv}'
+                                f'<div style="background:{_ebg};color:{_ec};padding:4px 8px;'
+                                f'border-radius:4px;border-left:3px solid {_ec};margin-bottom:3px;'
+                                f'font-size:.78rem">{_e_lbl}</div>'
+                                f'<div style="background:{_xbg};color:{_xc};padding:4px 8px;'
+                                f'border-radius:4px;border-left:3px solid {_xc};'
+                                f'font-size:.78rem">{_x_lbl}</div>'
+                                f'</div>',
+                                unsafe_allow_html=True)
+                    except Exception:
+                        pass
             except Exception:
                 pass   # plotly 失敗就跳過，detail card 仍可看
             # detail card（v9.32 起 ZigZag PNG 由上面 plotly 取代、新聞已關閉）
