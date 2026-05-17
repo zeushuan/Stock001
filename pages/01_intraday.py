@@ -20,6 +20,7 @@ warnings.filterwarnings('ignore')
 from intraday.config import TIMEFRAMES, get_tf_config
 from intraday.data import get_intraday, market_info
 from intraday.builder import build_d_from_intraday
+from intraday.charts import build_zigzag_compare_chart
 from detail_card_render import (
     GROUP_NAMES, GROUP_WEIGHTS, GROUP_COLORS,
     TREND_W, POSITION_W, MOMENTUM_W, AUX_W,
@@ -446,6 +447,36 @@ for tab, tf in zip(tabs, timeframes_selected):
             if _theme == 'light':
                 html = _convert_html_for_light_mode(html)
             st.markdown(html, unsafe_allow_html=True)
+
+            # 🆕 v9.32：ZigZag ATR 倍數對照圖
+            with st.expander(f"📊 {tf} ZigZag ATR 倍數對照（高敏感→低敏感）", expanded=False):
+                _atr_choices = st.multiselect(
+                    "選擇 ATR 倍數",
+                    options=[0.8, 1.0, 1.3, 1.5, 2.0, 2.5, 3.0, 4.0],
+                    default=[1.0, 1.3, 1.5, 2.0, 3.0],
+                    key=f'_atr_mults_{tf}',
+                    help='ATR 倍數越小越敏感（pivot 越多）；越大越保守（只剩 major swing）'
+                )
+                _max_bars_zz = st.slider(
+                    "顯示最後 N bars",
+                    min_value=60, max_value=min(500, len(df)),
+                    value=min(180, len(df)),
+                    step=20, key=f'_zz_max_bars_{tf}',
+                )
+                if _atr_choices:
+                    with st.spinner(f"渲染 ZigZag 對照圖..."):
+                        png = build_zigzag_compare_chart(
+                            df,
+                            atr_mults=sorted(_atr_choices),
+                            title=f'{ticker} {tf} — ZigZag ATR 倍數對照',
+                            max_bars=_max_bars_zz,
+                        )
+                    if png:
+                        st.image(png, use_container_width=True)
+                    else:
+                        st.warning('資料不足，無法渲染')
+                else:
+                    st.info('請至少選一個 ATR 倍數')
 
         except Exception as e:
             import traceback
