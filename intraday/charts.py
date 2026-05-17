@@ -147,19 +147,28 @@ def build_zigzag_compare_chart(
     # ── 🆕 v9.32：布林通道 + 多 EMA 疊圖（用 full df 預算的 series）──
     x_arr = list(range(N))
 
-    # Bollinger Bands (20, 2σ)
+    # Bollinger Bands (20, 1σ + 2σ)
     if show_bb and bb_mid_plot is not None and bb_std_plot is not None:
         try:
-            bb_up = bb_mid_plot + 2 * bb_std_plot
-            bb_lo = bb_mid_plot - 2 * bb_std_plot
+            bb_up2 = bb_mid_plot + 2 * bb_std_plot
+            bb_lo2 = bb_mid_plot - 2 * bb_std_plot
+            bb_up1 = bb_mid_plot + 1 * bb_std_plot
+            bb_lo1 = bb_mid_plot - 1 * bb_std_plot
+            # 中軌（虛線）
             ax1.plot(x_arr, bb_mid_plot.values, color='#9aaabb', linewidth=0.9,
                       alpha=0.6, linestyle='--', label='BB Mid(20)', zorder=3)
-            ax1.plot(x_arr, bb_up.values, color='#7a8899', linewidth=0.7,
+            # ±2σ（外層，較淡）
+            ax1.plot(x_arr, bb_up2.values, color='#7a8899', linewidth=0.7,
                       alpha=0.55, linestyle='-', zorder=3)
-            ax1.plot(x_arr, bb_lo.values, color='#7a8899', linewidth=0.7,
+            ax1.plot(x_arr, bb_lo2.values, color='#7a8899', linewidth=0.7,
                       alpha=0.55, linestyle='-', label='BB ±2σ', zorder=3)
-            ax1.fill_between(x_arr, bb_up.values, bb_lo.values,
-                              color='#7a8899', alpha=0.08, zorder=2)
+            ax1.fill_between(x_arr, bb_up2.values, bb_lo2.values,
+                              color='#7a8899', alpha=0.06, zorder=2)
+            # ±1σ（內層，較深的點線）
+            ax1.plot(x_arr, bb_up1.values, color='#aabacc', linewidth=0.6,
+                      alpha=0.7, linestyle=':', zorder=3)
+            ax1.plot(x_arr, bb_lo1.values, color='#aabacc', linewidth=0.6,
+                      alpha=0.7, linestyle=':', label='BB ±1σ', zorder=3)
         except Exception:
             pass
 

@@ -1684,23 +1684,32 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
             # 取 plot 範圍對應的 tail
             _plot_len = N
-            # BB(20, 2σ) — 從 full 算後 slice
+            # BB(20, 1σ + 2σ) — 從 full 算後 slice
             if len(_full_close) >= 20:
                 try:
                     _bb_mid_full = _full_close.rolling(20).mean()
                     _bb_std_full = _full_close.rolling(20).std()
                     _bb_mid = _bb_mid_full.tail(_plot_len).values
                     _bb_std_arr = _bb_std_full.tail(_plot_len).values
-                    _bb_up = _bb_mid + 2 * _bb_std_arr
-                    _bb_lo = _bb_mid - 2 * _bb_std_arr
+                    _bb_up2 = _bb_mid + 2 * _bb_std_arr
+                    _bb_lo2 = _bb_mid - 2 * _bb_std_arr
+                    _bb_up1 = _bb_mid + 1 * _bb_std_arr
+                    _bb_lo1 = _bb_mid - 1 * _bb_std_arr
+                    # 中軌
                     ax1.plot(_x_arr, _bb_mid, color='#9aaabb', linewidth=0.9,
                               alpha=0.55, linestyle='--', label='BB Mid(20)', zorder=3)
-                    ax1.plot(_x_arr, _bb_up, color='#7a8899', linewidth=0.7,
+                    # ±2σ 外層
+                    ax1.plot(_x_arr, _bb_up2, color='#7a8899', linewidth=0.7,
                               alpha=0.5, linestyle='-', zorder=3)
-                    ax1.plot(_x_arr, _bb_lo, color='#7a8899', linewidth=0.7,
+                    ax1.plot(_x_arr, _bb_lo2, color='#7a8899', linewidth=0.7,
                               alpha=0.5, linestyle='-', label='BB ±2σ', zorder=3)
-                    ax1.fill_between(_x_arr, _bb_up, _bb_lo,
+                    ax1.fill_between(_x_arr, _bb_up2, _bb_lo2,
                                        color='#7a8899', alpha=0.06, zorder=2)
+                    # ±1σ 內層（點線）
+                    ax1.plot(_x_arr, _bb_up1, color='#aabacc', linewidth=0.6,
+                              alpha=0.65, linestyle=':', zorder=3)
+                    ax1.plot(_x_arr, _bb_lo1, color='#aabacc', linewidth=0.6,
+                              alpha=0.65, linestyle=':', label='BB ±1σ', zorder=3)
                 except Exception:
                     pass
 
