@@ -636,12 +636,18 @@ for tab, tf in zip(tabs, timeframes_selected):
             )
 
             # 🆕 v9.32：detail card 上方互動式 ZigZag chart（plotly）
-            _main_chart_bars = st.slider(
-                "📊 主圖顯示最後 N bars",
-                min_value=60, max_value=min(500, len(df)),
-                value=min(180, len(df)),
-                step=20, key=f'_main_chart_bars_{tf}',
-            )
+            _main_cols = st.columns([3, 1])
+            with _main_cols[0]:
+                _main_chart_bars = st.slider(
+                    "📊 主圖顯示最後 N bars",
+                    min_value=60, max_value=min(500, len(df)),
+                    value=min(180, len(df)),
+                    step=20, key=f'_main_chart_bars_{tf}',
+                )
+            with _main_cols[1]:
+                _main_show_macd = st.checkbox(
+                    'MACD', value=True, key=f'_main_show_macd_{tf}',
+                    help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
                 main_fig = build_zigzag_chart_plotly(
@@ -652,6 +658,7 @@ for tab, tf in zip(tabs, timeframes_selected):
                     max_bars=_main_chart_bars,
                     show_bb=True,
                     show_emas=[5, 20, 50, 150, 200],
+                    show_macd=_main_show_macd,
                     theme=_theme,
                 )
             if main_fig is not None:
@@ -789,6 +796,7 @@ for tab, tf in zip(tabs, timeframes_selected):
                             max_bars=_max_bars_zz,
                             show_bb=_show_bb,
                             show_emas=_emas_selected,
+                            show_macd=True,
                             theme=_theme,
                         )
                         if fig is not None:

@@ -277,6 +277,7 @@ def build_zigzag_chart_plotly(
     max_bars: int = 180,
     show_bb: bool = True,
     show_emas: List[int] = None,
+    show_macd: bool = True,
     theme: str = 'dark',
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
@@ -288,6 +289,7 @@ def build_zigzag_chart_plotly(
         max_bars: 顯示最後 N bars
         show_bb: 是否疊 BB
         show_emas: 要顯示哪些 EMA
+        show_macd: 是否加 MACD 子圖
         theme: 'dark' / 'light'
 
     Returns:
@@ -305,7 +307,7 @@ def build_zigzag_chart_plotly(
         return None
     from zigzag import zigzag as _zz
 
-    # 在 slice 前算 BB + EMA（避免 EMA200 全 NaN）
+    # 在 slice 前算 BB + EMA + MACD（避免 EMA200 / MACD signal 全 NaN）
     df_full = df.dropna().copy()
     close_full = df_full['Close']
     bb_mid_full = close_full.rolling(20).mean() if len(close_full) >= 20 else None
@@ -314,6 +316,15 @@ def build_zigzag_chart_plotly(
     for p in show_emas:
         if len(close_full) >= p:
             ema_full[p] = close_full.ewm(span=p, adjust=False).mean()
+    # MACD (12, 26, 9)
+    macd_data = None
+    if show_macd and len(close_full) >= 35:   # 26 EMA + 9 signal ≈ 35 bar 才穩
+        ema12 = close_full.ewm(span=12, adjust=False).mean()
+        ema26 = close_full.ewm(span=26, adjust=False).mean()
+        macd_line_full = ema12 - ema26
+        signal_full = macd_line_full.ewm(span=9, adjust=False).mean()
+        hist_full = macd_line_full - signal_full
+        macd_data = (macd_line_full, signal_full, hist_full)
 
     # 截尾
     df_plot = df_full.tail(max_bars).copy()
@@ -323,6 +334,11 @@ def build_zigzag_chart_plotly(
     bb_mid_plot = bb_mid_full.tail(max_bars) if bb_mid_full is not None else None
     bb_std_plot = bb_std_full.tail(max_bars) if bb_std_full is not None else None
     ema_plot = {p: s.tail(max_bars) for p, s in ema_full.items()}
+    macd_plot = (
+        (macd_data[0].tail(max_bars), macd_data[1].tail(max_bars),
+         macd_data[2].tail(max_bars))
+        if macd_data is not None else None
+    )
 
     # 偵測 bar 間隔
     try:
@@ -348,11 +364,19 @@ def build_zigzag_chart_plotly(
         except Exception:
             return 0
 
-    # ── 建立兩列 subplot（不用 subplot_titles 避免跟 legend 擠）──
-    fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True,
-        row_heights=[0.78, 0.22], vertical_spacing=0.04,
-    )
+    # ── 建立 subplot（3 列：Price / MACD / Volume；無 MACD 則 2 列）──
+    _has_macd = (macd_plot is not None)
+    if _has_macd:
+        fig = make_subplots(
+            rows=3, cols=1, shared_xaxes=True,
+            row_heights=[0.66, 0.17, 0.17],
+            vertical_spacing=0.03,
+        )
+    else:
+        fig = make_subplots(
+            rows=2, cols=1, shared_xaxes=True,
+            row_heights=[0.78, 0.22], vertical_spacing=0.04,
+        )
 
     # ── Candlestick ──
     fig.add_trace(
@@ -452,7 +476,52 @@ def build_zigzag_chart_plotly(
             text=zz_text, hoverinfo='text',
         ), row=1, col=1)
 
-    # ── Volume bar chart ──
+    # ── MACD subplot（row 2，如果有）──
+    if _has_macd:
+        macd_line, signal_line, hist = macd_plot
+        # Histogram — 顏色：>0 綠、<0 紅；上升中 vs 下降中可再細分
+        hist_vals = hist.values
+        hist_colors = []
+        for i, v in enumerate(hist_vals):
+            if v >= 0:
+                # 正值：放大用深綠，縮小用淺綠
+                prev_v = hist_vals[i-1] if i > 0 else v
+                hist_colors.append('#26a69a' if v >= prev_v else '#88c8a8')
+            else:
+                prev_v = hist_vals[i-1] if i > 0 else v
+                hist_colors.append('#ef5350' if v <= prev_v else '#e89090')
+
+        fig.add_trace(go.Bar(
+            x=x_pos, y=hist_vals,
+            name='MACD Hist',
+            marker=dict(color=hist_colors),
+            opacity=0.6,
+            text=[
+                f"<b>{ts}</b><br>Hist: {h:+.4f}"
+                for ts, h in zip(ts_strs, hist_vals)
+            ],
+            hoverinfo='text',
+            showlegend=False,
+        ), row=2, col=1)
+
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=macd_line.values, mode='lines',
+            name='MACD',
+            line=dict(color='#3b9eff', width=1.5),
+            hovertemplate='MACD: %{y:.4f}<extra></extra>',
+        ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_pos, y=signal_line.values, mode='lines',
+            name='Signal',
+            line=dict(color='#ff6b35', width=1.3),
+            hovertemplate='Signal: %{y:.4f}<extra></extra>',
+        ), row=2, col=1)
+        # 零軸虛線
+        fig.add_hline(y=0, line=dict(color='#7a8899', width=0.7, dash='dot'),
+                       row=2, col=1, opacity=0.5)
+
+    # ── Volume bar chart（row 2 or 3）──
+    vol_row = 3 if _has_macd else 2
     vol_colors = ['#26a69a' if c >= o else '#ef5350'
                    for o, c in zip(df_plot['Open'], df_plot['Close'])]
     fig.add_trace(go.Bar(
@@ -466,7 +535,7 @@ def build_zigzag_chart_plotly(
         ],
         hoverinfo='text',
         showlegend=False,
-    ), row=2, col=1)
+    ), row=vol_row, col=1)
 
     # ── X-axis tick labels ──
     n_ticks = min(10, N)
@@ -494,29 +563,35 @@ def build_zigzag_chart_plotly(
             x=0.5, xanchor='center',
             y=0.985, yanchor='top',
         ),
-        height=680,
-        hovermode='x unified',   # 滑鼠 hover 整列高亮
+        height=820 if _has_macd else 680,    # MACD 多一列加高
+        hovermode='x unified',
         plot_bgcolor=bg,
         paper_bgcolor=paper_bg,
         font=dict(color=font_color, size=11),
         legend=dict(
             orientation='h',
-            y=-0.16, x=0.5, xanchor='center', yanchor='top',  # 放在 chart 下方
+            y=-0.13 if _has_macd else -0.16,
+            x=0.5, xanchor='center', yanchor='top',
             bgcolor='rgba(0,0,0,0)', font=dict(size=10),
         ),
-        margin=dict(l=55, r=30, t=45, b=110),   # 上留標題、下留 legend
+        margin=dict(l=55, r=30, t=45, b=110),
         xaxis_rangeslider_visible=False,
         dragmode='pan',
     )
-    fig.update_xaxes(
-        tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
-        gridcolor=grid_color, showgrid=True, row=1, col=1,
-    )
-    fig.update_xaxes(
-        tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
-        gridcolor=grid_color, showgrid=True, row=2, col=1,
-    )
+    # x-axis tick labels — 套到所有 row（最後一個 row 顯示，其他隱藏）
+    last_row = 3 if _has_macd else 2
+    for row in range(1, last_row + 1):
+        fig.update_xaxes(
+            tickmode='array', tickvals=tick_pos, ticktext=tick_labels,
+            gridcolor=grid_color, showgrid=True,
+            showticklabels=(row == last_row),   # 只最後一列顯示 tick label
+            row=row, col=1,
+        )
     fig.update_yaxes(gridcolor=grid_color, title_text='Price', row=1, col=1)
-    fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
+    if _has_macd:
+        fig.update_yaxes(gridcolor=grid_color, title_text='MACD', row=2, col=1)
+        fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=3, col=1)
+    else:
+        fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
 
     return fig
