@@ -526,24 +526,14 @@ def build_zigzag_chart_plotly(
                 text=ema_death_texts, hoverinfo='text',
             ), row=1, col=1)
 
-    # ── ZigZag ──
-    try:
-        pivots = _zz(df_plot, mode='atr', atr_mult=atr_mult, atr_period=14)
-    except Exception:
-        pivots = []
-    if pivots:
-        zz_xs = [_to_pos(p['date']) for p in pivots]
-        zz_ys = [p['price'] for p in pivots]
-        zz_types = [p['type'] for p in pivots]
-        zz_text = [f"ZigZag {t}<br>${y:.4f}" for t, y in zip(zz_types, zz_ys)]
-        fig.add_trace(go.Scatter(
-            x=zz_xs, y=zz_ys, mode='lines+markers',
-            name=f'ZigZag ATR×{atr_mult:.2f} ({len(pivots)} pivots)',
-            line=dict(color='#ff6b35', width=2.5),
-            marker=dict(size=8, color='gold',
-                         line=dict(color='#cc4400', width=1.5)),
-            text=zz_text, hoverinfo='text',
-        ), row=1, col=1)
+    # ── ZigZag 折線（🆕 v9.34：已停用，不再顯示 ATR×N 趨勢線）──
+    # pivots 仍計算（其他功能可能需要），但不畫到 chart 上
+    # try:
+    #     pivots = _zz(df_plot, mode='atr', atr_mult=atr_mult, atr_period=14)
+    # except Exception:
+    #     pivots = []
+    # if pivots:
+    #     fig.add_trace(go.Scatter(...))   # 不再 add
 
     # ── 🆕 v9.33：戰法歷史 entry/exit markers ──
     if swing_trades:

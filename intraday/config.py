@@ -72,6 +72,15 @@ TIMEFRAMES = {
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=False, supports_vwap_session=True,
     ),
+    # 🆕 v9.34：4h — yfinance 沒原生支援，data.py 抓 1h 再 resample
+    '4h': TFConfig(
+        code='4h', yf_interval='60m', fugle_freq='60m',
+        yf_max_period='730d', minutes_per_bar=240, bars_per_day=1.625,
+        cache_ttl_seconds=3600,
+        supports_stage=True, supports_sepa=True, supports_vcp=True,
+        supports_flat_base=True, supports_cup_handle=True,
+        supports_orb=False, supports_vwap_session=True,
+    ),
     '1d': TFConfig(
         code='1d', yf_interval='1d', fugle_freq='1d',
         yf_max_period='10y', minutes_per_bar=390, bars_per_day=1,

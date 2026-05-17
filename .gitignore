@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.coverage
+.pytest_cache/
 
 # Claude Code state
 .claude/
@@ -22,6 +24,14 @@ results_*.csv
 mc_*.csv
 wf_*.csv
 daily_signals_*.csv
+# 🆕 v9.34：戰法回測輸出 CSV（regeneratable）
+backtest_swing_us_*.csv
+exit_rule_comparison.csv
+reentry_analysis.csv
+# 🆕 v9.34：分析用 PNG 輸出（regeneratable）
+SATS_*.png
+zigzag_*.png
+atr_*.png
 
 # v8 快取目錄（regeneratable，~230MB）
 data_cache/
@@ -61,6 +71,9 @@ per_cache/
 
 # FinMind 融資/融券快取（regeneratable）
 margin_cache/
+
+# 三大法人持股快取（regeneratable）
+shareholding_cache/
 
 # FinMind 新聞快取（regeneratable）
 news_cache/

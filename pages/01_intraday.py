@@ -60,7 +60,8 @@ _HEX_DARK_TO_LIGHT = {
     '#0f2535':'#eef3f8','#08152a':'#e8f1ff',
     # ─ 深紅底（賣警告）→ 淺紅 #ffeaea
     '#1a0010':'#ffeaea','#1a0808':'#ffeaea','#1a0a00':'#ffeaea',
-    '#1a0a08':'#ffeaea','#1a1410':'#ffeaea','#2a0a0a':'#ffd5d5',
+    '#1a0a08':'#ffeaea','#1a0a0a':'#ffeaea',  # 🆕 v9.34 死叉 entry bg
+    '#1a1410':'#ffeaea','#2a0a0a':'#ffd5d5',
     '#2a0008':'#ffd5d5','#3a0a0a':'#ffc8c8','#3a0808':'#ffc8c8',
     '#3B0D0D':'#ffc8c8','#4A0A0A':'#ffbaba','#3b0d0d':'#ffc8c8',
     '#4a0a0a':'#ffbaba',
@@ -68,7 +69,7 @@ _HEX_DARK_TO_LIGHT = {
     # ─ 深綠底（OK / 進場 OK）→ 淺綠 #e6f7ec
     '#0a1a0a':'#e6f7ec','#0a2014':'#d6f0df','#0a2018':'#d6f0df',
     '#0a2a14':'#d6f0df','#0a2a18':'#d6f0df','#0d1f0d':'#e6f7ec',
-    '#0d2a10':'#d6f0df',
+    '#0d2a10':'#d6f0df','#0d2a14':'#d6f0df',  # 🆕 v9.34 進場觸發 bg
     '#0a1e10':'#e6f7ec','#0a2810':'#d6f0df','#0a2a10':'#d6f0df',  # 🆕 v9.32 補漏
     # ─ 深黃橘底（觀望警告）→ 淺黃 #fff4d6
     '#1a1200':'#fff4d6','#1a1208':'#fff4d6','#1a1400':'#fff4d6',
@@ -163,9 +164,9 @@ def _build_light_css() -> str:
     blue_dark  = ['#050e1a','#08131f','#0a1020','#0a1422','#0a1626','#0a1628','#0a1825',
                    '#0a1828','#0a1830','#0a1a2a','#0a1e30','#0a2535','#0d1825','#0f1f33',
                    '#0f2040','#0f2535','#08152a']
-    red_dark   = ['#1a0010','#1a0808','#1a0a00','#1a0a08','#1a1410','#2a0a0a','#2a0008',
+    red_dark   = ['#1a0010','#1a0808','#1a0a00','#1a0a08','#1a0a0a','#1a1410','#2a0a0a','#2a0008',
                    '#3a0a0a','#3a0808','#3B0D0D','#4A0A0A']
-    green_dark = ['#0a1a0a','#0a2014','#0a2018','#0a2a14','#0a2a18','#0d1f0d','#0d2a10']
+    green_dark = ['#0a1a0a','#0a2014','#0a2018','#0a2a14','#0a2a18','#0d1f0d','#0d2a10','#0d2a14']
     amber_dark = ['#1a1200','#1a1208','#1a1400','#1a1408','#1a1500','#1a1605','#1a1805',
                    '#2a1500','#2a1605','#3A2A00','#3A1800']
 
@@ -243,7 +244,8 @@ def _build_light_css() -> str:
   {{ color:#1565C0 !important; }}
 [style*="color:#ff5555"], [style*="color:#FF6B6B"], [style*="color:#FF8080"],
 [style*="color:#FF7755"], [style*="color:#ff7755"], [style*="color:#ff7a7a"],
-[style*="color:#ff8888"], [style*="color:#ff9944"], [style*="color:#ff5555"]
+[style*="color:#ff8888"], [style*="color:#ff9944"], [style*="color:#ff5555"],
+[style*="color:#ff8855"]
   {{ color:#c62828 !important; }}
 [style*="color:#3dbb6a"], [style*="color:#88c8a8"], [style*="color:#7acc7a"],
 [style*="color:#40c070"], [style*="color:#66ff99"], [style*="color:#a8d4a8"]
@@ -425,8 +427,8 @@ with c2:
 with c3:
     timeframes_selected = st.multiselect(
         "Timeframes",
-        options=['1m', '5m', '15m', '30m', '1h', '1d'],
-        default=['1m', '5m', '15m', '30m', '1h', '1d'],
+        options=['1m', '5m', '15m', '30m', '1h', '4h', '1d'],
+        default=['1m', '5m', '15m', '30m', '1h', '4h', '1d'],
     )
 
 with c4:
@@ -588,46 +590,93 @@ for _tf in timeframes_selected:
 
     # 🆕 v9.33：戰法訊號（全 TF 都顯示）
     _swing_cell = '<td style="padding:7px 8px;color:#5a7090;font-size:.7rem">—</td>'
-    if _tf in ('1m', '5m', '15m', '30m', '1h', '1d'):
+    if _tf in ('1m', '5m', '15m', '30m', '1h', '4h', '1d'):
         try:
             from intraday.strategy import detect_swing_signal
             _sig = detect_swing_signal(_summ['df'], market=info['market'], tf=_tf)
-            # Entry 部分
             _entry = _sig.get('entry', {})
             _exit = _sig.get('exit', {})
-            _eod = _sig.get('eod', {})
-            _entry_label = _entry.get('label', '⚪ -')
-            _exit_label = _exit.get('label', '⚪ -')
-            # 顏色 / 背景
-            if _entry.get('triggered'):
+            _sepa = _sig.get('sepa', {})
+
+            # 🆕 v9.34：Entry 渲染 — 依 state (BUY/WAIT_BUY/NO_SETUP)
+            _entry_state = _entry.get('state', 'NO_SETUP')
+            if _entry_state == 'BUY':
                 _entry_bg = '#0d2a14'; _entry_color = '#3dbb6a'
+                _entry_label = _entry.get('label')
+            elif _entry_state == 'WAIT_BUY':
+                _entry_bg = '#0a1828'; _entry_color = '#5dccdd'
+                _entry_label = _entry.get('label')
             else:
-                _entry_bg = '#0a1422'; _entry_color = '#7a8899'
-            if _exit.get('triggered'):
+                # NO_SETUP → fallback 顯示黃金交叉/死叉狀態
+                _cd = _d.get('ema20_cross_days')
+                if _cd is not None and _cd > 0:
+                    if _cd <= 3:
+                        _entry_color = '#e8a020'; _entry_bg = '#1a1500'
+                        _entry_label = f'⚡ 黃金交叉 {_cd}b 前'
+                    elif _cd <= 20:
+                        _entry_color = '#3dbb6a'; _entry_bg = '#0a2014'
+                        _entry_label = f'✨ 黃金交叉 {_cd}b 前'
+                    else:
+                        _entry_color = '#5dccdd'; _entry_bg = '#0a1828'
+                        _entry_label = f'🌟 黃金交叉 {_cd}b 前'
+                elif _cd is not None and _cd < 0:
+                    _entry_color = '#ff8855'; _entry_bg = '#1a0a0a'
+                    _entry_label = f'💀 死叉 {abs(_cd)}b 前'
+                elif _cd == 0:
+                    _entry_color = '#f0c030'; _entry_bg = '#1a1500'
+                    _entry_label = f'⚡ 剛剛黃金交叉'
+                else:
+                    _entry_color = '#7a8899'; _entry_bg = '#0a1422'
+                    _entry_label = '⚪ 無進場訊號'
+
+            # 🆕 v9.34：Exit 渲染 — 依 state (SELL/WAIT_SELL/HOLD)
+            _exit_state = _exit.get('state', 'HOLD')
+            if _exit_state == 'SELL':
                 _exit_bg = '#2a0a0a'; _exit_color = '#ff5555'
+            elif _exit_state == 'WAIT_SELL':
+                _exit_bg = '#1a1500'; _exit_color = '#e8a020'
             else:
                 _exit_bg = '#0a1422'; _exit_color = '#7a8899'
+            _exit_label = _exit.get('label', '⚪ 持有（無風險訊號）')
 
-            _eod_warn = ''
-            if _eod.get('force_exit'):
-                _eod_warn = (
-                    f'<br><span style="color:#ff5555;font-size:.62rem">'
-                    f'🚪 強制出場 (距收盤 {_eod["minutes_to_close"]}min)</span>')
-            elif _eod.get('warning'):
-                _eod_warn = (
-                    f'<br><span style="color:#e8a020;font-size:.62rem">'
-                    f'⏰ T-{_eod["minutes_to_close"]}min 準備出場</span>')
-            elif _eod.get('no_entry'):
-                _eod_warn = (
-                    f'<br><span style="color:#aa6655;font-size:.62rem">'
-                    f'❌ T-60min 不新進場</span>')
+            # SEPA badge
+            _sepa_html = ''
+            if _sepa.get('available'):
+                _sepa_score = _sepa.get('score', 0)
+                if _sepa_score == 7:
+                    _sepa_bg = '#0a2a14'; _sepa_color = '#3dbb6a'
+                elif _sepa_score >= 5:
+                    _sepa_bg = '#0a2014'; _sepa_color = '#5dccdd'
+                elif _sepa_score >= 3:
+                    _sepa_bg = '#1a1500'; _sepa_color = '#e8a020'
+                else:
+                    _sepa_bg = '#2a0a0a'; _sepa_color = '#ff5555'
+                _sepa_tooltip = ' ｜ '.join(
+                    f'{"✓" if _c["pass"] else "✗"} {_c["name"]}'
+                    for _c in _sepa.get('conditions', [])
+                ).replace('"', '&quot;')
+                _sepa_html = (
+                    f'<div style="background:{_sepa_bg};color:{_sepa_color};'
+                    f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
+                    f'border-left:3px solid {_sepa_color};font-weight:700"'
+                    f' title="{_sepa_tooltip}">'
+                    f'{_sepa["label"]}</div>'
+                )
+            elif _sepa:
+                _sepa_html = (
+                    f'<div style="background:#0a1422;color:#7a8899;'
+                    f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
+                    f'border-left:3px solid #7a8899;font-size:.66rem">'
+                    f'{_sepa.get("label", "SEPA (N/A)")}</div>'
+                )
 
-            # 失敗原因（hover 用）
-            _fails = _entry.get('failed', [])
-            _fails_str = ('Trend fails: ' + ' / '.join(_fails[:4])) if _fails else ''
+            # 失敗原因 hover
+            _fails = _entry.get('fails', []) + _exit.get('fails', [])
+            _fails_str = (' / '.join(_fails[:6])) if _fails else ''
 
             _swing_cell = (
                 f'<td style="padding:7px 8px;font-size:.72rem" title="{_fails_str}">'
+                f'{_sepa_html}'
                 f'<div style="background:{_entry_bg};color:{_entry_color};'
                 f'padding:3px 6px;border-radius:3px;margin-bottom:2px;'
                 f'border-left:3px solid {_entry_color}">'
@@ -636,7 +685,6 @@ for _tf in timeframes_selected:
                 f'padding:3px 6px;border-radius:3px;'
                 f'border-left:3px solid {_exit_color}">'
                 f'{_exit_label}</div>'
-                f'{_eod_warn}'
                 f'</td>'
             )
         except Exception as _e:
@@ -669,6 +717,77 @@ _table_html = (
 if _theme == 'light':
     _table_html = _convert_html_for_light_mode(_table_html)
 st.markdown(_table_html, unsafe_allow_html=True)
+
+
+# 🆕 v9.34：SEPA 燈號說明（Minervini Stage 2 Trend Template 7 條件）
+_sepa_legend_html = (
+    '<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;'
+    'padding:10px 14px;margin-bottom:12px;font-size:.78rem">'
+    '<div style="color:#5dccdd;font-weight:700;margin-bottom:6px;font-size:.85rem">'
+    '🎯 SEPA 燈號說明（Minervini Stage 2 Trend Template）'
+    '</div>'
+    '<div style="color:#a8c0d0;margin-bottom:8px">'
+    '格式：<code style="background:#0a1828;padding:1px 5px;border-radius:3px;color:#e8f4fd">'
+    'SEPA(N/7)🟢🟢🟢🔴🟢🔴🟢</code>'
+    '　｜　🟢 = 符合條件　／　🔴 = 不符合　｜　'
+    '7 顆燈由左到右依序對應下列條件：'
+    '</div>'
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));'
+    'gap:4px 14px;color:#c8dff0">'
+    # 7 條件
+    '<div><b style="color:#5dccdd">①</b> '
+    '<span style="color:#e8f4fd">Price &gt; SMA150 &amp; SMA200</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '股價同時站上 150 / 200 期均線</span></div>'
+
+    '<div><b style="color:#5dccdd">②</b> '
+    '<span style="color:#e8f4fd">SMA150 &gt; SMA200</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '中期均線位於長期均線之上</span></div>'
+
+    '<div><b style="color:#5dccdd">③</b> '
+    '<span style="color:#e8f4fd">SMA200 趨勢向上</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '與 20 bar 前比較，長期均線仍在上揚</span></div>'
+
+    '<div><b style="color:#5dccdd">④</b> '
+    '<span style="color:#e8f4fd">SMA50 &gt; SMA150 &gt; SMA200</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '三條均線完美多頭排列</span></div>'
+
+    '<div><b style="color:#5dccdd">⑤</b> '
+    '<span style="color:#e8f4fd">Price &gt; SMA50</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '股價站上短期均線（短期仍強）</span></div>'
+
+    '<div><b style="color:#5dccdd">⑥</b> '
+    '<span style="color:#e8f4fd">距 52w 低 ≥ 30%</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '已脫離底部足夠遠（避免接刀）</span></div>'
+
+    '<div><b style="color:#5dccdd">⑦</b> '
+    '<span style="color:#e8f4fd">距 52w 高 ≤ 25%</span>'
+    '<br><span style="color:#7a9ab0;font-size:.72rem">'
+    '接近高點（強勢股特徵，非弱勢反彈）</span></div>'
+    '</div>'
+
+    # 評級提示
+    '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #1a2f48;'
+    'color:#a8c0d0;font-size:.72rem">'
+    '<b style="color:#7ab0d0">分數參考：</b>'
+    '<span style="color:#3dbb6a;font-weight:700">7/7</span> 教科書級強勢股 '
+    '｜ <span style="color:#5dccdd;font-weight:700">5-6/7</span> 強勢但有小瑕疵 '
+    '｜ <span style="color:#e8a020;font-weight:700">3-4/7</span> 模糊地帶 '
+    '｜ <span style="color:#ff5555;font-weight:700">0-2/7</span> 弱勢、避開 '
+    '　／　<b style="color:#7ab0d0">用法：</b>'
+    '日線 (1d) ≥ 6/7 才考慮買進，搭配 intraday 戰法 A/B/C 找精準進場點'
+    '</div>'
+
+    '</div>'
+)
+if _theme == 'light':
+    _sepa_legend_html = _convert_html_for_light_mode(_sepa_legend_html)
+st.markdown(_sepa_legend_html, unsafe_allow_html=True)
 
 st.divider()
 
@@ -711,11 +830,11 @@ for tab, tf in zip(tabs, timeframes_selected):
                     help='顯示 MACD(12,26,9) 子圖')
             with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
                 _atr_global = get_zigzag_atr_mult()
-                # 🆕 v9.33：全 TF 都加戰法歷史 trades markers
+                # 🆕 v9.34：改用波段獲利回測（look-forward swing high exit）
                 _swing_trades_main = None
                 try:
-                    from intraday.strategy import scan_historical_signals, summarize_trades
-                    _swing_trades_main = scan_historical_signals(
+                    from intraday.strategy import scan_swing_profit_signals, summarize_trades
+                    _swing_trades_main = scan_swing_profit_signals(
                         df, market=info['market'],
                         lookback_bars=_main_chart_bars, tf=tf)
                 except Exception:
@@ -735,7 +854,7 @@ for tab, tf in zip(tabs, timeframes_selected):
             if main_fig is not None:
                 st.plotly_chart(main_fig, use_container_width=True,
                                   key=f'_main_zz_plotly_{tf}')
-                # 🆕 v9.33：全 TF tab 顯示戰法歷史統計
+                # 🆕 v9.34：波段獲利回測統計（look-forward swing exit）
                 if _swing_trades_main:
                     _stats = summarize_trades(_swing_trades_main)
                     if _stats.get('n', 0) > 0:
@@ -748,7 +867,8 @@ for tab, tf in zip(tabs, timeframes_selected):
                             f'<div style="background:#0a1828;border-left:4px solid #5dccdd;'
                             f'padding:8px 12px;border-radius:4px;margin-top:6px;'
                             f'font-size:.8rem">'
-                            f'<b style="color:#5dccdd">📊 戰法歷史統計（{_main_chart_bars} bars）</b>'
+                            f'<b style="color:#5dccdd">🎯 波段獲利回測 — {_main_chart_bars} bars '
+                            f'(look-forward swing high exit)</b>'
                             f'<br><span style="color:#a8c0d0">'
                             f'交易 <b>{_stats["n"]}</b> 筆 ｜ '
                             f'勝率 <b style="color:{_wr_color}">{_wr:.1f}%</b> '
@@ -757,8 +877,11 @@ for tab, tf in zip(tabs, timeframes_selected):
                             f'最佳 <b style="color:#3dbb6a">{_stats["best_pnl_pct"]:+.2f}%</b> ｜ '
                             f'最差 <b style="color:#ff5555">{_stats["worst_pnl_pct"]:+.2f}%</b> ｜ '
                             f'平均持倉 <b>{_stats["avg_holding_bars"]:.1f}</b> bars '
-                            f'({_stats["avg_holding_bars"] * 15:.0f} min)'
-                            f'</span></div>',
+                            f'({_stats["avg_holding_bars"] * cfg.minutes_per_bar:.0f} min)'
+                            f'</span><br>'
+                            f'<span style="color:#7a9ab0;font-size:.7rem">'
+                            f'※ 出場價假設 = (隨後波段最高 + BB Mid) / 2，window=當日(intraday) / 30b(1d)，'
+                            f'若 hard stop 先觸發則出場於 stop</span></div>',
                             unsafe_allow_html=True)
                     if _stats.get('open', 0) > 0:
                         st.warning(f'⚠️ 目前 {_stats["open"]} 筆持倉未平倉（戰法 simulation）')

@@ -57,6 +57,66 @@ def _save_cache(path: Path, df: pd.DataFrame):
         print(f"  [intraday cache] {path.name} save fail: {e}")
 
 
+def _sanitize_ohlc(df: pd.DataFrame, ticker: str = '',
+                     tf: str = '') -> pd.DataFrame:
+    """🆕 v9.34：過濾 yfinance 壞 tick（單筆異常成交）
+
+    偵測規則（OR — 任一條件成立即視為異常）：
+      A. wick > 5 × ATR(14)（相對 vs 近期波動）
+      B. wick / Close > X%（絕對門檻，依 TF 調整）
+         intraday (1m-4h): 12%
+         1d: 35% (容忍 meme/squeeze 行情的合理大 wick)
+
+    被判定異常 → 把該 wick clamp 至 max/min(Open, Close)
+    保留 bar 數量不變，只修正異常 wick。
+    """
+    if df is None or len(df) < 15:
+        return df
+
+    o, h, l, c = df['Open'], df['High'], df['Low'], df['Close']
+    body_top = pd.concat([o, c], axis=1).max(axis=1)
+    body_bot = pd.concat([o, c], axis=1).min(axis=1)
+    upper_wick = h - body_top
+    lower_wick = body_bot - l
+
+    # 規則 A：用 True Range 算 ATR(14)
+    tr1 = h - l
+    tr2 = (h - c.shift(1)).abs()
+    tr3 = (l - c.shift(1)).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(14, min_periods=5).mean()
+
+    ATR_THRESH = 5.0
+    high_bad_a = (upper_wick > atr * ATR_THRESH) & atr.notna()
+    low_bad_a = (lower_wick > atr * ATR_THRESH) & atr.notna()
+
+    # 規則 B：絕對 % 門檻（防 ATR self-pollution）
+    # 1d 用寬鬆門檻避免誤殺合理大 wick（GME squeeze / earnings flash crash）
+    is_daily = ('1d' in (tf or '').lower() or 'day' in (tf or '').lower())
+    PCT_THRESH = 0.35 if is_daily else 0.12
+    safe_close = c.where(c > 0)
+    high_bad_b = (upper_wick / safe_close) > PCT_THRESH
+    low_bad_b = (lower_wick / safe_close) > PCT_THRESH
+
+    high_bad = (high_bad_a | high_bad_b).fillna(False)
+    low_bad = (low_bad_a | low_bad_b).fillna(False)
+
+    n_h = int(high_bad.sum())
+    n_l = int(low_bad.sum())
+    if n_h == 0 and n_l == 0:
+        return df
+
+    df = df.copy()
+    if n_h > 0:
+        df.loc[high_bad, 'High'] = body_top[high_bad]
+    if n_l > 0:
+        df.loc[low_bad, 'Low'] = body_bot[low_bad]
+
+    tk = ticker or 'unknown'
+    print(f"  [intraday] {tk}: sanitize wick — {n_h} bad High, {n_l} bad Low（已 clamp 至 body）")
+    return df
+
+
 def _load_cache(path: Path) -> Optional[pd.DataFrame]:
     try:
         return pd.read_parquet(path)
@@ -142,6 +202,24 @@ def _fetch_fugle(ticker: str, tf: str) -> Optional[pd.DataFrame]:
         return None
 
 
+def _resample_to_4h(df_1h: pd.DataFrame) -> Optional[pd.DataFrame]:
+    """把 1h DataFrame resample 成 4h"""
+    if df_1h is None or len(df_1h) == 0:
+        return None
+    try:
+        df_4h = df_1h.resample('4h').agg({
+            'Open': 'first',
+            'High': 'max',
+            'Low': 'min',
+            'Close': 'last',
+            'Volume': 'sum',
+        }).dropna(subset=['Close'])
+        return df_4h if len(df_4h) > 0 else None
+    except Exception as e:
+        print(f"  [intraday] 4h resample 失敗: {type(e).__name__}: {str(e)[:60]}")
+        return None
+
+
 def get_intraday(ticker: str, tf: str = '5m',
                   market: str = 'auto',
                   refresh: bool = False,
@@ -150,7 +228,7 @@ def get_intraday(ticker: str, tf: str = '5m',
 
     Args:
         ticker: 股票代號（TW: '2330' 或 'AAPL'）
-        tf: '1m' / '5m' / '15m' / '30m' / '1h' / '1d'
+        tf: '1m' / '5m' / '15m' / '30m' / '1h' / '4h' / '1d'
         market: 'tw' / 'us' / 'auto'（自動判斷）
         refresh: 強制重抓（跳過快取）
         prepost: 是否含夜盤（pre/post-market）— 預設 True（v9.32）
@@ -165,6 +243,23 @@ def get_intraday(ticker: str, tf: str = '5m',
     if market == 'auto':
         market = _detect_market(ticker)
 
+    # 🆕 v9.34：4h 沒有原生 source — 抓 1h 再 resample
+    if tf == '4h':
+        cpath_4h = _cache_path(ticker, '4h')
+        cfg_4h = get_tf_config('4h')
+        if not refresh and _is_cache_fresh(cpath_4h, cfg_4h.cache_ttl_seconds):
+            df_cached = _load_cache(cpath_4h)
+            if df_cached is not None and len(df_cached) > 0:
+                return df_cached
+        df_1h = get_intraday(ticker, '1h', market=market,
+                              refresh=refresh, prepost=prepost)
+        if df_1h is None or len(df_1h) == 0:
+            return None
+        df_4h = _resample_to_4h(df_1h)
+        if df_4h is not None and len(df_4h) > 0:
+            _save_cache(cpath_4h, df_4h)
+        return df_4h
+
     cfg = get_tf_config(tf)
     cpath = _cache_path(ticker, tf)
 
@@ -172,7 +267,8 @@ def get_intraday(ticker: str, tf: str = '5m',
     if not refresh and _is_cache_fresh(cpath, cfg.cache_ttl_seconds):
         df = _load_cache(cpath)
         if df is not None and len(df) > 0:
-            return df
+            # 🆕 v9.34：cache 也可能含壞 tick（舊版抓的）→ 過載時清理
+            return _sanitize_ohlc(df, ticker=f'{ticker} {tf} (cache)', tf=tf)
 
     # 2. TW 優先試 Fugle（如果有 API key）— TW 股票沒夜盤，不需 prepost
     df = None
@@ -200,7 +296,8 @@ def get_intraday(ticker: str, tf: str = '5m',
             print(f"  [intraday] {ticker} {tf} 用過期快取（fresh fetch 失敗）")
         return df
 
-    # 5. 成功 → 寫快取
+    # 5. 🆕 v9.34：過濾壞 tick（異常 wick） + 寫快取
+    df = _sanitize_ohlc(df, ticker=f'{ticker} {tf}', tf=tf)
     _save_cache(cpath, df)
     return df
 
