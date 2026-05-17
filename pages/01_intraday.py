@@ -73,80 +73,119 @@ def _build_dark_css() -> str:
 
 
 def _build_light_css() -> str:
-    """Light mode — 反過來 + 用 attribute selector + !important 蓋過 inline 深色"""
-    return """
+    """Light mode — class 樣式 + inline 深色 attribute selector + !important
+    完整 cover 全部 36 個 inline background hex（v9.32 統一）"""
+    # 4 大色組：深藍底（最常見） / 深紅（賣警告） / 深綠（買訊號 / OK） / 深黃橘（觀望警告）
+    blue_dark  = ['#050e1a','#08131f','#0a1020','#0a1422','#0a1626','#0a1628','#0a1825',
+                   '#0a1828','#0a1830','#0a1a2a','#0a1e30','#0a2535','#0d1825','#0f1f33',
+                   '#0f2040','#0f2535','#08152a']
+    red_dark   = ['#1a0010','#1a0808','#1a0a00','#1a0a08','#1a1410','#2a0a0a','#2a0008',
+                   '#3a0a0a','#3a0808','#3B0D0D','#4A0A0A']
+    green_dark = ['#0a1a0a','#0a2014','#0a2018','#0a2a14','#0a2a18','#0d1f0d','#0d2a10']
+    amber_dark = ['#1a1200','#1a1208','#1a1400','#1a1408','#1a1500','#1a1605','#1a1805',
+                   '#2a1500','#2a1605','#3A2A00','#3A1800']
+
+    def _sel(hexes):
+        # 同時 cover「background:#XXX」「background: #XXX」「background-color:#XXX」三種寫法
+        out = []
+        for h in hexes:
+            hl = h.lower()
+            out.append(f'[style*="background:{hl}"]')
+            out.append(f'[style*="background: {hl}"]')
+            out.append(f'[style*="background-color:{hl}"]')
+            out.append(f'[style*="background-color: {hl}"]')
+            # 大寫版本
+            hu = h.upper()
+            if hu != hl:
+                out.append(f'[style*="background:{hu}"]')
+                out.append(f'[style*="background: {hu}"]')
+        return ',\n'.join(out)
+
+    return f"""
 /* —— class-based 樣式（淺色版）—— */
-.ind-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; margin-bottom:8px; }
-.ind-item { background:#f5f7fa !important; border:1px solid #d0d7e0 !important; border-radius:6px; padding:7px 10px; }
-.ind-item.ind-buy   { border-color:#8eb5e8 !important; background:#e8f1ff !important; }
-.ind-item.ind-sell  { border-color:#e89090 !important; background:#ffeaea !important; }
-.ind-item.ind-neu   { border-color:#d0d7e0 !important; }
-.ind-label { display:block; font-size:.68rem; color:#4a6c88 !important; margin-bottom:3px; }
-.ind-val   { font-size:.9rem; color:#1a2a40 !important; font-family:'IBM Plex Mono','SF Mono',Consolas,monospace; font-weight:600; }
+.ind-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:6px; margin-bottom:8px; }}
+.ind-item {{ background:#f5f7fa !important; border:1px solid #d0d7e0 !important; border-radius:6px; padding:7px 10px; }}
+.ind-item.ind-buy   {{ border-color:#8eb5e8 !important; background:#e8f1ff !important; }}
+.ind-item.ind-sell  {{ border-color:#e89090 !important; background:#ffeaea !important; }}
+.ind-item.ind-neu   {{ border-color:#d0d7e0 !important; }}
+.ind-label {{ display:block; font-size:.68rem; color:#4a6c88 !important; margin-bottom:3px; }}
+.ind-val   {{ font-size:.9rem; color:#1a2a40 !important; font-family:'IBM Plex Mono','SF Mono',Consolas,monospace; font-weight:600; }}
 
-.badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:.7rem; font-weight:700; margin:0 4px; }
-.badge-strong-buy { background:#1565C0 !important; color:#ffffff !important; }
-.badge-buy        { background:#1976D2 !important; color:#ffffff !important; }
-.badge-buy-limit  { background:#F0A030 !important; color:#ffffff !important; }
-.badge-strong-sell{ background:#B71C1C !important; color:#ffffff !important; }
-.badge-sell       { background:#D32F2F !important; color:#ffffff !important; }
-.badge-overheat   { background:#E65100 !important; color:#ffffff !important; }
-.badge-bearish    { background:#C62828 !important; color:#ffffff !important; }
-.badge-neutral    { background:#9AAABB !important; color:#ffffff !important; }
+.badge {{ display:inline-block; padding:2px 8px; border-radius:4px; font-size:.7rem; font-weight:700; margin:0 4px; }}
+.badge-strong-buy {{ background:#1565C0 !important; color:#ffffff !important; }}
+.badge-buy        {{ background:#1976D2 !important; color:#ffffff !important; }}
+.badge-buy-limit  {{ background:#F0A030 !important; color:#ffffff !important; }}
+.badge-strong-sell{{ background:#B71C1C !important; color:#ffffff !important; }}
+.badge-sell       {{ background:#D32F2F !important; color:#ffffff !important; }}
+.badge-overheat   {{ background:#E65100 !important; color:#ffffff !important; }}
+.badge-bearish    {{ background:#C62828 !important; color:#ffffff !important; }}
+.badge-neutral    {{ background:#9AAABB !important; color:#ffffff !important; }}
 
-/* —— inline-style overrides（蓋過 detail_card_render / operation_advice 寫死的深色）—— */
-/* 常見深色 panel 背景 → 淺色 */
-[style*="background:#0a1628"], [style*="background:#08131f"], [style*="background:#0a1422"],
-[style*="background:#08152a"], [style*="background:#0a1828"], [style*="background:#0a1020"],
-[style*="background:#050e1a"], [style*="background:#0f1f33"], [style*="background:#0a1e30"],
-[style*="background:#0f2535"]
-  { background:#f5f7fa !important; }
+/* ——— inline-style overrides ——— */
+/* 深藍系 panel 背景 → 淺底 */
+{_sel(blue_dark)}
+  {{ background:#f5f7fa !important; background-color:#f5f7fa !important; color:#1a2a40 !important; }}
 
-[style*="background:#1a0808"], [style*="background:#3a0a0a"], [style*="background:#2a0a0a"],
-[style*="background:#1a0010"], [style*="background:#3B0D0D"], [style*="background:#3a0808"],
-[style*="background:#4A0A0A"]
-  { background:#ffeaea !important; }
+/* 深紅系（賣警告）→ 淺紅底 */
+{_sel(red_dark)}
+  {{ background:#ffeaea !important; background-color:#ffeaea !important; color:#b71c1c !important; }}
 
-[style*="background:#0a2a14"], [style*="background:#0d2a10"], [style*="background:#0a1a0a"]
-  { background:#e6f7ec !important; }
+/* 深綠系（OK / 進場 OK）→ 淺綠底 */
+{_sel(green_dark)}
+  {{ background:#e6f7ec !important; background-color:#e6f7ec !important; color:#1b5e20 !important; }}
 
-[style*="background:#1a1408"], [style*="background:#1a1805"], [style*="background:#2a1605"],
-[style*="background:#1a1200"], [style*="background:#1a1400"], [style*="background:#3A2A00"],
-[style*="background:#2a1500"], [style*="background:#3A1800"]
-  { background:#fff4d6 !important; }
+/* 深黃橘系（警告 / 等待）→ 淺黃底 */
+{_sel(amber_dark)}
+  {{ background:#fff4d6 !important; background-color:#fff4d6 !important; color:#7a4a00 !important; }}
 
-[style*="background:#1a0808"], [style*="background:#2a0008"], [style*="background:#1a0a08"]
-  { background:#ffeaea !important; }
-
-/* 深色文字 → 深色字（淺底配深字）*/
-[style*="color:#e8f4fd"], [style*="color:#c8dff0"], [style*="color:#a8c0d0"]
-  { color:#1a2a40 !important; }
+/* ——— 文字色 override ——— */
+/* 淺色文字（深底時用）→ 換深色 */
+[style*="color:#e8f4fd"], [style*="color:#c8dff0"], [style*="color:#a8c0d0"],
+[style*="color:#c8e0d0"], [style*="color:#a8cce8"], [style*="color:#ffe"], [style*="color:#ffc"],
+[style*="color:#ffd"], [style*="color:#fff"]
+  {{ color:#1a2a40 !important; }}
 
 [style*="color:#7ab0d0"], [style*="color:#7abadd"], [style*="color:#5dccdd"],
 [style*="color:#7a9ab0"], [style*="color:#8ab0c8"], [style*="color:#7a8899"],
 [style*="color:#5a8ab0"], [style*="color:#9aaabb"], [style*="color:#3a5a7a"],
-[style*="color:#5a7a9a"]
-  { color:#4a6c88 !important; }
+[style*="color:#5a7a9a"], [style*="color:#9abacf"], [style*="color:#9fcc9f"],
+[style*="color:#90d0a0"], [style*="color:#a87acc"], [style*="color:#c294d6"],
+[style*="color:#4a6070"], [style*="color:#334455"], [style*="color:#7a8899"]
+  {{ color:#5a7090 !important; }}
 
-/* 強調色（買/賣/中性）— 維持原色但加深一點 */
-[style*="color:#3b9eff"] { color:#1976d2 !important; }
-[style*="color:#60B3FF"] { color:#1565C0 !important; }
-[style*="color:#60CFFF"] { color:#0D47A1 !important; }
-[style*="color:#ff5555"] { color:#c62828 !important; }
-[style*="color:#FF6B6B"], [style*="color:#FF8080"], [style*="color:#FF7755"] { color:#b71c1c !important; }
+/* 強調色（買/賣/中性/警告）─ 加深一點適配淺底 */
+[style*="color:#3b9eff"], [style*="color:#60B3FF"], [style*="color:#60CFFF"],
+[style*="color:#5a9acf"]
+  {{ color:#1565C0 !important; }}
+[style*="color:#ff5555"], [style*="color:#FF6B6B"], [style*="color:#FF8080"],
+[style*="color:#FF7755"], [style*="color:#ff7755"], [style*="color:#ff7a7a"],
+[style*="color:#ff8888"], [style*="color:#ff9944"], [style*="color:#ff5555"]
+  {{ color:#c62828 !important; }}
 [style*="color:#3dbb6a"], [style*="color:#88c8a8"], [style*="color:#7acc7a"],
-[style*="color:#40c070"] { color:#2e7d32 !important; }
+[style*="color:#40c070"], [style*="color:#66ff99"], [style*="color:#a8d4a8"]
+  {{ color:#2e7d32 !important; }}
 [style*="color:#e8a020"], [style*="color:#ffaa55"], [style*="color:#e8c030"],
-[style*="color:#c8b87a"] { color:#ed6c02 !important; }
+[style*="color:#c8b87a"], [style*="color:#ddc080"], [style*="color:#f0c030"],
+[style*="color:#ffcc55"], [style*="color:#e8c050"]
+  {{ color:#b26500 !important; }}
 [style*="color:#aa66ff"], [style*="color:#a866ff"], [style*="color:#a060ff"],
-[style*="color:#b266ff"] { color:#5e35b1 !important; }
+[style*="color:#b266ff"]
+  {{ color:#5e35b1 !important; }}
 
-/* 邊框 / 分隔線 */
-[style*="border-top:1px solid #0f1f33"], [style*="border-top:1px solid #1a2f48"]
-  { border-top-color:#d0d7e0 !important; }
+/* 邊框淺色化 */
 [style*="border:1px solid #1a2f48"], [style*="border:1px solid #1a3055"],
-[style*="border:1px solid #2a3f5f"]
-  { border-color:#d0d7e0 !important; }
+[style*="border:1px solid #2a3f5f"], [style*="border:1px solid #1a4030"],
+[style*="border:1px solid #1a6030"], [style*="border:1px solid #2a4060"],
+[style*="border:1px solid #5a4a10"], [style*="border:1px solid #1a4a80"],
+[style*="border:1px solid #6a1a1a"]
+  {{ border-color:#d0d7e0 !important; }}
+[style*="border-top:1px solid #0f1f33"], [style*="border-top:1px solid #1a2f48"],
+[style*="border-top:1px solid #2a3f5f"]
+  {{ border-top-color:#d0d7e0 !important; }}
+[style*="border-bottom:1px solid #0f1f33"]
+  {{ border-bottom-color:#d0d7e0 !important; }}
+[style*="border-left:4px solid #888"], [style*="border-left:4px solid #5dccdd"]
+  {{ border-left-color:#9aaabb !important; }}
 """
 
 
