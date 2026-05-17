@@ -835,6 +835,82 @@ if _theme == 'light':
     _sepa_legend_html = _convert_html_for_light_mode(_sepa_legend_html)
 st.markdown(_sepa_legend_html, unsafe_allow_html=True)
 
+
+# 🆕 v9.40：加碼規則說明
+_reentry_legend_html = (
+    '<div style="background:#0a1628;border:1px solid #1a2f48;border-radius:8px;'
+    'padding:10px 14px;margin-bottom:12px;font-size:.78rem">'
+    '<div style="color:#f0c030;font-weight:700;margin-bottom:6px;font-size:.85rem">'
+    '💎 加碼規則說明（pyramiding — 主部位持倉期間加倉訊號）'
+    '</div>'
+    '<div style="color:#a8c0d0;margin-bottom:8px">'
+    '格式：<code style="background:#0a1828;padding:1px 5px;border-radius:3px;color:#e8f4fd">'
+    '💪 加碼 ×N: P1 HI ... @ $price (建議 N% 部位)</code>'
+    '　｜　數字代表同時觸發的規則數，越多越強'
+    '</div>'
+
+    # 5 條規則 grid
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));'
+    'gap:6px 14px;color:#c8dff0">'
+
+    '<div><b style="color:#f0c030">P1</b>'
+    '<span style="color:#5a7a9a;font-size:.7rem"> · 重觸 BB+1σ</span>'
+    '<br><span style="color:#e8f4fd;font-size:.75rem">'
+    'Close 離開 BB+1σ ≥ 2b 後重新回到 ≥ +1σ</span>'
+    '<br><span style="color:#7a9ab0;font-size:.7rem">'
+    '🏆 回測總報酬最高 +168k% / 平均 +7.42%</span></div>'
+
+    '<div><b style="color:#f0c030">HI</b>'
+    '<span style="color:#5a7a9a;font-size:.7rem"> · 破 20b 新高</span>'
+    '<br><span style="color:#e8f4fd;font-size:.75rem">'
+    'Close > 過去 20 bar 的最高（不含今日）</span>'
+    '<br><span style="color:#7a9ab0;font-size:.7rem">'
+    '⭐ 勝率最高 53.8% / 單筆品質最佳 +7.76%</span></div>'
+
+    '<div><b style="color:#f0c030">MB</b>'
+    '<span style="color:#5a7a9a;font-size:.7rem"> · BB 中軌反彈</span>'
+    '<br><span style="color:#e8f4fd;font-size:.75rem">'
+    '近 5b 內 Low ≤ BB Mid + 今日紅 K + Close > Mid</span>'
+    '<br><span style="color:#7a9ab0;font-size:.7rem">'
+    '💎 折扣加碼 / 平均 +6.44%</span></div>'
+
+    '<div><b style="color:#f0c030">E5</b>'
+    '<span style="color:#5a7a9a;font-size:.7rem"> · EMA5 觸碰</span>'
+    '<br><span style="color:#e8f4fd;font-size:.75rem">'
+    '|Low − EMA5| ≤ 0.3 × ATR + 今日紅 K</span>'
+    '<br><span style="color:#7a9ab0;font-size:.7rem">'
+    '⚡ 短線高頻 / 平均 +7.33%</span></div>'
+
+    '<div><b style="color:#f0c030">E20</b>'
+    '<span style="color:#5a7a9a;font-size:.7rem"> · EMA20 觸碰</span>'
+    '<br><span style="color:#e8f4fd;font-size:.75rem">'
+    '|Low − EMA20| ≤ 0.3 × ATR + 今日紅 K</span>'
+    '<br><span style="color:#7a9ab0;font-size:.7rem">'
+    '📊 Minervini 流派 / 平均 +5.89%</span></div>'
+
+    '</div>'
+
+    # 部位建議
+    '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #1a2f48;'
+    'color:#a8c0d0;font-size:.72rem">'
+    '<b style="color:#7ab0d0">建議部位（依命中規則數）：</b>'
+    '<span style="color:#7a8899">0 → </span><b>0%</b> '
+    '｜ <span style="color:#e8a020">1 → </span><b>25%</b> '
+    '｜ <span style="color:#5dccdd">2 → </span><b>33%</b> '
+    '｜ <span style="color:#3dbb6a">3 → </span><b>50%</b> '
+    '｜ <span style="color:#3dbb6a">4 → </span><b>67%</b> '
+    '｜ <span style="color:#3dbb6a">5 → </span><b>100%</b>'
+    '　／　<b style="color:#7ab0d0">圖示：</b>'
+    'ZigZag 圖上的 <span style="color:#f0c030">⭐ 黃色星形</span> = 歷史加碼點'
+    '（越多規則 = 星形越大）'
+    '</div>'
+
+    '</div>'
+)
+if _theme == 'light':
+    _reentry_legend_html = _convert_html_for_light_mode(_reentry_legend_html)
+st.markdown(_reentry_legend_html, unsafe_allow_html=True)
+
 st.divider()
 
 
