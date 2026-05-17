@@ -451,23 +451,181 @@ st.markdown(
 st.divider()
 
 
+# 🆕 v9.32：多時間框架對齊表（pre-compute 所有 TF 的判讀彙總）
+# ──────────────────────────────────────────────────────────────
+tf_summaries = {}    # {tf: {df, d, groups, summs, tsumm, cap, rec_label, rec_style}}
+with st.spinner(f"計算 {ticker} 跨 {len(timeframes_selected)} 個 timeframe..."):
+    for _tf in timeframes_selected:
+        try:
+            _df = get_intraday(ticker, _tf, market=info['market'])
+            if _df is None or len(_df) < 30:
+                tf_summaries[_tf] = {'error': f'資料不足 ({len(_df) if _df is not None else 0} bars)'}
+                continue
+            _d = build_d_from_intraday(_df, tf=_tf, ticker=ticker, market=info['market'])
+            if _d.get('_error'):
+                tf_summaries[_tf] = {'error': _d['_error']}
+                continue
+            _gt = judge_trend(_d); _gp = judge_position(_d)
+            _gm = judge_momentum(_d); _ga = judge_aux(_d)
+            _ts = calc_summary(_gt, TREND_W)
+            _ps = calc_summary(_gp, POSITION_W)
+            _ms_b, _ms_s, _ms_n, _ = calc_summary(_gm, MOMENTUM_W)
+            _mg = compute_momentum_grade(_d)
+            _ms = (_ms_b, _ms_s, _ms_n, _mg)
+            _xs = _calc_aux_summary(_ga, AUX_W)
+            _tb = round(_ts[0] + _ps[0] + _ms[0] + _xs[0], 1)
+            _ts_ = round(_ts[1] + _ps[1] + _ms[1] + _xs[1], 1)
+            _tn_ = round(_ts[2] + _ps[2] + _ms[2] + _xs[2], 1)
+            _v_raw = _rec(_tb, _ts_)
+            _verdict, _cap = apply_cap(_v_raw, _d, _mg)
+            _rec_label, _rec_style = get_rec_label(_d, ticker=ticker)
+            tf_summaries[_tf] = {
+                'df': _df, 'd': _d,
+                'groups': (_gt, _gp, _gm, _ga),
+                'summs': (_ts, _ps, _ms, _xs),
+                'tsumm': (_tb, _ts_, _tn_, _verdict),
+                'cap': _cap,
+                'rec_label': _rec_label,
+                'rec_style': _rec_style,
+                'verdict': _verdict,
+                'mg': _mg,
+            }
+        except Exception as _e:
+            tf_summaries[_tf] = {'error': f'{type(_e).__name__}: {str(_e)[:60]}'}
+
+
+# ── 多時間框架對齊表 ──
+def _verdict_badge_html(verdict: str) -> str:
+    """整體 verdict 用顏色 badge 標"""
+    colors = {
+        '強力買入': ('#0D47A1', '#60CFFF'),
+        '買入': ('#0D2E50', '#60B3FF'),
+        '上限買入｜持有/短線': ('#3A2A00', '#F0C030'),
+        '中立': ('#1A2030', '#9AAABB'),
+        '賣出': ('#3B0D0D', '#FF8080'),
+        '強力賣出': ('#4A0A0A', '#FF6B6B'),
+        '過熱觀望｜禁止新倉': ('#3A1800', '#FF8830'),
+        '空頭，不買': ('#3A0808', '#FF5555'),
+    }
+    bg, fg = colors.get(verdict, ('#1A2030', '#9AAABB'))
+    return (f'<span style="background:{bg};color:{fg};'
+            f'padding:2px 8px;border-radius:4px;font-size:.72rem;'
+            f'font-weight:700;white-space:nowrap">{verdict}</span>')
+
+
+st.markdown('### 🎯 多時間框架對齊（一覽各 TF 的操作判讀）')
+_rows = []
+for _tf in timeframes_selected:
+    _summ = tf_summaries.get(_tf, {})
+    if _summ.get('error'):
+        _rows.append(
+            f'<tr style="border-bottom:1px solid #1a2f48">'
+            f'<td style="padding:6px 8px;font-weight:700">{_tf}</td>'
+            f'<td colspan="8" style="padding:6px 8px;color:#aa6655">'
+            f'⚠️ {_summ["error"]}</td></tr>'
+        )
+        continue
+    _d = _summ['d']
+    _rec_label = _summ['rec_label']
+    _rec_style = _summ['rec_style']
+    _verdict = _summ['verdict']
+    _cap = _summ['cap']
+    _tsumm = _summ['tsumm']
+    # 取重點指標
+    _close = _d.get('close', 0)
+    _change_pct = _d.get('change_pct', 0) or 0
+    _rsi_v = _d.get('rsi'); _adx_v = _d.get('adx')
+    _ema20 = _d.get('ema20'); _ema60 = _d.get('ema60')
+    _is_bull = (_ema20 is not None and _ema60 is not None and _ema20 > _ema60)
+    _is_bear = (_ema20 is not None and _ema60 is not None and _ema20 < _ema60)
+    _trend_str = ('🟢 多頭' if _is_bull else
+                   ('🔴 空頭' if _is_bear else '⚪ 整理'))
+    _cross_days = _d.get('ema20_cross_days')
+    if _cross_days is not None and _cross_days != 0:
+        _cross_str = (f'金叉 {_cross_days}b 前' if _cross_days > 0
+                       else f'死叉 {abs(_cross_days)}b 前')
+    else:
+        _cross_str = '-'
+    # 漲跌幅顏色
+    _chg_color = ('#3dbb6a' if _change_pct >= 0 else '#ff5555')
+    _chg_str = f'{_change_pct:+.2f}%' if _change_pct else '0%'
+    # cap warning
+    _cap_html = (f'<br><span style="font-size:.62rem;color:#aa6655">{_cap}</span>'
+                  if _cap else '')
+
+    _rows.append(
+        f'<tr style="border-bottom:1px solid #1a2f48">'
+        # TF
+        f'<td style="padding:7px 8px;font-weight:700;font-size:.88rem">'
+        f'{_tf}</td>'
+        # Close + 漲跌幅
+        f'<td style="padding:7px 8px;text-align:right;font-family:monospace">'
+        f'${_close:.2f}<br>'
+        f'<span style="color:{_chg_color};font-size:.7rem">{_chg_str}</span></td>'
+        # 推薦策略
+        f'<td style="padding:7px 8px"><div style="{_rec_style};'
+        f'padding:3px 8px;border-radius:4px;font-size:.74rem;'
+        f'font-weight:700;display:inline-block;white-space:nowrap">'
+        f'{_rec_label}</div></td>'
+        # Verdict
+        f'<td style="padding:7px 8px">{_verdict_badge_html(_verdict)}{_cap_html}</td>'
+        # 多空
+        f'<td style="padding:7px 8px;font-size:.78rem">{_trend_str}</td>'
+        # Cross days
+        f'<td style="padding:7px 8px;font-size:.72rem;color:#a8c0d0">{_cross_str}</td>'
+        # RSI
+        f'<td style="padding:7px 8px;text-align:center;font-family:monospace;'
+        f'color:{"#ff5555" if (_rsi_v and _rsi_v >= 70) else "#3dbb6a" if (_rsi_v and _rsi_v <= 30) else "#c8dff0"}">'
+        f'{_rsi_v:.1f}</td>' if _rsi_v else f'<td>-</td>'
+    )
+    # ADX
+    _adx_color = ('#3dbb6a' if _adx_v and _adx_v >= 25 else
+                   '#e8a020' if _adx_v and _adx_v >= 22 else '#7a8899')
+    _rows[-1] = _rows[-1] + (
+        f'<td style="padding:7px 8px;text-align:center;font-family:monospace;'
+        f'color:{_adx_color}">{_adx_v:.1f}</td>' if _adx_v else f'<td>-</td>'
+    )
+    # 加 closing </tr>
+    _rows[-1] = _rows[-1] + '</tr>'
+
+_table_html = (
+    '<div style="overflow-x:auto;background:#0a1628;border:1px solid #1a2f48;'
+    'border-radius:8px;padding:4px;margin-bottom:12px">'
+    '<table style="width:100%;border-collapse:collapse">'
+    '<thead><tr style="background:#0a1828;border-bottom:2px solid #1a3055">'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">TF</th>'
+    '<th style="padding:8px;text-align:right;color:#7ab0d0;font-size:.74rem;font-weight:700">Close</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">④ 推薦策略</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">⑦ 整體 Verdict</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">EMA 排列</th>'
+    '<th style="padding:8px;text-align:left;color:#7ab0d0;font-size:.74rem;font-weight:700">交叉</th>'
+    '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">RSI</th>'
+    '<th style="padding:8px;text-align:center;color:#7ab0d0;font-size:.74rem;font-weight:700">ADX</th>'
+    '</tr></thead>'
+    '<tbody>' + ''.join(_rows) + '</tbody>'
+    '</table></div>'
+)
+if _theme == 'light':
+    _table_html = _convert_html_for_light_mode(_table_html)
+st.markdown(_table_html, unsafe_allow_html=True)
+
+st.divider()
+
+
 # ── 每個 TF 一個 tab ──
 tabs = st.tabs([f"⏱️ {tf}" for tf in timeframes_selected])
 
 for tab, tf in zip(tabs, timeframes_selected):
     with tab:
-        with st.spinner(f"計算 {ticker} @ {tf}..."):
-            df = get_intraday(ticker, tf, market=info['market'])
-            if df is None or len(df) < 30:
-                st.error(f"⚠️ {tf}: 資料不足或抓取失敗（bars={len(df) if df is not None else 0}）")
-                continue
+        # 🆕 v9.32：reuse 上方對齊表 pre-computed 結果（省重複計算）
+        _summ = tf_summaries.get(tf, {})
+        if _summ.get('error'):
+            st.error(f"⚠️ {tf}: {_summ['error']}")
+            continue
+        df = _summ['df']
+        d = _summ['d']
 
-            d = build_d_from_intraday(df, tf=tf, ticker=ticker, market=info['market'])
-
-            if d.get('_error'):
-                st.error(f"⚠️ {tf}: {d['_error']}")
-                continue
-
+        with st.spinner(f"渲染 {tf}..."):
             # 顯示 TF metadata
             cfg = get_tf_config(tf)
             st.caption(
@@ -500,29 +658,16 @@ for tab, tf in zip(tabs, timeframes_selected):
                 st.plotly_chart(main_fig, use_container_width=True,
                                   key=f'_main_zz_plotly_{tf}')
 
-        # 跑完整 tv_app 詳細卡渲染流程
+        # 🆕 v9.32：reuse pre-computed 結果（從 tf_summaries 拿）
         try:
-            gt = judge_trend(d)
-            gp = judge_position(d)
-            gm = judge_momentum(d)
-            ga = judge_aux(d)
-            ts = calc_summary(gt, TREND_W)
-            ps = calc_summary(gp, POSITION_W)
-            ms_b, ms_s, ms_n, _ = calc_summary(gm, MOMENTUM_W)
-            mg = compute_momentum_grade(d)
-            ms = (ms_b, ms_s, ms_n, mg)
-            xs = _calc_aux_summary(ga, AUX_W)
-            tb = round(ts[0] + ps[0] + ms[0] + xs[0], 1)
-            ts_ = round(ts[1] + ps[1] + ms[1] + xs[1], 1)
-            tn_ = round(ts[2] + ps[2] + ms[2] + xs[2], 1)
-            verdict_raw = _rec(tb, ts_)
-            verdict, cap = apply_cap(verdict_raw, d, mg)
-            groups = (gt, gp, gm, ga)
-            summs = (ts, ps, ms, xs)
-            tsumm = (tb, ts_, tn_, verdict)
-
-            # ── ④ 推薦策略 label（tv_app 表格欄那個小 badge）──
-            rec_label, rec_style = get_rec_label(d, ticker=ticker)
+            groups = _summ['groups']
+            summs = _summ['summs']
+            tsumm = _summ['tsumm']
+            cap = _summ['cap']
+            rec_label = _summ['rec_label']
+            rec_style = _summ['rec_style']
+            verdict = _summ['verdict']
+            tb, ts_, tn_, _ = tsumm
             _badge_html = (
                 f'<div style="display:inline-block;{rec_style};'
                 f'padding:5px 12px;border-radius:5px;font-size:.85rem;'
