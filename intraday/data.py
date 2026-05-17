@@ -178,6 +178,16 @@ def get_intraday(ticker: str, tf: str = '5m',
     df = None
     if market == 'tw':
         df = _fetch_fugle(ticker, tf)
+        # 🆕 v9.33：Fugle 預設只抓近 30 天，1d 通常給 20 bars 不夠用 → fallback
+        # 對其他 TF：若給的少於該 TF 合理量也要 fallback
+        _min_bars = {
+            '1m': 100, '5m': 200, '15m': 100,
+            '30m': 100, '1h': 100, '1d': 200,
+        }
+        if df is not None and len(df) < _min_bars.get(tf, 100):
+            print(f"  [intraday] {ticker} {tf}: Fugle 只給 {len(df)} bars "
+                  f"(< {_min_bars.get(tf, 100)}) → fallback yfinance")
+            df = None
 
     # 3. yfinance fallback（US 用 prepost=True 抓含夜盤）
     if df is None or len(df) == 0:
