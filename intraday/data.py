@@ -68,6 +68,7 @@ def _fetch_yfinance(ticker: str, tf: str, market: str,
                       prepost: bool = True) -> Optional[pd.DataFrame]:
     """yfinance 抓取 — US 用裸 ticker、TW 加 .TW
     🆕 v9.32：prepost=True 預設開啟（含夜盤 pre/post-market）
+    🆕 v9.32.1：period fallback 鏈 — 新上市股 730d 會 fail，自動降到 60d
     """
     try:
         import yfinance as yf
@@ -77,30 +78,52 @@ def _fetch_yfinance(ticker: str, tf: str, market: str,
     sym = ticker if market == 'us' else f"{ticker.replace('.TW','')}.TW"
     # TW 股票沒有夜盤（期貨才有），prepost 對 .TW stock 等於 noop
     use_prepost = prepost and market == 'us' and tf != '1d'
-    try:
-        df = yf.download(sym, period=cfg.yf_max_period,
-                         interval=cfg.yf_interval,
-                         progress=False, auto_adjust=False, threads=False,
-                         prepost=use_prepost)   # 🆕 v9.32：夜盤資料
-        if df is None or df.empty:
-            return None
-        # 攤平 multi-index
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        # 移除 tz info（統一）
-        if hasattr(df.index, 'tz') and df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-        # 只保留 OHLCV
-        keep = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in df.columns]
-        if not keep:
-            return None
-        df = df[keep].dropna(how='all')
-        if len(df) == 0:
-            return None
-        return df
-    except Exception as e:
-        print(f"  [intraday] yfinance fail {sym} {tf}: {type(e).__name__}: {str(e)[:60]}")
-        return None
+
+    # period fallback 鏈：依 TF 不同設定多個嘗試 period
+    # 新上市股票如 NVD（GraniteShares 2x Short NVDA）歷史 < 730d 會直接 fail
+    period_chain_by_tf = {
+        '1m':  ['7d'],                                  # yf 硬限制 7d
+        '5m':  ['60d', '30d', '14d'],
+        '15m': ['60d', '30d', '14d'],
+        '30m': ['60d', '30d', '14d'],
+        '1h':  ['730d', '365d', '180d', '60d'],         # 1h 最易 fail
+        '1d':  ['10y', '5y', '2y', '1y', '6mo', '3mo'],
+    }
+    periods_to_try = period_chain_by_tf.get(tf, [cfg.yf_max_period])
+
+    last_err = None
+    for period in periods_to_try:
+        try:
+            df = yf.download(sym, period=period,
+                             interval=cfg.yf_interval,
+                             progress=False, auto_adjust=False, threads=False,
+                             prepost=use_prepost)
+            if df is None or df.empty:
+                continue
+            # 攤平 multi-index
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            # 移除 tz info（統一）
+            if hasattr(df.index, 'tz') and df.index.tz is not None:
+                df.index = df.index.tz_localize(None)
+            # 只保留 OHLCV
+            keep = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in df.columns]
+            if not keep:
+                continue
+            df = df[keep].dropna(how='all')
+            if len(df) == 0:
+                continue
+            # 成功
+            if period != periods_to_try[0]:
+                print(f"  [intraday] {sym} {tf}: 用 fallback period={period} 抓到 {len(df)} bars")
+            return df
+        except Exception as e:
+            last_err = e
+            continue
+
+    if last_err:
+        print(f"  [intraday] yfinance 全部 fallback 都失敗 {sym} {tf}: {type(last_err).__name__}: {str(last_err)[:80]}")
+    return None
 
 
 def _fetch_fugle(ticker: str, tf: str) -> Optional[pd.DataFrame]:
