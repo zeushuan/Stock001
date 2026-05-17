@@ -29,28 +29,30 @@ class TFConfig:
 
 
 # ── 註冊所有 timeframe ──
+# 🆕 v9.32：所有 TF 都 support 所有 pattern（用「bar 數」統一）
+# 30W SMA = 150 bars 在 5m / 1h / 1d 都一樣意義 = 中期趨勢基準
 TIMEFRAMES = {
     '1m': TFConfig(
         code='1m', yf_interval='1m', fugle_freq='1m',
         yf_max_period='7d', minutes_per_bar=1, bars_per_day=390,
         cache_ttl_seconds=60,
-        supports_stage=False, supports_sepa=False, supports_vcp=False,
-        supports_flat_base=False, supports_cup_handle=False,
+        supports_stage=True, supports_sepa=True, supports_vcp=True,
+        supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
     ),
     '5m': TFConfig(
         code='5m', yf_interval='5m', fugle_freq='5m',
         yf_max_period='60d', minutes_per_bar=5, bars_per_day=78,
         cache_ttl_seconds=300,
-        supports_stage=False, supports_sepa=False, supports_vcp=False,
-        supports_flat_base=False, supports_cup_handle=False,
+        supports_stage=True, supports_sepa=True, supports_vcp=True,
+        supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
     ),
     '15m': TFConfig(
         code='15m', yf_interval='15m', fugle_freq='15m',
         yf_max_period='60d', minutes_per_bar=15, bars_per_day=26,
         cache_ttl_seconds=900,
-        supports_stage=False, supports_sepa=False, supports_vcp=True,
+        supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
     ),
@@ -58,7 +60,7 @@ TIMEFRAMES = {
         code='30m', yf_interval='30m', fugle_freq='30m',
         yf_max_period='60d', minutes_per_bar=30, bars_per_day=13,
         cache_ttl_seconds=1800,
-        supports_stage=False, supports_sepa=False, supports_vcp=True,
+        supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
     ),

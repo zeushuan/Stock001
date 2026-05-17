@@ -248,26 +248,20 @@ def build_d_from_intraday(df: pd.DataFrame, tf: str = '5m',
         except Exception:
             pass
 
-    # ── 週線結構：BARS_PER_WEEK[tf] 個 bar 取一根當「週收」──
-    # 5m: 390 bar/week；1h: 32 bar/week；1d: 5 bar/week
+    # ── 週線結構：v9.32 改用「每 5 bar 取一根」(跨 TF 統一) ──
+    # 概念：日線 1 週 = 5 個交易日 = 5 個 bar；同樣的邏輯應用到所有 TF
+    # 5m: 5 個 5m bar = 25 分鐘 = 一個「mini 週」
+    # 1h: 5 個 1h bar = 5 小時 = 一個「mini 週」
+    # 1d: 5 個 1d bar = 一週（原本意義）
+    BARS_PER_INTRADAY_WEEK = 5
     w_close_v = w_ma10_v = w_ma20_v = None
     try:
-        if tf == '1d':
-            # 日線版照原本 resample('W')
-            c_tz = c.copy()
-            if hasattr(c_tz.index, 'tz') and c_tz.index.tz is not None:
-                c_tz.index = c_tz.index.tz_localize(None)
-            wc = c_tz.resample('W').last().dropna()
+        if len(c) >= BARS_PER_INTRADAY_WEEK:
+            n = len(c)
+            start = (n - 1) % BARS_PER_INTRADAY_WEEK
+            wc = c.iloc[start::BARS_PER_INTRADAY_WEEK].dropna()
         else:
-            # Intraday：取每 bars_per_week 個 bar 的最後一根
-            if bars_per_week > 1 and len(c) >= bars_per_week:
-                # 從尾巴往前每 bars_per_week 取一根（保證最後一根落在 wc[-1]）
-                # 用 step + offset 取樣
-                n = len(c)
-                start = (n - 1) % bars_per_week
-                wc = c.iloc[start::bars_per_week].dropna()
-            else:
-                wc = pd.Series(dtype=float)
+            wc = pd.Series(dtype=float)
         if len(wc) >= 20:
             w_close_v = float(wc.iloc[-1])
             w_ma10_v = _last(ta.trend.SMAIndicator(wc, 10).sma_indicator())

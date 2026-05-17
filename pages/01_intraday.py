@@ -369,19 +369,8 @@ for tab, tf in zip(tabs, timeframes_selected):
                 f"📊 **{tf}** ｜ {len(df)} bars ｜ "
                 f"每根 {cfg.minutes_per_bar} 分鐘 ｜ "
                 f"last bar: `{d.get('_intraday_last_ts', '?')}` "
-                f"｜ 週線 resample: {len(df)} bars / {cfg.bars_per_day*5:.0f} bar/week"
+                f"｜ 所有 period 用 bar 數計算（30W SMA = 150 bars，跨 TF 統一意義）"
             )
-
-            # 警告短期 TF 不適用某些指標
-            warnings_list = []
-            if not cfg.supports_stage:
-                warnings_list.append("Stage 分析 (30W SMA) 對 " + tf + " 無意義 → 顯示但不要過度解讀")
-            if not cfg.supports_sepa:
-                warnings_list.append("SEPA Template (52w 高低) 對 " + tf + " 無意義")
-            if d.get('w_close') is None:
-                warnings_list.append("週線資料不足（< 20 週）→ 週線結構欄位會顯示 N/A")
-            if warnings_list:
-                st.warning("⚠️ TF 適用性提示：" + " ｜ ".join(warnings_list))
 
         # 跑完整 tv_app 詳細卡渲染流程
         try:
