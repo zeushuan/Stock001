@@ -20,9 +20,45 @@
     # }
 """
 import numpy as np
+import pandas as pd
 
 
-N_BUFFER = 3  # N 天緩衝（state 必須持續 ≥ N 天才算）
+N_BUFFER = 3  # N 個 bar 緩衝（state 必須持續 ≥ N bar 才算）
+
+
+def _infer_bar_unit(df) -> str:
+    """從 df 時間索引自動偵測 bar 單位字串
+    回傳：'天' / 'h' / '分' / '個 bar'（無法判斷時）
+    對 v9.31 intraday 使用：5m → '個 5 分鐘 bar'、1h → '小時'、1d → '天'
+    """
+    try:
+        if df is None or len(df) < 2:
+            return '個 bar'
+        idx = df.index
+        if not hasattr(idx, '__getitem__'):
+            return '個 bar'
+        # 找近兩根 bar 的中位間隔（避免休市跳空）
+        try:
+            diffs = pd.Series(idx).diff().dropna()
+            if len(diffs) == 0:
+                return '個 bar'
+            # 中位數比較穩
+            median_delta = diffs.median()
+            minutes = median_delta.total_seconds() / 60.0
+        except Exception:
+            delta = idx[-1] - idx[-2]
+            minutes = delta.total_seconds() / 60.0
+        if minutes <= 0:
+            return '個 bar'
+        if minutes >= 1440 * 0.9:   # ≥ 21.6 hrs → 日線（含週末跳)
+            return '天'
+        elif minutes >= 60:
+            hr = int(round(minutes / 60))
+            return f'個 {hr}h bar'
+        else:
+            return f'個 {int(round(minutes))}m bar'
+    except Exception:
+        return '個 bar'
 
 
 def _raw_state_at(df, i):
@@ -156,13 +192,16 @@ def classify_market_state(df, d=None, n_buffer=N_BUFFER):
     close_v = float(df['Close'].iloc[-1])
     gap_pct = (e20_v - e60_v) / e60_v * 100 if e20_v and e60_v else 0
 
+    # 🆕 v9.31：自動偵測 bar 單位（日線 → 「天」、5m → 「個 5m bar」等）
+    bar_unit = _infer_bar_unit(df)
+
     # 描述
     if committed == 'UPTREND':
-        desc = f'多頭排列 + ADX {adx_v:.0f}（≥22 趨勢確立），持續 {days_in_state} 天'
+        desc = f'多頭排列 + ADX {adx_v:.0f}（≥22 趨勢確立），持續 {days_in_state} {bar_unit}'
     elif committed == 'DOWNTREND':
-        desc = f'空頭排列 + ADX {adx_v:.0f}（≥22 趨勢確立），持續 {days_in_state} 天'
+        desc = f'空頭排列 + ADX {adx_v:.0f}（≥22 趨勢確立），持續 {days_in_state} {bar_unit}'
     elif committed == 'TRANSITION':
-        desc = f'狀態變化中（最近 {n_buffer} 天不一致），等明確訊號'
+        desc = f'狀態變化中（最近 {n_buffer} {bar_unit}不一致），等明確訊號'
     else:  # RANGING
         if sub_state == 'RANGING_BULL_BIAS':
             desc = f'EMA 偏多但 ADX {adx_v:.0f} 弱，可能突破向上'
@@ -170,12 +209,14 @@ def classify_market_state(df, d=None, n_buffer=N_BUFFER):
             desc = f'EMA 偏空但 ADX {adx_v:.0f} 弱，可能突破向下'
         else:
             desc = f'EMA 糾纏 + ADX {adx_v:.0f}，方向不明'
-        desc += f'，持續 {days_in_state} 天'
+        desc += f'，持續 {days_in_state} {bar_unit}'
 
     return {
         'state': committed,
         'sub_state': sub_state,
         'days_in_state': days_in_state,
+        'bars_in_state': days_in_state,    # 🆕 v9.31：明確標示「bar 數」
+        'bar_unit': bar_unit,                # 🆕 v9.31：bar 單位字串（'天' / '個 5m bar' 等）
         'state_label': label,
         'state_color': color,
         'state_desc': desc,

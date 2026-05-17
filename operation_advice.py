@@ -1928,12 +1928,13 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             _state_info = classify_market_state(_df_for_state, d)
             _recipes = evaluate_recipes_live(_df_for_state)
 
-            # 三狀態 banner
+            # 三狀態 banner（v9.31：用 bar_unit 取代寫死的「天」）
+            _bar_unit = _state_info.get('bar_unit', '天')
             swing_rows.append(
                 f'<div style="background:#08131f;border-left:4px solid {_state_info["state_color"]};'
                 f'padding:8px 12px;border-radius:4px;margin-top:6px">'
                 f'<b style="color:{_state_info["state_color"]};font-size:.92rem">'
-                f'目前狀態：{_state_info["state_label"]}（持續 {_state_info["days_in_state"]} 天）</b>'
+                f'目前狀態：{_state_info["state_label"]}（持續 {_state_info["days_in_state"]} {_bar_unit}）</b>'
                 f'<div style="color:#a8c0d0;font-size:.74rem;margin-top:3px;line-height:1.5">'
                 f'{_state_info["state_desc"]}'
                 f'</div></div>'
