@@ -477,6 +477,29 @@ for tab, tf in zip(tabs, timeframes_selected):
                 f"｜ 所有 period 用 bar 數計算（30W SMA = 150 bars，跨 TF 統一意義）"
             )
 
+            # 🆕 v9.32：detail card 上方互動式 ZigZag chart（plotly）
+            _main_chart_bars = st.slider(
+                "📊 主圖顯示最後 N bars",
+                min_value=60, max_value=min(500, len(df)),
+                value=min(180, len(df)),
+                step=20, key=f'_main_chart_bars_{tf}',
+            )
+            with st.spinner(f"渲染 {tf} 主 ZigZag chart..."):
+                _atr_global = get_zigzag_atr_mult()
+                main_fig = build_zigzag_chart_plotly(
+                    df,
+                    atr_mult=_atr_global,
+                    title=f'{ticker} {tf} — ZigZag (ATR×{_atr_global:.2f}) + BB + EMA  '
+                          f'｜ 滑鼠 hover 看 OHLC',
+                    max_bars=_main_chart_bars,
+                    show_bb=True,
+                    show_emas=[5, 20, 50, 150, 200],
+                    theme=_theme,
+                )
+            if main_fig is not None:
+                st.plotly_chart(main_fig, use_container_width=True,
+                                  key=f'_main_zz_plotly_{tf}')
+
         # 跑完整 tv_app 詳細卡渲染流程
         try:
             gt = judge_trend(d)

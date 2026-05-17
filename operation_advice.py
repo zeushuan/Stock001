@@ -2636,16 +2636,18 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             swing_rows.append(_build_double_block(_dt, side='bear'))
 
         # 🆕 v9.23：ZigZag 對照圖（W/M/VCP 共用）
-        _zz_data_uri = _build_zigzag_chart_img(d, ticker_local=ticker)
-        if _zz_data_uri:
-            swing_rows.append(
-                f'<div style="margin-top:8px;padding:6px;background:#0a1828;'
-                f'border:1px solid #1a2a3a;border-radius:6px">'
-                f'<div style="font-size:.7rem;color:#7abadd;font-weight:700;'
-                f'margin-bottom:4px">📊 ZigZag 對照圖 — W 底 / M 頂 / VCP 共用視覺</div>'
-                f'<img src="{_zz_data_uri}" style="width:100%;border-radius:4px"/>'
-                f'</div>'
-            )
+        # 🆕 v9.32：intraday 模式時 skip 靜態 PNG（page 用 Plotly 互動圖取代）
+        if not d.get('_intraday_tf'):
+            _zz_data_uri = _build_zigzag_chart_img(d, ticker_local=ticker)
+            if _zz_data_uri:
+                swing_rows.append(
+                    f'<div style="margin-top:8px;padding:6px;background:#0a1628;'
+                    f'border:1px solid #1a2a3a;border-radius:6px">'
+                    f'<div style="font-size:.7rem;color:#7abadd;font-weight:700;'
+                    f'margin-bottom:4px">📊 ZigZag 對照圖 — W 底 / M 頂 / VCP 共用視覺</div>'
+                    f'<img src="{_zz_data_uri}" style="width:100%;border-radius:4px"/>'
+                    f'</div>'
+                )
     except Exception:
         pass
 
