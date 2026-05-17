@@ -479,12 +479,14 @@ def build_zigzag_chart_plotly(
     # ── MACD subplot（row 2，如果有）──
     if _has_macd:
         macd_line, signal_line, hist = macd_plot
-        # Histogram — 顏色：>0 綠、<0 紅；上升中 vs 下降中可再細分
+        macd_vals = macd_line.values
+        signal_vals = signal_line.values
         hist_vals = hist.values
+
+        # Histogram 4 色
         hist_colors = []
         for i, v in enumerate(hist_vals):
             if v >= 0:
-                # 正值：放大用深綠，縮小用淺綠
                 prev_v = hist_vals[i-1] if i > 0 else v
                 hist_colors.append('#26a69a' if v >= prev_v else '#88c8a8')
             else:
@@ -505,13 +507,13 @@ def build_zigzag_chart_plotly(
         ), row=2, col=1)
 
         fig.add_trace(go.Scatter(
-            x=x_pos, y=macd_line.values, mode='lines',
+            x=x_pos, y=macd_vals, mode='lines',
             name='MACD',
             line=dict(color='#3b9eff', width=1.5),
             hovertemplate='MACD: %{y:.4f}<extra></extra>',
         ), row=2, col=1)
         fig.add_trace(go.Scatter(
-            x=x_pos, y=signal_line.values, mode='lines',
+            x=x_pos, y=signal_vals, mode='lines',
             name='Signal',
             line=dict(color='#ff6b35', width=1.3),
             hovertemplate='Signal: %{y:.4f}<extra></extra>',
@@ -519,6 +521,64 @@ def build_zigzag_chart_plotly(
         # 零軸虛線
         fig.add_hline(y=0, line=dict(color='#7a8899', width=0.7, dash='dot'),
                        row=2, col=1, opacity=0.5)
+
+        # 🆕 v9.32：MACD 黃金交叉 / 死亡交叉 偵測
+        gold_xs, gold_ys, gold_texts = [], [], []     # MACD 上穿 Signal
+        death_xs, death_ys, death_texts = [], [], []  # MACD 下穿 Signal
+        for i in range(1, len(macd_vals)):
+            if any(np.isnan(x) for x in (macd_vals[i], signal_vals[i],
+                                            macd_vals[i-1], signal_vals[i-1])):
+                continue
+            prev_diff = macd_vals[i-1] - signal_vals[i-1]
+            curr_diff = macd_vals[i] - signal_vals[i]
+            if prev_diff <= 0 and curr_diff > 0:
+                # 黃金交叉
+                gold_xs.append(i)
+                gold_ys.append(macd_vals[i])
+                gold_texts.append(
+                    f'<b>🟢 黃金交叉</b><br>{ts_strs[i]}<br>'
+                    f'MACD: {macd_vals[i]:.4f}<br>Signal: {signal_vals[i]:.4f}'
+                )
+            elif prev_diff >= 0 and curr_diff < 0:
+                # 死亡交叉
+                death_xs.append(i)
+                death_ys.append(macd_vals[i])
+                death_texts.append(
+                    f'<b>🔴 死亡交叉</b><br>{ts_strs[i]}<br>'
+                    f'MACD: {macd_vals[i]:.4f}<br>Signal: {signal_vals[i]:.4f}'
+                )
+
+        # MACD subplot 上的 marker
+        if gold_xs:
+            fig.add_trace(go.Scatter(
+                x=gold_xs, y=gold_ys, mode='markers',
+                name=f'🟢 黃金交叉 ({len(gold_xs)})',
+                marker=dict(
+                    symbol='triangle-up', size=12,
+                    color='#3dbb6a',
+                    line=dict(color='#0a4a14', width=1.5),
+                ),
+                text=gold_texts, hoverinfo='text',
+            ), row=2, col=1)
+        if death_xs:
+            fig.add_trace(go.Scatter(
+                x=death_xs, y=death_ys, mode='markers',
+                name=f'🔴 死亡交叉 ({len(death_xs)})',
+                marker=dict(
+                    symbol='triangle-down', size=12,
+                    color='#ff5555',
+                    line=dict(color='#4a0a0a', width=1.5),
+                ),
+                text=death_texts, hoverinfo='text',
+            ), row=2, col=1)
+
+        # 在 Price chart (row 1) 加細虛線標出 cross 點（可看價格對應位置）
+        for cx in gold_xs:
+            fig.add_vline(x=cx, line=dict(color='#3dbb6a', width=0.8, dash='dot'),
+                           row=1, col=1, opacity=0.35)
+        for cx in death_xs:
+            fig.add_vline(x=cx, line=dict(color='#ff5555', width=0.8, dash='dot'),
+                           row=1, col=1, opacity=0.35)
 
     # ── Volume bar chart（row 2 or 3）──
     vol_row = 3 if _has_macd else 2
