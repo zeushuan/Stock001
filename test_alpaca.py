@@ -1,7 +1,7 @@
-"""Alpaca 連線測試腳本
-========================
+"""資料源連線測試腳本（Alpaca + Polygon）
+========================================
 
-填好 .env 的 ALPACA_API_KEY / ALPACA_API_SECRET 後執行：
+填好 .env 後執行：
   python test_alpaca.py
 """
 import sys, io, os
@@ -13,7 +13,9 @@ except Exception:
 
 from intraday.data import (
     _has_alpaca, _fetch_alpaca, get_intraday,
+    _has_polygon, _fetch_polygon,
     ALPACA_API_KEY, ALPACA_API_SECRET, ALPACA_PAPER,
+    POLYGON_API_KEY,
 )
 
 print('═' * 60)
@@ -56,13 +58,33 @@ post_bars = df[(df['hour_utc'] >= 20)]
 print(f'  Pre-market bars (~UTC 8-13): {len(pre_bars)}')
 print(f'  After-hours bars (~UTC 20-24): {len(post_bars)}')
 
-# 4. 用 get_intraday 完整流程
-print(f'\n[4] 透過 get_intraday() 完整流程（會走快取）:')
-df2 = get_intraday('NVDA', '5m', market='us', refresh=True)
+# 4. Polygon 測試
+print(f'\n[4] Polygon.io 設定:')
+print(f'  POLYGON_API_KEY: {"✅ 已設" if POLYGON_API_KEY else "❌ 未設"}'
+      f'{f" ({POLYGON_API_KEY[:8]}...)" if POLYGON_API_KEY else ""}')
+print(f'  _has_polygon():  {_has_polygon()}')
+
+if _has_polygon():
+    print(f'\n[5] Polygon 抓 SOXS 1m (含 overnight):')
+    df_pg = _fetch_polygon('SOXS', '1m')
+    if df_pg is None or len(df_pg) == 0:
+        print('  ❌ Polygon 沒回資料（可能 free tier 限制 / API key 無效）')
+    else:
+        print(f'  ✅ 抓到 {len(df_pg)} bars')
+        print(f'  最早: {df_pg.index[0]}')
+        print(f'  最新: {df_pg.index[-1]}')
+        print(f'  最新 5 bars:')
+        print(df_pg.tail(5).to_string())
+else:
+    print(f'\n[5] Polygon 跳過（key 未設）')
+
+# 6. get_intraday 完整三路合併
+print(f'\n[6] 透過 get_intraday() 完整流程（三路智能合併）:')
+df2 = get_intraday('SOXS', '5m', market='us', refresh=True)
 if df2 is not None:
     print(f'  ✅ 拿到 {len(df2)} bars')
-    print(f'  最新 bar: {df2.index[-1]} Close ${df2["Close"].iloc[-1]:.2f}')
+    print(f'  最新 bar: {df2.index[-1]} Close ${df2["Close"].iloc[-1]:.4f}')
 else:
     print(f'  ❌ get_intraday 失敗')
 
-print('\n✅ Alpaca 整合測試完成！')
+print('\n✅ 資料源整合測試完成！')

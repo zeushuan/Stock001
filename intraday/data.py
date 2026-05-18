@@ -77,6 +77,26 @@ def _get_alpaca_client():
     return _alpaca_client
 
 
+# ─── 🆕 v9.44 Polygon.io config (overnight ETF 覆蓋) ────────────
+POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY', '').strip()
+
+def _has_polygon() -> bool:
+    return bool(POLYGON_API_KEY)
+
+_polygon_client = None
+def _get_polygon_client():
+    """Lazy init Polygon RESTClient"""
+    global _polygon_client
+    if _polygon_client is None and _has_polygon():
+        try:
+            from polygon import RESTClient
+            _polygon_client = RESTClient(POLYGON_API_KEY)
+        except Exception as e:
+            print(f"  [polygon] init 失敗: {type(e).__name__}: {e}")
+            _polygon_client = None
+    return _polygon_client
+
+
 def _detect_market(ticker: str) -> str:
     """簡單判斷 ticker 屬於哪個市場"""
     t = ticker.upper()
@@ -175,6 +195,82 @@ def _load_cache(path: Path) -> Optional[pd.DataFrame]:
     try:
         return pd.read_parquet(path)
     except Exception:
+        return None
+
+
+def _fetch_polygon(ticker: str, tf: str) -> Optional[pd.DataFrame]:
+    """🆕 v9.44 Polygon.io fetcher — 覆蓋 ARCA Overnight + Extended Hours
+
+    免費版限制：
+      - 5 calls/分鐘
+      - 15-min 延遲
+      - 2 年歷史
+      - 但 **包含 20:00-04:00 ET ARCA Overnight bars**（其他 free source 沒有）
+
+    Args:
+        ticker: 股票代號（US）
+        tf: timeframe ('1m', '5m', '15m', '30m', '1h', '4h', '1d')
+
+    Returns: DataFrame 或 None
+    """
+    if not _has_polygon():
+        return None
+    client = _get_polygon_client()
+    if client is None:
+        return None
+
+    # TF mapping → Polygon (multiplier, timespan)
+    tf_map = {
+        '1m':  (1,   'minute'),
+        '5m':  (5,   'minute'),
+        '15m': (15,  'minute'),
+        '30m': (30,  'minute'),
+        '1h':  (1,   'hour'),
+        '4h':  (4,   'hour'),
+        '1d':  (1,   'day'),
+    }
+    if tf not in tf_map:
+        return None
+    multiplier, timespan = tf_map[tf]
+
+    # 抓多少歷史
+    days_map = {
+        '1m':  7, '5m': 30, '15m': 60, '30m': 60,
+        '1h':  365, '4h': 365, '1d': 365,    # free 限 2 年，留 buffer
+    }
+    days_back = days_map.get(tf, 30)
+    end = datetime.now(timezone.utc).date()
+    start = end - timedelta(days=days_back)
+
+    try:
+        aggs = client.list_aggs(
+            ticker=ticker,
+            multiplier=multiplier,
+            timespan=timespan,
+            from_=start.isoformat(),
+            to=end.isoformat(),
+            adjusted=True,
+            sort='asc',
+            limit=50000,
+        )
+        rows = []
+        for a in aggs:
+            # Polygon 用 ms timestamp
+            ts = pd.Timestamp(a.timestamp, unit='ms', tz='UTC').tz_localize(None)
+            rows.append({
+                'time': ts,
+                'Open': float(a.open),
+                'High': float(a.high),
+                'Low':  float(a.low),
+                'Close': float(a.close),
+                'Volume': float(a.volume) if a.volume else 0,
+            })
+        if not rows:
+            return None
+        df = pd.DataFrame(rows).set_index('time').sort_index()
+        return df if len(df) > 0 else None
+    except Exception as e:
+        print(f"  [polygon] {ticker} {tf}: {type(e).__name__}: {str(e)[:80]}")
         return None
 
 
@@ -429,39 +525,60 @@ def get_intraday(ticker: str, tf: str = '5m',
                   f"(< {_min_bars.get(tf, 100)}) → fallback yfinance")
             df = None
 
-    # 🆕 v9.42：US 優先 Alpaca（真即時 + 完整夜盤）
+    # 🆕 v9.42-44：US 三路智能合併 (Alpaca 即時 + yfinance 盤後 + Polygon overnight)
     if (df is None or len(df) == 0) and market == 'us' and _has_alpaca():
         df = _fetch_alpaca(ticker, tf, prepost=prepost)
         if df is not None and len(df) > 0:
             print(f"  [intraday] {ticker} {tf}: Alpaca 抓到 {len(df)} bars（真即時+夜盤）")
 
-            # 🆕 v9.43：智能合併 — 若 Alpaca 最新 bar 超過 30 分鐘前，
-            # 補抓 yfinance 取最新盤後 bars
-            #（Paper 帳戶 IEX feed 對 ARCA / NASDAQ ETF 的盤後覆蓋不完整）
+            now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+            def _merge_in(df_base, df_new, src_name):
+                """把 df_new 合進 df_base，回傳 (df_merged, n_added)"""
+                if df_new is None or len(df_new) == 0:
+                    return df_base, 0
+                last_old = df_base.index[-1]
+                last_new = df_new.index[-1]
+                if last_new <= last_old:
+                    return df_base, 0
+                merged = pd.concat([df_base, df_new]).sort_index()
+                merged = merged[~merged.index.duplicated(keep='last')]
+                n_added = (merged.index > last_old).sum()
+                return merged, n_added
+
             try:
                 last_alpaca = df.index[-1]
-                if isinstance(last_alpaca, pd.Timestamp):
-                    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-                    age_min = (now_utc - last_alpaca).total_seconds() / 60
-                    # 若 Alpaca 最新 bar 距今 > 30 分鐘，且 tf < 4h 才補抓
-                    if age_min > 30 and tf in ('1m', '5m', '15m', '30m', '1h'):
-                        df_yf = _fetch_yfinance(ticker, tf, market, prepost=prepost)
-                        if df_yf is not None and len(df_yf) > 0:
-                            last_yf = df_yf.index[-1]
-                            if last_yf > last_alpaca:
-                                # yfinance 有更新的盤後 bars → 合併
-                                merged = pd.concat([df, df_yf]).sort_index()
-                                merged = merged[~merged.index.duplicated(keep='last')]
-                                new_bars = (merged.index > last_alpaca).sum()
-                                print(f"  [intraday] {ticker} {tf}: 補 yfinance "
-                                      f"{new_bars} 個盤後 bars（最新 {last_yf}）")
-                                df = merged
-            except Exception as _merge_err:
-                print(f"  [intraday] 合併 yfinance 失敗: {type(_merge_err).__name__}")
+                age_min = (now_utc - last_alpaca).total_seconds() / 60
 
-    # 3. yfinance fallback（US 用 prepost=True 抓含夜盤）
+                # 🆕 v9.43：若 Alpaca 最新 bar > 30 min 前，補 yfinance 盤後
+                if age_min > 30 and tf in ('1m', '5m', '15m', '30m', '1h'):
+                    df_yf = _fetch_yfinance(ticker, tf, market, prepost=prepost)
+                    df, n_yf = _merge_in(df, df_yf, 'yfinance')
+                    if n_yf > 0:
+                        print(f"  [intraday] {ticker} {tf}: 補 yfinance {n_yf} 個盤後 bars "
+                              f"(最新 {df.index[-1]})")
+
+                # 🆕 v9.44：若仍 > 30 min 前，補 Polygon (overnight)
+                last_after_yf = df.index[-1]
+                age_after_yf = (now_utc - last_after_yf).total_seconds() / 60
+                if age_after_yf > 30 and _has_polygon() and tf in ('1m','5m','15m','30m','1h'):
+                    df_pg = _fetch_polygon(ticker, tf)
+                    df, n_pg = _merge_in(df, df_pg, 'polygon')
+                    if n_pg > 0:
+                        print(f"  [intraday] {ticker} {tf}: 補 Polygon {n_pg} 個 overnight bars "
+                              f"(最新 {df.index[-1]})")
+            except Exception as _merge_err:
+                print(f"  [intraday] 智能合併失敗: {type(_merge_err).__name__}: {_merge_err}")
+
+    # 3. yfinance fallback（無 Alpaca 時走 yfinance）
     if df is None or len(df) == 0:
         df = _fetch_yfinance(ticker, tf, market, prepost=prepost)
+
+    # 🆕 v9.44：若連 yfinance 都失敗，最後試 Polygon
+    if (df is None or len(df) == 0) and market == 'us' and _has_polygon():
+        df = _fetch_polygon(ticker, tf)
+        if df is not None and len(df) > 0:
+            print(f"  [intraday] {ticker} {tf}: Polygon fallback 抓到 {len(df)} bars")
 
     # 4. 仍然失敗 → 試讀過期快取（總比沒有好）
     if df is None or len(df) == 0:
