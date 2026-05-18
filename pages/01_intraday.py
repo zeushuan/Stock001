@@ -46,6 +46,10 @@ if 'selected_ticker_intraday' not in st.session_state:
 if 'intraday_theme_mode' not in st.session_state:
     st.session_state['intraday_theme_mode'] = 'auto'
 
+# 🆕 v9.42：自動刷新（Alpaca 真即時，配合短 cache TTL）
+if 'autorefresh_seconds' not in st.session_state:
+    st.session_state['autorefresh_seconds'] = 0    # 預設關閉
+
 
 # 🆕 v9.32：HTML 端硬性替換深色 hex（CSS attribute selector 對 inline style 不可靠）
 # 把 detail_card_render / operation_advice 產生的 HTML 內的深色背景/文字 hex
@@ -275,9 +279,31 @@ def _build_light_css() -> str:
 """
 
 
-# ── 主題 toggle ──
-_t1, _t2 = st.columns([5, 1])
+# ── 主題 toggle + 自動刷新 ──
+_t1, _t2, _t3 = st.columns([4, 1.2, 1])
 with _t2:
+    # 🆕 v9.42：自動刷新（盤中真即時更新）
+    _refresh_choice = st.radio(
+        '🔄 自動刷新',
+        options=['關閉', '30s', '60s', '5min'],
+        index={0:0, 30:1, 60:2, 300:3}.get(
+            st.session_state['autorefresh_seconds'], 0),
+        horizontal=True,
+        key='_autorefresh_radio',
+        help='盤中即時更新 — Alpaca 真即時資料 (paper IEX feed)',
+    )
+    _refresh_map = {'關閉': 0, '30s': 30, '60s': 60, '5min': 300}
+    st.session_state['autorefresh_seconds'] = _refresh_map[_refresh_choice]
+    if st.session_state['autorefresh_seconds'] > 0:
+        try:
+            from streamlit_autorefresh import st_autorefresh
+            st_autorefresh(
+                interval=st.session_state['autorefresh_seconds'] * 1000,
+                key='_intraday_refresh_counter',
+            )
+        except ImportError:
+            st.caption('⚠️ 需 pip install streamlit-autorefresh')
+with _t3:
     _theme_choice = st.radio(
         '🌓 主題',
         options=['Auto', 'Dark', 'Light'],

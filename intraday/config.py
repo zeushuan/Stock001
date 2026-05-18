@@ -35,7 +35,7 @@ TIMEFRAMES = {
     '1m': TFConfig(
         code='1m', yf_interval='1m', fugle_freq='1m',
         yf_max_period='7d', minutes_per_bar=1, bars_per_day=390,
-        cache_ttl_seconds=60,
+        cache_ttl_seconds=15,    # 🆕 v9.42: Alpaca 真即時 → 15s TTL
         supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
@@ -43,7 +43,7 @@ TIMEFRAMES = {
     '5m': TFConfig(
         code='5m', yf_interval='5m', fugle_freq='5m',
         yf_max_period='60d', minutes_per_bar=5, bars_per_day=78,
-        cache_ttl_seconds=300,
+        cache_ttl_seconds=60,    # 🆕 v9.42: 60s
         supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
@@ -51,7 +51,7 @@ TIMEFRAMES = {
     '15m': TFConfig(
         code='15m', yf_interval='15m', fugle_freq='15m',
         yf_max_period='60d', minutes_per_bar=15, bars_per_day=26,
-        cache_ttl_seconds=900,
+        cache_ttl_seconds=180,   # 🆕 v9.42: 3min
         supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,
@@ -59,7 +59,7 @@ TIMEFRAMES = {
     '30m': TFConfig(
         code='30m', yf_interval='30m', fugle_freq='30m',
         yf_max_period='60d', minutes_per_bar=30, bars_per_day=13,
-        cache_ttl_seconds=1800,
+        cache_ttl_seconds=300,   # 🆕 v9.42: 5min
         supports_stage=True, supports_sepa=True, supports_vcp=True,
         supports_flat_base=True, supports_cup_handle=True,
         supports_orb=True, supports_vwap_session=True,

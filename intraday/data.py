@@ -1,7 +1,9 @@
-"""Intraday Data Layer — Stock001 v9.29
+"""Intraday Data Layer — Stock001 v9.42
 ========================================
 
-統一資料取得介面。TW 走 fugle_connector，US 走 yfinance。
+統一資料取得介面。
+TW: fugle_connector
+US: 🆕 v9.42 優先 Alpaca (真即時 + 含 pre/post-hours)，fallback yfinance
 共用 intraday_cache/{ticker}_{freq}.parquet 快取。
 
 對外 API：
@@ -11,7 +13,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 import pandas as pd
@@ -19,8 +21,60 @@ import numpy as np
 
 from intraday.config import TIMEFRAMES, get_tf_config
 
+
+# ─── .env loader (沿用 fugle_connector 模式) ─────────────────────
+def _load_env():
+    env_file = Path(__file__).parent.parent / '.env'
+    if env_file.exists():
+        for line in env_file.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'): continue
+            if '=' in line:
+                k, _, v = line.partition('=')
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+def _load_streamlit_secrets():
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets'):
+            for key in ('ALPACA_API_KEY', 'ALPACA_API_SECRET', 'ALPACA_PAPER'):
+                try:
+                    v = st.secrets.get(key, None)
+                    if v: os.environ.setdefault(key, str(v))
+                except Exception:
+                    pass
+    except ImportError:
+        pass
+
+_load_env()
+_load_streamlit_secrets()
+
+
 CACHE_DIR = Path(__file__).parent.parent / 'intraday_cache'
 CACHE_DIR.mkdir(exist_ok=True)
+
+
+# ─── Alpaca config ──────────────────────────────────────────────
+ALPACA_API_KEY = os.environ.get('ALPACA_API_KEY', '').strip()
+ALPACA_API_SECRET = os.environ.get('ALPACA_API_SECRET', '').strip()
+ALPACA_PAPER = os.environ.get('ALPACA_PAPER', 'true').lower() == 'true'
+
+def _has_alpaca() -> bool:
+    return bool(ALPACA_API_KEY) and bool(ALPACA_API_SECRET)
+
+_alpaca_client = None
+def _get_alpaca_client():
+    """Lazy init Alpaca StockHistoricalDataClient"""
+    global _alpaca_client
+    if _alpaca_client is None and _has_alpaca():
+        try:
+            from alpaca.data.historical import StockHistoricalDataClient
+            _alpaca_client = StockHistoricalDataClient(
+                ALPACA_API_KEY, ALPACA_API_SECRET)
+        except Exception as e:
+            print(f"  [alpaca] init 失敗: {type(e).__name__}: {e}")
+            _alpaca_client = None
+    return _alpaca_client
 
 
 def _detect_market(ticker: str) -> str:
@@ -121,6 +175,96 @@ def _load_cache(path: Path) -> Optional[pd.DataFrame]:
     try:
         return pd.read_parquet(path)
     except Exception:
+        return None
+
+
+def _fetch_alpaca(ticker: str, tf: str, prepost: bool = True) -> Optional[pd.DataFrame]:
+    """🆕 v9.42 Alpaca Markets fetcher — 真即時 + 含 pre/post-hours
+
+    Alpaca 優勢：
+      - 真即時資料（vs yfinance 15min 延遲）
+      - 完整 4 AM-8 PM ET 含 pre/post-market
+      - 免費 paper trading 帳戶就有 IEX feed
+      - 1m / 5m / 15m / 30m / 1h / 1d 全支援
+
+    Args:
+        ticker: 股票代號（US，如 'NVDA'）
+        tf: timeframe
+        prepost: 是否含夜盤（Alpaca 預設都含，此參數保留相容性）
+
+    Returns: pandas DataFrame 或 None
+    """
+    if not _has_alpaca():
+        return None
+    client = _get_alpaca_client()
+    if client is None:
+        return None
+
+    try:
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+        from alpaca.data.enums import DataFeed
+    except Exception:
+        return None
+
+    # TF mapping
+    tf_map = {
+        '1m':  TimeFrame.Minute,
+        '5m':  TimeFrame(5,  TimeFrameUnit.Minute),
+        '15m': TimeFrame(15, TimeFrameUnit.Minute),
+        '30m': TimeFrame(30, TimeFrameUnit.Minute),
+        '1h':  TimeFrame.Hour,
+        '4h':  TimeFrame(4,  TimeFrameUnit.Hour),
+        '1d':  TimeFrame.Day,
+    }
+    if tf not in tf_map:
+        return None
+    timeframe = tf_map[tf]
+
+    # 抓多少歷史？(配合 yfinance 慣例)
+    days_map = {
+        '1m':  7, '5m': 60, '15m': 60, '30m': 60,
+        '1h':  730, '4h': 730, '1d': 3650,
+    }
+    days_back = days_map.get(tf, 60)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=days_back)
+
+    # feed: paper 帳戶用 'iex'，live 用 'sip'
+    feed = DataFeed.IEX if ALPACA_PAPER else DataFeed.SIP
+
+    try:
+        req = StockBarsRequest(
+            symbol_or_symbols=ticker,
+            timeframe=timeframe,
+            start=start,
+            end=end,
+            feed=feed,
+        )
+        bars = client.get_stock_bars(req)
+        df = bars.df
+        if df is None or len(df) == 0:
+            return None
+
+        # 處理 multi-index (symbol, timestamp)
+        if isinstance(df.index, pd.MultiIndex):
+            df = df.droplevel('symbol')
+
+        # tz strip
+        if hasattr(df.index, 'tz') and df.index.tz is not None:
+            df.index = df.index.tz_convert(None) if df.index.tz else df.index
+            df.index = df.index.tz_localize(None)
+
+        # 統一欄位 capitalize
+        rename_map = {'open':'Open','high':'High','low':'Low',
+                       'close':'Close','volume':'Volume'}
+        df = df.rename(columns=rename_map)
+        keep = [c for c in ['Open','High','Low','Close','Volume'] if c in df.columns]
+        if not keep: return None
+        df = df[keep].dropna(how='all')
+        return df if len(df) > 0 else None
+    except Exception as e:
+        print(f"  [alpaca] {ticker} {tf}: {type(e).__name__}: {str(e)[:80]}")
         return None
 
 
@@ -284,6 +428,12 @@ def get_intraday(ticker: str, tf: str = '5m',
             print(f"  [intraday] {ticker} {tf}: Fugle 只給 {len(df)} bars "
                   f"(< {_min_bars.get(tf, 100)}) → fallback yfinance")
             df = None
+
+    # 🆕 v9.42：US 優先 Alpaca（真即時 + 完整夜盤）
+    if (df is None or len(df) == 0) and market == 'us' and _has_alpaca():
+        df = _fetch_alpaca(ticker, tf, prepost=prepost)
+        if df is not None and len(df) > 0:
+            print(f"  [intraday] {ticker} {tf}: Alpaca 抓到 {len(df)} bars（真即時+夜盤）")
 
     # 3. yfinance fallback（US 用 prepost=True 抓含夜盤）
     if df is None or len(df) == 0:
