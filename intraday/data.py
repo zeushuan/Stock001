@@ -435,6 +435,30 @@ def get_intraday(ticker: str, tf: str = '5m',
         if df is not None and len(df) > 0:
             print(f"  [intraday] {ticker} {tf}: Alpaca 抓到 {len(df)} bars（真即時+夜盤）")
 
+            # 🆕 v9.43：智能合併 — 若 Alpaca 最新 bar 超過 30 分鐘前，
+            # 補抓 yfinance 取最新盤後 bars
+            #（Paper 帳戶 IEX feed 對 ARCA / NASDAQ ETF 的盤後覆蓋不完整）
+            try:
+                last_alpaca = df.index[-1]
+                if isinstance(last_alpaca, pd.Timestamp):
+                    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                    age_min = (now_utc - last_alpaca).total_seconds() / 60
+                    # 若 Alpaca 最新 bar 距今 > 30 分鐘，且 tf < 4h 才補抓
+                    if age_min > 30 and tf in ('1m', '5m', '15m', '30m', '1h'):
+                        df_yf = _fetch_yfinance(ticker, tf, market, prepost=prepost)
+                        if df_yf is not None and len(df_yf) > 0:
+                            last_yf = df_yf.index[-1]
+                            if last_yf > last_alpaca:
+                                # yfinance 有更新的盤後 bars → 合併
+                                merged = pd.concat([df, df_yf]).sort_index()
+                                merged = merged[~merged.index.duplicated(keep='last')]
+                                new_bars = (merged.index > last_alpaca).sum()
+                                print(f"  [intraday] {ticker} {tf}: 補 yfinance "
+                                      f"{new_bars} 個盤後 bars（最新 {last_yf}）")
+                                df = merged
+            except Exception as _merge_err:
+                print(f"  [intraday] 合併 yfinance 失敗: {type(_merge_err).__name__}")
+
     # 3. yfinance fallback（US 用 prepost=True 抓含夜盤）
     if df is None or len(df) == 0:
         df = _fetch_yfinance(ticker, tf, market, prepost=prepost)
