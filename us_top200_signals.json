@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-05-15",
-  "computed_at": "2026-05-15 23:03:39",
+  "computed_at": "2026-05-18 08:55:53",
   "top_total": 200,
   "entry": [
     {
@@ -439,14 +439,13 @@
     {
       "ticker": "ACLX",
       "name": "Arcellx, Inc.",
-      "close": 115.07,
+      "close": NaN,
       "rsi": 79.9,
       "ema20_cross_days": 48,
-      "delta": 65.9,
+      "delta": NaN,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 4,
       "t3_confidence_hits": [
-        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -458,6 +457,13 @@
           "side": "bull",
           "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
           "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+          "quality_score": 30.0
+        },
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
           "quality_score": 30.0
         }
       ]
@@ -1793,11 +1799,21 @@
     {
       "ticker": "ACLX",
       "name": "Arcellx, Inc.",
-      "close": 115.07,
+      "close": NaN,
       "level": 2,
       "side": "bull",
       "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
       "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "ACLX",
+      "name": "Arcellx, Inc.",
+      "close": NaN,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
       "quality_score": 30.0
     },
     {
