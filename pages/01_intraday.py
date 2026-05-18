@@ -914,7 +914,7 @@ for tab, tf in zip(tabs, timeframes_selected):
                 _main_chart_bars = st.slider(
                     "📊 主圖顯示最後 N bars",
                     min_value=60, max_value=min(500, len(df)),
-                    value=min(180, len(df)),
+                    value=min(60, len(df)),    # 🆕 v9.45 預設 60 (避免 Plotly JSON 太大)
                     step=20, key=f'_main_chart_bars_{tf}',
                 )
             with _main_cols[1]:
@@ -957,8 +957,16 @@ for tab, tf in zip(tabs, timeframes_selected):
                     reentry_events=_reentry_events_main,
                 )
             if main_fig is not None:
-                st.plotly_chart(main_fig, use_container_width=True,
-                                  key=f'_main_zz_plotly_{tf}')
+                # 🆕 v9.45：Plotly 渲染 try/except + 簡化備援
+                try:
+                    st.plotly_chart(main_fig, use_container_width=True,
+                                      key=f'_main_zz_plotly_{tf}')
+                except Exception as _plot_err:
+                    st.warning(
+                        f'⚠️ Plotly 渲染失敗：{type(_plot_err).__name__}: '
+                        f'{str(_plot_err)[:120]}。請減少「主圖顯示最後 N bars」'
+                        f'（建議 60-100）或關閉 MACD'
+                    )
                 # 🆕 v9.34：波段獲利回測統計（look-forward swing exit）
                 if _swing_trades_main:
                     _stats = summarize_trades(_swing_trades_main)

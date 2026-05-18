@@ -537,6 +537,14 @@ def build_zigzag_chart_plotly(
     # if pivots:
     #     fig.add_trace(go.Scatter(...))   # 不再 add
 
+    # 🆕 v9.45：hover text 安全化（防 Plotly JSON \u escape 錯誤）
+    def _safe_text(s):
+        if s is None: return ''
+        s = str(s)
+        # 移除可能造成 JSON Unicode escape 問題的字元
+        s = s.replace('\\', '/').replace('\x00', '')
+        return s
+
     # ── 🆕 v9.33：戰法歷史 entry/exit markers ──
     if swing_trades:
         # 轉換 trade 的時間到 plot position
@@ -555,11 +563,11 @@ def build_zigzag_chart_plotly(
                     continue
                 entry_xs.append(e_pos)
                 entry_ys.append(tr['entry_price'] * 0.997)   # 標在 bar 下方
-                entry_texts.append(
+                entry_texts.append(_safe_text(
                     f"<b>🟢 進場 {tr['entry_mode']}</b><br>"
                     f"{e_ts.strftime('%Y-%m-%d %H:%M')}<br>"
                     f"Entry: ${tr['entry_price']:.4f}"
-                )
+                ))
 
                 if tr.get('exit_idx') is not None:
                     x_ts = pd.to_datetime(tr['exit_time'])
@@ -574,14 +582,14 @@ def build_zigzag_chart_plotly(
                         else:
                             exit_colors.append('#ff5555')
                             color_emoji = '🛑'
-                        exit_texts.append(
+                        exit_texts.append(_safe_text(
                             f"<b>{color_emoji} 出場</b><br>"
                             f"{x_ts.strftime('%Y-%m-%d %H:%M')}<br>"
                             f"Exit: ${tr['exit_price']:.4f}<br>"
                             f"P/L: {tr['pnl_pct']:+.2f}%<br>"
                             f"Reason: {tr['exit_reason']}<br>"
                             f"Holding: {tr['holding_bars']} bars"
-                        )
+                        ))
                         # 連線
                         line_color = '#3dbb6a' if tr['pnl_pct'] > 0 else '#ff5555'
                         line_segments_x.extend([e_pos, x_pos_v, None])
@@ -640,12 +648,12 @@ def build_zigzag_chart_plotly(
                     continue
                 re_xs.append(pos)
                 re_ys.append(ev['price'] * 1.008)
-                re_texts.append(
+                re_texts.append(_safe_text(
                     f"<b>🔄 加碼: EMA5 反轉</b><br>"
                     f"{ts.strftime('%Y-%m-%d %H:%M')}<br>"
                     f"${ev['price']:.4f}<br>"
                     f"建議 33% 部位"
-                )
+                ))
             except Exception:
                 continue
         if re_xs:
