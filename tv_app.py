@@ -6584,7 +6584,7 @@ for item in results:
                         _df_for_chart,
                         atr_mult=_atr_v,
                         title=f'{ticker} 1d — ZigZag (ATR×{_atr_v:.2f}) + BB + EMA  ｜ hover 看 OHLC',
-                        max_bars=180,
+                        max_bars=80,    # 🆕 v9.46: 180 → 80 (精簡顯示 + 防 Plotly JSON 過大)
                         show_bb=True,
                         show_emas=[5, 20, 60, 150, 200],
                         show_macd=True,

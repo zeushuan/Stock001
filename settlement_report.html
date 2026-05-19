@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>倍數 ETF 進場時機分析報告</title>
+<style>
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei',
+                  'PingFang TC', sans-serif;
+    background: #0a1020;
+    color: #e8f4fd;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 30px 24px; }
+h1 {
+    font-size: 2.2rem; color: #5dccdd; margin-top: 0;
+    border-bottom: 3px solid #1a3055; padding-bottom: 14px;
+}
+h2 {
+    color: #f0c030; font-size: 1.5rem; margin-top: 36px;
+    border-left: 5px solid #f0c030; padding-left: 12px;
+}
+h3 { color: #5dccdd; font-size: 1.15rem; }
+.subtitle { color: #7ab0d0; font-size: 1rem; margin-top: -10px; }
+.meta {
+    background: #0a1828;
+    border: 1px solid #1a3055;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 0.88rem;
+    color: #a8c0d0;
+}
+.meta b { color: #5dccdd; }
+.tldr {
+    background: linear-gradient(135deg, #1a3055 0%, #0d2a14 100%);
+    border-left: 5px solid #3dbb6a;
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 24px 0;
+}
+.tldr h2 { color: #3dbb6a; border: none; padding: 0; margin-top: 0; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #0a1628;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 14px 0;
+    font-size: 0.88rem;
+}
+th {
+    background: #1a3055;
+    color: #5dccdd;
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 700;
+    border-bottom: 2px solid #2a4f8f;
+}
+td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #1a2f48;
+    font-family: 'IBM Plex Mono', 'Consolas', monospace;
+}
+tr:hover td { background: #0d1f33; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tk { color: #5dccdd; font-weight: 700; }
+.green { color: #3dbb6a; }
+.cyan { color: #5dccdd; }
+.amber { color: #e8a020; }
+.red { color: #ff5555; }
+.gold { color: #f0c030; }
+.gray { color: #7a8899; }
+.bar {
+    display: inline-block;
+    height: 12px;
+    background: linear-gradient(90deg, #1a3055 0%, #5dccdd 100%);
+    border-radius: 3px;
+    vertical-align: middle;
+}
+.callout {
+    background: #1a1500;
+    border-left: 4px solid #f0c030;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 14px 0;
+}
+.callout.warn {
+    background: #2a0a0a;
+    border-left-color: #ff5555;
+}
+.callout.success {
+    background: #0a2014;
+    border-left-color: #3dbb6a;
+}
+.callout.info {
+    background: #0a1828;
+    border-left-color: #5dccdd;
+}
+code {
+    background: #0a1828;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #f0c030;
+    font-size: 0.85rem;
+}
+pre {
+    background: #050e1a;
+    padding: 14px 18px;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid #1a2f48;
+    color: #c8dff0;
+    font-size: 0.85rem;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+}
+.card {
+    background: #0a1828;
+    border: 1px solid #1a3055;
+    border-radius: 8px;
+    padding: 16px;
+}
+.card h4 {
+    color: #f0c030;
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+}
+.metric {
+    font-size: 1.6rem;
+    color: #5dccdd;
+    font-weight: 700;
+    margin: 4px 0;
+}
+.label-sm { font-size: 0.76rem; color: #7a8899; }
+.section-num {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    text-align: center;
+    background: #5dccdd;
+    color: #0a1020;
+    border-radius: 50%;
+    font-weight: 700;
+    margin-right: 10px;
+}
+.win { color: #3dbb6a; font-weight: 700; }
+.lose { color: #ff5555; font-weight: 700; }
+.foot {
+    text-align: center;
+    color: #5a7090;
+    font-size: 0.85rem;
+    margin-top: 40px;
+    border-top: 1px solid #1a3055;
+    padding-top: 16px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>📊 倍數 ETF 進場時機完整分析報告</h1>
+<div class="subtitle">— 抵定時刻 × 假抵定率 × 進場 P&L (5m & 1m 解析度)</div>
+
+<div class="meta">
+<b>研究目的</b>：找出每日盤中「進場 → 收盤」期望報酬最大的時間點<br>
+<b>標的</b>：AMDL / ERX / NVDL / SOXL / SPXL / TECL（6 檔倍數 ETF）<br>
+<b>時段</b>：09:30-16:00 ET Regular Hours（不含 pre/post-market）<br>
+<b>樣本</b>：3 年歷史（2023-05 至 2026-05），bar size = 5m / 1m 兩版<br>
+<b>資料源</b>：Alpaca Paper IEX feed
+</div>
+
+<div class="tldr">
+<h2>🎯 TL;DR — 三大行動建議</h2>
+<div class="grid">
+  <div class="card">
+    <h4>🥇 SOXL 10:20 ET</h4>
+    <div class="metric">+0.45% / 筆</div>
+    <div class="label-sm">勝率 56.8% · 樣本 375</div>
+    <p>09:50-10:30 ET 都很穩，10:20 微勝。期望年化 ~+57%</p>
+  </div>
+  <div class="card">
+    <h4>🥈 AMDL 11:30 ET</h4>
+    <div class="metric">+0.47% / 筆</div>
+    <div class="label-sm">勝率 55.5% · 樣本 173</div>
+    <p>個股 2x 波動最大。最大 +34.91%，最小 -6.79%</p>
+  </div>
+  <div class="card">
+    <h4>🥉 SPXL 10:15 ET</h4>
+    <div class="metric">+0.31% / 筆</div>
+    <div class="label-sm">勝率 <b class="gold">64.3%</b> · 樣本 143</div>
+    <p>勝率最高！穩定派首選</p>
+  </div>
+</div>
+<p style="margin-top:12px;color:#a8c0d0">
+<b>共同條件</b>：當 T 時刻 Close > Open 才 BUY，hold 到 15:55 ET 平倉
+</p>
+</div>
+
+<!-- ───────────── 1. 抵定時刻 ───────────── -->
+
+<h2><span class="section-num">📊</span>互動圖表</h2>
+
+<div class="chart-container">
+<div class="chart-title">📈 1m 解析度：跟漲策略 Avg P&L vs 進場時刻</div>
+<div class="chart-desc">越早進場 + UP 訊號 = 期望報酬越高。14:00 ET 後 edge 反轉變負。</div>
+<div id="chart-avg-pnl" style="height:420px"></div>
+</div>
+
+<div class="chart-container">
+<div class="chart-title">🎯 1m 解析度：跟漲策略勝率 vs 進場時刻</div>
+<div class="chart-desc">SPXL 10:15 ET 達 64.3%（最高）。多數 ETF 早盤 55-59%。</div>
+<div id="chart-winrate" style="height:420px"></div>
+</div>
+
+<div class="chart-container">
+<div class="chart-title">🗺️ 方向正確率熱力圖</div>
+<div class="chart-desc">縱軸 ETF，橫軸時間。顏色越深綠 = 該時間方向越可信。13:30 ET 後 6 檔全部 ≥85%。</div>
+<div id="chart-heatmap"></div>
+</div>
+
+<h2><span class="section-num">1</span>當日方向「抵定」時刻分析</h2>
+<p>定義：<code>Last-Cross-Open</code> — 一日中最後一次穿越 Open 的時間。
+之後價格再也沒回到 Open 同方向，即「方向已抵定」。</p>
+
+<table>
+<thead><tr>
+<th>Ticker</th><th class="num">交易日</th><th class="num">UP%</th>
+<th class="num">Median 抵定 (min)</th><th>Median 抵定 (ET)</th>
+<th class="num">p25</th><th class="num">p75</th>
+</tr></thead>
+<tbody>
+<tr><td class="tk">ERX</td><td class="num">101</td><td class="num">47.5%</td><td class="num">15</td><td>09:45</td><td class="num">5</td><td class="num">125</td></tr>
+<tr><td class="tk">AMDL</td><td class="num">424</td><td class="num">49.2%</td><td class="num gold">30</td><td>10:00</td><td class="num">0</td><td class="num">190</td></tr>
+<tr><td class="tk">TECL</td><td class="num">464</td><td class="num">51.7%</td><td class="num">35</td><td>10:05</td><td class="num">5</td><td class="num">230</td></tr>
+<tr><td class="tk">NVDL</td><td class="num">558</td><td class="num">52.1%</td><td class="num">40</td><td>10:10</td><td class="num">0</td><td class="num">220</td></tr>
+<tr><td class="tk">SOXL</td><td class="num">748</td><td class="num">55.3%</td><td class="num">60</td><td>10:30</td><td class="num">5</td><td class="num">280</td></tr>
+<tr><td class="tk">SPXL</td><td class="num">641</td><td class="num">52.9%</td><td class="num red">75</td><td>10:45</td><td class="num">10</td><td class="num">270</td></tr>
+</tbody>
+</table>
+
+<div class="callout info">
+<b>觀察</b>：
+<ul style="margin:6px 0 0 20px;padding:0">
+<li>個股 2x (AMDL/NVDL) 抵定最快（30-40 min）— underlying 是動能股</li>
+<li>大盤 3x (SPXL) 抵定最慢（75 min）— 500 檔個股拉鋸需時間</li>
+<li>半導體 3x (SOXL) 中等（60 min）</li>
+</ul>
+</div>
+
+<!-- ───────────── 2. 假抵定率 ───────────── -->
+<h2><span class="section-num">2</span>假抵定率分析 — 何時方向才真正可信？</h2>
+<p>定義：在時間 t 看到方向 (UP/DOWN) → 收盤是否真的同方向？
+<code>假抵定率 = P(dir@t ≠ final_dir)</code></p>
+
+<table>
+<thead><tr>
+<th>Ticker</th><th class="num">10:00</th><th class="num">10:30</th><th class="num">11:00</th>
+<th class="num">11:30</th><th class="num">12:00</th><th class="num">13:00</th>
+<th class="num">13:30</th><th class="num">14:00</th><th class="num">15:00</th>
+</tr></thead>
+<tbody>
+<tr><td class="tk">AMDL</td><td class="num amber">75%</td><td class="num amber">78%</td><td class="num amber">83%</td><td class="num green">86%</td><td class="num green">88%</td><td class="num green">90%</td><td class="num green">91%</td><td class="num green">90%</td><td class="num green">92%</td></tr>
+<tr><td class="tk">ERX</td><td class="num amber">77%</td><td class="num amber">81%</td><td class="num amber">83%</td><td class="num green">90%</td><td class="num green">93%</td><td class="num green">94%</td><td class="num green">92%</td><td class="num green">95%</td><td class="num green">95%</td></tr>
+<tr><td class="tk">NVDL</td><td class="num amber">75%</td><td class="num amber">75%</td><td class="num amber">80%</td><td class="num amber">84%</td><td class="num amber">85%</td><td class="num green">87%</td><td class="num green">89%</td><td class="num green">88%</td><td class="num green">92%</td></tr>
+<tr><td class="tk">SOXL</td><td class="num red">72%</td><td class="num amber">76%</td><td class="num amber">78%</td><td class="num amber">80%</td><td class="num amber">80%</td><td class="num amber">85%</td><td class="num green">85%</td><td class="num green">88%</td><td class="num green">91%</td></tr>
+<tr><td class="tk">SPXL</td><td class="num red">68%</td><td class="num red">70%</td><td class="num amber">74%</td><td class="num amber">77%</td><td class="num amber">81%</td><td class="num amber">83%</td><td class="num green">86%</td><td class="num green">86%</td><td class="num green">90%</td></tr>
+<tr><td class="tk">TECL</td><td class="num red">71%</td><td class="num amber">75%</td><td class="num amber">76%</td><td class="num amber">76%</td><td class="num amber">80%</td><td class="num green">87%</td><td class="num green">86%</td><td class="num green">89%</td><td class="num green">93%</td></tr>
+<tr style="background:#0d2a14"><td class="tk green">平均</td><td class="num red">73%</td><td class="num amber">76%</td><td class="num amber">79%</td><td class="num amber">82%</td><td class="num green">85%</td><td class="num green">87%</td><td class="num green">88%</td><td class="num green">89%</td><td class="num green">92%</td></tr>
+</tbody>
+</table>
+
+<div class="callout success">
+<b>📍 安全邊界</b>：<b>13:30 ET</b> 後跨 6 檔全部 ≥85%（全共識）<br>
+<b>📍 黃金中段</b>：12:00 ET 已達 85% 平均，可半倉進場<br>
+<b>⚠️ 風險區間</b>：10:00-10:30 ET 約 25-30% 機率反轉 → 不可大部位
+</div>
+
+<!-- ───────────── 3. 5m 進場 P&L ───────────── -->
+<h2><span class="section-num">3</span>進場 → 收盤 P&L 分析（5m 解析度）</h2>
+<p>策略 A「跟漲」：時刻 T Close > Open ⇒ BUY，hold to 15:55 平倉</p>
+
+<table>
+<thead><tr>
+<th>Ticker</th><th>最佳 Entry</th><th class="num">樣本</th>
+<th class="num">勝率</th><th class="num">Avg P&L</th>
+<th class="num">Median</th><th class="num">Max</th><th class="num">Min</th>
+</tr></thead>
+<tbody>
+<tr><td class="tk">AMDL</td><td class="gold">11:30 ET</td><td class="num">200</td><td class="num">55.0%</td><td class="num green"><b>+0.41%</b></td><td class="num">+0.44%</td><td class="num green">+34.06%</td><td class="num red">-7.92%</td></tr>
+<tr><td class="tk">SOXL</td><td class="gold">10:00 ET</td><td class="num">377</td><td class="num green"><b>58.9%</b></td><td class="num green"><b>+0.40%</b></td><td class="num">+0.51%</td><td class="num green">+45.97%</td><td class="num red">-22.85%</td></tr>
+<tr><td class="tk">TECL</td><td>10:00 ET</td><td class="num">207</td><td class="num">57.0%</td><td class="num green">+0.29%</td><td class="num">+0.38%</td><td class="num green">+31.91%</td><td class="num red">-18.73%</td></tr>
+<tr><td class="tk">NVDL</td><td>11:30 ET</td><td class="num">274</td><td class="num">52.6%</td><td class="num green">+0.20%</td><td class="num">+0.15%</td><td class="num green">+30.03%</td><td class="num red">-9.91%</td></tr>
+<tr><td class="tk">SPXL</td><td>12:00 ET</td><td class="num">318</td><td class="num">56.3%</td><td class="num green">+0.16%</td><td class="num">+0.17%</td><td class="num green">+28.81%</td><td class="num red">-9.15%</td></tr>
+<tr><td class="tk gray">ERX</td><td class="gray">13:30 ET</td><td class="num gray">45</td><td class="num gray">46.7%</td><td class="num gray">+0.18%</td><td class="num gray">-0.06%</td><td class="num gray">+2.88%</td><td class="num gray">-1.78%</td></tr>
+</tbody>
+</table>
+
+<div class="callout warn">
+<b>⚠️ 風險警告</b>：單日最大虧損 -22.85%（SOXL 10:00 進場碰反轉日）。
+槓桿 ETF 必須嚴格 position sizing — 單筆建議 ≤ 10% 部位。
+</div>
+
+<!-- ───────────── 4. 1m 解析度新發現 ───────────── -->
+<h2><span class="section-num">4</span>1m 解析度新發現</h2>
+
+<h3>🚨 SPXL 真正最強是 10:15 ET（不是 12:00）</h3>
+<table>
+<thead><tr><th>時間</th><th class="num">樣本</th><th class="num">勝率</th><th class="num">Avg P&L</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td>10:15 ET</td><td class="num">143</td><td class="num green"><b>64.3%</b></td><td class="num green"><b>+0.31%</b></td><td>5m 看不到，1m 精度才發現</td></tr>
+<tr><td>12:00 ET</td><td class="num">160</td><td class="num">57.5%</td><td class="num green">+0.27%</td><td>5m 版以為這裡最強</td></tr>
+</tbody>
+</table>
+
+<h3>🌅 AMDL 新發現早盤點 09:40 ET</h3>
+<table>
+<thead><tr><th>時間</th><th class="num">樣本</th><th class="num">勝率</th><th class="num">Avg P&L</th></tr></thead>
+<tbody>
+<tr><td>09:40 ET</td><td class="num">175</td><td class="num">50.9%</td><td class="num green">+0.32%</td></tr>
+<tr><td>11:30 ET (仍最強)</td><td class="num">173</td><td class="num">55.5%</td><td class="num green"><b>+0.47%</b></td></tr>
+</tbody>
+</table>
+
+<h3>🌊 SOXL 09:50-10:30 是 plateau（不是單一最高點）</h3>
+<table>
+<thead><tr><th>時間</th><th class="num">勝率</th><th class="num">Avg P&L</th></tr></thead>
+<tbody>
+<tr><td>09:50</td><td class="num">57.0%</td><td class="num green">+0.43%</td></tr>
+<tr><td>09:55</td><td class="num green">58.0%</td><td class="num green">+0.42%</td></tr>
+<tr><td>10:05</td><td class="num green">59.2%</td><td class="num green">+0.44%</td></tr>
+<tr><td>10:15</td><td class="num">56.2%</td><td class="num green">+0.43%</td></tr>
+<tr><td><b>10:20</b></td><td class="num">56.8%</td><td class="num green"><b>+0.45%</b></td></tr>
+<tr><td>10:25</td><td class="num">57.1%</td><td class="num green">+0.39%</td></tr>
+</tbody>
+</table>
+
+<div class="callout info">
+<b>結論</b>：SOXL 進場時機差異 0.02-0.05%，<b>不必糾結哪一分鐘</b>，09:50-10:30 段都可。
+</div>
+
+<!-- ───────────── 5. 策略 vs 策略對比 ───────────── -->
+<h2><span class="section-num">5</span>3 策略對比 — 證明方向訊號有 edge</h2>
+<table>
+<thead><tr>
+<th>策略</th><th>邏輯</th><th class="num">SOXL Avg P&L</th><th class="num">AMDL Avg P&L</th><th>有 edge?</th>
+</tr></thead>
+<tbody>
+<tr><td>A 跟漲</td><td>UP@T 才 BUY</td><td class="num green">+0.40%</td><td class="num green">+0.41%</td><td class="win">✅ 有</td></tr>
+<tr><td>B 無腦 BUY</td><td>不看方向</td><td class="num amber">+0.12%</td><td class="num amber">+0.11%</td><td class="lose">❌ 幾乎沒</td></tr>
+<tr><td>C 順勢做空</td><td>DOWN@T 才 SHORT</td><td class="num green">+0.29%</td><td class="num green">+0.34%</td><td class="win">✅ 有（但需做空工具）</td></tr>
+</tbody>
+</table>
+
+<div class="callout success">
+<b>核心結論</b>：方向訊號 (dir@T) 有真實 edge。無腦進場無效，必須條件式進場。
+</div>
+
+<!-- ───────────── 6. 操作策略 ───────────── -->
+<h2><span class="section-num">6</span>具體操作策略</h2>
+
+<div class="grid">
+<div class="card">
+<h4>📈 Plan A — 動能派 (SOXL)</h4>
+<pre>09:50-10:30 ET 任一時點
+條件: SOXL Close > Open
+動作: BUY SOXL
+出場: 15:55 ET 平倉
+表現: 勝率 56-59%, avg +0.43%
+年化估計: +50-65%
+單日最大虧損: -22%
+適合: 風險承受高</pre>
+</div>
+
+<div class="card">
+<h4>🎯 Plan B — 穩定派 (SPXL)</h4>
+<pre>10:15 ET
+條件: SPXL Close > Open
+動作: BUY SPXL
+出場: 15:55 ET 平倉
+表現: 勝率 64.3%, avg +0.31%
+年化估計: +35-45%
+單日最大虧損: -14%
+適合: 保守 trader</pre>
+</div>
+
+<div class="card">
+<h4>🔥 Plan C — 高 Beta (AMDL)</h4>
+<pre>11:30 ET
+條件: AMDL Close > Open
+動作: BUY AMDL
+出場: 15:55 ET 平倉
+表現: 勝率 55.5%, avg +0.47%
+年化估計: +50-60%
+單日最大虧損: -8%
+適合: 中性風險 + 高報酬期待</pre>
+</div>
+
+<div class="card">
+<h4>🎪 Plan D — 組合 (3 檔分散)</h4>
+<pre>10:15 ET: SPXL UP? → 1/3 部位
+10:20 ET: SOXL UP? → 1/3 部位
+11:30 ET: AMDL UP? → 1/3 部位
+全部 15:55 ET 平倉
+優點: 風險分散
+缺點: 滿倉只有強日才可能
+年化估計: +40-55% (降波動)</pre>
+</div>
+</div>
+
+<!-- ───────────── 7. 重要注意 ───────────── -->
+<h2><span class="section-num">7</span>重要注意事項</h2>
+
+<div class="callout warn">
+<h3 style="color:#ff5555;margin:0 0 8px 0">⚠️ 槓桿 ETF 風險</h3>
+<ul style="margin:0 0 0 18px;padding:0">
+<li><b>Daily decay</b>：長期 hold 會被路徑損耗（不適合 buy-and-hold）</li>
+<li><b>單日最大跌幅可達 -22%</b>（SOXL 4/8 觀察到）</li>
+<li><b>必須嚴格 position sizing</b>：單筆 ≤ 10% 總資金</li>
+<li><b>不適合 overnight 持有</b>：8 PM 後流動性極差</li>
+</ul>
+</div>
+
+<div class="callout">
+<h3 style="color:#f0c030;margin:0 0 8px 0">📊 樣本量限制</h3>
+<ul style="margin:0 0 0 18px;padding:0">
+<li><b>ERX (101 days)</b> 和 <b>TECL 1m (64 days)</b>：樣本不足，結果不可信</li>
+<li>建議交易至少 500+ days 樣本的標的（SOXL/NVDL/SPXL/AMDL）</li>
+<li>IEX feed 對某些 ETF 涵蓋率較低，造成 1m bar 缺漏</li>
+</ul>
+</div>
+
+<div class="callout info">
+<h3 style="color:#5dccdd;margin:0 0 8px 0">📉 14:00 ET 後 edge 反轉</h3>
+<p style="margin:0">
+所有 ETF 在 14:00 ET 後進場 → 期望值轉負或近零（離收盤太近，profit 空間小但 risk 不變）。
+<b>建議切割線：12:30 ET，之後不再開新倉</b>。
+</p>
+</div>
+
+<!-- ───────────── 8. 輸出檔案 ───────────── -->
+<h2><span class="section-num">8</span>輸出檔案 + 腳本</h2>
+<table>
+<thead><tr><th>檔案</th><th>內容</th></tr></thead>
+<tbody>
+<tr><td><code>analyze_settlement_time.py</code></td><td>抵定時刻分析（基礎版）</td></tr>
+<tr><td><code>analyze_settlement_detail.py</code></td><td>詳細 + 假抵定率分析</td></tr>
+<tr><td><code>analyze_intraday_profit.py</code></td><td>5m 進場 P&L 分析</td></tr>
+<tr><td><code>analyze_intraday_profit_1m.py</code></td><td>1m 進場 P&L 分析</td></tr>
+<tr><td><code>settlement_*.csv</code> / <code>pnl_*.csv</code></td><td>每日明細 CSV</td></tr>
+<tr><td><code>settlement_summary.csv</code></td><td>跨 ETF 對比 summary</td></tr>
+</tbody>
+</table>
+
+<div class="foot">
+Stock001 倍數 ETF 進場時機研究 ｜ 分析時間: 2026-05-19<br>
+v9.45 | Generated by Claude
+</div>
+
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+.chart-section { margin: 28px 0; }
+.chart-container {
+    background: #0a1828;
+    border: 1px solid #1a3055;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 14px 0;
+}
+.chart-title {
+    color: #f0c030;
+    font-size: 1.1rem;
+    margin: 0 0 6px 0;
+    font-weight: 700;
+}
+.chart-desc { color: #a8c0d0; font-size: 0.85rem; margin: 0 0 12px 0; }
+</style>
+<script>
+const layoutBase = {
+    paper_bgcolor: '#0a1828',
+    plot_bgcolor: '#050e1a',
+    font: { color: '#c8dff0', family: 'IBM Plex Mono, Consolas, monospace', size: 11 },
+    margin: { t: 30, b: 50, l: 60, r: 20 },
+    xaxis: { gridcolor: '#1a2f48', linecolor: '#1a3055', tickangle: -45 },
+    yaxis: { gridcolor: '#1a2f48', linecolor: '#1a3055' },
+    legend: { bgcolor: '#0a1020', bordercolor: '#1a3055', borderwidth: 1, x: 1.02, y: 1 },
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor: '#1a3055', font: { color: '#e8f4fd' } },
+};
+
+// Chart 1: Avg P&L vs Time
+Plotly.newPlot('chart-avg-pnl', [{"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [0.0129513681085019, 0.3175675140396206, 0.217545184084361, 0.0095685828530924, 0.165303666731611, 0.1498116496986117, 0.2828005760504171, 0.1193846972778745, -0.0272481335695354, -0.0296695821071738, 0.0901157605265787, 0.1164096417554267, 0.3222734676078367, 0.2774501224524289, 0.3895526010996745, 0.4731096644064294, 0.4331006478195713, 0.2687770238043739, 0.2538000734836132, 0.1973417811590241, -0.0161777297267577, 0.0230231917109373, 0.114562277215305], "mode": "lines+markers", "name": "AMDL", "line": {"color": "#ff8855", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>AMDL</b><br>\u6642\u9593: %{x}<br>Avg P&L: %{y:+.2f}%<br>\u6a23\u672c: %{customdata[0]}<br>Max: %{customdata[1]:+.2f}%<br>Min: %{customdata[2]:+.2f}%<extra></extra>", "customdata": [[182, 20.127425427164773, -20.329670329670336], [175, 39.739413680781766, -19.220055710306404], [176, 40.655737704918046, -20.54794520547945], [184, 38.38709677419354, -20.54794520547945], [187, 37.060702875399365, -20.980926430517712], [176, 34.48275862068966, -21.621621621621628], [180, 35.33123028391167, -22.45989304812835], [179, 35.75949367088607, -22.25201072386059], [184, 35.75949367088607, -22.45989304812835], [179, 33.229813664596264, -22.45989304812835], [183, 32.0, -22.25201072386059], [181, 32.407407407407405, -22.04301075268818], [180, 33.229813664596264, -21.40921409214092], [179, 36.1904761904762, -19.220055710306404], [180, 32.407407407407405, -18.309859154929576], [173, 34.90566037735848, -6.792777300085992], [176, 36.624203821656046, -7.591933570581253], [178, 35.33123028391167, -9.523809523809518], [178, 33.64485981308412, -9.207459207459207], [174, 15.945945945945942, -9.313154831199066], [179, 6.982543640897762, -8.352941176470589], [179, 5.348047538200347, -6.594724220623499], [172, 7.788944723618092, -4.2958129418162]]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [0.1517235251991296, -0.0310111337414798, -0.1622361430517613, 0.0403957829594953, -0.0045849997464287, 0.2425871669122538, 0.1012749376945892, 0.0151986153083415, 0.1854817773067889, 0.0378986150204491, 0.1542682385737473, 0.1306300252692838, 0.0097100444323018, 0.0454391368319427, 0.1154472414930096, 0.275266699437058, 0.2419043346169914, 0.1244079621551395, 0.1522854176768938, 0.0373496424004823, -0.1321509630861058, -0.1592048265411124, -0.0174409124196112], "mode": "lines+markers", "name": "NVDL", "line": {"color": "#3dbb6a", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>NVDL</b><br>\u6642\u9593: %{x}<br>Avg P&L: %{y:+.2f}%<br>\u6a23\u672c: %{customdata[0]}<br>Max: %{customdata[1]:+.2f}%<br>Min: %{customdata[2]:+.2f}%<extra></extra>", "customdata": [[237, 23.77768491433348, -18.581319768263388], [251, 28.469288267793303, -17.520755797308908], [253, 10.024106066693456, -18.684730454417164], [251, 29.47920078611202, -17.63865065751858], [257, 27.742769429633224, -18.1534090909091], [257, 25.93182542210895, -18.29268292682927], [254, 27.43391360412637, -18.17665435955695], [257, 28.01165803108809, -17.96475074724293], [255, 29.352094240837705, -17.87163788952329], [248, 28.17769130998704, -17.803786574870912], [242, 26.94283879254978, -17.800957003683436], [250, 28.385839558298155, -19.04390574673673], [253, 27.2288381074992, -16.53675416826872], [251, 8.96914613728773, -10.698091584035078], [256, 28.59466493168511, -11.58349846874437], [260, 29.056480574600076, -10.17569546120059], [264, 10.112585444310415, -9.124356144223697], [274, 29.521625163827004, -9.682609331578185], [270, 25.89171974522294, -9.603279168496565], [264, 12.975135753072305, -10.077180719382556], [264, 8.431952662721898, -9.110980276714743], [257, 7.275768346226226, -8.273915626856795], [261, 5.921757770632371, -5.914989655820958]]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [0.338220871599076, 0.2457447928212799, 0.2168823131023847, 0.4261305997428455, 0.4195429449238544, 0.3226050283406799, 0.4393883302681717, 0.3116841363103866, 0.430735872933957, 0.4527397155573532, 0.3936082099752748, 0.3839042519118891, 0.234554162486847, 0.1956719546211297, 0.2482682674461948, 0.2070103551960683, 0.1073654906444529, 0.0372738628149273, 0.0656295712370928, -0.0649258280029947, -0.1002777111476407, -0.0442087229345014, -0.0375738065566351], "mode": "lines+markers", "name": "SOXL", "line": {"color": "#5dccdd", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>SOXL</b><br>\u6642\u9593: %{x}<br>Avg P&L: %{y:+.2f}%<br>\u6a23\u672c: %{customdata[0]}<br>Max: %{customdata[1]:+.2f}%<br>Min: %{customdata[2]:+.2f}%<extra></extra>", "customdata": [[364, 16.54668411867363, -18.376865671641795], [373, 46.29840546697041, -19.18725467559456], [383, 12.702991452991457, -21.679316888045527], [358, 49.70862470862472, -17.97515819076635], [369, 47.30504587155963, -21.753554502369667], [358, 45.63492063492064, -22.56097560975609], [373, 47.64367816091956, -23.06616961789375], [373, 48.668981481481474, -22.56097560975609], [370, 49.70862470862472, -23.209302325581387], [375, 47.30504587155963, -22.850467289719614], [373, 46.96796338672769, -22.850467289719614], [367, 47.136311569301256, -22.41541353383458], [383, 47.81357882623707, -21.679316888045527], [379, 11.744404936205804, -13.372817955112218], [392, 46.96796338672769, -13.77598510704312], [392, 48.3256351039261, -13.722446445203357], [395, 50.762910798122086, -13.074757585236158], [396, 46.63242009132421, -13.722446445203357], [387, 44.48818897637795, -13.534536403235848], [397, 21.06503298774742, -13.588308457711436], [390, 7.820383451059536, -7.18555855116633], [388, 7.042676818272893, -7.008368200836827], [396, 9.97431506849316, -9.46909667194929]]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [-0.0896769437163931, -0.0988949070579772, -0.0511312120709213, -0.1235214738146933, 0.0412838553270673, -0.0594973002298735, 0.1154438648915324, 0.159009242595691, 0.3089988672688015, 0.1032496973581981, 0.0895404499603928, 0.0972085874542635, 0.1869702352225718, -0.0842723606986748, 0.1873375415013879, 0.1996467894307913, 0.2670216308437975, 0.1470004431927637, 0.1363684918504494, 0.1526425643033501, 0.0553085668124051, -0.0570156278711745, -0.0115869126247328], "mode": "lines+markers", "name": "SPXL", "line": {"color": "#a87acc", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>SPXL</b><br>\u6642\u9593: %{x}<br>Avg P&L: %{y:+.2f}%<br>\u6a23\u672c: %{customdata[0]}<br>Max: %{customdata[1]:+.2f}%<br>Min: %{customdata[2]:+.2f}%<extra></extra>", "customdata": [[144, 28.65968586387435, -9.115112450080565], [163, 25.5184390642558, -9.142697048935368], [156, 27.15512780709925, -9.08778835591358], [159, 26.643990929705225, -9.506092456515672], [161, 25.492799509753866, -9.404972530030724], [152, 23.388230568387232, -13.737646001796938], [143, 25.364758698092025, -13.737646001796938], [148, 25.80116719565885, -14.138794491146475], [143, 27.3528192371476, -14.33032925849914], [152, 26.30550986842105, -14.574250378147518], [154, 26.61788953009068, -14.574250378147518], [153, 26.34447300771209, -14.581850533807833], [165, 27.339620686081474, -9.824821577532669], [157, 5.0344390067065365, -9.019497825782013], [156, 27.756693527423977, -6.927323602813278], [158, 26.4484923330246, -6.268088347296281], [160, 28.84857382550336, -4.487301890395254], [156, 26.513591433278417, -4.895913646877405], [154, 24.42531645569621, -4.909462478019098], [158, 9.45127382861215, -4.714734736641574], [157, 4.156189912734791, -4.423426005541221], [164, 4.017725258493352, -4.075174992808515], [158, 6.4270246860112605, -2.563204706211917]]}], {
+    ...layoutBase,
+    title: { text: '1m 解析度：跟漲策略 Avg P&L vs 進場時刻',
+              font: { color: '#5dccdd', size: 14 } },
+    xaxis: { ...layoutBase.xaxis, title: '進場時刻 (ET)' },
+    yaxis: { ...layoutBase.yaxis, title: 'Avg P&L (%)', zeroline: true, zerolinecolor: '#5a7090' },
+    shapes: [
+        // 零線標記
+        { type: 'line', x0: 0, x1: 1, xref: 'paper', y0: 0, y1: 0,
+           line: { color: '#5a7090', width: 1, dash: 'dash' } },
+    ],
+}, { responsive: true, displaylogo: false });
+
+// Chart 2: Win Rate vs Time
+Plotly.newPlot('chart-winrate', [{"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [50.0, 50.85714285714285, 46.590909090909086, 45.65217391304348, 47.05882352941176, 47.72727272727273, 48.888888888888886, 48.60335195530726, 48.91304347826087, 47.48603351955308, 49.18032786885246, 47.51381215469613, 52.22222222222223, 51.95530726256983, 55.55555555555556, 55.49132947976878, 55.68181818181818, 52.24719101123596, 49.43820224719101, 49.42528735632184, 50.27932960893855, 52.513966480446925, 48.25581395348838], "mode": "lines+markers", "name": "AMDL", "line": {"color": "#ff8855", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>AMDL</b><br>\u6642\u9593: %{x}<br>\u52dd\u7387: %{y:.1f}%<br>\u6a23\u672c: %{customdata}<extra></extra>", "customdata": [182, 175, 176, 184, 187, 176, 180, 179, 184, 179, 183, 181, 180, 179, 180, 173, 176, 178, 178, 174, 179, 179, 172]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [53.58649789029536, 52.19123505976096, 49.80237154150198, 54.18326693227091, 51.75097276264592, 55.25291828793775, 54.7244094488189, 52.9182879377432, 52.94117647058824, 50.0, 53.30578512396694, 51.6, 51.77865612648221, 48.60557768924303, 49.609375, 52.69230769230769, 51.51515151515152, 49.27007299270073, 51.11111111111111, 48.48484848484848, 44.31818181818182, 47.85992217898833, 51.34099616858238], "mode": "lines+markers", "name": "NVDL", "line": {"color": "#3dbb6a", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>NVDL</b><br>\u6642\u9593: %{x}<br>\u52dd\u7387: %{y:.1f}%<br>\u6a23\u672c: %{customdata}<extra></extra>", "customdata": [237, 251, 253, 251, 257, 257, 254, 257, 255, 248, 242, 250, 253, 251, 256, 260, 264, 274, 270, 264, 264, 257, 261]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [56.04395604395605, 55.22788203753352, 53.78590078328982, 56.98324022346368, 57.994579945799465, 57.821229050279335, 59.24932975871313, 57.10455764075068, 56.21621621621622, 56.8, 57.10455764075068, 55.04087193460491, 54.56919060052219, 52.5065963060686, 53.57142857142857, 54.33673469387755, 50.8860759493671, 49.74747474747475, 51.42118863049095, 49.37027707808564, 48.97435897435897, 48.45360824742268, 47.474747474747474], "mode": "lines+markers", "name": "SOXL", "line": {"color": "#5dccdd", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>SOXL</b><br>\u6642\u9593: %{x}<br>\u52dd\u7387: %{y:.1f}%<br>\u6a23\u672c: %{customdata}<extra></extra>", "customdata": [364, 373, 383, 358, 369, 358, 373, 373, 370, 375, 373, 367, 383, 379, 392, 392, 395, 396, 387, 397, 390, 388, 396]}, {"x": ["09:35", "09:40", "09:45", "09:50", "09:55", "10:00", "10:05", "10:10", "10:15", "10:20", "10:25", "10:30", "10:45", "11:00", "11:15", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00"], "y": [49.30555555555556, 52.14723926380368, 50.0, 52.20125786163522, 54.03726708074535, 53.94736842105263, 58.74125874125874, 60.810810810810814, 64.33566433566433, 59.210526315789465, 57.7922077922078, 57.51633986928104, 55.15151515151515, 54.14012738853503, 55.12820512820513, 58.22784810126582, 57.49999999999999, 58.333333333333336, 59.09090909090909, 60.12658227848101, 54.14012738853503, 48.78048780487805, 48.734177215189874], "mode": "lines+markers", "name": "SPXL", "line": {"color": "#a87acc", "width": 2.5}, "marker": {"size": 7}, "hovertemplate": "<b>SPXL</b><br>\u6642\u9593: %{x}<br>\u52dd\u7387: %{y:.1f}%<br>\u6a23\u672c: %{customdata}<extra></extra>", "customdata": [144, 163, 156, 159, 161, 152, 143, 148, 143, 152, 154, 153, 165, 157, 156, 158, 160, 156, 154, 158, 157, 164, 158]}], {
+    ...layoutBase,
+    title: { text: '1m 解析度：跟漲策略勝率 vs 進場時刻',
+              font: { color: '#5dccdd', size: 14 } },
+    xaxis: { ...layoutBase.xaxis, title: '進場時刻 (ET)' },
+    yaxis: { ...layoutBase.yaxis, title: '勝率 (%)', range: [40, 70] },
+    shapes: [
+        // 50% 隨機猜線
+        { type: 'line', x0: 0, x1: 1, xref: 'paper', y0: 50, y1: 50,
+           line: { color: '#5a7090', width: 1, dash: 'dash' } },
+    ],
+}, { responsive: true, displaylogo: false });
+
+// Chart 3: 假抵定率 (方向正確率) Heatmap
+Plotly.newPlot('chart-heatmap', [{ type: 'heatmap', ...{"z": [[75.2, 78.2, 83.4, 85.8, 88.2, 88.6, 89.6, 90.8, 89.5, 91.2, 92.4, 93.6], [77.2, 80.9, 83.0, 89.5, 92.6, 90.4, 93.5, 91.7, 94.9, 93.8, 94.8, 100.0], [74.8, 75.4, 80.3, 83.9, 84.8, 85.9, 87.2, 89.4, 87.7, 90.2, 92.0, 93.4], [71.5, 75.6, 78.3, 80.4, 80.4, 82.1, 84.7, 85.1, 88.3, 90.1, 90.7, 93.3], [67.7, 70.4, 73.7, 77.3, 81.2, 80.2, 82.6, 86.0, 86.4, 86.9, 90.3, 93.6], [70.5, 75.4, 76.3, 76.1, 80.4, 82.9, 86.8, 86.1, 88.9, 89.8, 93.2, 94.3]], "x": ["10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"], "y": ["AMDL", "ERX", "NVDL", "SOXL", "SPXL", "TECL"], "colorscale": [[0, "#ff5555"], [0.5, "#f0c030"], [0.7, "#5dccdd"], [0.85, "#3dbb6a"], [1.0, "#0a4a14"]], "zmin": 65, "zmax": 100, "colorbar": {"title": "\u6b63\u78ba\u7387 %", "thickness": 14}, "hovertemplate": "<b>%{y}</b><br>\u6642\u9593: %{x}<br>\u6b63\u78ba\u7387: %{z:.1f}%<extra></extra>", "text": [[75.2, 78.2, 83.4, 85.8, 88.2, 88.6, 89.6, 90.8, 89.5, 91.2, 92.4, 93.6], [77.2, 80.9, 83.0, 89.5, 92.6, 90.4, 93.5, 91.7, 94.9, 93.8, 94.8, 100.0], [74.8, 75.4, 80.3, 83.9, 84.8, 85.9, 87.2, 89.4, 87.7, 90.2, 92.0, 93.4], [71.5, 75.6, 78.3, 80.4, 80.4, 82.1, 84.7, 85.1, 88.3, 90.1, 90.7, 93.3], [67.7, 70.4, 73.7, 77.3, 81.2, 80.2, 82.6, 86.0, 86.4, 86.9, 90.3, 93.6], [70.5, 75.4, 76.3, 76.1, 80.4, 82.9, 86.8, 86.1, 88.9, 89.8, 93.2, 94.3]], "texttemplate": "%{z:.0f}%", "textfont": {"color": "white", "size": 11}} }], {
+    ...layoutBase,
+    title: { text: '方向正確率熱力圖（深綠 = 越可信）',
+              font: { color: '#5dccdd', size: 14 } },
+    xaxis: { ...layoutBase.xaxis, title: '檢測時刻 (ET)' },
+    yaxis: { ...layoutBase.yaxis, title: 'ETF', autorange: 'reversed' },
+    height: 320,
+}, { responsive: true, displaylogo: false });
+</script>
+
+</body>
+</html>

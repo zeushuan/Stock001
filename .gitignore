@@ -108,6 +108,16 @@ analyze_*.py
 !analyze_double_oos.py
 # 🆕 v9.39：保留加碼規則回測腳本
 !analyze_reentry.py
+# 🆕 v9.46：保留倍數 ETF 抵定時刻 / P&L 分析腳本
+!analyze_settlement_time.py
+!analyze_settlement_detail.py
+!analyze_intraday_profit.py
+!analyze_intraday_profit_1m.py
+
+# 🆕 v9.46：抵定時刻分析 CSV 輸出（regeneratable，不入庫）
+settlement_*.csv
+settle_detail_*.csv
+pnl_*.csv
 test_thresholds.py
 test_v4.py
 backtest_etf.py
