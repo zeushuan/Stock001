@@ -1,11 +1,12 @@
-"""Day-Trade 工具台 — Stock001 v9.47
+"""Day-Trade 工具台 — Stock001 v9.49
 =====================================
-四合一當沖輔助工具，把「無情緒交易」落地成可操作流程：
+五合一當沖輔助工具，把「無情緒交易」落地成可操作流程：
 
-  A · 戰法訊號面板   即時掃描當沖標的的 v9.38 戰法進出場狀態
+  A · 戰法訊號面板   掃描當沖標的 v9.38 戰法進出場狀態 ＋ 即時 Zigzag 圖
   B · 交易卡產生器   輸入進場價/停損，自動算部位大小與 R 倍數目標
   C · 日內熔斷監控   交易日誌 ＋ 連虧 / 次數 / 虧損 三重熔斷
   D · SOXS 5/19 案例 訊號 vs 情緒 視覺化教學
+  E · 多週期總覽     兩檔股票 × 全週期 ZigZag 網格，一眼掃方向
 
 啟動：streamlit run tv_app.py → 側邊欄選 "daytrade"
 """
@@ -24,6 +25,7 @@ warnings.filterwarnings('ignore')
 
 from intraday.data import get_intraday
 from intraday.strategy import detect_swing_signal
+from intraday.charts import build_zigzag_chart_plotly
 
 ET = ZoneInfo('America/New_York')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,6 +86,25 @@ def get_session_phase():
             'tone': 'off', 'now': now}
 
 
+def is_rth() -> bool:
+    """現在是否為美股常規交易時段（09:30–16:00 ET，週一至週五）。"""
+    now = datetime.now(ET)
+    return now.weekday() < 5 and dtime(9, 30) <= now.time() < dtime(16, 0)
+
+
+def _last_utc(idx) -> pd.Timestamp:
+    """intraday df 的最後一根 bar 時間 → tz-aware UTC Timestamp。"""
+    t = pd.Timestamp(idx[-1])
+    return t.tz_localize('UTC') if t.tz is None else t.tz_convert('UTC')
+
+
+def _index_to_et(idx):
+    """intraday df 的 index（naive UTC）→ naive ET，供圖表 x 軸顯示。"""
+    if idx.tz is None:
+        return idx.tz_localize('UTC').tz_convert(ET).tz_localize(None)
+    return idx.tz_convert(ET).tz_localize(None)
+
+
 _ENTRY_VIEW = {
     'ENTER':      ('🟢', '進場訊號成立'),
     'WAIT_BB_P1': ('⏳', '待 BB+1σ 觸發'),
@@ -138,6 +159,18 @@ def _scan_one(ticker: str, tf: str) -> dict:
     return out
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def _grid_fetch(ticker: str, tf: str):
+    """抓單一 (ticker, tf) 的 OHLCV df，供多週期總覽網格使用（可快取 60s）。"""
+    try:
+        df = get_intraday(ticker, tf=tf, market='us')
+    except Exception:
+        return None
+    if df is None or len(df) < 30:
+        return None
+    return df
+
+
 def _render_scan_cards(results):
     """把掃描結果排成 3 欄卡片。"""
     cols = st.columns(3)
@@ -171,7 +204,7 @@ def _render_scan_cards(results):
 # ════════════════════════════════════════════════════════════════
 
 st.title("⚡ Day-Trade 工具台")
-st.caption("Stock001 v9.47 ｜ 波段戰法 v9.38（bb_p1sig 進場 · mid_ema_down 出場）"
+st.caption("Stock001 v9.49 ｜ 波段戰法 v9.38（bb_p1sig 進場 · mid_ema_down 出場）"
            " — 把「無情緒交易」變成可執行流程")
 
 phase = get_session_phase()
@@ -184,9 +217,9 @@ elif phase['tone'] == 'caution':
 else:
     st.info(_banner)
 
-tab_a, tab_b, tab_c, tab_d = st.tabs([
+tab_a, tab_b, tab_c, tab_d, tab_e = st.tabs([
     "A · 戰法訊號面板", "B · 交易卡產生器",
-    "C · 日內熔斷監控", "D · SOXS 5/19 案例"])
+    "C · 日內熔斷監控", "D · SOXS 5/19 案例", "E · 多週期總覽"])
 
 
 # ════════════════════════════════════════════════════════════════
@@ -205,9 +238,9 @@ with tab_a:
             value="SOXL, SOXS, NVDL, AMDL, SPXL, TECL, ERX",
             height=80, key="dt_watchlist")
     with col2:
-        scan_tf = st.selectbox("K 線週期", ['15m', '5m', '30m'],
-                               index=0, key="dt_scan_tf")
-        st.caption("v9.38 於 15m 回測驗證最佳")
+        scan_tf = st.selectbox("K 線週期", ['1m', '5m', '15m', '30m'],
+                               index=2, key="dt_scan_tf")
+        st.caption("v9.38 於 15m 回測驗證最佳；1m 適合當沖即時觀察")
 
     if st.button("🔍 掃描訊號", type="primary", key="dt_scan_btn"):
         tickers = [x.strip().upper() for x in
@@ -255,6 +288,129 @@ with tab_a:
 """)
     else:
         st.info("輸入觀察名單後按「🔍 掃描訊號」開始。")
+
+    # ────────────────────────────────────────────────────────────
+    # 即時 Zigzag 圖
+    # ────────────────────────────────────────────────────────────
+    st.divider()
+    zz_on = st.toggle("📈 即時 Zigzag 圖", value=False, key="dt_zz_on",
+                      help="盤中開啟可即時繪製單檔 Zigzag 走勢；關閉以加快頁面載入")
+    if not zz_on:
+        st.caption("開啟可即時繪製單一標的的 Zigzag 走勢圖（建議美股盤中使用）。")
+    else:
+        zc1, zc2, zc3, zc4 = st.columns([2, 1, 1, 1.4])
+        zz_ticker = zc1.text_input("代號", value="SOXL",
+                                   key="dt_zz_ticker").strip().upper()
+        zz_tf = zc2.selectbox("週期", ['1m', '5m', '15m', '30m'],
+                              index=0, key="dt_zz_tf")
+        zz_theme_lbl = zc3.selectbox("圖表主題", ['深色', '淺色'],
+                                     index=0, key="dt_zz_theme")
+        zz_refresh = zc4.radio("自動刷新", ['關閉', '30s', '60s'],
+                               horizontal=True, key="dt_zz_refresh")
+
+        _rsec = {'關閉': 0, '30s': 30, '60s': 60}[zz_refresh]
+        _rth = is_rth()
+        if _rsec > 0 and _rth:
+            try:
+                from streamlit_autorefresh import st_autorefresh
+                st_autorefresh(interval=_rsec * 1000, key="dt_zz_autorefresh")
+                st.caption(f"🔄 自動刷新每 {_rsec}s — Alpaca IEX 盤中真即時")
+            except ImportError:
+                st.caption("⚠️ 自動刷新需 `pip install streamlit-autorefresh`")
+        elif _rsec > 0:
+            st.caption("⏸️ 美股未開盤 — 自動刷新暫停，"
+                       "盤中（09:30–16:00 ET）自動生效")
+
+        if not zz_ticker:
+            st.info("請輸入股票代號。")
+        else:
+            zdf = None
+            _err = None
+            try:
+                with st.spinner(f"載入 {zz_ticker} {zz_tf} 即時資料…"):
+                    zdf = get_intraday(zz_ticker, tf=zz_tf, market='us')
+            except Exception as e:
+                _err = f"{type(e).__name__}: {str(e)[:120]}"
+
+            if zdf is None:
+                st.error(f"❌ {zz_ticker}：查無即時資料"
+                         + (f" — {_err}" if _err else
+                            "（代號錯誤、非美股、或 API 暫時無回應）"))
+            elif len(zdf) < 20:
+                st.warning(f"⚠️ {zz_ticker} 資料不足（{len(zdf)} bars），無法繪圖。")
+            else:
+                # 新鮮度（index 為 naive UTC）
+                last_utc = _last_utc(zdf.index)
+                last_et = last_utc.tz_convert(ET)
+                lag_min = (pd.Timestamp.now(tz='UTC')
+                           - last_utc).total_seconds() / 60
+                price = float(zdf['Close'].iloc[-1])
+                bar_min = {'1m': 1, '5m': 5, '15m': 15, '30m': 30}[zz_tf]
+                _fresh = (f"最新 bar {last_et.strftime('%m-%d %H:%M')} ET"
+                          f"　·　現價 {_fmt_price(price)}")
+                if not _rth:
+                    st.info(f"⏸️ 美股未開盤 — {_fresh}（顯示最後收盤資料）")
+                elif lag_min <= bar_min * 2.5:
+                    st.success(f"🟢 即時報價（落後 {lag_min:.0f} 分）— {_fresh}")
+                else:
+                    st.warning(f"⏰ 資料落後約 {lag_min:.0f} 分 — {_fresh}"
+                               f"（{zz_ticker} 近期在 IEX 成交稀疏）")
+
+                # index 轉 ET 供圖表 x 軸正確顯示
+                zdf_et = zdf.copy()
+                zdf_et.index = _index_to_et(zdf.index)
+
+                # 目前戰法訊號
+                try:
+                    _sig = detect_swing_signal(zdf_et, market='us', tf=zz_tf)
+                except Exception:
+                    _sig = None
+                if _sig and not _sig.get('error'):
+                    _e = _sig.get('entry', {}) or {}
+                    _x = _sig.get('exit', {}) or {}
+                    _ee, _et = _ENTRY_VIEW.get(_e.get('state'), ('⚪', '—'))
+                    _xe, _xt = _EXIT_VIEW.get(_x.get('state'), ('⚪', '—'))
+                    st.markdown(f"**目前戰法訊號**　{_ee} 進場：{_et}"
+                                f"　｜　{_xe} 出場：{_xt}")
+
+                # 戰法歷史 entry/exit/加碼 marker
+                _swing = _reentry = None
+                try:
+                    from intraday.strategy import (scan_with_exit_rule,
+                                                   scan_historical_reentry)
+                    _swing = scan_with_exit_rule(
+                        zdf_et, market='us', lookback_bars=120, tf=zz_tf,
+                        exit_rule='mid_ema_down', entry_mode='bb_p1sig')
+                    _reentry = scan_historical_reentry(
+                        zdf_et, market='us', lookback_bars=120, tf=zz_tf)
+                except Exception:
+                    _swing = _reentry = None
+                try:
+                    from intraday.settings import get_zigzag_atr_mult
+                    _atr_m = get_zigzag_atr_mult()
+                except Exception:
+                    _atr_m = 1.3
+
+                # 渲染 Plotly Zigzag
+                try:
+                    fig = build_zigzag_chart_plotly(
+                        zdf_et, atr_mult=_atr_m,
+                        title=(f'{zz_ticker} {zz_tf} — ZigZag + BB + EMA '
+                               f'+ 戰法訊號（x 軸 ET）'),
+                        max_bars=120, show_bb=True,
+                        show_emas=[5, 20, 60, 150, 200], show_macd=False,
+                        theme=('dark' if zz_theme_lbl == '深色' else 'light'),
+                        swing_trades=_swing, reentry_events=_reentry)
+                    if fig is not None:
+                        st.plotly_chart(fig, use_container_width=True,
+                                        key="dt_zz_plotly")
+                    else:
+                        st.warning("⚠️ 圖表無法產生（資料不足）。")
+                except Exception as e:
+                    st.warning(f"⚠️ Plotly 渲染失敗：{type(e).__name__}: "
+                               f"{str(e)[:120]}")
+                st.caption("🟢▲ 戰法進場　🔴✕ 戰法出場　🟡★ 加碼（EMA5 反轉）"
+                           "　·　資料源 Alpaca IEX（盤中真即時）")
 
 
 # ════════════════════════════════════════════════════════════════
@@ -473,3 +629,117 @@ with tab_d:
     else:
         st.warning("找不到 `soxs_0519_chart.html` — 請先在專案根目錄執行："
                    "`python generate_soxs_chart.py` 產生圖表。")
+
+
+# ════════════════════════════════════════════════════════════════
+# Tool E — 多週期總覽（多檔 × 多週期 ZigZag 網格）
+# ════════════════════════════════════════════════════════════════
+
+with tab_e:
+    st.subheader("E · 多週期總覽")
+    st.markdown("兩檔股票左右並排成兩欄，所有週期由上往下排 —— "
+                "往下掃看一檔的所有週期、往右比較兩檔同週期。")
+
+    ge1, ge2, ge3 = st.columns(3)
+    grid_a = ge1.text_input("股票 A", value="SOXL",
+                            key="grid_a").strip().upper()
+    grid_b = ge2.text_input("股票 B", value="SOXS",
+                            key="grid_b").strip().upper()
+    grid_theme = ge3.selectbox("圖表主題", ['深色', '淺色'], index=0,
+                               key="grid_theme")
+
+    _TF_ORDER = ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
+    _grid_tf_pick = st.multiselect(
+        "顯示週期（由短到長往下排）", _TF_ORDER, default=_TF_ORDER,
+        key="grid_tfs")
+    grid_tfs = [tf for tf in _TF_ORDER if tf in _grid_tf_pick]
+
+    gh1, gh2 = st.columns([1, 2])
+    grid_bars = gh1.slider("每張圖顯示 bars", 30, 90, 45, step=5,
+                           key="grid_bars")
+    grid_refresh = gh2.radio("自動刷新", ['關閉', '60s', '120s'],
+                             horizontal=True, key="grid_refresh")
+
+    grid_on = st.toggle("📊 載入多週期網格", value=False, key="grid_on",
+                        help="一次抓 2 檔 × N 週期，首次載入需數秒；"
+                             "關閉以加快頁面載入")
+
+    if not grid_on:
+        st.caption("開啟後繪製「股票 × 週期」ZigZag 網格（建議美股盤中使用）。")
+    elif not grid_tfs:
+        st.warning("請至少選一個時間週期。")
+    elif not (grid_a or grid_b):
+        st.warning("請至少輸入一檔股票代號。")
+    else:
+        _gsec = {'關閉': 0, '60s': 60, '120s': 120}[grid_refresh]
+        if _gsec > 0 and is_rth():
+            try:
+                from streamlit_autorefresh import st_autorefresh
+                st_autorefresh(interval=_gsec * 1000, key="grid_autorefresh")
+                st.caption(f"🔄 自動刷新每 {_gsec}s — Alpaca IEX 盤中真即時")
+            except ImportError:
+                st.caption("⚠️ 自動刷新需 `pip install streamlit-autorefresh`")
+        elif _gsec > 0:
+            st.caption("⏸️ 美股未開盤 — 自動刷新暫停，"
+                       "盤中（09:30–16:00 ET）自動生效")
+
+        _gtheme = 'dark' if grid_theme == '深色' else 'light'
+        try:
+            from intraday.settings import get_zigzag_atr_mult
+            _gatr = get_zigzag_atr_mult()
+        except Exception:
+            _gatr = 1.3
+
+        _gstocks = [s for s in (grid_a, grid_b) if s]
+        _gncol = len(_gstocks)
+
+        # 表頭：股票名稱（左右並排成欄）
+        _ghead = st.columns(_gncol)
+        for _gi, _gs in enumerate(_gstocks):
+            _ghead[_gi].markdown(f"### 📈 {_gs}")
+
+        _gtotal = max(1, _gncol * len(grid_tfs))
+        _gprog = st.progress(0.0, text="載入網格…")
+        _gdone = 0
+        for _gtf in grid_tfs:                        # 週期 = 列（由上往下）
+            _grow = st.columns(_gncol)
+            for _gi, _gs in enumerate(_gstocks):     # 股票 = 欄（左右並排）
+                _gdone += 1
+                _gprog.progress(_gdone / _gtotal,
+                                text=f"載入 {_gs} {_gtf}（{_gdone}/{_gtotal}）")
+                with _grow[_gi]:
+                    _gdf = _grid_fetch(_gs, _gtf)
+                    if _gdf is None or len(_gdf) < 30:
+                        st.markdown(f"**{_gs} · {_gtf}**")
+                        st.info("資料不足")
+                        continue
+                    _gwin = _gdf.tail(grid_bars)
+                    _gc0 = float(_gwin['Close'].iloc[0])
+                    _gc1 = float(_gwin['Close'].iloc[-1])
+                    _gchg = (_gc1 - _gc0) / _gc0 * 100 if _gc0 else 0.0
+                    _garrow = ('🔺' if _gchg > 0.05 else
+                               '🔻' if _gchg < -0.05 else '▪️')
+                    st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
+                                f"{_garrow} {_gchg:+.1f}%")
+                    try:
+                        _gfig = build_zigzag_chart_plotly(
+                            _gdf, atr_mult=_gatr, title='',
+                            max_bars=grid_bars, show_bb=True,
+                            show_emas=[5, 20], show_macd=False,
+                            theme=_gtheme)
+                        if _gfig is not None:
+                            _gfig.update_layout(
+                                height=340, showlegend=False,
+                                margin=dict(l=4, r=4, t=6, b=4),
+                                xaxis_rangeslider_visible=False)
+                            st.plotly_chart(
+                                _gfig, use_container_width=True,
+                                key=f"grid_{_gi}_{_gs}_{_gtf}",
+                                config={'displayModeBar': False})
+                        else:
+                            st.info("無法繪圖")
+                    except Exception as _ge:
+                        st.warning(f"繪圖失敗：{str(_ge)[:60]}")
+        _gprog.empty()
+        st.caption("每格＝ZigZag（ATR 轉折）＋ Bollinger Band ＋ EMA5/20　·　"
+                   "標題列漲跌＝視窗最舊→最新 bar　·　資料源 Alpaca IEX")
