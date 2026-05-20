@@ -27,6 +27,7 @@ warnings.filterwarnings('ignore')
 from intraday.data import get_intraday
 from intraday.strategy import detect_swing_signal
 from intraday.charts import build_zigzag_chart_plotly
+from intraday.twelvedata_src import fetch_intraday
 
 ET = ZoneInfo('America/New_York')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -148,7 +149,6 @@ def _grid_trade_in_view(t, wts):
 
 def _dt_fetch(ticker: str, tf: str):
     """day-trade 頁專用取資料 — Twelve Data 優先，失敗自動 fallback Alpaca IEX。"""
-    from intraday.twelvedata_src import fetch_intraday
     return fetch_intraday(ticker, tf, market='us')
 
 
