@@ -295,7 +295,7 @@ def _render_live_zigzag(ticker, tf, theme_lbl, rth, idx):
         fig = build_zigzag_chart_plotly(
             zdf_et, atr_mult=_atr_m, title='',
             max_bars=120, show_bb=True,
-            show_emas=[5, 20, 60, 150, 200], show_macd=False,
+            show_emas=[5, 20, 60, 120, 200], show_macd=False,
             theme=('dark' if theme_lbl == '深色' else 'light'),
             swing_trades=_swing, reentry_events=_reentry)
         if fig is not None:
@@ -849,20 +849,30 @@ with tab_e:
                             tf=_gtf)
                     except Exception:
                         _gsw = _gre = None
-                    # 燈號 = 戰法最近一筆交易（全史，不受顯示視窗限制）：
-                    #   仍持倉 (open) → 進場綠 ｜ 已出場 → 出場紅 ｜ 從無交易 → 原色
+                    # 顯示視窗起點（grid_bars 根前）
+                    _gwts = (_gdf.index[-grid_bars] if len(_gdf) > grid_bars
+                             else _gdf.index[0])
+                    # 燈號：持倉中(open)→綠 ｜ 出場點落在顯示視窗內→紅 ｜
+                    #       出場已久 / 從無交易 → 原色（舊出場不再一直亮紅）
                     _gstate = None
                     if _gsw:
-                        _gstate = 'enter' if _gsw[-1].get('open') else 'exit'
+                        _glast = _gsw[-1]
+                        if _glast.get('open'):
+                            _gstate = 'enter'
+                        else:
+                            _gex = _glast.get('exit_time')
+                            try:
+                                if _gex is not None and _gex >= _gwts:
+                                    _gstate = 'exit'
+                            except Exception:
+                                _gstate = 'exit'
                     _gstyle = (_GRID_SIG_STYLE.get((_gstate, _gtheme))
                                if _gstate else None)
                     _gtag2 = '　🟡 加碼' if _gre else ''
                     # 圖上標註只保留顯示視窗內的交易（更早的歷史不畫 marker）
-                    _gsw_view = _gsw or []
-                    if _gsw and len(_gdf) > grid_bars:
-                        _gwts = _gdf.index[-grid_bars]
-                        _gsw_view = [t for t in _gsw
-                                     if _grid_trade_in_view(t, _gwts)]
+                    _gsw_view = ([t for t in _gsw
+                                  if _grid_trade_in_view(t, _gwts)]
+                                 if _gsw else [])
                     # 標題列（有訊號時整條上色；視窗內有加碼補 🟡 標記）
                     if _gstyle:
                         st.markdown(
@@ -880,7 +890,7 @@ with tab_e:
                         _gfig = build_zigzag_chart_plotly(
                             _gdf, atr_mult=_gatr, title='',
                             max_bars=grid_bars, show_bb=True,
-                            show_emas=[5, 20], show_macd=False,
+                            show_emas=[5, 20, 60, 120, 200], show_macd=False,
                             theme=_gtheme, swing_trades=_gsw_view,
                             reentry_events=_gre)
                         if _gfig is not None:
@@ -901,6 +911,6 @@ with tab_e:
                     except Exception as _gerr:
                         st.warning(f"繪圖失敗：{str(_gerr)[:60]}")
         _gprog.empty()
-        st.caption("每格＝ZigZag＋BB＋EMA5/20，圖上 🟢▲進場 🔴✕出場 🟡★加碼　·　"
-                   "🟢 綠底＝戰法持倉中　🔴 紅底＝戰法已出場（依最近一筆交易）　·　"
+        st.caption("每格＝ZigZag＋BB＋EMA(5/20/60/120/200)，圖上 🟢▲進場 🔴✕出場 🟡★加碼　·　"
+                   "🟢 綠底＝戰法持倉中　🔴 紅底＝戰法剛出場（出場點在圖內）　·　"
                    "資料源 Twelve Data")

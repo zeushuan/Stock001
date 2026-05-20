@@ -448,7 +448,7 @@ def build_zigzag_chart_plotly(
 
     # ── EMA 線 ──
     ema_colors = {5: '#ffaa55', 20: '#3b9eff', 60: '#aa66ff',
-                   150: '#ff6dc8', 200: '#cc3333'}
+                   120: '#d8a030', 150: '#ff6dc8', 200: '#cc3333'}
     for p in show_emas:
         if p not in ema_plot:
             continue
