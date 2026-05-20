@@ -819,8 +819,9 @@ with tab_e:
                     _gchg = (_gc1 - _gc0) / _gc0 * 100 if _gc0 else 0.0
                     _garrow = ('🔺' if _gchg > 0.05 else
                                '🔻' if _gchg < -0.05 else '▪️')
-                    # 戰法訊號 → 卡片底色（出場紅 / 進場綠 / 其餘原色）
+                    # 戰法訊號 → 卡片底色（出場紅 / 進場綠 / 其餘原色）＋ 加碼
                     _gstate = None
+                    _greentry = 0
                     try:
                         _gsig = detect_swing_signal(_gdf, market='us', tf=_gtf)
                         if _gsig and not _gsig.get('error'):
@@ -830,28 +831,47 @@ with tab_e:
                                 _gstate = 'enter'
                             elif _sx == 'EXIT':
                                 _gstate = 'exit'
+                            _greentry = ((_gsig.get('reentry') or {})
+                                         .get('count', 0))
                     except Exception:
                         _gstate = None
                     _gstyle = (_GRID_SIG_STYLE.get((_gstate, _gtheme))
                                if _gstate else None)
-                    # 標題列（有訊號時整條上色）
+                    _gtag2 = '　🟡 加碼' if _greentry else ''
+                    # 標題列（有訊號時整條上色；有加碼補 🟡 標記）
                     if _gstyle:
                         st.markdown(
                             f"<div style='background:{_gstyle['capbg']};"
                             f"color:{_gstyle['captx']};padding:5px 9px;"
                             f"border-radius:5px;font-size:.9rem'>"
                             f"<b>{_gstyle['tag']}｜{_gs} · {_gtf}</b>　"
-                            f"{_fmt_price(_gc1)}　{_garrow} {_gchg:+.1f}%</div>",
+                            f"{_fmt_price(_gc1)}　{_garrow} {_gchg:+.1f}%"
+                            f"{_gtag2}</div>",
                             unsafe_allow_html=True)
                     else:
                         st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
-                                    f"{_garrow} {_gchg:+.1f}%")
+                                    f"{_garrow} {_gchg:+.1f}%{_gtag2}")
+                    # 戰法歷史標註（進場▲ / 出場✕ / 加碼★）
+                    _gsw = _gre = None
+                    try:
+                        from intraday.strategy import (scan_with_exit_rule,
+                                                       scan_historical_reentry)
+                        _gsw = scan_with_exit_rule(
+                            _gdf, market='us', lookback_bars=grid_bars,
+                            tf=_gtf, exit_rule='mid_ema_down',
+                            entry_mode='bb_p1sig')
+                        _gre = scan_historical_reentry(
+                            _gdf, market='us', lookback_bars=grid_bars,
+                            tf=_gtf)
+                    except Exception:
+                        _gsw = _gre = None
                     try:
                         _gfig = build_zigzag_chart_plotly(
                             _gdf, atr_mult=_gatr, title='',
                             max_bars=grid_bars, show_bb=True,
                             show_emas=[5, 20], show_macd=False,
-                            theme=_gtheme)
+                            theme=_gtheme, swing_trades=_gsw,
+                            reentry_events=_gre)
                         if _gfig is not None:
                             _gfig.update_layout(
                                 height=340, showlegend=False,
@@ -870,6 +890,6 @@ with tab_e:
                     except Exception as _gerr:
                         st.warning(f"繪圖失敗：{str(_gerr)[:60]}")
         _gprog.empty()
-        st.caption("每格＝ZigZag（ATR 轉折）＋ BB ＋ EMA5/20　·　"
-                   "🟢 綠底＝戰法進場訊號　🔴 紅底＝戰法出場訊號　·　"
+        st.caption("每格＝ZigZag＋BB＋EMA5/20，圖上 🟢▲進場 🔴✕出場 🟡★加碼　·　"
+                   "🟢 綠底＝目前進場訊號　🔴 紅底＝目前出場訊號　·　"
                    "資料源 Twelve Data")
