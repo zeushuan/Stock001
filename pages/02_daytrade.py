@@ -118,6 +118,18 @@ _EXIT_VIEW = {
     'HOLD':       ('⚪', '持有 / 觀望'),
 }
 
+# 多週期總覽卡片配色 — 依戰法訊號（進場綠 / 出場紅 / 其餘原色）
+_GRID_SIG_STYLE = {
+    ('enter', 'dark'):  {'paper': '#0c3a1e', 'plot': '#0d2e1a',
+                         'capbg': '#0d3a1e', 'captx': '#d6f0df', 'tag': '🟢 進場'},
+    ('enter', 'light'): {'paper': '#d9f2e1', 'plot': '#e8f7ee',
+                         'capbg': '#c4ead0', 'captx': '#0a5a28', 'tag': '🟢 進場'},
+    ('exit', 'dark'):   {'paper': '#3a1212', 'plot': '#2e1010',
+                         'capbg': '#3a1212', 'captx': '#ffd5d5', 'tag': '🔴 出場'},
+    ('exit', 'light'):  {'paper': '#ffd9d9', 'plot': '#ffecec',
+                         'capbg': '#ffc6c6', 'captx': '#7a1212', 'tag': '🔴 出場'},
+}
+
 
 def _dt_fetch(ticker: str, tf: str):
     """day-trade 頁專用取資料 — Twelve Data 優先，失敗自動 fallback Alpaca IEX。"""
@@ -677,6 +689,46 @@ with tab_d:
         st.warning("找不到 `soxs_0519_chart.html` — 請先在專案根目錄執行："
                    "`python generate_soxs_chart.py` 產生圖表。")
 
+    # ── 我的實單血淚 ──
+    st.divider()
+    st.markdown("### 🩸 我的實單血淚 — 同一天的真實操作")
+    st.caption("把上面的教訓對照到自己 SOXS 5/19 的 7 筆實際成交"
+               "（依券商畫面順序，最新在上）。")
+    _my_trades = pd.DataFrame([
+        {'動作': '賣出', '股數': 1500, '成交價': 9.74,  '當日區間位置': '21% 地板區'},
+        {'動作': '賣出', '股數': 100,  '成交價': 10.23, '當日區間位置': '51% 中段'},
+        {'動作': '買進', '股數': 500,  '成交價': 10.52, '當日區間位置': '68% 中上'},
+        {'動作': '買進', '股數': 1000, '成交價': 10.13, '當日區間位置': '45% 中段'},
+        {'動作': '買進', '股數': 1000, '成交價': 9.89,  '當日區間位置': '30% 中下'},
+        {'動作': '賣出', '股數': 1000, '成交價': 10.21, '當日區間位置': '49% 中段'},
+        {'動作': '買進', '股數': 100,  '成交價': 10.51, '當日區間位置': '67% 中上'},
+    ])
+    st.dataframe(_my_trades, hide_index=True, use_container_width=True)
+
+    _b1, _b2, _b3 = st.columns(3)
+    _b1.metric("買進均價", "$10.13", "2600 股", delta_color="off")
+    _b2.metric("賣出均價", "$9.94", "2600 股", delta_color="off")
+    _b3.metric("可見 7 筆淨損益", "-$488", "-1.85%")
+
+    st.markdown("""
+**🩸 血淚① — 問題不在「買」，在「沒賣」**
+買進均價 $10.13 其實比戰法進場 $10.375 還漂亮。戰法 **10:29 喊出場 $10.845**，
+卻沒走 —— 把 SOXS 一路抱過 $10.8 → $10.2 → $9.7。
+
+**🩸 血淚② — 越跌越買（攤平）**
+SOXS 崩盤途中還「買進 1000 @ $9.89」—— 接刀、攤平、賭「會彈回來」，
+就是「執迷不悟」。
+
+**🩸 血淚③ — 恐慌砍在地板**
+最新一筆「賣出 1500 @ $9.74」是 58% 的量，砍在離全日最低 $9.38 只差
+**3.8%** 的地方 —— 把上面的「情緒陷阱 2」親身演了一遍。
+""")
+    st.error("🧮 **紀律 vs 情緒的代價** — 2600 股若全照戰法 $10.845 出場 → "
+             "**+$1,866**；實際 **-$488**。情緒來回吐掉 **≈ $2,350**。")
+    st.success("✅ **下次鐵律**：看到 🚨 撤退警示就走 · 絕不對虧損部位加碼 · "
+               "下單前先用交易卡算好停損。")
+    st.caption("完整逐筆計算見 `analyze_my_soxs_trades.py`。")
+
 
 # ════════════════════════════════════════════════════════════════
 # Tool E — 多週期總覽（多檔 × 多週期 ZigZag 網格）
@@ -767,8 +819,33 @@ with tab_e:
                     _gchg = (_gc1 - _gc0) / _gc0 * 100 if _gc0 else 0.0
                     _garrow = ('🔺' if _gchg > 0.05 else
                                '🔻' if _gchg < -0.05 else '▪️')
-                    st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
-                                f"{_garrow} {_gchg:+.1f}%")
+                    # 戰法訊號 → 卡片底色（出場紅 / 進場綠 / 其餘原色）
+                    _gstate = None
+                    try:
+                        _gsig = detect_swing_signal(_gdf, market='us', tf=_gtf)
+                        if _gsig and not _gsig.get('error'):
+                            _sx = (_gsig.get('exit', {}) or {}).get('state')
+                            _se = (_gsig.get('entry', {}) or {}).get('state')
+                            if _se == 'ENTER':
+                                _gstate = 'enter'
+                            elif _sx == 'EXIT':
+                                _gstate = 'exit'
+                    except Exception:
+                        _gstate = None
+                    _gstyle = (_GRID_SIG_STYLE.get((_gstate, _gtheme))
+                               if _gstate else None)
+                    # 標題列（有訊號時整條上色）
+                    if _gstyle:
+                        st.markdown(
+                            f"<div style='background:{_gstyle['capbg']};"
+                            f"color:{_gstyle['captx']};padding:5px 9px;"
+                            f"border-radius:5px;font-size:.9rem'>"
+                            f"<b>{_gstyle['tag']}｜{_gs} · {_gtf}</b>　"
+                            f"{_fmt_price(_gc1)}　{_garrow} {_gchg:+.1f}%</div>",
+                            unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
+                                    f"{_garrow} {_gchg:+.1f}%")
                     try:
                         _gfig = build_zigzag_chart_plotly(
                             _gdf, atr_mult=_gatr, title='',
@@ -780,14 +857,19 @@ with tab_e:
                                 height=340, showlegend=False,
                                 margin=dict(l=4, r=4, t=6, b=4),
                                 xaxis_rangeslider_visible=False)
+                            if _gstyle:
+                                _gfig.update_layout(
+                                    paper_bgcolor=_gstyle['paper'],
+                                    plot_bgcolor=_gstyle['plot'])
                             st.plotly_chart(
                                 _gfig, use_container_width=True,
                                 key=f"grid_{_gi}_{_gs}_{_gtf}",
                                 config={'displayModeBar': False})
                         else:
                             st.info("無法繪圖")
-                    except Exception as _ge:
-                        st.warning(f"繪圖失敗：{str(_ge)[:60]}")
+                    except Exception as _gerr:
+                        st.warning(f"繪圖失敗：{str(_gerr)[:60]}")
         _gprog.empty()
-        st.caption("每格＝ZigZag（ATR 轉折）＋ Bollinger Band ＋ EMA5/20　·　"
-                   "標題列漲跌＝視窗最舊→最新 bar　·　資料源 Alpaca IEX")
+        st.caption("每格＝ZigZag（ATR 轉折）＋ BB ＋ EMA5/20　·　"
+                   "🟢 綠底＝戰法進場訊號　🔴 紅底＝戰法出場訊號　·　"
+                   "資料源 Twelve Data")
