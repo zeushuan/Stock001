@@ -212,17 +212,40 @@ def _render_live_zigzag(ticker, tf, theme_lbl, rth, idx):
     # index 轉 ET 供圖表 x 軸
     zdf_et = zdf.copy()
     zdf_et.index = _index_to_et(zdf.index)
-    # 目前戰法訊號
+    # 目前戰法訊號 ＋ 撤退警示（對抗「等一下會漲回來」的執念）
     try:
         _sig = detect_swing_signal(zdf_et, market='us', tf=tf)
     except Exception:
         _sig = None
     if _sig and not _sig.get('error'):
-        _e = _sig.get('entry', {}) or {}
-        _x = _sig.get('exit', {}) or {}
-        _ee, _etx = _ENTRY_VIEW.get(_e.get('state'), ('⚪', '—'))
-        _xe, _xtx = _EXIT_VIEW.get(_x.get('state'), ('⚪', '—'))
-        st.markdown(f"**戰法訊號**　{_ee} 進：{_etx}　｜　{_xe} 出：{_xtx}")
+        _estate = (_sig.get('entry', {}) or {}).get('state')
+        _xstate = (_sig.get('exit', {}) or {}).get('state')
+        try:
+            _rhigh = float(zdf['High'].tail(40).max())
+            _ddown = abs((price - _rhigh) / _rhigh * 100) if _rhigh > 0 else 0.0
+        except Exception:
+            _ddown = 0.0
+        if _xstate == 'EXIT':
+            st.error(
+                f"🚨 **撤退訊號成立** — Close 跌破 BB 中軌 ＋ EMA5/EMA20 雙雙下彎，"
+                f"距近期高點已回落 **{_ddown:.1f}%**。\n\n"
+                f"這是**趨勢反轉、不是回檔**。別騙自己「等一下會漲回來」—— "
+                f"SOXS 5/19 就是這樣 hold 到收盤 **−9.47%**（見 Tool D 案例）。\n\n"
+                f"👉 **照紀律出場，不要凹單。**")
+        elif _xstate in ('WARN_PRICE', 'WARN_EMA'):
+            _wr = ('Close 已跌破 BB 中軌（EMA 尚未轉空）'
+                   if _xstate == 'WARN_PRICE'
+                   else 'EMA5/EMA20 已下彎（中軌尚未跌破）')
+            st.warning(
+                f"⚠️ **撤退預警** — {_wr}。\n\n"
+                f"把停損掛好、手放在賣出鍵上。訊號一轉「撤退」就立刻走，"
+                f"**不要等反彈**。")
+        elif _estate == 'ENTER':
+            st.success("🟢 **進場訊號成立** — 趨勢站穩 BB+1σ，可依紀律進場。")
+        else:
+            _, _etx = _ENTRY_VIEW.get(_estate, ('⚪', '—'))
+            _, _xtx = _EXIT_VIEW.get(_xstate, ('⚪', '—'))
+            st.info(f"⚪ 戰法訊號正常　·　進場：{_etx}　｜　出場：{_xtx}")
     # 戰法歷史 entry/exit/加碼 marker
     _swing = _reentry = None
     try:
