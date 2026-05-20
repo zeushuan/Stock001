@@ -182,6 +182,81 @@ def _grid_fetch(ticker: str, tf: str):
     return df
 
 
+def _render_live_zigzag(ticker, tf, theme_lbl, rth, idx):
+    """在目前欄位內渲染單一標的的即時 Zigzag（新鮮度＋戰法訊號＋圖）。"""
+    try:
+        zdf = _dt_fetch(ticker, tf)
+    except Exception as e:
+        st.error(f"❌ {ticker}：抓資料失敗 {type(e).__name__}")
+        return
+    if zdf is None:
+        st.error(f"❌ {ticker}：查無即時資料（代號錯誤或 API 無回應）")
+        return
+    if len(zdf) < 20:
+        st.warning(f"⚠️ {ticker} 資料不足（{len(zdf)} bars）")
+        return
+    # 新鮮度（index 為 naive UTC）
+    last_utc = _last_utc(zdf.index)
+    last_et = last_utc.tz_convert(ET)
+    lag_min = (pd.Timestamp.now(tz='UTC') - last_utc).total_seconds() / 60
+    price = float(zdf['Close'].iloc[-1])
+    bar_min = {'1m': 1, '5m': 5, '15m': 15, '30m': 30}.get(tf, 15)
+    _fresh = (f"最新 bar {last_et.strftime('%m-%d %H:%M')} ET"
+              f"　·　現價 {_fmt_price(price)}")
+    if not rth:
+        st.info(f"⏸️ 美股未開盤 — {_fresh}")
+    elif lag_min <= bar_min * 2.5:
+        st.success(f"🟢 即時（落後 {lag_min:.0f} 分）— {_fresh}")
+    else:
+        st.warning(f"⏰ 落後約 {lag_min:.0f} 分 — {_fresh}")
+    # index 轉 ET 供圖表 x 軸
+    zdf_et = zdf.copy()
+    zdf_et.index = _index_to_et(zdf.index)
+    # 目前戰法訊號
+    try:
+        _sig = detect_swing_signal(zdf_et, market='us', tf=tf)
+    except Exception:
+        _sig = None
+    if _sig and not _sig.get('error'):
+        _e = _sig.get('entry', {}) or {}
+        _x = _sig.get('exit', {}) or {}
+        _ee, _etx = _ENTRY_VIEW.get(_e.get('state'), ('⚪', '—'))
+        _xe, _xtx = _EXIT_VIEW.get(_x.get('state'), ('⚪', '—'))
+        st.markdown(f"**戰法訊號**　{_ee} 進：{_etx}　｜　{_xe} 出：{_xtx}")
+    # 戰法歷史 entry/exit/加碼 marker
+    _swing = _reentry = None
+    try:
+        from intraday.strategy import (scan_with_exit_rule,
+                                       scan_historical_reentry)
+        _swing = scan_with_exit_rule(
+            zdf_et, market='us', lookback_bars=120, tf=tf,
+            exit_rule='mid_ema_down', entry_mode='bb_p1sig')
+        _reentry = scan_historical_reentry(
+            zdf_et, market='us', lookback_bars=120, tf=tf)
+    except Exception:
+        _swing = _reentry = None
+    try:
+        from intraday.settings import get_zigzag_atr_mult
+        _atr_m = get_zigzag_atr_mult()
+    except Exception:
+        _atr_m = 1.3
+    # 渲染 Plotly Zigzag
+    try:
+        fig = build_zigzag_chart_plotly(
+            zdf_et, atr_mult=_atr_m, title='',
+            max_bars=120, show_bb=True,
+            show_emas=[5, 20, 60, 150, 200], show_macd=False,
+            theme=('dark' if theme_lbl == '深色' else 'light'),
+            swing_trades=_swing, reentry_events=_reentry)
+        if fig is not None:
+            st.plotly_chart(fig, use_container_width=True,
+                            key=f"dt_zz_plotly_{idx}_{ticker}")
+        else:
+            st.warning("⚠️ 圖表無法產生")
+    except Exception as e:
+        st.warning(f"⚠️ Plotly 渲染失敗：{str(e)[:100]}")
+
+
 def _render_scan_cards(results):
     """把掃描結果排成 3 欄卡片。"""
     cols = st.columns(3)
@@ -317,13 +392,16 @@ with tab_a:
     # ────────────────────────────────────────────────────────────
     st.divider()
     zz_on = st.toggle("📈 即時 Zigzag 圖", value=False, key="dt_zz_on",
-                      help="盤中開啟可即時繪製單檔 Zigzag 走勢；關閉以加快頁面載入")
+                      help="盤中開啟可即時繪製 Zigzag；代號欄輸入多檔可並排比較")
     if not zz_on:
-        st.caption("開啟可即時繪製單一標的的 Zigzag 走勢圖（建議美股盤中使用）。")
+        st.caption("開啟可即時繪製 Zigzag 走勢圖；代號欄輸入多檔"
+                   "（逗號分隔，最多 4 檔）即左右並排。")
     else:
         zc1, zc2, zc3, zc4 = st.columns([2, 1, 1, 1.4])
-        zz_ticker = zc1.text_input("代號", value="SOXL",
-                                   key="dt_zz_ticker").strip().upper()
+        zz_raw = zc1.text_input("代號（可多檔，逗號分隔）", value="SOXL, SOXS",
+                                key="dt_zz_ticker")
+        zz_tickers = [t.strip().upper() for t in
+                      zz_raw.replace('\n', ',').split(',') if t.strip()][:4]
         zz_tf = zc2.selectbox("週期", ['1m', '5m', '15m', '30m'],
                               index=0, key="dt_zz_tf")
         zz_theme_lbl = zc3.selectbox("圖表主題", ['深色', '淺色'],
@@ -337,103 +415,23 @@ with tab_a:
             try:
                 from streamlit_autorefresh import st_autorefresh
                 st_autorefresh(interval=_rsec * 1000, key="dt_zz_autorefresh")
-                st.caption(f"🔄 自動刷新每 {_rsec}s — Alpaca IEX 盤中真即時")
+                st.caption(f"🔄 自動刷新每 {_rsec}s — Twelve Data 盤中真即時")
             except ImportError:
                 st.caption("⚠️ 自動刷新需 `pip install streamlit-autorefresh`")
         elif _rsec > 0:
             st.caption("⏸️ 美股未開盤 — 自動刷新暫停，"
                        "盤中（09:30–16:00 ET）自動生效")
 
-        if not zz_ticker:
-            st.info("請輸入股票代號。")
+        if not zz_tickers:
+            st.info("請輸入至少一個股票代號。")
         else:
-            zdf = None
-            _err = None
-            try:
-                with st.spinner(f"載入 {zz_ticker} {zz_tf} 即時資料…"):
-                    zdf = _dt_fetch(zz_ticker, zz_tf)
-            except Exception as e:
-                _err = f"{type(e).__name__}: {str(e)[:120]}"
-
-            if zdf is None:
-                st.error(f"❌ {zz_ticker}：查無即時資料"
-                         + (f" — {_err}" if _err else
-                            "（代號錯誤、非美股、或 API 暫時無回應）"))
-            elif len(zdf) < 20:
-                st.warning(f"⚠️ {zz_ticker} 資料不足（{len(zdf)} bars），無法繪圖。")
-            else:
-                # 新鮮度（index 為 naive UTC）
-                last_utc = _last_utc(zdf.index)
-                last_et = last_utc.tz_convert(ET)
-                lag_min = (pd.Timestamp.now(tz='UTC')
-                           - last_utc).total_seconds() / 60
-                price = float(zdf['Close'].iloc[-1])
-                bar_min = {'1m': 1, '5m': 5, '15m': 15, '30m': 30}[zz_tf]
-                _fresh = (f"最新 bar {last_et.strftime('%m-%d %H:%M')} ET"
-                          f"　·　現價 {_fmt_price(price)}")
-                if not _rth:
-                    st.info(f"⏸️ 美股未開盤 — {_fresh}（顯示最後收盤資料）")
-                elif lag_min <= bar_min * 2.5:
-                    st.success(f"🟢 即時報價（落後 {lag_min:.0f} 分）— {_fresh}")
-                else:
-                    st.warning(f"⏰ 資料落後約 {lag_min:.0f} 分 — {_fresh}"
-                               f"（{zz_ticker} 近期在 IEX 成交稀疏）")
-
-                # index 轉 ET 供圖表 x 軸正確顯示
-                zdf_et = zdf.copy()
-                zdf_et.index = _index_to_et(zdf.index)
-
-                # 目前戰法訊號
-                try:
-                    _sig = detect_swing_signal(zdf_et, market='us', tf=zz_tf)
-                except Exception:
-                    _sig = None
-                if _sig and not _sig.get('error'):
-                    _e = _sig.get('entry', {}) or {}
-                    _x = _sig.get('exit', {}) or {}
-                    _ee, _et = _ENTRY_VIEW.get(_e.get('state'), ('⚪', '—'))
-                    _xe, _xt = _EXIT_VIEW.get(_x.get('state'), ('⚪', '—'))
-                    st.markdown(f"**目前戰法訊號**　{_ee} 進場：{_et}"
-                                f"　｜　{_xe} 出場：{_xt}")
-
-                # 戰法歷史 entry/exit/加碼 marker
-                _swing = _reentry = None
-                try:
-                    from intraday.strategy import (scan_with_exit_rule,
-                                                   scan_historical_reentry)
-                    _swing = scan_with_exit_rule(
-                        zdf_et, market='us', lookback_bars=120, tf=zz_tf,
-                        exit_rule='mid_ema_down', entry_mode='bb_p1sig')
-                    _reentry = scan_historical_reentry(
-                        zdf_et, market='us', lookback_bars=120, tf=zz_tf)
-                except Exception:
-                    _swing = _reentry = None
-                try:
-                    from intraday.settings import get_zigzag_atr_mult
-                    _atr_m = get_zigzag_atr_mult()
-                except Exception:
-                    _atr_m = 1.3
-
-                # 渲染 Plotly Zigzag
-                try:
-                    fig = build_zigzag_chart_plotly(
-                        zdf_et, atr_mult=_atr_m,
-                        title=(f'{zz_ticker} {zz_tf} — ZigZag + BB + EMA '
-                               f'+ 戰法訊號（x 軸 ET）'),
-                        max_bars=120, show_bb=True,
-                        show_emas=[5, 20, 60, 150, 200], show_macd=False,
-                        theme=('dark' if zz_theme_lbl == '深色' else 'light'),
-                        swing_trades=_swing, reentry_events=_reentry)
-                    if fig is not None:
-                        st.plotly_chart(fig, use_container_width=True,
-                                        key="dt_zz_plotly")
-                    else:
-                        st.warning("⚠️ 圖表無法產生（資料不足）。")
-                except Exception as e:
-                    st.warning(f"⚠️ Plotly 渲染失敗：{type(e).__name__}: "
-                               f"{str(e)[:120]}")
-                st.caption("🟢▲ 戰法進場　🔴✕ 戰法出場　🟡★ 加碼（EMA5 反轉）"
-                           "　·　資料源 Alpaca IEX（盤中真即時）")
+            _zzcols = st.columns(len(zz_tickers))
+            for _zi, _zt in enumerate(zz_tickers):
+                with _zzcols[_zi]:
+                    st.markdown(f"### 📈 {_zt}")
+                    _render_live_zigzag(_zt, zz_tf, zz_theme_lbl, _rth, _zi)
+            st.caption("🟢▲ 戰法進場　🔴✕ 戰法出場　🟡★ 加碼（EMA5 反轉）"
+                       "　·　資料源 Twelve Data（盤中真即時）")
 
 
 # ════════════════════════════════════════════════════════════════
