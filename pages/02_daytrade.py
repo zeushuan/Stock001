@@ -665,11 +665,14 @@ with tab_d:
 
 **心法**：訊號告訴你進出場的「**時機**」；情緒只會讓你**追在最高、砍在最低**。
 看圖中綠色三角（進）與紅色叉（出）就是戰法的紀律點。
+
+📊 圖表**含盤前時段**（🌅 04:00 起）—— 藍色虛線 ▲ 標示 09:30 RTH 開盤，
+可對照盤前鋪陳與開盤後走勢。
 """)
     chart_path = os.path.join(ROOT, 'soxs_0519_chart.html')
     if os.path.exists(chart_path):
         with open(chart_path, encoding='utf-8') as f:
-            components.html(f.read(), height=1080, scrolling=True)
+            components.html(f.read(), height=1180, scrolling=True)
     else:
         st.warning("找不到 `soxs_0519_chart.html` — 請先在專案根目錄執行："
                    "`python generate_soxs_chart.py` 產生圖表。")

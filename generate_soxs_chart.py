@@ -38,18 +38,22 @@ df['t'] = df.index.time
 
 target = pd.Timestamp('2026-05-19').date()
 day = df[df['date'] == target].copy()
+# 圖表區間 = 盤前 04:00 起 ～ RTH 收盤 16:00（含盤前）
+seg = day[(day['t'] >= dtime(4,0)) & (day['t'] < dtime(16,0))].copy()
+# RTH（09:30-16:00）— 定 day_open 與 RTH 高低點（情緒陷阱敘事用）
 rth = day[(day['t'] >= dtime(9,30)) & (day['t'] < dtime(16,0))].copy()
+n_premkt = len(seg) - len(rth)    # 盤前 bar 數（RTH 為 seg 的尾段）
 
-times = [t.strftime('%H:%M') for t in rth.index]
-o = rth['Open'].tolist()
-h = rth['High'].tolist()
-l = rth['Low'].tolist()
-c = rth['Close'].tolist()
+times = [t.strftime('%H:%M') for t in seg.index]
+o = seg['Open'].tolist()
+h = seg['High'].tolist()
+l = seg['Low'].tolist()
+c = seg['Close'].tolist()
 
-day_open = float(rth.iloc[0]['Open'])
+day_open = float(rth.iloc[0]['Open'])    # RTH 09:30 開盤價
 
-# 指標
-close = rth['Close']
+# 指標（用含盤前的 seg 計算 → RTH 開盤時 EMA/BB 已預熱完成）
+close = seg['Close']
 ema5 = close.ewm(span=5, adjust=False).mean().tolist()
 ema20 = close.ewm(span=20, adjust=False).mean().tolist()
 sma20 = close.rolling(20).mean()
@@ -66,17 +70,45 @@ def idx_of(time_str):
 
 i_entry = idx_of('09:50')
 i_exit  = idx_of('10:29')
-i_high  = c.index(max(c)) if False else int(rth['High'].values.argmax())
-i_low   = int(rth['Low'].values.argmin())
+# 高低點以 RTH 為準（敘事用 $11.06 / $9.38），換算成 seg 的絕對 index
+i_high  = n_premkt + int(rth['High'].values.argmax())
+i_low   = n_premkt + int(rth['Low'].values.argmin())
+i_rth_open = n_premkt    # RTH 09:30 開盤在 seg 的位置
+
+# 盤前統計
+if n_premkt > 0:
+    _pm = seg.iloc[:n_premkt]
+    pm_open = float(_pm.iloc[0]['Open'])
+    pm_high = float(_pm['High'].max())
+    pm_low  = float(_pm['Low'].min())
+    pm_last = float(_pm.iloc[-1]['Close'])
+    pm_t0, pm_t1 = times[0], times[n_premkt - 1]
+    gap_pct = (day_open - pm_last) / pm_last * 100 if pm_last else 0.0
 
 data = {
     'times': times, 'open': o, 'high': h, 'low': l, 'close': c,
     'ema5': ema5, 'ema20': ema20, 'bb_p1': bb_p1, 'bb_mid': bb_mid,
     'day_open': day_open,
     'i_entry': i_entry, 'i_exit': i_exit, 'i_high': i_high, 'i_low': i_low,
+    'i_rth_open': i_rth_open,
     'entry_price': c[i_entry], 'exit_price': c[i_exit],
     'high_price': h[i_high], 'low_price': l[i_low],
 }
+
+# 盤前資訊框（無盤前資料則顯示提示）
+if n_premkt > 0:
+    _gap_cls = 'green' if gap_pct >= 0 else 'red'
+    premkt_html = (
+        '<div class="box" style="border-left:4px solid #f0c030">'
+        '🌅 <b class="gold">盤前</b> ' + pm_t0 + '–' + pm_t1 + '（'
+        + str(n_premkt) + ' 根 1m）：開 $' + f'{pm_open:.4f}'
+        + ' · 高 $' + f'{pm_high:.4f}' + ' · 低 $' + f'{pm_low:.4f}'
+        + ' · 收 $' + f'{pm_last:.4f}'
+        + ' &nbsp;→&nbsp; RTH 09:30 開 $' + f'{day_open:.4f}'
+        + ' (<b class="' + _gap_cls + '">' + f'{gap_pct:+.2f}%'
+        + ' 跳空</b>)</div>')
+else:
+    premkt_html = '<div class="box">⚠️ 當日 IEX feed 無盤前成交資料</div>'
 
 html = '''<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8">
@@ -110,7 +142,7 @@ Close <b class="red">$''' + f'{c[-1]:.4f}' + '''</b>
 High <b>$''' + f'{data["high_price"]:.4f}' + '''</b> @ ''' + times[i_high] + ''' ·
 Low <b>$''' + f'{data["low_price"]:.4f}' + '''</b> @ ''' + times[i_low] + '''
 </div>
-
+''' + premkt_html + '''
 <div id="chart" style="height:560px"></div>
 
 <div class="ok">
@@ -168,14 +200,23 @@ const layout = {
   paper_bgcolor:'#0a1828',plot_bgcolor:'#050e1a',
   font:{color:'#c8dff0',family:'Consolas,monospace',size:10},
   margin:{t:40,b:60,l:55,r:20},
-  title:{text:'SOXS 2026-05-19 1m K線 + 戰法訊號',font:{color:'#5dccdd',size:14}},
+  title:{text:'SOXS 2026-05-19 1m K線（含盤前）+ 戰法訊號',font:{color:'#5dccdd',size:14}},
   xaxis:{gridcolor:'#1a2f48',rangeslider:{visible:false},tickangle:-45,
-         nticks:26,title:'時間 (ET)'},
+         nticks:34,title:'時間 (ET)'},
   yaxis:{gridcolor:'#1a2f48',title:'價格 ($)'},
   legend:{bgcolor:'#0a1020',bordercolor:'#1a3055',borderwidth:1,
           orientation:'h',y:1.06},
   hovermode:'x unified',
+  shapes:[
+    {type:'line',xref:'x',yref:'paper',
+     x0:D.times[D.i_rth_open],x1:D.times[D.i_rth_open],y0:0,y1:1,
+     line:{color:'#5dccdd',width:1.5,dash:'dash'}},
+  ],
   annotations:[
+    {x:D.times[D.i_rth_open],y:0.04,yref:'paper',
+     text:'▲ 09:30 RTH 開盤',showarrow:false,
+     font:{color:'#5dccdd',size:10},bgcolor:'#0a1828',
+     bordercolor:'#5dccdd',borderpad:2},
     {x:D.times[D.i_high],y:D.high_price,text:'🤑 追高陷阱 $'+D.high_price.toFixed(2),
      showarrow:true,arrowcolor:'#ff5555',arrowhead:2,ax:0,ay:-40,
      font:{color:'#ff5555',size:11},bgcolor:'#2a0a0a',bordercolor:'#ff5555'},
@@ -194,5 +235,6 @@ Stock001 ｜ SOXS 5/19 訊號 vs 情緒教學案例
 
 Path('soxs_0519_chart.html').write_text(html, encoding='utf-8')
 print(f'✅ soxs_0519_chart.html 已生成 ({len(html):,} bytes)')
+print(f'   盤前 {n_premkt} bars + RTH {len(rth)} bars = 共 {len(seg)} bars')
 print(f'   進場 09:50 ${data["entry_price"]:.4f} → 出場 10:29 ${data["exit_price"]:.4f}')
 print(f'   高點 {times[i_high]} ${data["high_price"]:.4f} / 低點 {times[i_low]} ${data["low_price"]:.4f}')
