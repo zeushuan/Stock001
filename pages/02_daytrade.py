@@ -1,4 +1,4 @@
-"""Day-Trade 工具台 — Stock001 v9.49
+"""Day-Trade 工具台 — Stock001 v9.50
 =====================================
 五合一當沖輔助工具，把「無情緒交易」落地成可操作流程：
 
@@ -8,6 +8,7 @@
   D · SOXS 5/19 案例 訊號 vs 情緒 視覺化教學
   E · 多週期總覽     兩檔股票 × 全週期 ZigZag 網格，一眼掃方向
 
+資料源：Twelve Data Free（抓不到時自動 fallback Alpaca IEX）；其他頁仍用 Alpaca。
 啟動：streamlit run tv_app.py → 側邊欄選 "daytrade"
 """
 import sys
@@ -118,15 +119,28 @@ _EXIT_VIEW = {
 }
 
 
+def _dt_fetch(ticker: str, tf: str):
+    """day-trade 頁專用取資料 — Twelve Data 優先，失敗自動 fallback Alpaca IEX。"""
+    df = None
+    try:
+        from intraday.twelvedata_src import fetch_td, has_twelvedata
+        if has_twelvedata():
+            df = fetch_td(ticker, tf)
+    except Exception:
+        df = None
+    if df is None or len(df) < 30:
+        try:
+            df = get_intraday(ticker, tf=tf, market='us')
+        except Exception:
+            df = None
+    return df
+
+
 @st.cache_data(ttl=20, show_spinner=False)
 def _scan_one(ticker: str, tf: str) -> dict:
     """抓單一標的 intraday 並跑 v9.38 戰法訊號。回傳精簡（可快取）dict。"""
     out = {'ticker': ticker, 'ok': False, 'err': None}
-    try:
-        df = get_intraday(ticker, tf=tf, market='us')
-    except Exception as e:
-        out['err'] = f'抓資料失敗：{e}'
-        return out
+    df = _dt_fetch(ticker, tf)
     if df is None or len(df) < 30:
         out['err'] = f'資料不足（{0 if df is None else len(df)} bars）'
         return out
@@ -162,10 +176,7 @@ def _scan_one(ticker: str, tf: str) -> dict:
 @st.cache_data(ttl=60, show_spinner=False)
 def _grid_fetch(ticker: str, tf: str):
     """抓單一 (ticker, tf) 的 OHLCV df，供多週期總覽網格使用（可快取 60s）。"""
-    try:
-        df = get_intraday(ticker, tf=tf, market='us')
-    except Exception:
-        return None
+    df = _dt_fetch(ticker, tf)
     if df is None or len(df) < 30:
         return None
     return df
@@ -204,7 +215,7 @@ def _render_scan_cards(results):
 # ════════════════════════════════════════════════════════════════
 
 st.title("⚡ Day-Trade 工具台")
-st.caption("Stock001 v9.49 ｜ 波段戰法 v9.38（bb_p1sig 進場 · mid_ema_down 出場）"
+st.caption("Stock001 v9.50 ｜ 波段戰法 v9.38（bb_p1sig 進場 · mid_ema_down 出場）"
            " — 把「無情緒交易」變成可執行流程")
 
 phase = get_session_phase()
@@ -216,6 +227,18 @@ elif phase['tone'] == 'caution':
     st.warning(_banner)
 else:
     st.info(_banner)
+
+# 資料源指示（day-trade 頁專用 Twelve Data；失敗自動 fallback Alpaca）
+try:
+    from intraday.twelvedata_src import has_twelvedata as _has_td, td_call_count
+    if _has_td():
+        st.caption(f"📡 資料源 **Twelve Data**（Free：8 calls/min · 800 credits/day）"
+                   f"　·　本次連線真實 API 呼叫 {td_call_count()} 次"
+                   f"　·　抓不到時自動 fallback Alpaca IEX")
+    else:
+        st.caption("📡 資料源 Alpaca IEX（未偵測到 Twelve Data key）")
+except Exception:
+    pass
 
 tab_a, tab_b, tab_c, tab_d, tab_e = st.tabs([
     "A · 戰法訊號面板", "B · 交易卡產生器",
@@ -328,7 +351,7 @@ with tab_a:
             _err = None
             try:
                 with st.spinner(f"載入 {zz_ticker} {zz_tf} 即時資料…"):
-                    zdf = get_intraday(zz_ticker, tf=zz_tf, market='us')
+                    zdf = _dt_fetch(zz_ticker, zz_tf)
             except Exception as e:
                 _err = f"{type(e).__name__}: {str(e)[:120]}"
 
@@ -641,9 +664,9 @@ with tab_e:
                 "往下掃看一檔的所有週期、往右比較兩檔同週期。")
 
     ge1, ge2, ge3 = st.columns(3)
-    grid_a = ge1.text_input("股票 A", value="SOXL",
+    grid_a = ge1.text_input("股票 A", value="SOXS",
                             key="grid_a").strip().upper()
-    grid_b = ge2.text_input("股票 B", value="SOXS",
+    grid_b = ge2.text_input("股票 B", value="SOXL",
                             key="grid_b").strip().upper()
     grid_theme = ge3.selectbox("圖表主題", ['深色', '淺色'], index=0,
                                key="grid_theme")
@@ -665,7 +688,8 @@ with tab_e:
                              "關閉以加快頁面載入")
 
     if not grid_on:
-        st.caption("開啟後繪製「股票 × 週期」ZigZag 網格（建議美股盤中使用）。")
+        st.info("👆 打開上方「📊 載入多週期網格」開關 —— 即可繪製兩檔股票"
+                "左右並排成兩欄、7 個週期由上往下的 ZigZag 網格。")
     elif not grid_tfs:
         st.warning("請至少選一個時間週期。")
     elif not (grid_a or grid_b):
