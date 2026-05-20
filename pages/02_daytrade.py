@@ -819,39 +819,7 @@ with tab_e:
                     _gchg = (_gc1 - _gc0) / _gc0 * 100 if _gc0 else 0.0
                     _garrow = ('🔺' if _gchg > 0.05 else
                                '🔻' if _gchg < -0.05 else '▪️')
-                    # 戰法訊號 → 卡片底色（出場紅 / 進場綠 / 其餘原色）＋ 加碼
-                    _gstate = None
-                    _greentry = 0
-                    try:
-                        _gsig = detect_swing_signal(_gdf, market='us', tf=_gtf)
-                        if _gsig and not _gsig.get('error'):
-                            _sx = (_gsig.get('exit', {}) or {}).get('state')
-                            _se = (_gsig.get('entry', {}) or {}).get('state')
-                            if _se == 'ENTER':
-                                _gstate = 'enter'
-                            elif _sx == 'EXIT':
-                                _gstate = 'exit'
-                            _greentry = ((_gsig.get('reentry') or {})
-                                         .get('count', 0))
-                    except Exception:
-                        _gstate = None
-                    _gstyle = (_GRID_SIG_STYLE.get((_gstate, _gtheme))
-                               if _gstate else None)
-                    _gtag2 = '　🟡 加碼' if _greentry else ''
-                    # 標題列（有訊號時整條上色；有加碼補 🟡 標記）
-                    if _gstyle:
-                        st.markdown(
-                            f"<div style='background:{_gstyle['capbg']};"
-                            f"color:{_gstyle['captx']};padding:5px 9px;"
-                            f"border-radius:5px;font-size:.9rem'>"
-                            f"<b>{_gstyle['tag']}｜{_gs} · {_gtf}</b>　"
-                            f"{_fmt_price(_gc1)}　{_garrow} {_gchg:+.1f}%"
-                            f"{_gtag2}</div>",
-                            unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
-                                    f"{_garrow} {_gchg:+.1f}%{_gtag2}")
-                    # 戰法歷史標註（進場▲ / 出場✕ / 加碼★）
+                    # 戰法歷史掃描 → 圖上標註 ＋ 卡片燈號
                     _gsw = _gre = None
                     try:
                         from intraday.strategy import (scan_with_exit_rule,
@@ -865,6 +833,27 @@ with tab_e:
                             tf=_gtf)
                     except Exception:
                         _gsw = _gre = None
+                    # 燈號 = 視窗內最近一筆戰法訊號：
+                    #   仍持倉 (open) → 進場綠 ｜ 已出場 → 出場紅 ｜ 無交易 → 原色
+                    _gstate = None
+                    if _gsw:
+                        _gstate = 'enter' if _gsw[-1].get('open') else 'exit'
+                    _gstyle = (_GRID_SIG_STYLE.get((_gstate, _gtheme))
+                               if _gstate else None)
+                    _gtag2 = '　🟡 加碼' if _gre else ''
+                    # 標題列（有訊號時整條上色；視窗內有加碼補 🟡 標記）
+                    if _gstyle:
+                        st.markdown(
+                            f"<div style='background:{_gstyle['capbg']};"
+                            f"color:{_gstyle['captx']};padding:5px 9px;"
+                            f"border-radius:5px;font-size:.9rem'>"
+                            f"<b>{_gstyle['tag']}｜{_gs} · {_gtf}</b>　"
+                            f"{_fmt_price(_gc1)}　{_garrow} {_gchg:+.1f}%"
+                            f"{_gtag2}</div>",
+                            unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**{_gs} · {_gtf}**　{_fmt_price(_gc1)}　"
+                                    f"{_garrow} {_gchg:+.1f}%{_gtag2}")
                     try:
                         _gfig = build_zigzag_chart_plotly(
                             _gdf, atr_mult=_gatr, title='',
@@ -891,5 +880,5 @@ with tab_e:
                         st.warning(f"繪圖失敗：{str(_gerr)[:60]}")
         _gprog.empty()
         st.caption("每格＝ZigZag＋BB＋EMA5/20，圖上 🟢▲進場 🔴✕出場 🟡★加碼　·　"
-                   "🟢 綠底＝目前進場訊號　🔴 紅底＝目前出場訊號　·　"
+                   "🟢 綠底＝戰法持倉中　🔴 紅底＝戰法已出場（依視窗內最近一筆）　·　"
                    "資料源 Twelve Data")
