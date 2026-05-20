@@ -148,19 +148,8 @@ def _grid_trade_in_view(t, wts):
 
 def _dt_fetch(ticker: str, tf: str):
     """day-trade 頁專用取資料 — Twelve Data 優先，失敗自動 fallback Alpaca IEX。"""
-    df = None
-    try:
-        from intraday.twelvedata_src import fetch_td, has_twelvedata
-        if has_twelvedata():
-            df = fetch_td(ticker, tf)
-    except Exception:
-        df = None
-    if df is None or len(df) < 30:
-        try:
-            df = get_intraday(ticker, tf=tf, market='us')
-        except Exception:
-            df = None
-    return df
+    from intraday.twelvedata_src import fetch_intraday
+    return fetch_intraday(ticker, tf, market='us')
 
 
 @st.cache_data(ttl=20, show_spinner=False)

@@ -19,6 +19,7 @@ warnings.filterwarnings('ignore')
 
 from intraday.config import TIMEFRAMES, get_tf_config
 from intraday.data import get_intraday, market_info
+from intraday.twelvedata_src import fetch_intraday
 from intraday.builder import build_d_from_intraday
 from intraday.charts import build_zigzag_compare_chart, build_zigzag_chart_plotly
 from intraday.settings import get_zigzag_atr_mult, set_zigzag_atr_mult
@@ -459,8 +460,9 @@ with c3:
 
 with c4:
     if st.button("🔄 重抓", help='強制重抓所有 TF 的資料'):
+        _mkt = market_info(ticker)['market']
         for tf in timeframes_selected:
-            get_intraday(ticker, tf, refresh=True)
+            fetch_intraday(ticker, tf, market=_mkt, refresh=True)
         st.success("已重抓")
         st.rerun()
 
@@ -475,6 +477,8 @@ st.markdown(
     f"**{info['ticker']}** · {('🇺🇸 US' if info['market']=='us' else '🇹🇼 TW')}"
     f" · session: `{info['session_hours']}` · yf_symbol: `{info['yf_symbol']}`"
 )
+if info['market'] == 'us':
+    st.caption("📡 資料源：Twelve Data（盤中即時）· 抓不到時自動 fallback Alpaca IEX")
 
 st.divider()
 
@@ -485,7 +489,7 @@ tf_summaries = {}    # {tf: {df, d, groups, summs, tsumm, cap, rec_label, rec_st
 with st.spinner(f"計算 {ticker} 跨 {len(timeframes_selected)} 個 timeframe..."):
     for _tf in timeframes_selected:
         try:
-            _df = get_intraday(ticker, _tf, market=info['market'])
+            _df = fetch_intraday(ticker, _tf, market=info['market'])
             if _df is None or len(_df) < 30:
                 tf_summaries[_tf] = {'error': f'資料不足 ({len(_df) if _df is not None else 0} bars)'}
                 continue

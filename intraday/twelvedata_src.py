@@ -184,3 +184,42 @@ def fetch_td(ticker: str, tf: str) -> Optional[pd.DataFrame]:
 def td_api_usage() -> Optional[dict]:
     """查 TD 官方今日用量。注意：此呼叫本身可能算 1 credit，請少用。"""
     return _td_get_json('api_usage')
+
+
+def clear_td_cache(ticker: Optional[str] = None) -> None:
+    """清除 TD TTL 快取（ticker=None 清全部，否則只清該檔）。"""
+    if ticker is None:
+        _TD_CACHE.clear()
+        return
+    tk = (ticker or '').strip().upper()
+    for k in list(_TD_CACHE.keys()):
+        if k[0] == tk:
+            del _TD_CACHE[k]
+
+
+def fetch_intraday(ticker: str, tf: str, market: str = 'us',
+                    refresh: bool = False) -> Optional[pd.DataFrame]:
+    """day-trade / intraday 頁共用取資料：
+
+      US        → Twelve Data 優先，抓不到再 fallback get_intraday（Alpaca）
+      非 US（TW）→ 直接 get_intraday（TD 免費版不含台股）
+
+    回傳 OHLCV DataFrame（naive UTC index）或 None。
+    """
+    from intraday.data import get_intraday
+    mkt = (market or 'us').strip().lower()
+    df = None
+    if mkt == 'us':
+        try:
+            if refresh:
+                clear_td_cache(ticker)
+            if has_twelvedata():
+                df = fetch_td(ticker, tf)
+        except Exception:
+            df = None
+    if df is None or len(df) < 30:
+        try:
+            df = get_intraday(ticker, tf=tf, market=mkt, refresh=refresh)
+        except Exception:
+            df = None
+    return df
