@@ -90,10 +90,11 @@
           "checked_at": "2026-05-12"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 81.4,
+          "crossed": true,
+          "ret_pct": 3.3,
+          "actual_date": "2026-05-21",
+          "checked_at": "2026-05-21"
         },
         "30d": {
           "close": null,
@@ -2337,7 +2338,7 @@
       }
     }
   ],
-  "last_updated": "2026-05-21 00:39:41",
+  "last_updated": "2026-05-21 06:00:08",
   "total_candidates": 70,
   "stats": {
     "us_L1_strict_dc": {
@@ -2362,7 +2363,12 @@
         "mean_ret": 1.8,
         "win_rate": 100.0
       },
-      "15d": null,
+      "15d": {
+        "n": 1,
+        "cross_rate": 100.0,
+        "mean_ret": 3.3,
+        "win_rate": 100.0
+      },
       "30d": null
     },
     "us_L1_strict": {
@@ -2406,5 +2412,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-21 00:39:54"
+  "last_outcomes_update": "2026-05-21 06:00:30"
 }
