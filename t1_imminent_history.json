@@ -441,10 +441,11 @@
           "checked_at": "2026-05-12"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 18.65,
+          "crossed": false,
+          "ret_pct": -1.06,
+          "actual_date": "2026-05-22",
+          "checked_at": "2026-05-22"
         },
         "30d": {
           "close": null,
@@ -3840,10 +3841,76 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-05-22",
+      "ticker": "EVLV",
+      "name": "Evolv Technologies Holdings, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 6.24,
+      "ema20": 6.31,
+      "dist_pct": 0.97,
+      "adx": 31.5,
+      "rsi": 48.0,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-05-22",
+      "ticker": "VIAV",
+      "name": "Viavi Solutions Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 49.38,
+      "ema20": 49.41,
+      "dist_pct": 0.06,
+      "adx": 28.0,
+      "rsi": 53.1,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-05-22 16:20:55",
-  "total_candidates": 115,
+  "last_updated": "2026-05-22 19:08:30",
+  "total_candidates": 117,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -3868,10 +3935,10 @@
         "win_rate": 100.0
       },
       "15d": {
-        "n": 3,
-        "cross_rate": 66.7,
+        "n": 4,
+        "cross_rate": 50.0,
         "mean_ret": NaN,
-        "win_rate": 66.7
+        "win_rate": 50.0
       },
       "30d": null
     },
@@ -3921,5 +3988,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-22 16:21:01"
+  "last_outcomes_update": "2026-05-22 19:08:44"
 }
