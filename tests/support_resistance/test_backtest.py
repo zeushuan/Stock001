@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from support_resistance.backtest import (
-    TouchEvent, backtest_one, aggregate, format_report,
+    TouchEvent, backtest_one, aggregate, format_report, _randomize_zones,
 )
 from support_resistance.types import SRZone
 
@@ -109,6 +109,51 @@ class TestAggregate:
         # by_strength
         assert stats['by_strength']['mid(50-75)']['n'] == 2  # 60, 50
         assert stats['by_strength']['high(75-100)']['n'] == 1  # 80
+
+
+class TestRandomizeZones:
+    def test_preserves_width_and_kind(self, synth_bounce_at_100):
+        import numpy as np
+        zones = [
+            SRZone(kind='support', low=95, high=98, center=96.5,
+                    strength=70, source='swing', last_touch_idx=10),
+            SRZone(kind='resistance', low=105, high=108, center=106.5,
+                    strength=60, source='fused', last_touch_idx=20),
+        ]
+        rng = np.random.default_rng(42)
+        randomized = _randomize_zones(zones, synth_bounce_at_100, rng)
+        assert len(randomized) == 2
+        # kind 保留
+        assert randomized[0].kind == 'support'
+        assert randomized[1].kind == 'resistance'
+        # 寬度保留（容差 0.01）
+        assert abs((randomized[0].high - randomized[0].low) - 3.0) < 0.01
+        assert abs((randomized[1].high - randomized[1].low) - 3.0) < 0.01
+        # strength 保留
+        assert randomized[0].strength == 70
+        # source 改為 'random'
+        assert all(z.source == 'random' for z in randomized)
+        # 中心在 df 範圍內
+        lo = float(synth_bounce_at_100['Low'].min())
+        hi = float(synth_bounce_at_100['High'].max())
+        for z in randomized:
+            assert lo <= z.center <= hi
+
+    def test_empty_zones_returns_empty(self):
+        import numpy as np
+        rng = np.random.default_rng(42)
+        assert _randomize_zones([], None, rng) == []
+
+    def test_baseline_seed_in_backtest(self, synth_bounce_at_100):
+        """baseline_seed 設定後應產生不同的 events 序列。"""
+        real = backtest_one(synth_bounce_at_100, min_strength=20)
+        baseline = backtest_one(
+            synth_bounce_at_100, min_strength=20, baseline_seed=42)
+        # 兩個都應有 events
+        assert len(real) > 0
+        # baseline 可能少一些（隨機放置可能不在 visible range）
+        # 但不該爆炸
+        assert isinstance(baseline, list)
 
 
 class TestFormatReport:

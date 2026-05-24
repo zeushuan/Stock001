@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import numpy as np
@@ -37,6 +37,39 @@ import pandas as pd
 from .params import MIN_BARS_FOR_DETECTION
 from .sr_engine import detect_sr_zones
 from .types import SRZone
+
+
+# ── Baseline helper: 隨機化 zone 位置 ──────────────────────────
+def _randomize_zones(
+    zones: list[SRZone],
+    df: pd.DataFrame,
+    rng: np.random.Generator,
+) -> list[SRZone]:
+    """為驗證演算法資訊量產生「null model」zones。
+
+    保持 kind / 寬度 / strength / source_count 不變（讓所有非位置的
+    可能 confound 都受控），只把 center 改為在 df 全範圍內 uniform random。
+    """
+    if not zones or df is None or len(df) == 0:
+        return []
+    lo = float(df['Low'].min())
+    hi = float(df['High'].max())
+    if hi <= lo:
+        return zones
+    out: list[SRZone] = []
+    for z in zones:
+        width = max(z.high - z.low, 0.01)
+        # 隨機中心，保證 [lo, hi] 完全涵蓋
+        new_center = float(rng.uniform(lo + width / 2, hi - width / 2))
+        out.append(replace(
+            z,
+            low=new_center - width / 2,
+            high=new_center + width / 2,
+            center=new_center,
+            source='random',
+            role_reversal=False,
+        ))
+    return out
 
 
 # ── 回測事件 dataclass ──────────────────────────────────────────
@@ -64,6 +97,7 @@ def backtest_one(
     min_strength: float = 30.0,
     recompute_every: int = 5,
     detect_kwargs: Optional[dict] = None,
+    baseline_seed: Optional[int] = None,
 ) -> list[TouchEvent]:
     """Walk-forward backtest 單一 symbol。
 
@@ -74,9 +108,11 @@ def backtest_one(
         reaction_window: 觸及後看幾根 bar 判斷反轉
         reversal_pct: 反轉 % 門檻（close 偏離觸及價的最大幅度）
         min_strength: 只測強度 ≥ 此值的 zone
-        recompute_every: 每 N 根 bar 重算一次 SR（=1 嚴格無 lookahead 但慢；
+        recompute_every: 每 N 根 bar 重算一次 SR（=1 嚴格無 lookahead 但慢;
                          >1 略加速，最新 zones 略落後）
         detect_kwargs: 傳入 detect_sr_zones 的額外參數
+        baseline_seed: 🆕 v9.47.4：若設，把 detect 出的 zones 用同寬度同 kind
+                       隨機重新放置（null model；驗證演算法是否真有資訊量）
 
     Returns:
         list[TouchEvent]：每根 bar 至多一筆（觸及最強 zone）
@@ -88,6 +124,8 @@ def backtest_one(
     events: list[TouchEvent] = []
     zones: list[SRZone] = []
     last_recompute = -10**9
+    rng = (np.random.default_rng(baseline_seed)
+           if baseline_seed is not None else None)
 
     for j in range(warmup, n - reaction_window - 1):
         # 重算 SR：用 [0:j]（嚴格無未來）
@@ -96,6 +134,9 @@ def backtest_one(
             if len(sub) >= MIN_BARS_FOR_DETECTION:
                 zones = [z for z in detect_sr_zones(sub, **detect_kwargs)
                           if z.strength >= min_strength]
+                # 🆕 baseline：把真實 zones 隨機重新放置
+                if rng is not None:
+                    zones = _randomize_zones(zones, sub, rng)
             last_recompute = j
 
         if not zones:
@@ -248,6 +289,10 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help='反轉幅度門檻 %% (default 1.0)')
     parser.add_argument('--min-strength', type=float, default=30.0)
     parser.add_argument('--recompute-every', type=int, default=5)
+    parser.add_argument('--baseline', action='store_true',
+                        help='另外跑一次 random-zone baseline 比較 lift')
+    parser.add_argument('--baseline-seed', type=int, default=42,
+                        help='baseline 隨機種子（預設 42）')
     args = parser.parse_args(argv)
 
     try:
@@ -257,6 +302,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 2
 
     all_events: list[TouchEvent] = []
+    all_baseline_events: list[TouchEvent] = []
     per_symbol: dict[str, dict] = {}
     for sym in args.symbols:
         try:
@@ -277,6 +323,27 @@ def main(argv: Optional[list[str]] = None) -> int:
             per_symbol[sym] = stats
             all_events.extend(evts)
             print(format_report(stats, title=f'{sym}  ({len(df)} bars, period={args.period})'))
+
+            # 🆕 baseline 比較
+            if args.baseline:
+                evts_b = backtest_one(
+                    df, symbol=sym + '[BL]',
+                    warmup=args.warmup,
+                    reaction_window=args.reaction_window,
+                    reversal_pct=args.reversal_pct,
+                    min_strength=args.min_strength,
+                    recompute_every=args.recompute_every,
+                    baseline_seed=args.baseline_seed,
+                )
+                stats_b = aggregate(evts_b)
+                all_baseline_events.extend(evts_b)
+                print(format_report(stats_b,
+                                     title=f'{sym} — RANDOM BASELINE (seed={args.baseline_seed})'))
+                if stats['overall_hit_rate'] and stats_b['overall_hit_rate']:
+                    lift = (stats['overall_hit_rate'] - stats_b['overall_hit_rate']) * 100
+                    print(f'  >> Lift: {lift:+.1f}pp  '
+                           f'(real {stats["overall_hit_rate"]:.1%}  '
+                           f'vs random {stats_b["overall_hit_rate"]:.1%})')
             print()
         except Exception as e:
             print(f'[{sym}] error: {type(e).__name__}: {e}', file=sys.stderr)
@@ -284,6 +351,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     if len(args.symbols) > 1:
         agg = aggregate(all_events)
         print(format_report(agg, title=f'AGGREGATE ({len(args.symbols)} symbols)'))
+        if args.baseline:
+            agg_b = aggregate(all_baseline_events)
+            print(format_report(agg_b, title=f'AGGREGATE — RANDOM BASELINE'))
+            if agg['overall_hit_rate'] and agg_b['overall_hit_rate']:
+                lift = (agg['overall_hit_rate'] - agg_b['overall_hit_rate']) * 100
+                print(f'\n  >> Overall Lift: {lift:+.1f}pp')
+                # by-kind lift
+                for k in ('support', 'resistance'):
+                    real = agg['by_kind'].get(k, {}).get('hit_rate')
+                    rand = agg_b['by_kind'].get(k, {}).get('hit_rate')
+                    if real and rand:
+                        print(f'  >> {k:11s} Lift: {(real - rand) * 100:+.1f}pp  '
+                               f'(real {real:.1%} vs random {rand:.1%})')
     return 0
 
 
