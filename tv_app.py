@@ -3412,7 +3412,9 @@ def _render_update_status_bar():
             if not p.exists(): continue
             try:
                 d = _json.loads(p.read_text(encoding='utf-8'))
-            except: continue
+            except Exception as exc:
+                log.debug("[update_status_bar/json load %s] %s", p.name, exc)
+                continue
             updated = d.get('updated_at', '?')
             computed = d.get('computed_at', '')
             n_alerts = len(d.get('alerts', []))
