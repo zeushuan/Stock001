@@ -218,6 +218,9 @@ from operation_advice import (
     render_confidence_dots, get_operation_advice,
 )
 
+# 🆕 v9.42 Stage 2：閾值集中管理（single source of truth）
+import thresholds
+
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
     """tv_app 版 render_detail wrapper — 把 get_operation_advice callback
@@ -1679,6 +1682,19 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
         except Exception:
             d['_swing_history'] = None
 
+        # 🆕 v9.42 Stage 2c：把市場相依閾值注入 d，讓 classify_action 等下游
+        # 不需自己判斷市場（消除主表 vs 詳細卡的美股 ADX≈19 / RSI 32-35 不一致）
+        _tk_upper_inj = ticker.upper().replace(".TW", "").replace(".TWO", "")
+        _tk_clean_inj = _tk_upper_inj.replace('-USD', '').replace('-', '')
+        _is_us_inj = (_tk_clean_inj.isalpha() and _tk_clean_inj.isupper()
+                      and _tk_upper_inj not in _INVERSE_ETF_TICKERS)
+        _is_crypto_inj = _tk_upper_inj.endswith('-USD')
+        _th_inj = thresholds.for_ticker(_is_us_inj, _is_crypto_inj)
+        d['is_us'] = _is_us_inj
+        d['is_crypto'] = _is_crypto_inj
+        d['adx_th'] = _th_inj.adx_entry
+        d['t4_rsi'] = _th_inj.t4_rsi
+
         return d
     except Exception as e:
         return {"_error": str(e)[:120]}
@@ -2059,9 +2075,13 @@ def classify_action(d: dict) -> str:
     🆕 v8 操作分類（每檔股票歸類為四種狀態之一）
     回傳：'ENTRY' / 'EXIT' / 'HOLD' / 'WAIT'
 
-    ENTRY (可進場): 多頭 + ADX≥22 + (T1 黃金交叉 ≤ 10 天 OR T3 RSI<50 拉回) OR T4 反彈條件達成
+    ENTRY (可進場): 多頭 + ADX≥adx_th + (T1 黃金交叉 ≤ 10 天 OR T3 RSI<50 拉回) OR T4 反彈條件達成
     EXIT  (應出倉): 多頭中但出現出場訊號（高 RSI、EMA 死叉迫近、深度乖離等）
-    HOLD  (持倉中): 多頭 + ADX≥22 但無新進場訊號（安全持倉或注意觀察）
+    HOLD  (持倉中): 多頭 + ADX≥adx_th 但無新進場訊號（安全持倉或注意觀察）
+
+    🆕 v9.42 Stage 2c：adx_th 與 t4_rsi 改讀 d['adx_th'] / d['t4_rsi']
+       （由 fetch_indicators 依市場注入：TW=22/35、US=18/35），徹底消除
+       主表 vs 詳細卡在美股 ADX≈19 / RSI 32-35 的不一致。
     WAIT  (觀望中): 空頭 / 假多頭 / 資料不足 / EMA 死叉等
     """
     ema20      = d.get("ema20")
@@ -2078,11 +2098,11 @@ def classify_action(d: dict) -> str:
         return 'WAIT'
 
     is_bull = ema20 > ema60
-    adx_ok  = (adx is not None and adx >= 22)
+    adx_ok  = (adx is not None and adx >= d.get('adx_th', 22))   # v9.42 Stage 2c
 
     # 空頭：唯一進場 = T4 反彈
     if not is_bull:
-        t4_rising = (rsi is not None and rsi < 35 and    # v9.41: 32→35 對齊回測
+        t4_rising = (rsi is not None and rsi < d.get('t4_rsi', 35) and    # v9.42 Stage 2c
                      rsi_prev is not None and rsi > rsi_prev and
                      rsi_prev2 is not None and rsi_prev > rsi_prev2)
         if t4_rising:
@@ -2093,7 +2113,7 @@ def classify_action(d: dict) -> str:
     if not adx_ok:
         return 'WAIT'
 
-    # 多頭 + ADX≥22：判斷進場 / 出倉 / 持倉
+    # 多頭 + ADX≥adx_th：判斷進場 / 出倉 / 持倉
     # 出場訊號優先（保守起見）
     rel_atr = (atr14 / close * 100) if (atr14 and close and close > 0) else 0
     is_high_vol = rel_atr > 3.5
@@ -2142,7 +2162,7 @@ def get_exit_signal(d: dict) -> tuple:
     is_bull = ema20 > ema60
 
     if not is_bull:
-        _t4 = (rsi is not None and rsi < 35 and    # v9.41: 32→35 對齊回測
+        _t4 = (rsi is not None and rsi < d.get('t4_rsi', 35) and    # v9.42 Stage 2c
                rsi_prev is not None and rsi > rsi_prev and
                rsi_prev2 is not None and rsi_prev > rsi_prev2)
         if _t4:
