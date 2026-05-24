@@ -203,7 +203,97 @@ def fuse_zones(
                 if len(new_sources) == 1:
                     zone.source = next(iter(new_sources))
 
-    return fused_by_kind['support'] + fused_by_kind['resistance']
+    # 🆕 v9.47.8：跨類 S+R 合併 — 同價位歷史上既當壓力又當支撐
+    # 問題：swing 看歷史 pivots，可能在同一價位附近同時記到 swing high (R)
+    #        和 swing low (S)；profile 看量能也可能跟 swing 鄰近卻 kind 不同。
+    #        結果 chart 上同價位被同時標 S 又標 R，視覺衝突。
+    # 解：若 S 和 R zone 中心距 ≤ atr × 0.5，併為一個 zone：
+    #      kind 依 current_price 判定（上方=R，下方=S，等於不變）
+    #      role_reversal=True 標示「同一價位歷史曾雙向」
+    cross_tol = atr * 0.5 if atr > 0 else 0
+    if cross_tol > 0:
+        sup_list = list(fused_by_kind['support'])
+        res_list = list(fused_by_kind['resistance'])
+        new_sup, new_res = [], []
+        used_r = set()
+        for s in sup_list:
+            matched = None
+            for ri, r in enumerate(res_list):
+                if ri in used_r:
+                    continue
+                if abs(s.center - r.center) <= cross_tol:
+                    matched = (ri, r)
+                    break
+            if matched is None:
+                new_sup.append(s)
+                continue
+            ri, r = matched
+            used_r.add(ri)
+            # 合併 bounds / origins / source_set
+            merged_lo = min(s.low, r.low)
+            merged_hi = max(s.high, r.high)
+            w_s = max(s.touches, 1)
+            w_r = max(r.touches, 1)
+            merged_ctr = (s.center * w_s + r.center * w_r) / (w_s + w_r)
+            s_o = (s.components.get('_origins', [])
+                   if isinstance(s.components, dict) else [])
+            r_o = (r.components.get('_origins', [])
+                   if isinstance(r.components, dict) else [])
+            s_ss = (s.components.get('_source_set', {s.source})
+                    if isinstance(s.components, dict) else {s.source})
+            r_ss = (r.components.get('_source_set', {r.source})
+                    if isinstance(r.components, dict) else {r.source})
+            merged_ss = set(s_ss) | set(r_ss)
+            # kind 依現價：等於現價時保持 support（保守）
+            if current_price is not None and merged_ctr > current_price:
+                m_kind = 'resistance'
+            else:
+                m_kind = 'support'
+            merged_src = ('fused' if len(merged_ss) > 1
+                          else next(iter(merged_ss)))
+            merged = SRZone(
+                kind=m_kind,
+                low=merged_lo, high=merged_hi, center=merged_ctr,
+                touches=s.touches + r.touches,
+                source=merged_src,
+                last_touch_idx=max(s.last_touch_idx, r.last_touch_idx),
+                role_reversal=True,  # ⇄ 同價位歷史雙向
+                components={
+                    '_source_set': merged_ss,
+                    '_origins': list(s_o) + list(r_o),
+                },
+            )
+            if m_kind == 'support':
+                new_sup.append(merged)
+            else:
+                new_res.append(merged)
+        # 沒被併的 resistance
+        for ri, r in enumerate(res_list):
+            if ri not in used_r:
+                new_res.append(r)
+        fused_by_kind['support'] = new_sup
+        fused_by_kind['resistance'] = new_res
+
+    # 🆕 v9.47.9：依現價方向統一分類
+    # 修正 stale kind — 譬如 swing high 在現價下方仍標 resistance
+    # 一律改：center > 現價 → resistance；center < 現價 → support
+    # kind 變動 → 自動標 role_reversal
+    if current_price is not None:
+        all_zones = fused_by_kind['support'] + fused_by_kind['resistance']
+        for z in all_zones:
+            orig_kind = z.kind
+            if z.center > current_price:
+                z.kind = 'resistance'
+            elif z.center < current_price:
+                z.kind = 'support'
+            if z.kind != orig_kind:
+                z.role_reversal = True
+        # 重新分組
+        fused_by_kind = {'support': [], 'resistance': []}
+        for z in all_zones:
+            fused_by_kind.setdefault(z.kind, []).append(z)
+
+    return fused_by_kind.get('support', []) + fused_by_kind.get('resistance', [])
 
 
 # ── C-3：強度評分（規格 §3.3）────────────────────────────────────

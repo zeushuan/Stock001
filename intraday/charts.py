@@ -810,10 +810,30 @@ def build_zigzag_chart_plotly(
             _vis_hi += _vis_pad
         except Exception:
             _vis_lo, _vis_hi = -1e18, 1e18
-        # 在範圍內（或與範圍重疊）的 zone 才候選
+        # 🆕 v9.47.8：方向過濾 — 只畫與現價方向一致的 zone（避免 stale 顯示）
+        # resistance 必須 center > 現價，support 必須 center < 現價;
+        # role_reversal zones 不受限（兩向都重要）
+        try:
+            _cur_price = float(df_plot['Close'].iloc[-1])
+        except Exception:
+            _cur_price = None
+        def _direction_ok(z):
+            if _cur_price is None or getattr(z, 'role_reversal', False):
+                return True
+            kind = getattr(z, 'kind', '')
+            ctr = float(getattr(z, 'center', 0))
+            if kind == 'resistance':
+                return ctr > _cur_price
+            if kind == 'support':
+                return ctr < _cur_price
+            return True
+        # 在範圍內 + 方向合理 + 強度 ≥ 30 的 zone 才候選
+        # 強度門檻匹配 detail card 表（避免弱 round-only zone 擠進 top 6）
         in_range = [z for z in sr_zones
                     if getattr(z, 'high', _vis_lo) >= _vis_lo
-                    and getattr(z, 'low', _vis_hi) <= _vis_hi]
+                    and getattr(z, 'low', _vis_hi) <= _vis_hi
+                    and _direction_ok(z)
+                    and float(getattr(z, 'strength', 0)) >= 30]
         # 按 strength 降冪取前 N（避免遮蓋）
         try:
             top_zones = sorted(in_range, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]

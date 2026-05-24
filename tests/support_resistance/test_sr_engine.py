@@ -49,14 +49,23 @@ class TestFuseZones:
         assert {'swing', 'profile'}.issubset(
             z.components.get('_source_set', set()))
 
-    def test_different_kinds_not_merged(self):
+    def test_different_kinds_not_merged_when_far(self):
+        """不同 kind 且中心遠 > atr×0.5 不該被合併。
+
+        （中心近 ≤ atr×0.5 的情境見 test_cross_kind_merge_role_reversal,
+         會被 v9.47.8 cross-kind merge 合成 role_reversal zone）
+        """
         a = SRZone(kind='support', low=99, high=100, center=99.5,
-                    touches=3, source='swing', last_touch_idx=10)
-        b = SRZone(kind='resistance', low=99.5, high=100.5, center=100,
-                    touches=2, source='swing', last_touch_idx=15)
-        fused = fuse_zones([a], [], [b], atr=1.0)
-        # 不同 kind 不該合併
+                    touches=3, source='swing', last_touch_idx=10,
+                    components={'_origins': [], '_source_set': {'swing'}})
+        # 中心差 10.5 >> atr*0.5=0.5，不會 cross-kind 合併
+        b = SRZone(kind='resistance', low=109.5, high=110.5, center=110,
+                    touches=2, source='swing', last_touch_idx=15,
+                    components={'_origins': [], '_source_set': {'swing'}})
+        fused = fuse_zones([a, b], [], [], atr=1.0)
         assert len(fused) == 2
+        kinds = {z.kind for z in fused}
+        assert kinds == {'support', 'resistance'}
 
     def test_round_zones_classified_by_price(self):
         r = SRZone(kind='support', low=99.75, high=100.25, center=100,
@@ -117,6 +126,72 @@ class TestFuseZones:
         origins = fused[0].components.get('_origins', [])
         assert len(origins) == 1
         assert origins[0].get('level') == 100.0
+
+    def test_cross_kind_merge_role_reversal(self):
+        """🆕 v9.47.8：S 和 R 中心距 ≤ atr×0.5 應合併成 role_reversal zone。
+
+        場景：歷史上 75 既是壓力又是支撐（價格往下測過幾次又往上反彈幾次）
+        - R 81 swing center=76.52
+        - S 58 profile+round center=75.02
+        - 中心差 1.50，atr=10 → cross_tol=5 → 合併
+        - current_price=85 → 合併後 center 落在現價之下 → kind=support
+        - role_reversal=True
+        """
+        r = SRZone(
+            kind='resistance', low=73, high=77, center=76.52,
+            touches=3, source='swing', last_touch_idx=10,
+            components={'_origins': [{'kind': 'swing', 'touches': 3,
+                                       'center': 76.52}],
+                         '_source_set': {'swing'}},
+        )
+        s = SRZone(
+            kind='support', low=72, high=76, center=75.02,
+            touches=1, source='fused', last_touch_idx=15,
+            components={'_origins': [
+                {'kind': 'profile', 'hvn_low': 72, 'hvn_high': 76},
+                {'kind': 'round', 'level': 75.0},
+            ], '_source_set': {'profile', 'round'}},
+        )
+        fused = fuse_zones([s], [], [], atr=10.0, current_price=85.0)
+        # 加 r 進 swing list (因為 r 來自 swing 來源)
+        fused = fuse_zones([s], [], [], atr=10.0, current_price=85.0)
+        # 用正確的呼叫：把 r 當 swing_zones，s 當 profile_zones
+        fused = fuse_zones([r], [s], [], atr=10.0, current_price=85.0)
+        # cross-kind 合併後應只剩 1 個 zone
+        assert len(fused) == 1, f'expected 1 zone after cross-kind merge, got {len(fused)}'
+        z = fused[0]
+        # current_price=85, merged center ~75-76 < 85 → support
+        assert z.kind == 'support', f'expected support, got {z.kind}'
+        # role_reversal 旗標
+        assert z.role_reversal is True
+        # bounds 是 union
+        assert z.low == 72
+        assert z.high == 77
+        # source_set 含兩源
+        assert {'swing', 'profile', 'round'}.issubset(
+            z.components.get('_source_set', set()))
+
+    def test_cross_kind_no_merge_when_far(self):
+        """中心距 > atr×0.5 不該合併。"""
+        r = SRZone(
+            kind='resistance', low=98, high=102, center=100,
+            touches=2, source='swing', last_touch_idx=10,
+            components={'_origins': [{'kind': 'swing', 'touches': 2,
+                                       'center': 100}],
+                         '_source_set': {'swing'}},
+        )
+        s = SRZone(
+            kind='support', low=48, high=52, center=50,
+            touches=2, source='swing', last_touch_idx=15,
+            components={'_origins': [{'kind': 'swing', 'touches': 2,
+                                       'center': 50}],
+                         '_source_set': {'swing'}},
+        )
+        fused = fuse_zones([r, s], [], [], atr=10.0, current_price=75.0)
+        # 兩個保留（差 50 >> tol=5）
+        assert len(fused) == 2
+        kinds = {z.kind for z in fused}
+        assert kinds == {'support', 'resistance'}
 
     def test_source_label_reverts_when_round_filtered(self):
         """過濾後只剩單一 source，zone.source 應從 'fused' 回到單一名稱。
