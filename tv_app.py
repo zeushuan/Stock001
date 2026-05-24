@@ -6789,6 +6789,81 @@ for item in results:
                             f'ADX damping {_sr_dmp:.2f}</span></div>',
                             unsafe_allow_html=True)
 
+                    # 🆕 v9.47.3：S/R 區間總表（按距現價排序，分上下）
+                    _sr_all = d.get('sr_zones') or []
+                    _cur_p_tv = float(d.get('close') or _closes[-1])
+                    if _sr_all and _cur_p_tv > 0:
+                        # 只顯示可視範圍內、強度 ≥ 30 的 zone
+                        _vis_lo = float(_df_for_chart['Low'].tail(_maxb_v).min())
+                        _vis_hi = float(_df_for_chart['High'].tail(_maxb_v).max())
+                        _vis_pad = (_vis_hi - _vis_lo) * 0.05
+                        _vis_lo -= _vis_pad
+                        _vis_hi += _vis_pad
+                        _in_range = [
+                            z for z in _sr_all
+                            if z.high >= _vis_lo and z.low <= _vis_hi
+                            and z.strength >= 30
+                        ]
+                        # 分壓力／支撐：必須在現價對應方向才有意義
+                        #   壓力必須 center > 現價（不然就是「已突破舊壓力」，stale）
+                        #   支撐必須 center < 現價（不然就是「已跌破舊支撐」，stale）
+                        _res = sorted(
+                            [z for z in _in_range
+                             if z.kind == 'resistance' and z.center > _cur_p_tv],
+                            key=lambda z: z.center - _cur_p_tv)[:5]
+                        _sup = sorted(
+                            [z for z in _in_range
+                             if z.kind == 'support' and z.center < _cur_p_tv],
+                            key=lambda z: _cur_p_tv - z.center)[:5]
+
+                        def _row_sr(z, color):
+                            dist_pct = (z.center - _cur_p_tv) / _cur_p_tv * 100
+                            # 強度視覺：每 20 分一格 ●，最多 5 格
+                            n_filled = max(1, min(5, int(round(z.strength / 20))))
+                            bar = '●' * n_filled + '○' * (5 - n_filled)
+                            rr_mark = ' ⇄' if z.role_reversal else ''
+                            return (
+                                f'<div style="display:flex;gap:8px;align-items:center;'
+                                f'padding:2px 0;font-size:.74rem">'
+                                f'<span style="color:{color};width:28px;font-weight:700">'
+                                f'{z.kind[0].upper()}{rr_mark}</span>'
+                                f'<span style="color:#c8dff0;font-family:monospace;width:130px">'
+                                f'[{z.low:.2f}–{z.high:.2f}]</span>'
+                                f'<span style="color:#7a8899;width:70px">'
+                                f'{dist_pct:+.1f}%</span>'
+                                f'<span style="color:#9ab0c5;width:60px">'
+                                f'str {z.strength:.0f}</span>'
+                                f'<span style="color:{color};letter-spacing:2px;width:64px">'
+                                f'{bar}</span>'
+                                f'<span style="color:#556677;font-size:.7rem">'
+                                f'{z.source}</span>'
+                                f'</div>')
+
+                        _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
+                                  'border-radius:6px;padding:8px 14px;margin-bottom:10px">'
+                                  '<div style="color:#5a8ab0;font-size:.72rem;'
+                                  'font-weight:700;letter-spacing:.05em;'
+                                  'text-transform:uppercase;margin-bottom:4px">'
+                                  f'⛳ S/R 區間總表 ｜ 現價 {_cur_p_tv:.2f}'
+                                  '</div>']
+                        if _res:
+                            _html.append(
+                                '<div style="color:#ff7755;font-size:.7rem;'
+                                'font-weight:700;margin-top:4px">⬆️ 上方壓力</div>')
+                            for z in _res:
+                                _html.append(_row_sr(z, '#ff8a8a'))
+                        if _sup:
+                            _html.append(
+                                '<div style="color:#3dbb6a;font-size:.7rem;'
+                                'font-weight:700;margin-top:4px">⬇️ 下方支撐</div>')
+                            for z in _sup:
+                                _html.append(_row_sr(z, '#74e4a0'))
+                        if not _res and not _sup:
+                            _html.append('<div style="color:#556677;font-size:.7rem">'
+                                          '（可視範圍內無強度足夠的區間）</div>')
+                        _html.append('</div>')
+                        st.markdown('\n'.join(_html), unsafe_allow_html=True)
+
                     # 🆕 v9.38：波段戰法訊號 banner
                     try:
                         from intraday.strategy import detect_swing_signal
