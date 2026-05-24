@@ -50,6 +50,14 @@ from .sr_engine import (
     sr_context_for_t3,
 )
 
+# Backtest (Phase 7 — 規格 §8)
+from .backtest import (
+    TouchEvent,
+    backtest_one,
+    aggregate,
+    format_report,
+)
+
 # Types
 from .types import (
     Pivot,
@@ -69,6 +77,8 @@ __all__ = [
     'filter_rth', 'compute_profile', 'profile_to_zones',
     # 子系統 C
     'round_number_zones', 'fuse_zones', 'score_zones', 'detect_role_reversal',
+    # Backtest
+    'TouchEvent', 'backtest_one', 'aggregate', 'format_report',
     # Types
     'Pivot', 'VolumeProfile', 'SRZone',
     # Params
