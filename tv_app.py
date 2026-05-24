@@ -1724,72 +1724,6 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
         d['adx_th'] = _th_inj.adx_entry
         d['t4_rsi'] = _th_inj.t4_rsi
 
-        # 🆕 v9.47：S/R 偵測（support_resistance package Phase 1）
-        # 從 _swing_history 重建 OHLCV → detect_sr_zones → 寫進 d
-        # 並依規格 §4 把 sr_context['adjustment'] 套到 t3_confidence
-        # 🆕 v9.48：另外算 LuxAlgo-style latest pivot levels（給 chart/detail card 用）
-        try:
-            _sh_for_sr = d.get('_swing_history') or {}
-            _closes_sr = _sh_for_sr.get('close') or []
-            if _closes_sr and len(_closes_sr) >= 30:
-                from support_resistance import (
-                    detect_sr_zones, sr_context_for_t3, latest_pivot_levels,
-                    luxalgo_sr,
-                )
-                _sr_df = pd.DataFrame({
-                    'Open':   _sh_for_sr.get('open') or _closes_sr,
-                    'High':   _sh_for_sr.get('high') or _closes_sr,
-                    'Low':    _sh_for_sr.get('low')  or _closes_sr,
-                    'Close':  _closes_sr,
-                    'Volume': _sh_for_sr.get('volume') or [0] * len(_closes_sr),
-                })
-                _zones = detect_sr_zones(_sr_df, swing_window=5)
-                d['sr_zones'] = _zones
-                _cur_p = float(d.get('close') or _closes_sr[-1])
-                _adx_v = d.get('adx')
-                _sr_ctx = sr_context_for_t3(
-                    _zones, current_price=_cur_p,
-                    adx=float(_adx_v) if _adx_v is not None else None,
-                )
-                d['sr_context'] = _sr_ctx
-                # 🆕 v9.48：LuxAlgo-style 最近 pivot R / S (legacy 簡化版)
-                _lux = latest_pivot_levels(_sr_df, _cur_p, swing_window=5)
-                d['sr_pivot_r'] = _lux.get('resistance')
-                d['sr_pivot_s'] = _lux.get('support')
-                # 🆕 v9.49：完整 LuxAlgo「Support and Resistance Levels with Breaks」
-                # pivot 圓點 + R/S 線 + B 標籤 + volume oscillator 確認
-                d['sr_luxalgo'] = luxalgo_sr(
-                    _sr_df, left_bars=15, right_bars=15,
-                    volume_threshold=20.0,
-                )
-                d['sr_luxalgo_df_len'] = len(_sr_df)
-                # 規格 §4：T3' = clip(T3 + adjustment, 0, 100)
-                _sr_adj = int(_sr_ctx.get('adjustment', 0)) if _sr_ctx else 0
-                if _sr_adj != 0:
-                    _t3_raw = int(d.get('t3_confidence') or 0)
-                    d['t3_confidence_raw'] = _t3_raw  # 留原值給除錯
-                    d['t3_confidence'] = max(0, min(100, _t3_raw + _sr_adj))
-                    _hits = list(d.get('t3_confidence_hits') or [])
-                    _hits.append(
-                        f"S/R {_sr_adj:+d}（{_sr_ctx.get('reason', '')}）"
-                    )
-                    d['t3_confidence_hits'] = _hits
-            else:
-                d['sr_zones'] = []
-                d['sr_context'] = None
-                d['sr_pivot_r'] = None
-                d['sr_pivot_s'] = None
-                d['sr_luxalgo'] = None
-                d['sr_luxalgo_df_len'] = 0
-        except Exception as exc:
-            log.debug("[fetch_indicators/sr_zones] %s", exc)
-            d['sr_zones'] = []
-            d['sr_context'] = None
-            d['sr_pivot_r'] = None
-            d['sr_pivot_s'] = None
-            d['sr_luxalgo'] = None
-            d['sr_luxalgo_df_len'] = 0
-
         return d
     except Exception as e:
         log.debug("[fetch_indicators/top-level] %s", e)
@@ -6758,9 +6692,6 @@ for item in results:
                             _df_for_chart, market=market, lookback_bars=180, tf='1d')
                     except Exception as exc:
                         log.debug("[detail card/swing+reentry scan] %s", exc)
-                    # 🆕 v9.49：完整 LuxAlgo SR Levels with Breaks
-                    # pivot 圓點 + R/S 線 (從 pivot bar 延伸) + B 標籤
-                    # offset 讓 chart 自動算（df_full vs df_plot 內部 slice）
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
@@ -6772,142 +6703,10 @@ for item in results:
                         theme='dark',
                         swing_trades=_swing_trades_tv,
                         reentry_events=_reentry_events_tv,
-                        sr_luxalgo=d.get('sr_luxalgo'),
                     )
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
                                           key=f'_tvapp_zz_{ticker}')
-
-                    # 🆕 v9.47：S/R 上下文 panel（規格 §4 / §5.2）
-                    _sr_ctx_tv = d.get('sr_context')
-                    if _sr_ctx_tv and _sr_ctx_tv.get('reason') != 'none':
-                        _sr_adj = _sr_ctx_tv.get('adjustment', 0)
-                        _sr_rsn = _sr_ctx_tv.get('reason', '')
-                        _sr_dmp = _sr_ctx_tv.get('adx_damping_applied', 1.0)
-                        _sr_nr  = _sr_ctx_tv.get('nearest_resistance')
-                        _sr_ns  = _sr_ctx_tv.get('nearest_support')
-                        _sr_color = '#ff7755' if _sr_adj < 0 else '#3dbb6a'
-                        _sr_icon  = '⚠️' if _sr_adj < 0 else '✓'
-                        _sr_lbl   = ('追高風險' if _sr_rsn == 'near_resistance'
-                                      else '下檔有撐' if _sr_rsn == 'near_support'
-                                      else _sr_rsn)
-                        try:
-                            from support_resistance import format_zone_origins as _fmt_o
-                        except Exception:
-                            _fmt_o = None
-                        def _src_label(_z):
-                            if _fmt_o is not None:
-                                return _fmt_o(_z, brief=False)
-                            return _z.source
-                        _sr_detail = ''
-                        if _sr_nr is not None and _sr_rsn == 'near_resistance':
-                            _sr_detail = (
-                                f'近壓力 [{_sr_nr.low:.2f} – {_sr_nr.high:.2f}] '
-                                f'中心 {_sr_nr.center:.2f} '
-                                f'(強度 {_sr_nr.strength:.0f}, 來源 {_src_label(_sr_nr)})')
-                        elif _sr_ns is not None and _sr_rsn == 'near_support':
-                            _sr_detail = (
-                                f'近支撐 [{_sr_ns.low:.2f} – {_sr_ns.high:.2f}] '
-                                f'中心 {_sr_ns.center:.2f} '
-                                f'(強度 {_sr_ns.strength:.0f}, 來源 {_src_label(_sr_ns)})')
-                        st.markdown(
-                            f'<div style="background:#0a1422;border:1px solid {_sr_color}44;'
-                            f'border-radius:6px;padding:6px 12px;margin-top:-6px;margin-bottom:8px;'
-                            f'font-size:.78rem">'
-                            f'<span style="color:{_sr_color};font-weight:700">'
-                            f'{_sr_icon} S/R → T3 修正 {_sr_adj:+d} 分 ({_sr_lbl})'
-                            f'</span>'
-                            f'<span style="color:#7a8899;margin-left:8px">{_sr_detail}</span>'
-                            f'<span style="color:#556677;margin-left:8px;font-size:.7rem">'
-                            f'ADX damping {_sr_dmp:.2f}</span></div>',
-                            unsafe_allow_html=True)
-
-                    # 🆕 v9.50：LuxAlgo SR — 多級 R/S list (top N recent pivots)
-                    _cur_p_tv = float(d.get('close') or _closes[-1])
-                    _lux_card = d.get('sr_luxalgo') or {}
-                    _ph_all = _lux_card.get('pivot_highs') or []
-                    _pl_all = _lux_card.get('pivot_lows') or []
-                    _br_up = len(_lux_card.get('breaks_up') or [])
-                    _br_dn = len(_lux_card.get('breaks_down') or [])
-                    if _cur_p_tv > 0 and (_ph_all or _pl_all):
-                        # 上方壓力 (pivot high > cur)，下方支撐 (pivot low < cur)
-                        # 依 idx 由新到舊取 top N
-                        _N_LEVELS = 5
-                        _r_list = sorted(
-                            [(idx, pr) for idx, pr in _ph_all if pr > _cur_p_tv],
-                            key=lambda t: -t[0])[:_N_LEVELS]
-                        _s_list = sorted(
-                            [(idx, pr) for idx, pr in _pl_all if pr < _cur_p_tv],
-                            key=lambda t: -t[0])[:_N_LEVELS]
-                        _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
-                                  'border-radius:6px;padding:8px 14px;margin-bottom:10px">'
-                                  '<div style="color:#5a8ab0;font-size:.72rem;'
-                                  'font-weight:700;letter-spacing:.05em;'
-                                  'text-transform:uppercase;margin-bottom:6px">'
-                                  f'⛳ LuxAlgo S/R Levels ｜ 現價 {_cur_p_tv:.2f} '
-                                  f'(pivot L/R=15)'
-                                  '</div>']
-                        # 上方壓力 R1, R2, ...
-                        if _r_list:
-                            _html.append(
-                                '<div style="color:#ff7755;font-size:.7rem;'
-                                'font-weight:700;margin-top:2px">⬆️ 上方壓力</div>')
-                            for rank, (idx, price) in enumerate(_r_list):
-                                _pct = (price - _cur_p_tv) / _cur_p_tv * 100
-                                _alpha = 1.0 - 0.5 * (rank / max(len(_r_list)-1, 1)) if len(_r_list) > 1 else 1.0
-                                _html.append(
-                                    f'<div style="display:flex;gap:10px;align-items:center;'
-                                    f'padding:2px 0;font-size:.78rem;opacity:{0.55 + 0.45*_alpha:.2f}">'
-                                    f'<span style="color:#ff8a8a;font-weight:700;width:30px">'
-                                    f'R{rank+1}</span>'
-                                    f'<span style="color:#c8dff0;font-family:monospace;'
-                                    f'width:80px;font-weight:700">${price:.2f}</span>'
-                                    f'<span style="color:#ff7755;width:60px">'
-                                    f'({_pct:+.1f}%)</span>'
-                                    f'<span style="color:#556677;font-size:.7rem">'
-                                    f'pivot @ idx {idx}</span>'
-                                    f'</div>')
-                        else:
-                            _html.append(
-                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
-                                '⬆️ 上方壓力：<b style="color:#ffd060">無</b>'
-                                '（已突破所有近期高點 / breakout）'
-                                '</div>')
-                        # 下方支撐 S1, S2, ...
-                        if _s_list:
-                            _html.append(
-                                '<div style="color:#3dbb6a;font-size:.7rem;'
-                                'font-weight:700;margin-top:6px">⬇️ 下方支撐</div>')
-                            for rank, (idx, price) in enumerate(_s_list):
-                                _pct = (price - _cur_p_tv) / _cur_p_tv * 100
-                                _alpha = 1.0 - 0.5 * (rank / max(len(_s_list)-1, 1)) if len(_s_list) > 1 else 1.0
-                                _html.append(
-                                    f'<div style="display:flex;gap:10px;align-items:center;'
-                                    f'padding:2px 0;font-size:.78rem;opacity:{0.55 + 0.45*_alpha:.2f}">'
-                                    f'<span style="color:#74e4a0;font-weight:700;width:30px">'
-                                    f'S{rank+1}</span>'
-                                    f'<span style="color:#c8dff0;font-family:monospace;'
-                                    f'width:80px;font-weight:700">${price:.2f}</span>'
-                                    f'<span style="color:#3dbb6a;width:60px">'
-                                    f'({_pct:+.1f}%)</span>'
-                                    f'<span style="color:#556677;font-size:.7rem">'
-                                    f'pivot @ idx {idx}</span>'
-                                    f'</div>')
-                        else:
-                            _html.append(
-                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
-                                '⬇️ 下方支撐：<b style="color:#ffd060">無</b>'
-                                '（已跌破所有近期低點 / breakdown）'
-                                '</div>')
-                        if _br_up or _br_dn:
-                            _html.append(
-                                f'<div style="color:#7a8899;font-size:.7rem;'
-                                f'padding:4px 0 0;border-top:1px solid #1a2a40;margin-top:6px">'
-                                f'近 250 bar 內 confirmed 突破：⬆{_br_up} 次 / ⬇{_br_dn} 次'
-                                f'（含 volume oscillator 確認，閾值 20%）'
-                                f'</div>')
-                        _html.append('</div>')
-                        st.markdown('\n'.join(_html), unsafe_allow_html=True)
 
                     # 🆕 v9.38：波段戰法訊號 banner
                     try:
