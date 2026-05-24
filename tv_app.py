@@ -6769,11 +6769,13 @@ for item in results:
                         _sr_detail = ''
                         if _sr_nr is not None and _sr_rsn == 'near_resistance':
                             _sr_detail = (
-                                f'近壓力 @ {_sr_nr.center:.2f} '
-                                f'(强度 {_sr_nr.strength:.0f}, 來源 {_sr_nr.source})')
+                                f'近壓力 [{_sr_nr.low:.2f} – {_sr_nr.high:.2f}] '
+                                f'中心 {_sr_nr.center:.2f} '
+                                f'(強度 {_sr_nr.strength:.0f}, 來源 {_sr_nr.source})')
                         elif _sr_ns is not None and _sr_rsn == 'near_support':
                             _sr_detail = (
-                                f'近支撐 @ {_sr_ns.center:.2f} '
+                                f'近支撐 [{_sr_ns.low:.2f} – {_sr_ns.high:.2f}] '
+                                f'中心 {_sr_ns.center:.2f} '
                                 f'(強度 {_sr_ns.strength:.0f}, 來源 {_sr_ns.source})')
                         st.markdown(
                             f'<div style="background:#0a1422;border:1px solid {_sr_color}44;'

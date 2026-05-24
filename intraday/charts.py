@@ -835,6 +835,10 @@ def build_zigzag_chart_plotly(
                     border = 'rgba(34,197,94,0.55)'
                 # role_reversal 用虛線描邊（規格 §5.2 表）
                 dash = 'dash' if getattr(z, 'role_reversal', False) else 'solid'
+                # 🆕 v9.47.2：annotation 顯示「[low, high] 寬度」
+                #   用戶反饋：區間應該要給出上下值，不只 strength
+                ctr = float(getattr(z, 'center', (lo + hi) / 2))
+                _fmt = lambda v: f'{v:.2f}' if abs(v) < 1000 else f'{v:.1f}'
                 fig.add_hrect(
                     y0=lo, y1=hi,
                     fillcolor=fill,
@@ -842,11 +846,12 @@ def build_zigzag_chart_plotly(
                     layer='below',     # K 線下層（規格 §5.2 zOrder）
                     row=1, col=1,
                     annotation=dict(
-                        text=f'{kind[0].upper()} {stren:.0f} ({src})',
+                        text=(f'{kind[0].upper()} {stren:.0f} ({src})  '
+                              f'[{_fmt(lo)}–{_fmt(hi)}] c{_fmt(ctr)}'),
                         font=dict(size=9,
                                    color=('#ff8a8a' if kind == 'resistance'
                                           else '#74e4a0')),
-                        bgcolor='rgba(0,0,0,0.25)',
+                        bgcolor='rgba(0,0,0,0.45)',
                         bordercolor='rgba(0,0,0,0)',
                         x=0, xanchor='left',
                     ),
