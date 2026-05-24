@@ -6822,64 +6822,89 @@ for item in results:
                             f'ADX damping {_sr_dmp:.2f}</span></div>',
                             unsafe_allow_html=True)
 
-                    # 🆕 v9.49：LuxAlgo SR Levels — detail card 顯示 current R/S
-                    # 「壓力 = 最新 pivot high」「支撐 = 最新 pivot low」
-                    # （不依現價方向；若已突破，顯示 ✓ 突破中 = 該位轉支撐）
+                    # 🆕 v9.50：LuxAlgo SR — 多級 R/S list (top N recent pivots)
                     _cur_p_tv = float(d.get('close') or _closes[-1])
                     _lux_card = d.get('sr_luxalgo') or {}
-                    _pv_r = _lux_card.get('current_r')
-                    _pv_s = _lux_card.get('current_s')
+                    _ph_all = _lux_card.get('pivot_highs') or []
+                    _pl_all = _lux_card.get('pivot_lows') or []
                     _br_up = len(_lux_card.get('breaks_up') or [])
                     _br_dn = len(_lux_card.get('breaks_down') or [])
-                    if (_pv_r is not None or _pv_s is not None) and _cur_p_tv > 0:
+                    if _cur_p_tv > 0 and (_ph_all or _pl_all):
+                        # 上方壓力 (pivot high > cur)，下方支撐 (pivot low < cur)
+                        # 依 idx 由新到舊取 top N
+                        _N_LEVELS = 5
+                        _r_list = sorted(
+                            [(idx, pr) for idx, pr in _ph_all if pr > _cur_p_tv],
+                            key=lambda t: -t[0])[:_N_LEVELS]
+                        _s_list = sorted(
+                            [(idx, pr) for idx, pr in _pl_all if pr < _cur_p_tv],
+                            key=lambda t: -t[0])[:_N_LEVELS]
                         _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
                                   'border-radius:6px;padding:8px 14px;margin-bottom:10px">'
                                   '<div style="color:#5a8ab0;font-size:.72rem;'
                                   'font-weight:700;letter-spacing:.05em;'
                                   'text-transform:uppercase;margin-bottom:6px">'
-                                  f'⛳ 最近壓力支撐 ｜ 現價 {_cur_p_tv:.2f}'
+                                  f'⛳ LuxAlgo S/R Levels ｜ 現價 {_cur_p_tv:.2f} '
+                                  f'(pivot L/R=15)'
                                   '</div>']
-                        # 壓力 = 最新 pivot high；標示是否已被突破
-                        if _pv_r is not None:
-                            _pct_r = (_pv_r - _cur_p_tv) / _cur_p_tv * 100
-                            _broken_r = _cur_p_tv > _pv_r
-                            _note_r = (f'<span style="color:#ffd060">✓ 已突破，轉支撐參考</span>'
-                                        if _broken_r else
-                                        '<span style="color:#556677;font-size:.7rem">'
-                                        '最新 pivot high (L/R=15)</span>')
+                        # 上方壓力 R1, R2, ...
+                        if _r_list:
                             _html.append(
-                                f'<div style="display:flex;gap:10px;align-items:center;'
-                                f'padding:3px 0;font-size:.85rem">'
-                                f'<span style="color:#ff8a8a;font-weight:700;width:46px">⬆ 壓力</span>'
-                                f'<span style="color:#c8dff0;font-family:monospace;'
-                                f'font-size:1.0rem;font-weight:700">${_pv_r:.2f}</span>'
-                                f'<span style="color:#ff7755">({_pct_r:+.1f}%)</span>'
-                                f'<span style="margin-left:8px">{_note_r}</span>'
-                                f'</div>')
-                        # 支撐 = 最新 pivot low；標示是否已被跌破
-                        if _pv_s is not None:
-                            _pct_s = (_pv_s - _cur_p_tv) / _cur_p_tv * 100
-                            _broken_s = _cur_p_tv < _pv_s
-                            _note_s = (f'<span style="color:#ffd060">✗ 已跌破，轉壓力參考</span>'
-                                        if _broken_s else
-                                        '<span style="color:#556677;font-size:.7rem">'
-                                        '最新 pivot low (L/R=15)</span>')
+                                '<div style="color:#ff7755;font-size:.7rem;'
+                                'font-weight:700;margin-top:2px">⬆️ 上方壓力</div>')
+                            for rank, (idx, price) in enumerate(_r_list):
+                                _pct = (price - _cur_p_tv) / _cur_p_tv * 100
+                                _alpha = 1.0 - 0.5 * (rank / max(len(_r_list)-1, 1)) if len(_r_list) > 1 else 1.0
+                                _html.append(
+                                    f'<div style="display:flex;gap:10px;align-items:center;'
+                                    f'padding:2px 0;font-size:.78rem;opacity:{0.55 + 0.45*_alpha:.2f}">'
+                                    f'<span style="color:#ff8a8a;font-weight:700;width:30px">'
+                                    f'R{rank+1}</span>'
+                                    f'<span style="color:#c8dff0;font-family:monospace;'
+                                    f'width:80px;font-weight:700">${price:.2f}</span>'
+                                    f'<span style="color:#ff7755;width:60px">'
+                                    f'({_pct:+.1f}%)</span>'
+                                    f'<span style="color:#556677;font-size:.7rem">'
+                                    f'pivot @ idx {idx}</span>'
+                                    f'</div>')
+                        else:
                             _html.append(
-                                f'<div style="display:flex;gap:10px;align-items:center;'
-                                f'padding:3px 0;font-size:.85rem">'
-                                f'<span style="color:#74e4a0;font-weight:700;width:46px">⬇ 支撐</span>'
-                                f'<span style="color:#c8dff0;font-family:monospace;'
-                                f'font-size:1.0rem;font-weight:700">${_pv_s:.2f}</span>'
-                                f'<span style="color:#3dbb6a">({_pct_s:+.1f}%)</span>'
-                                f'<span style="margin-left:8px">{_note_s}</span>'
-                                f'</div>')
-                        # Breaks 數量提示
+                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
+                                '⬆️ 上方壓力：<b style="color:#ffd060">無</b>'
+                                '（已突破所有近期高點 / breakout）'
+                                '</div>')
+                        # 下方支撐 S1, S2, ...
+                        if _s_list:
+                            _html.append(
+                                '<div style="color:#3dbb6a;font-size:.7rem;'
+                                'font-weight:700;margin-top:6px">⬇️ 下方支撐</div>')
+                            for rank, (idx, price) in enumerate(_s_list):
+                                _pct = (price - _cur_p_tv) / _cur_p_tv * 100
+                                _alpha = 1.0 - 0.5 * (rank / max(len(_s_list)-1, 1)) if len(_s_list) > 1 else 1.0
+                                _html.append(
+                                    f'<div style="display:flex;gap:10px;align-items:center;'
+                                    f'padding:2px 0;font-size:.78rem;opacity:{0.55 + 0.45*_alpha:.2f}">'
+                                    f'<span style="color:#74e4a0;font-weight:700;width:30px">'
+                                    f'S{rank+1}</span>'
+                                    f'<span style="color:#c8dff0;font-family:monospace;'
+                                    f'width:80px;font-weight:700">${price:.2f}</span>'
+                                    f'<span style="color:#3dbb6a;width:60px">'
+                                    f'({_pct:+.1f}%)</span>'
+                                    f'<span style="color:#556677;font-size:.7rem">'
+                                    f'pivot @ idx {idx}</span>'
+                                    f'</div>')
+                        else:
+                            _html.append(
+                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
+                                '⬇️ 下方支撐：<b style="color:#ffd060">無</b>'
+                                '（已跌破所有近期低點 / breakdown）'
+                                '</div>')
                         if _br_up or _br_dn:
                             _html.append(
                                 f'<div style="color:#7a8899;font-size:.7rem;'
-                                f'padding:4px 0 0;border-top:1px solid #1a2a40;margin-top:4px">'
+                                f'padding:4px 0 0;border-top:1px solid #1a2a40;margin-top:6px">'
                                 f'近 250 bar 內 confirmed 突破：⬆{_br_up} 次 / ⬇{_br_dn} 次'
-                                f'（已含 volume oscillator 確認，閾值 20%）'
+                                f'（含 volume oscillator 確認，閾值 20%）'
                                 f'</div>')
                         _html.append('</div>')
                         st.markdown('\n'.join(_html), unsafe_allow_html=True)

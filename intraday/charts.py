@@ -288,6 +288,7 @@ def build_zigzag_chart_plotly(
     sr_pivot_s: Optional[float] = None,              # 🆕 v9.48 (deprecated) 單純 S 線
     sr_luxalgo: Optional[Dict] = None,               # 🆕 v9.49 完整 LuxAlgo data
     sr_luxalgo_full_offset: Optional[int] = None,    # 🆕 v9.49 None=auto (df_full vs df_plot)
+    sr_n_levels: int = 5,                            # 🆕 v9.50 each side max N lines
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -845,57 +846,75 @@ def build_zigzag_chart_plotly(
                 showlegend=False,
             ), row=1, col=1)
 
-        # 2) R 線：從 current_r_idx (轉成 chart x) 延伸到右側
-        cur_r = sr_luxalgo.get('current_r')
-        cur_r_idx = sr_luxalgo.get('current_r_idx')
-        if cur_r is not None and cur_r_idx is not None:
-            cx_r = _full_to_chart_x(cur_r_idx)
-            try:
-                _cur_p_chart = float(df_plot['Close'].iloc[-1])
-                _pct = (cur_r - _cur_p_chart) / _cur_p_chart * 100 if _cur_p_chart > 0 else 0
-            except Exception:
-                _pct = 0
-            fig.add_shape(
-                type='line', x0=cx_r, x1=N - 1, y0=cur_r, y1=cur_r,
-                line=dict(color='#ef4444', width=1.8, dash='solid'),
-                row=1, col=1,
-            )
-            fig.add_annotation(
-                x=N - 1, y=cur_r, xanchor='right', yanchor='bottom',
-                text=f'R {cur_r:.2f}  ({_pct:+.1f}%)',
-                font=dict(color='#ff8a8a', size=11),
-                bgcolor='rgba(0,0,0,0.5)',
-                bordercolor='rgba(239,68,68,0.5)',
-                borderwidth=0.5,
-                showarrow=False,
-                row=1, col=1,
-            )
+        # 2-3) 多條 R/S 線：上方 pivot highs (top N recent) + 下方 pivot lows (top N recent)
+        # 每條線從該 pivot 確認的 idx 延伸到右側
+        try:
+            _cur_p_chart = float(df_plot['Close'].iloc[-1])
+        except Exception:
+            _cur_p_chart = None
 
-        # 3) S 線
-        cur_s = sr_luxalgo.get('current_s')
-        cur_s_idx = sr_luxalgo.get('current_s_idx')
-        if cur_s is not None and cur_s_idx is not None:
-            cx_s = _full_to_chart_x(cur_s_idx)
-            try:
-                _cur_p_chart = float(df_plot['Close'].iloc[-1])
-                _pct = (cur_s - _cur_p_chart) / _cur_p_chart * 100 if _cur_p_chart > 0 else 0
-            except Exception:
-                _pct = 0
-            fig.add_shape(
-                type='line', x0=cx_s, x1=N - 1, y0=cur_s, y1=cur_s,
-                line=dict(color='#22c55e', width=1.8, dash='solid'),
-                row=1, col=1,
-            )
-            fig.add_annotation(
-                x=N - 1, y=cur_s, xanchor='right', yanchor='top',
-                text=f'S {cur_s:.2f}  ({_pct:+.1f}%)',
-                font=dict(color='#74e4a0', size=11),
-                bgcolor='rgba(0,0,0,0.5)',
-                bordercolor='rgba(34,197,94,0.5)',
-                borderwidth=0.5,
-                showarrow=False,
-                row=1, col=1,
-            )
+        if _cur_p_chart is not None and _cur_p_chart > 0:
+            # 上方壓力候選：pivot high price > cur, 依 idx 由新到舊
+            res_candidates = sorted(
+                [(idx, pr) for idx, pr in ph_list if pr > _cur_p_chart],
+                key=lambda t: -t[0])[:sr_n_levels]
+            # 下方支撐候選：pivot low price < cur
+            sup_candidates = sorted(
+                [(idx, pr) for idx, pr in pl_list if pr < _cur_p_chart],
+                key=lambda t: -t[0])[:sr_n_levels]
+
+            # 越舊的 pivot 線越淡，最新的最深
+            def _alpha(rank: int, total: int) -> float:
+                # rank 0 (newest) → 1.0, rank N-1 (oldest) → 0.45
+                if total <= 1:
+                    return 1.0
+                return 1.0 - 0.55 * (rank / (total - 1))
+
+            for rank, (full_idx, price) in enumerate(res_candidates):
+                cx = _full_to_chart_x(full_idx)
+                _pct = (price - _cur_p_chart) / _cur_p_chart * 100
+                a = _alpha(rank, len(res_candidates))
+                fig.add_shape(
+                    type='line', x0=cx, x1=N - 1, y0=price, y1=price,
+                    line=dict(color=f'rgba(239,68,68,{a:.2f})',
+                              width=(2.0 if rank == 0 else 1.3),
+                              dash=('solid' if rank == 0 else 'dot')),
+                    row=1, col=1,
+                )
+                fig.add_annotation(
+                    x=N - 1, y=price, xanchor='right',
+                    yanchor=('bottom' if rank % 2 == 0 else 'top'),
+                    text=f'R{rank+1} {price:.2f}  ({_pct:+.1f}%)',
+                    font=dict(color='#ff8a8a', size=10),
+                    bgcolor=f'rgba(0,0,0,{0.4 + 0.2*a:.2f})',
+                    bordercolor=f'rgba(239,68,68,{a:.2f})',
+                    borderwidth=0.5,
+                    showarrow=False,
+                    row=1, col=1,
+                )
+
+            for rank, (full_idx, price) in enumerate(sup_candidates):
+                cx = _full_to_chart_x(full_idx)
+                _pct = (price - _cur_p_chart) / _cur_p_chart * 100
+                a = _alpha(rank, len(sup_candidates))
+                fig.add_shape(
+                    type='line', x0=cx, x1=N - 1, y0=price, y1=price,
+                    line=dict(color=f'rgba(34,197,94,{a:.2f})',
+                              width=(2.0 if rank == 0 else 1.3),
+                              dash=('solid' if rank == 0 else 'dot')),
+                    row=1, col=1,
+                )
+                fig.add_annotation(
+                    x=N - 1, y=price, xanchor='right',
+                    yanchor=('top' if rank % 2 == 0 else 'bottom'),
+                    text=f'S{rank+1} {price:.2f}  ({_pct:+.1f}%)',
+                    font=dict(color='#74e4a0', size=10),
+                    bgcolor=f'rgba(0,0,0,{0.4 + 0.2*a:.2f})',
+                    bordercolor=f'rgba(34,197,94,{a:.2f})',
+                    borderwidth=0.5,
+                    showarrow=False,
+                    row=1, col=1,
+                )
 
         # 4) B 標籤：突破事件（已用 volume oscillator 確認）
         for full_idx, price in (sr_luxalgo.get('breaks_up') or []):
