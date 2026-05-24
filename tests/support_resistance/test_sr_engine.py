@@ -65,6 +65,82 @@ class TestFuseZones:
         # 100 > 現價 95 → resistance
         assert fused[0].kind == 'resistance'
 
+    def test_round_far_from_center_dropped(self):
+        """🆕 v9.47.7：round origin 距 zone center > atr×0.5 應被過濾。
+
+        場景：寬 swing zone 涵蓋多個整數，只有近中心的才該算共振。
+        swing [85, 105] center=95，atr=10 → merge_tol=10, filter_tol=5。
+        - round 87  距中心 8  → 丟
+        - round 95  距中心 0  → 保留
+        - round 96  距中心 1  → 保留
+        - round 103 距中心 8  → 丟
+        """
+        swing = SRZone(
+            kind='resistance', low=85, high=105, center=95,
+            touches=3, source='swing', last_touch_idx=10,
+            components={'_origins': [{'kind': 'swing', 'touches': 3,
+                                       'center': 95}]},
+        )
+        rounds = [
+            SRZone(kind='resistance', low=86.6, high=87.4, center=87.0,
+                    touches=0, source='round', last_touch_idx=-1,
+                    components={'_origins': [{'kind': 'round', 'level': 87.0}]}),
+            SRZone(kind='resistance', low=94.6, high=95.4, center=95.0,
+                    touches=0, source='round', last_touch_idx=-1,
+                    components={'_origins': [{'kind': 'round', 'level': 95.0}]}),
+            SRZone(kind='resistance', low=95.6, high=96.4, center=96.0,
+                    touches=0, source='round', last_touch_idx=-1,
+                    components={'_origins': [{'kind': 'round', 'level': 96.0}]}),
+            SRZone(kind='resistance', low=102.6, high=103.4, center=103.0,
+                    touches=0, source='round', last_touch_idx=-1,
+                    components={'_origins': [{'kind': 'round', 'level': 103.0}]}),
+        ]
+        # atr=10: tol_merge = 10 (allows all to merge), filter_tol = 5
+        fused = fuse_zones([swing], [], rounds, atr=10.0)
+        assert len(fused) == 1, f'expected 1 fused zone, got {len(fused)}'
+        z = fused[0]
+        origins = z.components.get('_origins', [])
+        round_origins = [o for o in origins if o.get('kind') == 'round']
+        # 應該只剩 R95, R96（距 center=95 ≤ 5）
+        levels = sorted(o['level'] for o in round_origins)
+        assert levels == [95.0, 96.0], f'expected [95.0, 96.0], got {levels}'
+
+    def test_round_only_zone_not_filtered(self):
+        """純 round zone 不該被過濾（自己的 center 就是 level）。"""
+        rounds = [
+            SRZone(kind='resistance', low=99.6, high=100.4, center=100.0,
+                    touches=0, source='round', last_touch_idx=-1,
+                    components={'_origins': [{'kind': 'round', 'level': 100.0}]}),
+        ]
+        fused = fuse_zones([], [], rounds, atr=2.0)
+        assert len(fused) == 1
+        origins = fused[0].components.get('_origins', [])
+        assert len(origins) == 1
+        assert origins[0].get('level') == 100.0
+
+    def test_source_label_reverts_when_round_filtered(self):
+        """過濾後只剩單一 source，zone.source 應從 'fused' 回到單一名稱。
+
+        合併後 center = (47×1 + 55×4) / 5 = 53.4，
+        round 47 距中心 6.4 > filter_tol=5 → 丟。
+        過濾後只剩 swing，source 從 'fused' 回到 'swing'。
+        """
+        swing = SRZone(
+            kind='support', low=40, high=70, center=55,
+            touches=4, source='swing', last_touch_idx=20,
+            components={'_origins': [{'kind': 'swing', 'touches': 4,
+                                       'center': 55}]},
+        )
+        round_far = SRZone(
+            kind='support', low=46.6, high=47.4, center=47.0,
+            touches=0, source='round', last_touch_idx=-1,
+            components={'_origins': [{'kind': 'round', 'level': 47.0}]},
+        )
+        fused = fuse_zones([swing], [], [round_far], atr=10.0)
+        z = next((x for x in fused if x.touches > 0), fused[0])
+        assert z.source == 'swing', f'expected swing, got {z.source}'
+        assert z.components['_source_set'] == {'swing'}
+
     def test_runaway_chain_prevented(self):
         """連續 5 個 swing zone 各寬 1，間隔 2，atr=2
         → 沒寬度上限會合併成 1 個寬 13 的巨大 zone；

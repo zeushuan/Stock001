@@ -171,6 +171,38 @@ def fuse_zones(
                     z.components.setdefault('_origins', [])
                 fused_by_kind[kind].append(z)
 
+    # 🆕 v9.47.7：round 貢獻過濾
+    # 問題：fuse_zones 把任何邊重疊的 round 都當共振，但一個 $9 寬的 swing
+    #        zone 內會涵蓋 9 個整數，這些整數其實只是「被涵蓋」而非「真共振」。
+    # 解：round origin level 距 zone.center 必須 ≤ atr × 0.5 才保留；
+    #      過濾後若只剩單一 source，把 zone.source 從 'fused' 改回該 source。
+    round_tol = atr * 0.5 if atr > 0 else 0
+    if round_tol > 0:
+        for kind_zones in fused_by_kind.values():
+            for zone in kind_zones:
+                if not isinstance(zone.components, dict):
+                    continue
+                origins = zone.components.get('_origins', [])
+                if not origins:
+                    continue
+                filtered = []
+                dropped_round = 0
+                for o in origins:
+                    if o.get('kind') == 'round':
+                        level = float(o.get('level', 0))
+                        if abs(level - zone.center) > round_tol:
+                            dropped_round += 1
+                            continue  # 整數價偏離中心 → 不算共振
+                    filtered.append(o)
+                if not filtered or dropped_round == 0:
+                    continue  # 沒丟東西，不用更新
+                new_sources = {o.get('kind') for o in filtered if o.get('kind')}
+                zone.components['_origins'] = filtered
+                zone.components['_source_set'] = new_sources or {zone.source}
+                # 若過濾後只剩單一 source，從 'fused' 改回該 source
+                if len(new_sources) == 1:
+                    zone.source = next(iter(new_sources))
+
     return fused_by_kind['support'] + fused_by_kind['resistance']
 
 
