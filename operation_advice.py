@@ -35,6 +35,11 @@ from detail_card_render import badge, _INVERSE_ETF_TICKERS
 # 🆕 v9.42 Stage 2：閾值集中管理（single source of truth）
 import thresholds
 
+# 🆕 v9.42 Stage 2d：log 化吞錯（取代 except: pass 靜默失敗 — 不改行為、只加可觀測性）
+# 開發期 logging.basicConfig(level=logging.DEBUG) 即可看到所有被吞的錯
+import logging
+log = logging.getLogger("stock001.operation_advice")
+
 
 # ───── _get_us_overnight ─────
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -56,7 +61,8 @@ def _get_us_overnight() -> dict:
                 'change_pct': round(chg, 2),
                 'date': df.index[-1].strftime('%Y-%m-%d'),
             }
-        except Exception:
+        except Exception as exc:
+            log.debug("[_get_us_overnight] %s fetch failed: %s", sym, exc)
             continue
     return out
 
@@ -71,7 +77,8 @@ def _load_us_impact() -> dict:
     if not p.exists(): return {}
     try:
         return _json.loads(p.read_text(encoding='utf-8'))
-    except Exception:
+    except Exception as exc:
+        log.debug("[_load_us_impact] JSON load failed (%s): %s", p, exc)
         return {}
 
 
@@ -86,7 +93,8 @@ def _load_per_stock_wf() -> dict:
     try:
         d = _json.loads(p.read_text(encoding='utf-8'))
         return d.get('all_results', {})
-    except Exception:
+    except Exception as exc:
+        log.debug("[_load_per_stock_wf] JSON load failed (%s): %s", p, exc)
         return {}
 
 

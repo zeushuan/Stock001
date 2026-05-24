@@ -221,6 +221,11 @@ from operation_advice import (
 # 🆕 v9.42 Stage 2：閾值集中管理（single source of truth）
 import thresholds
 
+# 🆕 v9.42 Stage 2d：log 化吞錯（取代 except: pass 靜默失敗 — 不改行為、只加可觀測性）
+# 開發期 logging.basicConfig(level=logging.DEBUG) 即可看到所有被吞的錯
+import logging
+log = logging.getLogger("stock001.tv_app")
+
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
     """tv_app 版 render_detail wrapper — 把 get_operation_advice callback
@@ -296,8 +301,8 @@ def _load_otc_tickers():
         p = _P(__file__).parent / 'otc_tickers.json'
         if p.exists():
             return set(_json.load(open(p, encoding='utf-8')))
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_load_otc_tickers] JSON load failed: %s", exc)
     return set()
 _OTC_TICKERS = _load_otc_tickers()
 
@@ -313,8 +318,8 @@ def _load_vwap_applicable():
         if p.exists():
             with open(p, encoding='utf-8') as f:
                 return _json.load(f)
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_load_vwap_applicable] JSON load failed: %s", exc)
     return {}
 
 
