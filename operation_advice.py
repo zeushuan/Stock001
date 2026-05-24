@@ -32,6 +32,9 @@ import yfinance as yf
 # 從 detail_card_render 取 badge / _INVERSE_ETF_TICKERS
 from detail_card_render import badge, _INVERSE_ETF_TICKERS
 
+# 🆕 v9.42 Stage 2：閾值集中管理（single source of truth）
+import thresholds
+
 
 # ───── _get_us_overnight ─────
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -528,14 +531,14 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     _knife_dc_zone = _just_dead_cross or _imminent_dc
     # 🆕 v9.41：ADX 門檻 / 市場標籤提前算（讓 _t1_ok_pre、_get_inverse_etf_advice
     # 等下游都能用，徹底消除「子模組各寫死 22」造成的美股 18/22 不一致）
+    # 🆕 v9.42 Stage 2：閾值改從 thresholds.py 集中讀
     _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
     _tk_clean = _tk_upper.replace('-USD', '').replace('-', '')
     _is_us = _tk_clean.isalpha() and _tk_clean.isupper() and \
              _tk_upper not in _INVERSE_ETF_TICKERS
     _is_crypto = _tk_upper.endswith('-USD')
-    # 美股 / 加密：ADX 18（依美股研究 P10+POS+ADX18 RR 0.496 局部最佳）
-    # 台股：ADX 22（依台股 P5+VWAPEXEC 預設）
-    _adx_th = 18 if (_is_us or _is_crypto) else 22
+    _th = thresholds.for_ticker(_is_us, _is_crypto)
+    _adx_th = _th.adx_entry          # 美股/加密 18、台股 22
     _market_tag = '🇺🇸 US' if _is_us else ('🪙 Crypto' if _is_crypto else '🇹🇼 TW')
 
     # 🆕 v9.11：把 _entry_blocked_by_dc 提前算（讓後面所有訊號都可以參考）
@@ -601,7 +604,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
 
     # T4 條件：RSI<35（與回測一致）+ 連續2天上升
-    _t4_rsi_oversold = (rsi is not None and rsi < 35)
+    _t4_rsi_oversold = (rsi is not None and rsi < _th.t4_rsi)
     _t4_rsi_rising = (rsi is not None and rsi_prev is not None and rsi > rsi_prev
                       and rsi_prev2 is not None and rsi_prev > rsi_prev2)
     _t4_rising = (not is_bull) and _t4_rsi_oversold and _t4_rsi_rising
@@ -1366,7 +1369,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         )
     else:  # 空頭：以 T4 為主要進場通道
         # T4 條件分項顯示（與 T1/T3 一致格式）
-        _t4_cond1 = (rsi is not None and rsi < 35)
+        _t4_cond1 = (rsi is not None and rsi < _th.t4_rsi)
         _t4_cond2 = _t4_rsi_rising
         if rsi is None:
             _t4_state = "資料不足"
@@ -1499,7 +1502,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if not is_bull:
         if _t4_rising:
             action_label = "🟡 T4 反彈條件達成（空頭中）"
-            action_reason = (f"原因：EMA20 < EMA60（空頭排列）但 RSI {rsi_str} < 35 + "
+            action_reason = (f"原因：EMA20 < EMA60（空頭排列）但 RSI {rsi_str} < {int(_th.t4_rsi)} + "
                               f"連續上升 → T4 反彈訊號，可短線觀察")
             action_bg, action_fg = "#2a1500", "#ff9944"
         else:
