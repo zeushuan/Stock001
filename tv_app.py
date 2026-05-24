@@ -5417,6 +5417,42 @@ with st.sidebar:
     )
     st.session_state['active_strategy'] = style_info
 
+    # ── 🆕 v9.47：ZigZag 圖表設定（bar 數可調） ─────────────────
+    with st.expander("🎨 ZigZag 圖表設定", expanded=False):
+        from intraday.settings import (
+            get_zigzag_max_bars as _get_zz_mb,
+            set_zigzag_max_bars as _set_zz_mb,
+            reset_zigzag_max_bars as _reset_zz_mb,
+        )
+        _cur_mb = _get_zz_mb()
+        _new_mb = st.number_input(
+            "顯示 bar 數",
+            min_value=30, max_value=252,
+            value=int(_cur_mb), step=10,
+            key='_zz_max_bars_preview',
+            help=("detail card 上方 ZigZag chart 顯示幾根 K 棒（從尾端取）。"
+                  "fetch_indicators 已存 252 bars，可調 30-252。"
+                  "預設 80（精簡 + 防 Plotly JSON 過大）；想看完整歷史調大；"
+                  "想看近期細節調小。"),
+        )
+        _cols_mb = st.columns(2)
+        with _cols_mb[0]:
+            if st.button("✅ 套用", key='_zz_mb_apply',
+                         type='primary', use_container_width=True):
+                try:
+                    _set_zz_mb(_new_mb)
+                    st.success(f'已套用 {_new_mb} bars')
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f'設定失敗：{exc}')
+        with _cols_mb[1]:
+            if st.button("↺ 重置 80", key='_zz_mb_reset',
+                         use_container_width=True):
+                _reset_zz_mb()
+                st.success('已重置為 80')
+                st.rerun()
+        st.caption(f'目前生效：**{_cur_mb}** bars')
+
     st.markdown("---")
     st.markdown("""
 <div style="font-size:.75rem;color:#8ab8d8;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">
@@ -6624,7 +6660,7 @@ for item in results:
             # 🆕 v9.32：detail card 上方放 intraday-style plotly 互動 ZigZag chart（1d）
             try:
                 from intraday.charts import build_zigzag_chart_plotly
-                from intraday.settings import get_zigzag_atr_mult
+                from intraday.settings import get_zigzag_atr_mult, get_zigzag_max_bars
                 # 從 _swing_history 重建 df（fetch_indicators 已存 252 bars）
                 _sh = d.get('_swing_history') or {}
                 _closes = _sh.get('close') or []
@@ -6641,6 +6677,7 @@ for item in results:
                         'Volume': _sh.get('volume') or [0] * len(_closes),
                     }, index=pd.to_datetime(_dates))
                     _atr_v = get_zigzag_atr_mult()
+                    _maxb_v = get_zigzag_max_bars()  # 🆕 v9.47：bar 數可調
                     # 🆕 v9.40：加上戰法 entry/exit + 歷史加碼 marker
                     _swing_trades_tv = None
                     _reentry_events_tv = None
@@ -6658,8 +6695,8 @@ for item in results:
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
-                        title=f'{ticker} 1d — ZigZag (ATR×{_atr_v:.2f}) + BB + EMA  ｜ hover 看 OHLC',
-                        max_bars=80,    # 🆕 v9.46: 180 → 80 (精簡顯示 + 防 Plotly JSON 過大)
+                        title=f'{ticker} 1d — ZigZag (ATR×{_atr_v:.2f}, {_maxb_v} bars) + BB + EMA  ｜ hover 看 OHLC',
+                        max_bars=_maxb_v,    # 🆕 v9.47: 改可調（intraday.settings.get_zigzag_max_bars）
                         show_bb=True,
                         show_emas=[5, 20, 60, 150, 200],
                         show_macd=True,

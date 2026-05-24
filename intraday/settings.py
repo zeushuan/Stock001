@@ -8,6 +8,9 @@
   get_zigzag_atr_mult() -> float
   set_zigzag_atr_mult(val: float) -> None
   reset_zigzag_atr_mult() -> None
+  get_zigzag_max_bars() -> int            🆕 v9.47
+  set_zigzag_max_bars(val: int) -> None   🆕 v9.47
+  reset_zigzag_max_bars() -> None         🆕 v9.47
 """
 from __future__ import annotations
 
@@ -21,6 +24,11 @@ _CONFIG_PATH = Path(__file__).parent.parent / 'intraday_config.json'
 
 # 預設值（OOS 驗證 VCP Sharpe 最佳 = 1.30）
 _DEFAULT_ATR_MULT = 1.30
+
+# 🆕 v9.47：ZigZag chart 顯示 bar 數預設（fetch_indicators 存 252 bars，安全範圍 30-252）
+_DEFAULT_MAX_BARS = 80
+_MAX_BARS_MIN = 30
+_MAX_BARS_MAX = 252
 
 # 簡單 in-process cache（避免每次 import 都讀檔）
 _cache: Optional[dict] = None
@@ -86,6 +94,38 @@ def set_zigzag_atr_mult(val: float) -> None:
 def reset_zigzag_atr_mult() -> None:
     """重置為預設值 1.30"""
     set_zigzag_atr_mult(_DEFAULT_ATR_MULT)
+
+
+# ─── 🆕 v9.47：ZigZag chart 顯示 bar 數 ──
+
+def get_zigzag_max_bars() -> int:
+    """取得目前 ZigZag chart 顯示的最大 bar 數（沒設定回 _DEFAULT_MAX_BARS=80）
+
+    安全範圍 30-252（fetch_indicators 存 252 bars 為上限）。
+    """
+    val = _load().get('zigzag_max_bars', _DEFAULT_MAX_BARS)
+    try:
+        v = int(val)
+        return max(_MAX_BARS_MIN, min(_MAX_BARS_MAX, v))
+    except Exception:
+        return _DEFAULT_MAX_BARS
+
+
+def set_zigzag_max_bars(val: int) -> None:
+    """設定 ZigZag chart 顯示 bar 數（會寫入 config 檔，立即生效）"""
+    v = int(val)
+    if not (_MAX_BARS_MIN <= v <= _MAX_BARS_MAX):
+        raise ValueError(
+            f"max_bars 須在 {_MAX_BARS_MIN}-{_MAX_BARS_MAX} 之間，got {v}")
+    d = _load()
+    d['zigzag_max_bars'] = v
+    d['_updated_at'] = __import__('datetime').datetime.now().isoformat()
+    _save(d)
+
+
+def reset_zigzag_max_bars() -> None:
+    """重置為預設值 80"""
+    set_zigzag_max_bars(_DEFAULT_MAX_BARS)
 
 
 def all_settings() -> dict:
