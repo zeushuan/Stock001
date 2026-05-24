@@ -526,7 +526,8 @@ def _get_sector_ranking_recent() -> list:
             vp = _json.loads(vwap_path.read_text(encoding='utf-8'))
             top_set = set(t for t, info in vp.items()
                           if info.get('tier') in ('TOP', 'OK'))
-        except: pass
+        except Exception as exc:
+            log.debug("[sector ranking/vwap_path load] %s", exc)
 
     # 對每產業計算月報酬 (用 yfinance batch)
     out = []
@@ -1027,13 +1028,15 @@ def _score_news_title(title: str) -> float:
             try:
                 pct = float(m.group(1))
                 score += min(0.5, pct * mul)
-            except Exception: pass
+            except Exception as exc:
+                log.debug("[_score_news_title/pos pct parse] %s", exc)
     for pat, mul in _PCT_NEG_PATTERNS:
         for m in _re.finditer(pat, title):
             try:
                 pct = float(m.group(1))
                 score += max(-0.5, pct * mul)
-            except Exception: pass
+            except Exception as exc:
+                log.debug("[_score_news_title/neg pct parse] %s", exc)
 
     # 3. BERT 補強（規則 70% + BERT 30%）
     bert_s = _bert_sentiment(title)
@@ -1846,8 +1849,8 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
                 wc_ser   = wc_raw
                 wm10_ser = ta.trend.SMAIndicator(wc_raw, 10).sma_indicator()
                 wm20_ser = ta.trend.SMAIndicator(wc_raw, 20).sma_indicator()
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[fetch_indicators_range/weekly MA series] %s", exc)
 
         # 取第 i 行純量
         def at(s, i):
@@ -1907,8 +1910,8 @@ def fetch_indicators_range(ticker: str, market: str, start_date: str, end_date: 
                         w_close_v = float(wc_ser.iloc[widx]) if pd.notna(wc_ser.iloc[widx]) else None
                         w_ma10_v  = at(wm10_ser, widx)
                         w_ma20_v  = at(wm20_ser, widx)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log.debug("[fetch_indicators_range/weekly MA per-row] %s", exc)
 
             d_dict = {
                 "name":         stock_name,
@@ -3343,13 +3346,13 @@ def _render_top200_panel():
                                 v = _ls.getItem("stock001_watchlists")
                                 if v:
                                     wls = _json.loads(v) if isinstance(v, str) else v
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                log.debug("[TW watchlist/_ls.getItem] %s", exc)
                         if not wls and _wl_path.exists():
                             try:
                                 wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                log.debug("[TW watchlist/file read] %s", exc)
 
                         # 新增清單
                         tickers_str = "\n".join(r['ticker'] for r in _e_raw)
@@ -3357,12 +3360,14 @@ def _render_top200_panel():
                         # 儲存
                         text = _json.dumps(wls, ensure_ascii=False, indent=2)
                         if _ls:
-                            try: _ls.setItem("stock001_watchlists", text)
-                            except: pass
+                            try:
+                                _ls.setItem("stock001_watchlists", text)
+                            except Exception as exc:
+                                log.debug("[TW watchlist/_ls.setItem] %s", exc)
                         try:
                             _wl_path.write_text(text, encoding='utf-8')
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            log.debug("[TW watchlist/file write] %s", exc)
                         st.success(f"✅ 已存「{_wl_name}」（{len(_e_raw)} 檔）")
                         st.rerun()
         with cols[1]:
@@ -3460,8 +3465,8 @@ def _render_update_status_bar():
             f'｜手動觸發: 各 panel 內按「🔄 更新」按鈕</div>',
             unsafe_allow_html=True
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_render_update_status_bar/markdown] %s", exc)
 
 
 _render_update_status_bar()
@@ -3603,17 +3608,21 @@ def _render_us_top_panel():
                             try:
                                 v = _ls.getItem("stock001_watchlists")
                                 if v: wls = _json.loads(v) if isinstance(v, str) else v
-                            except Exception: pass
+                            except Exception as exc:
+                                log.debug("[US watchlist/_ls.getItem] %s", exc)
                         if not wls and _wl_path.exists():
                             try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
-                            except Exception: pass
+                            except Exception as exc:
+                                log.debug("[US watchlist/file read] %s", exc)
                         wls[_us_name] = "\n".join(r['ticker'] for r in _e_raw)
                         text = _json.dumps(wls, ensure_ascii=False, indent=2)
                         if _ls:
                             try: _ls.setItem("stock001_watchlists", text)
-                            except: pass
+                            except Exception as exc:
+                                log.debug("[US watchlist/_ls.setItem] %s", exc)
                         try: _wl_path.write_text(text, encoding='utf-8')
-                        except: pass
+                        except Exception as exc:
+                            log.debug("[US watchlist/file write] %s", exc)
                         st.success(f"✅ 已存「{_us_name}」({len(_e_raw)} 檔)")
                         st.rerun()
         with cols[1]:
@@ -3701,8 +3710,8 @@ def _render_sector_rotation_panel():
             + f'</div></div>',
             unsafe_allow_html=True
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_render_sector_rotation_panel/markdown] %s", exc)
 
 
 # 🐛 v9.20.9：用戶要求移除產業輪動 panel（Top 5 / Bottom 5）
@@ -3851,8 +3860,8 @@ def _render_alerts_panel():
                     f'padding:10px">— 暫無即將觸發 —</div>',
                     unsafe_allow_html=True
                 )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_render_alerts_panel/markdown] %s", exc)
 
 
 # 🐛 v9.20.9：用戶要求移除警報中 panel（強警報觸發中 + 即將觸發）
@@ -3909,12 +3918,13 @@ def _render_screener_panel():
                         f'<span style="color:#7a8899;font-size:.72rem"> ｜ '
                         f'資料時間：{computed_at_str}{data_warning}</span>'
                     )
-                except Exception:
+                except Exception as exc:
+                    log.debug("[snapshot freshness/inner format] %s", exc)
                     data_freshness = (
                         f'<span style="color:#7a8899;font-size:.72rem">資料時間：{computed_at_str}</span>'
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[snapshot freshness/outer] %s", exc)
 
         st.markdown(
             f'<div style="background:#0f1830;border:2px solid #5a8ab0;'
@@ -4092,7 +4102,8 @@ def _render_screener_panel():
                     for t, info in d.items():
                         if isinstance(info, dict):
                             name_map[t] = info.get('name', '')
-                except Exception: pass
+                except Exception as exc:
+                    log.debug("[scan/name_map TW] %s", exc)
             if (_P(__file__).parent / 'us_full_tickers.json').exists():
                 try:
                     full = _json.loads((_P(__file__).parent / 'us_full_tickers.json').read_text(encoding='utf-8'))
@@ -4103,7 +4114,8 @@ def _render_screener_panel():
                             if sep in nm:
                                 nm = nm.split(sep)[0]; break
                         if sym: name_map[sym] = nm[:40]
-                except Exception: pass
+                except Exception as exc:
+                    log.debug("[scan/name_map US] %s", exc)
             for r in all_results:
                 r['name'] = name_map.get(r['ticker'], '')
 
@@ -4144,7 +4156,8 @@ def _render_screener_panel():
                             else:
                                 break
                         json_age_days = sessions
-            except Exception: pass
+            except Exception as exc:
+                log.debug("[scan/json_age_days calc] %s", exc)
 
             # 排序：imminent_dc 後排（潛在風險）
             def _sort_key(r):
@@ -4277,10 +4290,13 @@ def _render_screener_panel():
                             v = _ls.getItem('stock001_watchlists')
                             if v:
                                 wls = _json.loads(v) if isinstance(v, str) else v
-                        except Exception: pass
+                        except Exception as exc:
+                            log.debug("[screener watchlist/_ls.getItem] %s", exc)
                     if not wls and _wl_path.exists():
                         try: wls = _json.loads(_wl_path.read_text(encoding='utf-8'))
-                        except Exception: wls = {}
+                        except Exception as exc:
+                            log.debug("[screener watchlist/file read] %s", exc)
+                            wls = {}
 
                     name = save_name.strip()
                     if add_btn and name in wls:
@@ -4296,9 +4312,11 @@ def _render_screener_panel():
                     text = _json.dumps(wls, ensure_ascii=False, indent=2)
                     if _ls:
                         try: _ls.setItem('stock001_watchlists', text)
-                        except: pass
+                        except Exception as exc:
+                            log.debug("[screener watchlist/_ls.setItem] %s", exc)
                     try: _wl_path.write_text(text, encoding='utf-8')
-                    except: pass
+                    except Exception as exc:
+                        log.debug("[screener watchlist/file write] %s", exc)
                     st.success(msg)
                     st.rerun()
     except Exception as e:
@@ -4310,7 +4328,8 @@ def _render_screener_panel():
             import traceback as _tb
             with st.expander("traceback"):
                 st.code(_tb.format_exc())
-        except: pass
+        except Exception as exc:
+            log.debug("[screener panel/error markdown] %s", exc)
 
 
 _render_screener_panel()
@@ -4427,10 +4446,11 @@ def _render_rs_leading_high_panel():
             unsafe_allow_html=True
         )
     except Exception as e:
+        log.debug("[_render_rs_leading_high_panel] %s", e)
         try:
             st.markdown(f'RS Leading High panel 載入失敗: {type(e).__name__}')
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[_render_rs_leading_high_panel/error markdown] %s", exc)
 
 
 _render_rs_leading_high_panel()
@@ -4548,8 +4568,8 @@ def _render_sympathy_panel():
                 f'</div>',
                 unsafe_allow_html=True
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_render_sympathy_panel] %s", exc)
 
 
 _render_sympathy_panel()
@@ -4686,8 +4706,8 @@ def _render_hit_rate_panel():
                 f'<div style="color:#ff7755;font-size:.7rem;padding:4px 14px">'
                 f'命中率 panel 載入失敗：{type(e).__name__}</div>',
                 unsafe_allow_html=True)
-        except:
-            pass
+        except Exception as exc:
+            log.debug("[_render_hit_rate_panel/error markdown] %s", exc)
 
 
 _render_hit_rate_panel()
@@ -4758,13 +4778,14 @@ with st.sidebar:
                         return _json.loads(v)
                     if isinstance(v, dict):
                         return v
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[_load_watchlists/localStorage] %s", exc)
         # ② 檔案 fallback（本地有效）
         if _WATCHLIST_FILE.exists():
             try:
                 return _json.loads(_WATCHLIST_FILE.read_text(encoding='utf-8'))
-            except Exception:
+            except Exception as exc:
+                log.debug("[_load_watchlists/file] %s", exc)
                 return {}
         return {}
 
@@ -4774,13 +4795,13 @@ with st.sidebar:
         if _localS is not None:
             try:
                 _localS.setItem("stock001_watchlists", text)
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[_save_watchlists/localStorage] %s", exc)
         # ② 寫檔（本地有效；雲端 ephemeral 但不傷）
         try:
             _WATCHLIST_FILE.write_text(text, encoding='utf-8')
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[_save_watchlists/file] %s", exc)
         # 🆕 v9.14 ③ 推送到 GitHub（需 secrets["GITHUB_TOKEN"]）
         if push_github:
             return _push_watchlists_to_github(d)
@@ -4833,8 +4854,8 @@ with st.sidebar:
             r = requests.get(url, headers=headers, timeout=10)
             if r.status_code == 200 and r.text.strip():
                 return _json.loads(r.text)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[_pull_watchlists_from_github] %s", exc)
         return None
 
     # 從 GitHub 讀取預設清單
@@ -4846,8 +4867,8 @@ with st.sidebar:
             if r.status_code == 200 and r.text.strip():
                 lines = [l.strip() for l in r.text.splitlines() if l.strip()]
                 return "\n".join(lines)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[load_default_stocks] %s", exc)
         return "DJI\nSPX\n0050\n2330\n00632R\n00737\nBOTZ"
 
     default_stocks = load_default_stocks()
@@ -4860,7 +4881,8 @@ with st.sidebar:
             if _PRESETS_PATH.exists():
                 d = _json.loads(_PRESETS_PATH.read_text(encoding='utf-8'))
                 return d.get('presets', {})
-        except Exception: pass
+        except Exception as exc:
+            log.debug("[load_presets] %s", exc)
         return {}
     _presets = load_presets()
     # 預設清單轉 ticker text 格式
@@ -4981,7 +5003,8 @@ with st.sidebar:
             for line in (stock_input or '').split('\n'):
                 line = line.split('#', 1)[0].strip()
                 if line: _current_tickers.append(line.upper())
-        except Exception: pass
+        except Exception as exc:
+            log.debug("[notes panel/_current_tickers parse] %s", exc)
 
         # Compose default text — 既有的 notes 全部 + 當前清單中沒備註的 ticker
         _lines = []
@@ -5621,8 +5644,8 @@ if scan_btn:
                         names[parts[0]] = parts[1]
                 if tickers:
                     return sorted(set(tickers)), names
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[_get_all_tw_universe/tw_universe.txt] %s", exc)
         # ② twstock 動態載入
         try:
             import twstock
@@ -5632,7 +5655,8 @@ if scan_btn:
                     tickers.append(str(k))
                     names[str(k)] = v.name
             return sorted(set(tickers)), names
-        except Exception:
+        except Exception as exc:
+            log.debug("[_get_all_tw_universe/twstock fallback] %s", exc)
             return [], {}
 
     # ── 動態載入：美股全市場 + 名稱對照
@@ -5658,8 +5682,8 @@ if scan_btn:
                         names[sym] = parts[1].strip()
                 if tickers:
                     return sorted(set(tickers)), names
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[_get_all_us_universe/us_names.txt] %s", exc)
         # ② GitHub 純代號 fallback
         url = ("https://raw.githubusercontent.com/rreichel3/"
                "US-Stock-Symbols/main/all/all_tickers.txt")
@@ -5838,7 +5862,8 @@ if scan_btn:
                                     r['change_pct'] = round(
                                         (cur_p - prev_p) / prev_p * 100, 2) \
                                         if prev_p else 0
-                            except Exception:
+                            except Exception as exc:
+                                log.debug("[local scan/change_pct calc] %s", exc)
                                 r['change_pct'] = None
                             r['name'] = tw_names.get(ticker, "")
                             r['price'] = round(r.get('price', 0), 2)
@@ -5848,12 +5873,13 @@ if scan_btn:
                             r.pop('score', None)
                             r.pop('rsi', None)
                             scan_results.append(r)
-                    except Exception:
+                    except Exception as exc:
+                        log.debug("[local scan/per-file] %s", exc)
                         continue
                 progress.progress(1.0, text=f"完成 {total} 檔（本地快取）")
                 local_ok = True
-        except ImportError:
-            pass
+        except ImportError as exc:
+            log.debug("[local scan/ImportError 缺 daytrade_scanner] %s", exc)
 
         if not local_ok:
             # 雲端：載入台股全市場（優先 tw_universe.txt → twstock → 手動）
@@ -6213,8 +6239,8 @@ def _scan_top200_signals():
                 for k, v in _data.items():
                     if isinstance(v, dict):
                         name_map[k] = v.get('name', '')
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_scan_top200_signals/name_map load] %s", exc)
 
     # 概念股名稱備援
     if not name_map:
@@ -6625,8 +6651,8 @@ for item in results:
                             exit_rule='mid_ema_down', entry_mode='bb_p1sig')
                         _reentry_events_tv = scan_historical_reentry(
                             _df_for_chart, market=market, lookback_bars=180, tf='1d')
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        log.debug("[detail card/swing+reentry scan] %s", exc)
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
@@ -6730,10 +6756,11 @@ for item in results:
                                 f'{_re_html_tv}'
                                 f'</div>',
                                 unsafe_allow_html=True)
-                    except Exception:
-                        pass
-            except Exception:
-                pass   # plotly 失敗就跳過，detail card 仍可看
+                    except Exception as exc:
+                        log.debug("[detail card/strategy overlay markdown] %s", exc)
+            except Exception as exc:
+                log.debug("[detail card/plotly chart outer] %s", exc)
+                # plotly 失敗就跳過，detail card 仍可看
             # detail card（v9.32 起 ZigZag PNG 由上面 plotly 取代、新聞已關閉）
             st.markdown(render_detail(ticker, d, groups, group_summs, tsumm, cap, market=market),
                         unsafe_allow_html=True)
