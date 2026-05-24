@@ -198,17 +198,20 @@ def profile_to_zones(
     profile: VolumeProfile,
     current_price: Optional[float] = None,
     bar_count: int = 0,
+    max_width: Optional[float] = None,
 ) -> list[SRZone]:
     """把 Volume Profile 的 HVN 區轉成 SRZone list。
 
     HVN 區當下若高於現價→ resistance；低於現價 → support。
-    若 current_price 為 None，全部標 'support'（中性 fallback；
+    若 current_price 為 None，全部標 'support'（中性 fallback;
     sr_engine 會在融合時依現價重新分類）。
 
     Args:
         profile: compute_profile 的輸出
         current_price: 用來判定 support / resistance
         bar_count: 該 profile 對應的 bar 數（給 last_touch_idx 用最後一根）
+        max_width: HVN 區最大寬度上限（>0 才生效）；超寬 HVN 切成多段子區，
+                   避免單一巨大 zone 在 chart overlay 上把整片塗一色
 
     Returns:
         list[SRZone]，source='profile'
@@ -218,15 +221,33 @@ def profile_to_zones(
     zones: list[SRZone] = []
     last_idx = max(0, bar_count - 1)
     for lo, hi in profile.hvn_zones:
-        center = (lo + hi) / 2
-        if current_price is None:
-            kind = 'support'
+        width = hi - lo
+        # 寬度上限 → 切割成多段子區
+        if max_width and max_width > 0 and width > max_width:
+            n_segments = int(np.ceil(width / max_width))
+            seg_width = width / n_segments
+            for k in range(n_segments):
+                sub_lo = lo + k * seg_width
+                sub_hi = sub_lo + seg_width
+                sub_ctr = (sub_lo + sub_hi) / 2
+                if current_price is None:
+                    sub_kind = 'support'
+                else:
+                    sub_kind = 'resistance' if sub_ctr > current_price else 'support'
+                zones.append(SRZone(
+                    kind=sub_kind, low=sub_lo, high=sub_hi, center=sub_ctr,
+                    touches=0, source='profile', last_touch_idx=last_idx,
+                ))
         else:
-            kind = 'resistance' if center > current_price else 'support'
-        zones.append(SRZone(
-            kind=kind, low=lo, high=hi, center=center,
-            touches=0,           # profile 來源不用觸及次數
-            source='profile',
-            last_touch_idx=last_idx,
-        ))
+            center = (lo + hi) / 2
+            if current_price is None:
+                kind = 'support'
+            else:
+                kind = 'resistance' if center > current_price else 'support'
+            zones.append(SRZone(
+                kind=kind, low=lo, high=hi, center=center,
+                touches=0,           # profile 來源不用觸及次數
+                source='profile',
+                last_touch_idx=last_idx,
+            ))
     return zones

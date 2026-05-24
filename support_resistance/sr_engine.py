@@ -316,8 +316,12 @@ def detect_sr_zones(
     if use_volume_profile:
         prof = compute_profile(df, bin_width=atr * 0.5,
                                 rth_filter=profile_rth_filter)
-        profile = profile_to_zones(prof, current_price=current_price,
-                                    bar_count=len(df))
+        # 🆕 v9.47：HVN 寬度也吃 MAX_ZONE_WIDTH_ATR_MULT
+        profile = profile_to_zones(
+            prof, current_price=current_price,
+            bar_count=len(df),
+            max_width=atr * MAX_ZONE_WIDTH_ATR_MULT,
+        )
     else:
         profile = []
 

@@ -800,11 +800,25 @@ def build_zigzag_chart_plotly(
     # ── 🆕 v9.47：S/R zones overlay（半透明橫帶，畫在價格 row 1）──
     # 規格 §5.2 視覺化規範：壓力紅、支撐綠；強度越強越不透明（0.10 + 0.20×strength/100）
     if sr_zones:
+        # 🆕 v9.47.1：先依「可視價格範圍」過濾掉太遠的 zone（避免畫到圖外或塗一片）
+        # 可視範圍 = df_plot 的 [Low.min, High.max] + 上下 padding（顯示範圍的 5%）
+        try:
+            _vis_lo = float(df_plot['Low'].min())
+            _vis_hi = float(df_plot['High'].max())
+            _vis_pad = (_vis_hi - _vis_lo) * 0.05
+            _vis_lo -= _vis_pad
+            _vis_hi += _vis_pad
+        except Exception:
+            _vis_lo, _vis_hi = -1e18, 1e18
+        # 在範圍內（或與範圍重疊）的 zone 才候選
+        in_range = [z for z in sr_zones
+                    if getattr(z, 'high', _vis_lo) >= _vis_lo
+                    and getattr(z, 'low', _vis_hi) <= _vis_hi]
         # 按 strength 降冪取前 N（避免遮蓋）
         try:
-            top_zones = sorted(sr_zones, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]
+            top_zones = sorted(in_range, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]
         except Exception:
-            top_zones = list(sr_zones)[:sr_max_show]
+            top_zones = in_range[:sr_max_show]
         for z in top_zones:
             try:
                 kind = getattr(z, 'kind', 'support')

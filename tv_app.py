@@ -1726,6 +1726,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
 
         # 🆕 v9.47：S/R 偵測（support_resistance package Phase 1）
         # 從 _swing_history 重建 OHLCV → detect_sr_zones → 寫進 d
+        # 並依規格 §4 把 sr_context['adjustment'] 套到 t3_confidence
         try:
             _sh_for_sr = d.get('_swing_history') or {}
             _closes_sr = _sh_for_sr.get('close') or []
@@ -1742,10 +1743,22 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 d['sr_zones'] = _zones
                 _cur_p = float(d.get('close') or _closes_sr[-1])
                 _adx_v = d.get('adx')
-                d['sr_context'] = sr_context_for_t3(
+                _sr_ctx = sr_context_for_t3(
                     _zones, current_price=_cur_p,
                     adx=float(_adx_v) if _adx_v is not None else None,
                 )
+                d['sr_context'] = _sr_ctx
+                # 規格 §4：T3' = clip(T3 + adjustment, 0, 100)
+                _sr_adj = int(_sr_ctx.get('adjustment', 0)) if _sr_ctx else 0
+                if _sr_adj != 0:
+                    _t3_raw = int(d.get('t3_confidence') or 0)
+                    d['t3_confidence_raw'] = _t3_raw  # 留原值給除錯
+                    d['t3_confidence'] = max(0, min(100, _t3_raw + _sr_adj))
+                    _hits = list(d.get('t3_confidence_hits') or [])
+                    _hits.append(
+                        f"S/R {_sr_adj:+d}（{_sr_ctx.get('reason', '')}）"
+                    )
+                    d['t3_confidence_hits'] = _hits
             else:
                 d['sr_zones'] = []
                 d['sr_context'] = None
