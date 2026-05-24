@@ -284,6 +284,8 @@ def build_zigzag_chart_plotly(
     sr_zones: Optional[List] = None,                # 🆕 v9.47 S/R overlay
     sr_max_show: int = 6,                            # 🆕 v9.47 最多畫幾個 zone
     sr_nearest_only: bool = True,                    # 🆕 v9.47.10 只畫最近 1R+1S
+    sr_pivot_r: Optional[float] = None,              # 🆕 v9.48 LuxAlgo R level
+    sr_pivot_s: Optional[float] = None,              # 🆕 v9.48 LuxAlgo S level
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -797,6 +799,44 @@ def build_zigzag_chart_plotly(
         fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=3, col=1)
     else:
         fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
+
+    # ── 🆕 v9.48：LuxAlgo-style 水平線（簡潔，取代 band overlay）──
+    # 用最近一個 pivot high 在現價之上 = R；最近一個 pivot low 在現價之下 = S
+    if sr_pivot_r is not None or sr_pivot_s is not None:
+        try:
+            _cur = float(df_plot['Close'].iloc[-1])
+        except Exception:
+            _cur = None
+        if sr_pivot_r is not None and _cur is not None:
+            _pct = (sr_pivot_r - _cur) / _cur * 100 if _cur > 0 else 0
+            fig.add_hline(
+                y=sr_pivot_r,
+                line=dict(color='#ef4444', width=1.8, dash='solid'),
+                row=1, col=1,
+                annotation=dict(
+                    text=f'R {sr_pivot_r:.2f}  ({_pct:+.1f}%)',
+                    font=dict(color='#ff8a8a', size=11),
+                    bgcolor='rgba(0,0,0,0.5)',
+                    bordercolor='rgba(239,68,68,0.5)',
+                    x=1, xanchor='right',
+                ),
+                annotation_position='top right',
+            )
+        if sr_pivot_s is not None and _cur is not None:
+            _pct = (sr_pivot_s - _cur) / _cur * 100 if _cur > 0 else 0
+            fig.add_hline(
+                y=sr_pivot_s,
+                line=dict(color='#22c55e', width=1.8, dash='solid'),
+                row=1, col=1,
+                annotation=dict(
+                    text=f'S {sr_pivot_s:.2f}  ({_pct:+.1f}%)',
+                    font=dict(color='#74e4a0', size=11),
+                    bgcolor='rgba(0,0,0,0.5)',
+                    bordercolor='rgba(34,197,94,0.5)',
+                    x=1, xanchor='right',
+                ),
+                annotation_position='bottom right',
+            )
 
     # ── 🆕 v9.47：S/R zones overlay（半透明橫帶，畫在價格 row 1）──
     # 規格 §5.2 視覺化規範：壓力紅、支撐綠；強度越強越不透明（0.10 + 0.20×strength/100）

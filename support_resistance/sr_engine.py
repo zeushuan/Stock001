@@ -33,8 +33,56 @@ from .params import (
     MAX_ZONE_WIDTH_ATR_MULT,
 )
 from .types import SRZone
-from .swing_cluster import compute_atr, detect_swing_zones
+from .swing_cluster import compute_atr, detect_swing_zones, find_pivots
 from .volume_profile import compute_profile, profile_to_zones
+
+
+# ── LuxAlgo-style: 最近 pivot R 與 S ──────────────────────────────
+def latest_pivot_levels(
+    df: pd.DataFrame,
+    current_price: float,
+    swing_window: int = 5,
+) -> dict:
+    """LuxAlgo「Support and Resistance Levels with Breaks」風格：
+    最近一個 confirmed pivot high 在現價之上 = 壓力；
+    最近一個 confirmed pivot low 在現價之下  = 支撐。
+
+    與我們的 detect_sr_zones 並存：
+      - detect_sr_zones: 多源 confluence 帶 (給 T3 context 用)
+      - latest_pivot_levels: 給 chart / detail card 「乾淨」單線顯示用
+
+    Args:
+        df: OHLCV DataFrame（High/Low/Close 必有）
+        current_price: 現在價
+        swing_window: 左右視窗。LuxAlgo 原作預設 15 抓的是「年度級」主要 pivot;
+            日線交易實務通常 5 即可（recent swing），15 給 weekly 用
+
+    Returns:
+        {
+            'resistance':     float | None  最近 pivot high 在現價之上
+            'resistance_idx': int   | None  該 pivot 的 bar 索引（畫線起點）
+            'support':        float | None  最近 pivot low  在現價之下
+            'support_idx':    int   | None
+        }
+    """
+    out = {'resistance': None, 'resistance_idx': None,
+           'support': None, 'support_idx': None}
+    if df is None or len(df) < 2 * swing_window + 1 or current_price <= 0:
+        return out
+    highs, lows = find_pivots(df, swing_window=swing_window)
+    # 由後往前找，第一個在現價之上的 pivot high
+    for p in reversed(highs):
+        if p.price > current_price:
+            out['resistance'] = float(p.price)
+            out['resistance_idx'] = int(p.idx)
+            break
+    # 第一個在現價之下的 pivot low
+    for p in reversed(lows):
+        if p.price < current_price:
+            out['support'] = float(p.price)
+            out['support_idx'] = int(p.idx)
+            break
+    return out
 
 
 # ── C-1：整數價位（規格 §1.4 / §2.1） ───────────────────────────

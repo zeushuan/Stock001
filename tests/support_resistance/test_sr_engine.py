@@ -8,6 +8,7 @@ import pytest
 from support_resistance.sr_engine import (
     round_number_zones, fuse_zones, score_zones,
     detect_role_reversal, detect_sr_zones, sr_context_for_t3,
+    latest_pivot_levels,
 )
 from support_resistance.types import SRZone
 
@@ -358,6 +359,70 @@ class TestSRContextForT3:
                                 proximity_pct=2.0, cap=15)
         assert ctx['adjustment'] >= -15
         assert ctx['adjustment'] <= 15
+
+
+class TestLatestPivotLevels:
+    """LuxAlgo-style 最近 pivot R/S 測試。"""
+
+    def test_double_top_bottom_finds_both(self, synth_double_top_bottom):
+        # 資料在 100-110 擺盪
+        levels = latest_pivot_levels(
+            synth_double_top_bottom, current_price=105.0, swing_window=3)
+        # 最近 pivot high above 105 應 ≥ 108
+        assert levels['resistance'] is not None
+        assert levels['resistance'] >= 108
+        # 最近 pivot low below 105 應 ≤ 102
+        assert levels['support'] is not None
+        assert levels['support'] <= 102
+
+    def test_breakout_no_resistance(self, synth_double_top_bottom):
+        # 現價遠高於資料最高 → 無 pivot high above → R=None
+        levels = latest_pivot_levels(
+            synth_double_top_bottom, current_price=200.0, swing_window=3)
+        assert levels['resistance'] is None
+        # 但有 support（資料所有 low 都在 200 之下）
+        assert levels['support'] is not None
+
+    def test_breakdown_no_support(self, synth_double_top_bottom):
+        levels = latest_pivot_levels(
+            synth_double_top_bottom, current_price=10.0, swing_window=3)
+        assert levels['support'] is None
+        assert levels['resistance'] is not None
+
+    def test_returns_latest_pivot_when_multiple(self):
+        """有多個 pivot 時應該回最後一個（最近）。"""
+        import numpy as np
+        import pandas as pd
+        n = 80
+        # 兩個 pivot high: idx 20 高度 110，idx 60 高度 115
+        closes = np.full(n, 100.0)
+        highs = np.full(n, 101.0)
+        lows = np.full(n, 99.0)
+        highs[20] = 110
+        highs[60] = 115
+        lows[40] = 88
+        lows[70] = 90
+        df = pd.DataFrame({
+            'High': highs, 'Low': lows, 'Close': closes,
+            'Volume': np.full(n, 1000.0),
+        })
+        levels = latest_pivot_levels(df, current_price=105.0, swing_window=5)
+        # 最近 pivot high above 105 應是 idx 60 = 115（不是 idx 20 = 110）
+        assert levels['resistance'] == 115
+        assert levels['resistance_idx'] == 60
+        # 最近 pivot low below 105 應是 idx 70 = 90（不是 idx 40 = 88）
+        assert levels['support'] == 90
+        assert levels['support_idx'] == 70
+
+    def test_short_data_returns_empty(self):
+        import pandas as pd
+        df = pd.DataFrame({
+            'High': [10] * 5, 'Low': [9] * 5,
+            'Close': [9.5] * 5, 'Volume': [100] * 5,
+        })
+        levels = latest_pivot_levels(df, current_price=10.0, swing_window=5)
+        assert levels['resistance'] is None
+        assert levels['support'] is None
 
 
 class TestDetectSRZonesIntegration:

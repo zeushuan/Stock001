@@ -1727,11 +1727,14 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
         # 🆕 v9.47：S/R 偵測（support_resistance package Phase 1）
         # 從 _swing_history 重建 OHLCV → detect_sr_zones → 寫進 d
         # 並依規格 §4 把 sr_context['adjustment'] 套到 t3_confidence
+        # 🆕 v9.48：另外算 LuxAlgo-style latest pivot levels（給 chart/detail card 用）
         try:
             _sh_for_sr = d.get('_swing_history') or {}
             _closes_sr = _sh_for_sr.get('close') or []
             if _closes_sr and len(_closes_sr) >= 30:
-                from support_resistance import detect_sr_zones, sr_context_for_t3
+                from support_resistance import (
+                    detect_sr_zones, sr_context_for_t3, latest_pivot_levels,
+                )
                 _sr_df = pd.DataFrame({
                     'Open':   _sh_for_sr.get('open') or _closes_sr,
                     'High':   _sh_for_sr.get('high') or _closes_sr,
@@ -1748,6 +1751,10 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     adx=float(_adx_v) if _adx_v is not None else None,
                 )
                 d['sr_context'] = _sr_ctx
+                # 🆕 v9.48：LuxAlgo-style 最近 pivot R / S
+                _lux = latest_pivot_levels(_sr_df, _cur_p, swing_window=5)
+                d['sr_pivot_r'] = _lux.get('resistance')
+                d['sr_pivot_s'] = _lux.get('support')
                 # 規格 §4：T3' = clip(T3 + adjustment, 0, 100)
                 _sr_adj = int(_sr_ctx.get('adjustment', 0)) if _sr_ctx else 0
                 if _sr_adj != 0:
@@ -1762,10 +1769,14 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             else:
                 d['sr_zones'] = []
                 d['sr_context'] = None
+                d['sr_pivot_r'] = None
+                d['sr_pivot_s'] = None
         except Exception as exc:
             log.debug("[fetch_indicators/sr_zones] %s", exc)
             d['sr_zones'] = []
             d['sr_context'] = None
+            d['sr_pivot_r'] = None
+            d['sr_pivot_s'] = None
 
         return d
     except Exception as e:
@@ -6735,7 +6746,7 @@ for item in results:
                             _df_for_chart, market=market, lookback_bars=180, tf='1d')
                     except Exception as exc:
                         log.debug("[detail card/swing+reentry scan] %s", exc)
-                    _sr_zones_tv = d.get('sr_zones') or None
+                    # 🆕 v9.48：用 LuxAlgo-style pivot lines 取代 band overlay
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
@@ -6747,7 +6758,8 @@ for item in results:
                         theme='dark',
                         swing_trades=_swing_trades_tv,
                         reentry_events=_reentry_events_tv,
-                        sr_zones=_sr_zones_tv,  # 🆕 v9.47：S/R 區疊在價格層
+                        sr_pivot_r=d.get('sr_pivot_r'),  # LuxAlgo 風格水平線
+                        sr_pivot_s=d.get('sr_pivot_s'),
                     )
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
@@ -6797,86 +6809,53 @@ for item in results:
                             f'ADX damping {_sr_dmp:.2f}</span></div>',
                             unsafe_allow_html=True)
 
-                    # 🆕 v9.47.3：S/R 區間總表（按距現價排序，分上下）
-                    _sr_all = d.get('sr_zones') or []
+                    # 🆕 v9.48：LuxAlgo-style 最近壓力/支撐 — 簡潔單行顯示
+                    # （取代原本 zone-based 區間總表，太複雜）
                     _cur_p_tv = float(d.get('close') or _closes[-1])
-                    if _sr_all and _cur_p_tv > 0:
-                        # 只顯示可視範圍內、強度 ≥ 30 的 zone
-                        _vis_lo = float(_df_for_chart['Low'].tail(_maxb_v).min())
-                        _vis_hi = float(_df_for_chart['High'].tail(_maxb_v).max())
-                        _vis_pad = (_vis_hi - _vis_lo) * 0.05
-                        _vis_lo -= _vis_pad
-                        _vis_hi += _vis_pad
-                        _in_range = [
-                            z for z in _sr_all
-                            if z.high >= _vis_lo and z.low <= _vis_hi
-                            and z.strength >= 30
-                        ]
-                        # 🆕 v9.47.10：依用戶反饋簡化 — 只顯示最接近的 1R+1S
-                        # （原本 5 個 R + 5 個 S 太亂，trader 實務上只需下一個關卡）
-                        _res = sorted(
-                            [z for z in _in_range
-                             if z.kind == 'resistance' and z.center > _cur_p_tv],
-                            key=lambda z: z.center - _cur_p_tv)[:1]
-                        _sup = sorted(
-                            [z for z in _in_range
-                             if z.kind == 'support' and z.center < _cur_p_tv],
-                            key=lambda z: _cur_p_tv - z.center)[:1]
-
-                        # 🆕 v9.47.6：透明化 fused zone 的來源細節
-                        try:
-                            from support_resistance import format_zone_origins as _fmt_orig
-                        except Exception:
-                            _fmt_orig = None
-
-                        def _row_sr(z, color):
-                            dist_pct = (z.center - _cur_p_tv) / _cur_p_tv * 100
-                            # 強度視覺：每 20 分一格 ●，最多 5 格
-                            n_filled = max(1, min(5, int(round(z.strength / 20))))
-                            bar = '●' * n_filled + '○' * (5 - n_filled)
-                            rr_mark = ' ⇄' if z.role_reversal else ''
-                            # detailed breakdown：swing×N / HVN[lo-hi] / round X
-                            _src_disp = (_fmt_orig(z, brief=False) if _fmt_orig
-                                          else z.source)
-                            return (
-                                f'<div style="display:flex;gap:8px;align-items:center;'
-                                f'padding:2px 0;font-size:.74rem">'
-                                f'<span style="color:{color};width:28px;font-weight:700">'
-                                f'{z.kind[0].upper()}{rr_mark}</span>'
-                                f'<span style="color:#c8dff0;font-family:monospace;width:130px">'
-                                f'[{z.low:.2f}–{z.high:.2f}]</span>'
-                                f'<span style="color:#7a8899;width:70px">'
-                                f'{dist_pct:+.1f}%</span>'
-                                f'<span style="color:#9ab0c5;width:60px">'
-                                f'str {z.strength:.0f}</span>'
-                                f'<span style="color:{color};letter-spacing:2px;width:64px">'
-                                f'{bar}</span>'
-                                f'<span style="color:#556677;font-size:.7rem">'
-                                f'{_src_disp}</span>'
-                                f'</div>')
-
+                    _pv_r = d.get('sr_pivot_r')
+                    _pv_s = d.get('sr_pivot_s')
+                    if (_pv_r is not None or _pv_s is not None) and _cur_p_tv > 0:
                         _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
                                   'border-radius:6px;padding:8px 14px;margin-bottom:10px">'
                                   '<div style="color:#5a8ab0;font-size:.72rem;'
                                   'font-weight:700;letter-spacing:.05em;'
-                                  'text-transform:uppercase;margin-bottom:4px">'
-                                  f'⛳ S/R 區間總表 ｜ 現價 {_cur_p_tv:.2f}'
+                                  'text-transform:uppercase;margin-bottom:6px">'
+                                  f'⛳ 最近壓力支撐 ｜ 現價 {_cur_p_tv:.2f}'
                                   '</div>']
-                        if _res:
+                        if _pv_r is not None:
+                            _pct_r = (_pv_r - _cur_p_tv) / _cur_p_tv * 100
                             _html.append(
-                                '<div style="color:#ff7755;font-size:.7rem;'
-                                'font-weight:700;margin-top:4px">⬆️ 上方壓力</div>')
-                            for z in _res:
-                                _html.append(_row_sr(z, '#ff8a8a'))
-                        if _sup:
+                                f'<div style="display:flex;gap:10px;align-items:center;'
+                                f'padding:3px 0;font-size:.85rem">'
+                                f'<span style="color:#ff8a8a;font-weight:700;width:46px">⬆ 壓力</span>'
+                                f'<span style="color:#c8dff0;font-family:monospace;'
+                                f'font-size:1.0rem;font-weight:700">${_pv_r:.2f}</span>'
+                                f'<span style="color:#ff7755">({_pct_r:+.1f}%)</span>'
+                                f'<span style="color:#556677;font-size:.7rem;margin-left:8px">'
+                                f'最近 swing high above</span>'
+                                f'</div>')
+                        else:
                             _html.append(
-                                '<div style="color:#3dbb6a;font-size:.7rem;'
-                                'font-weight:700;margin-top:4px">⬇️ 下方支撐</div>')
-                            for z in _sup:
-                                _html.append(_row_sr(z, '#74e4a0'))
-                        if not _res and not _sup:
-                            _html.append('<div style="color:#556677;font-size:.7rem">'
-                                          '（可視範圍內無強度足夠的區間）</div>')
+                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
+                                '⬆ 壓力：<b style="color:#ffd060">無</b>（已突破近期高點 / breakout）'
+                                '</div>')
+                        if _pv_s is not None:
+                            _pct_s = (_pv_s - _cur_p_tv) / _cur_p_tv * 100
+                            _html.append(
+                                f'<div style="display:flex;gap:10px;align-items:center;'
+                                f'padding:3px 0;font-size:.85rem">'
+                                f'<span style="color:#74e4a0;font-weight:700;width:46px">⬇ 支撐</span>'
+                                f'<span style="color:#c8dff0;font-family:monospace;'
+                                f'font-size:1.0rem;font-weight:700">${_pv_s:.2f}</span>'
+                                f'<span style="color:#3dbb6a">({_pct_s:+.1f}%)</span>'
+                                f'<span style="color:#556677;font-size:.7rem;margin-left:8px">'
+                                f'最近 swing low below</span>'
+                                f'</div>')
+                        else:
+                            _html.append(
+                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
+                                '⬇ 支撐：<b style="color:#ffd060">無</b>（跌破近期低點 / breakdown）'
+                                '</div>')
                         _html.append('</div>')
                         st.markdown('\n'.join(_html), unsafe_allow_html=True)
 
