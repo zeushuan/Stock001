@@ -819,18 +819,22 @@ def build_zigzag_chart_plotly(
             top_zones = sorted(in_range, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]
         except Exception:
             top_zones = in_range[:sr_max_show]
+        # 🆕 v9.47.6：透明化 fused/round/profile 的判斷依據
+        # 用 _origins 列出 swing×N pivot 數 / HVN 原範圍 / round 整數價
+        try:
+            from support_resistance import format_zone_origins
+        except Exception:
+            format_zone_origins = None
         for z in top_zones:
             try:
                 kind = getattr(z, 'kind', 'support')
                 lo, hi = float(z.low), float(z.high)
                 stren = float(getattr(z, 'strength', 0))
-                src   = getattr(z, 'source', 'swing')
-                # 🆕 v9.47.5：fused zone 顯示實際融的源頭組合
-                # _source_set 在 score_zones 階段保留下來
-                _comp = getattr(z, 'components', None) or {}
-                _src_set = _comp.get('_source_set') if isinstance(_comp, dict) else None
-                if src == 'fused' and _src_set:
-                    src = '+'.join(sorted(_src_set))
+                # 來源顯示：有 _origins 就用 detailed breakdown，否則退回 source
+                if format_zone_origins is not None:
+                    src = format_zone_origins(z, brief=True)
+                else:
+                    src = getattr(z, 'source', 'swing')
                 # 規格 §5.2：透明度 a = 0.10 + 0.20×(strength/100)
                 alpha = 0.10 + 0.20 * max(0, min(100, stren)) / 100
                 if kind == 'resistance':

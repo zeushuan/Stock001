@@ -156,6 +156,13 @@ def cluster_pivots(
             center = sum(p * v for p, v in zip(prices, vols)) / vsum
         else:
             center = sum(prices) / len(prices)
+        # 🆕 v9.47.6：追溯 origin — 給 UI 顯示「為什麼成為 swing zone」
+        origin = {
+            'kind': 'swing',
+            'touches': len(cl),
+            'center': float(center),
+            'pivot_prices': [round(p, 2) for p in prices],
+        }
         zones.append(SRZone(
             kind=sr_kind,
             low=min(prices),
@@ -164,6 +171,7 @@ def cluster_pivots(
             touches=len(cl),
             source='swing',
             last_touch_idx=max(p.idx for p in cl),
+            components={'_origins': [origin]},
         ))
     return zones
 

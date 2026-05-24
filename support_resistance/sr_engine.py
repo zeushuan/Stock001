@@ -72,11 +72,18 @@ def round_number_zones(
         while p <= high:
             # 跳過 .00 同時在 .50 步長時產生的重複（.00 已包在 1.00 步）
             if not any(abs(p - z.center) < z.width() * 0.5 + halfw for z in zones):
+                # 🆕 v9.47.6：追溯 origin — 紀錄是哪個 step 的哪個整數價
+                origin = {
+                    'kind': 'round',
+                    'level': float(p),
+                    'step': float(step),
+                }
                 zones.append(SRZone(
                     kind='support',                  # 暫定，融合時重判
                     low=p - halfw, high=p + halfw, center=float(p),
                     touches=0, source='round',
                     last_touch_idx=-1,
+                    components={'_origins': [origin]},
                 ))
             p = round(p + step, 8)
     return zones
@@ -140,17 +147,28 @@ def fuse_zones(
                 ctr = (prev.center * w_prev + z.center * w_z) / (w_prev + w_z)
                 src_set = set(prev.components.get('_source_set', {prev.source}))
                 src_set.add(z.source)
+                # 🆕 v9.47.6：origins 串接 — 保留 prev 與 z 的所有 origin 細節
+                prev_origins = (prev.components.get('_origins', [])
+                                if isinstance(prev.components, dict) else [])
+                z_origins = (z.components.get('_origins', [])
+                             if isinstance(z.components, dict) else [])
+                merged_origins = list(prev_origins) + list(z_origins)
                 merged = SRZone(
                     kind=kind,
                     low=merged_lo, high=merged_hi, center=ctr,
                     touches=prev.touches + z.touches,
                     source='fused' if len(src_set) > 1 else prev.source,
                     last_touch_idx=max(prev.last_touch_idx, z.last_touch_idx),
-                    components={'_source_set': src_set},
+                    components={
+                        '_source_set': src_set,
+                        '_origins': merged_origins,
+                    },
                 )
                 fused_by_kind[kind][-1] = merged
             else:
-                z.components.setdefault('_source_set', {z.source})
+                if isinstance(z.components, dict):
+                    z.components.setdefault('_source_set', {z.source})
+                    z.components.setdefault('_origins', [])
                 fused_by_kind[kind].append(z)
 
     return fused_by_kind['support'] + fused_by_kind['resistance']
@@ -229,12 +247,16 @@ def score_zones(
         if z.kind == 'support':
             raw *= support_bias
         z.strength = float(max(0.0, min(100.0, raw)))
+        # 🆕 v9.47.6：保留 _origins（追溯來源細節給 UI 顯示）
+        existing_origins = (z.components.get('_origins', [])
+                            if isinstance(z.components, dict) else [])
         z.components = {
             'touch': round(touch_s, 3),
             'volume': round(volume_s, 3),
             'recency': round(recency_s, 3),
             'confluence': round(conf_s, 3),
             '_source_set': src_set,
+            '_origins': existing_origins,
         }
     return zones
 

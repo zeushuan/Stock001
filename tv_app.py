@@ -6766,11 +6766,13 @@ for item in results:
                         _sr_lbl   = ('追高風險' if _sr_rsn == 'near_resistance'
                                       else '下檔有撐' if _sr_rsn == 'near_support'
                                       else _sr_rsn)
+                        try:
+                            from support_resistance import format_zone_origins as _fmt_o
+                        except Exception:
+                            _fmt_o = None
                         def _src_label(_z):
-                            _c = getattr(_z, 'components', None) or {}
-                            _ss = _c.get('_source_set') if isinstance(_c, dict) else None
-                            if _z.source == 'fused' and _ss:
-                                return '+'.join(sorted(_ss))
+                            if _fmt_o is not None:
+                                return _fmt_o(_z, brief=False)
                             return _z.source
                         _sr_detail = ''
                         if _sr_nr is not None and _sr_rsn == 'near_resistance':
@@ -6822,18 +6824,21 @@ for item in results:
                              if z.kind == 'support' and z.center < _cur_p_tv],
                             key=lambda z: _cur_p_tv - z.center)[:5]
 
+                        # 🆕 v9.47.6：透明化 fused zone 的來源細節
+                        try:
+                            from support_resistance import format_zone_origins as _fmt_orig
+                        except Exception:
+                            _fmt_orig = None
+
                         def _row_sr(z, color):
                             dist_pct = (z.center - _cur_p_tv) / _cur_p_tv * 100
                             # 強度視覺：每 20 分一格 ●，最多 5 格
                             n_filled = max(1, min(5, int(round(z.strength / 20))))
                             bar = '●' * n_filled + '○' * (5 - n_filled)
                             rr_mark = ' ⇄' if z.role_reversal else ''
-                            # 🆕 v9.47.5：fused zone 展開實際融的源頭組合
-                            _src_disp = z.source
-                            _comp = getattr(z, 'components', None) or {}
-                            _src_set = _comp.get('_source_set') if isinstance(_comp, dict) else None
-                            if z.source == 'fused' and _src_set:
-                                _src_disp = '+'.join(sorted(_src_set))
+                            # detailed breakdown：swing×N / HVN[lo-hi] / round X
+                            _src_disp = (_fmt_orig(z, brief=False) if _fmt_orig
+                                          else z.source)
                             return (
                                 f'<div style="display:flex;gap:8px;align-items:center;'
                                 f'padding:2px 0;font-size:.74rem">'

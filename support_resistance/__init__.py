@@ -63,6 +63,7 @@ from .types import (
     Pivot,
     VolumeProfile,
     SRZone,
+    format_zone_origins,
 )
 
 # Params（給 caller 想看預設值或客製化時用）
@@ -80,7 +81,7 @@ __all__ = [
     # Backtest
     'TouchEvent', 'backtest_one', 'aggregate', 'format_report',
     # Types
-    'Pivot', 'VolumeProfile', 'SRZone',
+    'Pivot', 'VolumeProfile', 'SRZone', 'format_zone_origins',
     # Params
     'params',
 ]

@@ -73,3 +73,79 @@ class SRZone:
 
     def width(self) -> float:
         return self.high - self.low
+
+
+def format_zone_origins(z: SRZone, brief: bool = True) -> str:
+    """格式化 zone 的 _origins 為可讀字串（透明化「fused 是哪幾源融的」）。
+
+    按 kind 聚合，避免長字串：多個 round level 顯示為範圍而非逐一列出，
+    多段 HVN 顯示為合併範圍，swing 加總 touches。
+
+    Args:
+        z: 一個 SRZone
+        brief: True 用於 chart annotation 短形式 (sw×3+pr[50-57]+R55-59)
+               False 用於 detail card 長形式 (swing×3 + HVN[50-57] + round 55-59)
+
+    Returns:
+        如：'swing×5 + HVN[54.8-56.3] + round 51-59'
+        若沒 _origins，退回 z.source
+    """
+    if not z.components or not isinstance(z.components, dict):
+        return z.source
+    origins = z.components.get('_origins') or []
+    if not origins:
+        return z.source
+
+    # 按 kind 聚合
+    sw_touches = 0
+    pr_ranges: list[tuple[float, float]] = []
+    rd_levels: list[float] = []
+    for o in origins:
+        k = o.get('kind')
+        if k == 'swing':
+            sw_touches += int(o.get('touches', 0))
+        elif k == 'profile':
+            lo = float(o.get('hvn_low', 0))
+            hi = float(o.get('hvn_high', 0))
+            if hi >= lo:
+                pr_ranges.append((lo, hi))
+        elif k == 'round':
+            rd_levels.append(float(o.get('level', 0)))
+
+    parts: list[str] = []
+
+    if sw_touches > 0:
+        parts.append(f'sw×{sw_touches}' if brief else f'swing×{sw_touches}')
+
+    # HVN：合併重疊的範圍成 [min_lo, max_hi]，或列出多段
+    if pr_ranges:
+        # 合併重疊
+        merged = []
+        for lo, hi in sorted(pr_ranges):
+            if merged and lo <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+            else:
+                merged.append((lo, hi))
+        if brief:
+            seg_strs = [f'[{lo:.1f}-{hi:.1f}]' for lo, hi in merged]
+            parts.append(f'pr{",".join(seg_strs)}')
+        else:
+            seg_strs = [f'HVN[{lo:.1f}-{hi:.1f}]' for lo, hi in merged]
+            parts.append(' + '.join(seg_strs) if len(merged) > 1 else seg_strs[0])
+
+    if rd_levels:
+        rd_sorted = sorted(set(rd_levels))
+        if len(rd_sorted) == 1:
+            v = rd_sorted[0]
+            parts.append(f'R{v:g}' if brief else f'round {v:.2f}')
+        else:
+            # 範圍顯示：R51-59 (×9)
+            lo, hi = rd_sorted[0], rd_sorted[-1]
+            n = len(rd_sorted)
+            if brief:
+                parts.append(f'R{lo:g}-{hi:g}×{n}')
+            else:
+                parts.append(f'round {lo:.2f}-{hi:.2f} ({n}個整數)')
+
+    sep = '+' if brief else ' + '
+    return sep.join(parts) if parts else z.source

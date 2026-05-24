@@ -234,9 +234,17 @@ def profile_to_zones(
                     sub_kind = 'support'
                 else:
                     sub_kind = 'resistance' if sub_ctr > current_price else 'support'
+                # 🆕 v9.47.6：追溯 origin — 紀錄此區由「原 HVN [lo, hi] 第 k/n 段」分出
+                origin = {
+                    'kind': 'profile',
+                    'hvn_low': float(lo),
+                    'hvn_high': float(hi),
+                    'segment': f'{k+1}/{n_segments}',
+                }
                 zones.append(SRZone(
                     kind=sub_kind, low=sub_lo, high=sub_hi, center=sub_ctr,
                     touches=0, source='profile', last_touch_idx=last_idx,
+                    components={'_origins': [origin]},
                 ))
         else:
             center = (lo + hi) / 2
@@ -244,10 +252,16 @@ def profile_to_zones(
                 kind = 'support'
             else:
                 kind = 'resistance' if center > current_price else 'support'
+            origin = {
+                'kind': 'profile',
+                'hvn_low': float(lo),
+                'hvn_high': float(hi),
+            }
             zones.append(SRZone(
                 kind=kind, low=lo, high=hi, center=center,
                 touches=0,           # profile 來源不用觸及次數
                 source='profile',
                 last_touch_idx=last_idx,
+                components={'_origins': [origin]},
             ))
     return zones
