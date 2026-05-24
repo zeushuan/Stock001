@@ -39,6 +39,10 @@ import pandas as pd
 import ta
 import yfinance as yf
 
+# 🆕 v9.42 Stage 2d：log 化吞錯（提早建立，讓 yf.set_config 也能用 log.debug）
+import logging
+log = logging.getLogger("stock001.tv_app")
+
 # 設定 yfinance 請求 headers，避免被 Yahoo Finance 封鎖
 try:
     import requests as _req
@@ -50,8 +54,8 @@ try:
         "Accept-Encoding": "gzip, deflate, br",
     })
     yf.set_config(session=_session)
-except Exception:
-    pass
+except Exception as exc:
+    log.debug("[yf.set_config session header] %s", exc)
 
 # twstock loaded on demand via cached function
 import streamlit as st
@@ -221,10 +225,8 @@ from operation_advice import (
 # 🆕 v9.42 Stage 2：閾值集中管理（single source of truth）
 import thresholds
 
-# 🆕 v9.42 Stage 2d：log 化吞錯（取代 except: pass 靜默失敗 — 不改行為、只加可觀測性）
+# 🆕 v9.42 Stage 2d：log handle 已在 yf.set_config 前建立（檔案上方）
 # 開發期 logging.basicConfig(level=logging.DEBUG) 即可看到所有被吞的錯
-import logging
-log = logging.getLogger("stock001.tv_app")
 
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
@@ -360,8 +362,8 @@ def get_tv_url(ticker: str, market: str) -> str:
             info = twstock.codes.get(ticker)
             if info and getattr(info, 'market', '') in ('上櫃', 'OTC'):
                 return base + f"TPEX:{ticker}"
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[get_tv_url/twstock TPEX detect] %s", exc)
         return base + f"TWSE:{ticker}"
     if market in ("NASDAQ","NYSE","AMEX","OTC"):
         return base + f"{market}:{ticker}"
@@ -383,7 +385,8 @@ def _build_company_info_prompt(ticker: str, name: str, d: dict) -> str:
     try:
         concepts = _get_concepts(ticker, max_n=8)
         concept_str = '、'.join(concepts) if concepts else '（無）'
-    except Exception:
+    except Exception as exc:
+        log.debug("[_build_company_info_prompt/_get_concepts] %s", exc)
         concept_str = '（無資料）'
 
     display = f'{ticker}（{name}）' if name and name != ticker else ticker
@@ -544,8 +547,11 @@ def _get_sector_ranking_recent() -> list:
                     if len(sub) < 15: continue
                     ret = (sub['Close'].iloc[-1] - sub['Close'].iloc[0]) / sub['Close'].iloc[0] * 100
                     rets.append(ret)
-                except: continue
-        except Exception:
+                except Exception as exc:
+                    log.debug("[sector_return/inner ticker loop] %s", exc)
+                    continue
+        except Exception as exc:
+            log.debug("[sector_return/outer sector loop] %s", exc)
             continue
         if rets:
             out.append((sec, float(np.mean(rets)), len(rets)))
@@ -583,7 +589,8 @@ def _get_market_breadth() -> dict:
                 cur_p = df['Close'].iloc[-1]
                 if cur_p > ema60: above_ema60 += 1
                 total += 1
-            except Exception:
+            except Exception as exc:
+                log.debug("[market_breadth/per-ticker] %s", exc)
                 continue
         if total < 10: return {'has_data': False}
         breadth_pct = above_ema60 / total * 100
@@ -612,7 +619,8 @@ def _get_market_breadth() -> dict:
             'breadth_pct': breadth_pct,
             'level': level, 'msg': msg,
         }
-    except Exception:
+    except Exception as exc:
+        log.debug("[market_breadth/outer] %s", exc)
         return {'has_data': False}
 
 
@@ -630,15 +638,15 @@ def _get_tw_names() -> dict:
                 parts = line.split('|')
                 if len(parts) >= 2:
                     out[parts[0].strip()] = parts[1].strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_get_tw_names/tw_universe.txt] %s", exc)
     # 2. twstock 動態（本地有，會覆蓋為最新）
     try:
         import twstock
         for code, info in twstock.codes.items():
             out[str(code)] = info.name
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_get_tw_names/twstock codes] %s", exc)
     return out
 
 # ── 概念股標籤 ─────────────────────────────────────────────────
@@ -681,8 +689,8 @@ def _load_industry_map() -> dict:
                 elif _typ in ('ETF','ETN','特別股','臺灣存託憑證(TDR)'):
                     out[ticker] = ('TDR' if _typ=='臺灣存託憑證(TDR)'
                                    else _typ)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[_load_industry_map/tw_universe.txt] %s", exc)
     p3 = base / 'us_sectors.txt'
     if p3.exists():
         try:
@@ -693,8 +701,8 @@ def _load_industry_map() -> dict:
                 ticker, _name, sector, _sub = parts[:4]
                 if sector and sector != 'NO_SECTOR':
                     out[ticker] = _US_SECTOR_ZH.get(sector, sector)
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[_load_industry_map/us_sectors.txt] %s", exc)
     return out
 
 def _get_industry(ticker: str) -> str:
@@ -732,8 +740,8 @@ def _get_us_names_static() -> dict:
                 parts = line.split('|', 1)
                 if len(parts) >= 2:
                     out[parts[0].strip()] = parts[1].strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[_get_us_names_static/us_names.txt] %s", exc)
     return out
 
 def _get_stock_name(ticker: str, symbol: str) -> str:
@@ -757,9 +765,11 @@ def _get_stock_name(ticker: str, symbol: str) -> str:
             t = yf.Ticker(symbol)
             info = t.get_info()
             return info.get("longName") or info.get("shortName") or ticker
-        except Exception:
+        except Exception as exc:
+            log.debug("[_get_stock_name/yfinance fallback] %s", exc)
             return ticker
-    except Exception:
+    except Exception as exc:
+        log.debug("[_get_stock_name/outer] %s", exc)
         return ticker
 
 def hull_ma(series: pd.Series, n: int = 9) -> pd.Series:
@@ -799,7 +809,8 @@ def fetch_news(ticker: str, market: str) -> list:
             if title and link:
                 result.append({"title": title, "link": link, "publisher": pub})
         return result if result else _fetch_news_google(ticker, market)
-    except Exception:
+    except Exception as exc:
+        log.debug("[fetch_news/yfinance] %s", exc)
         return _fetch_news_google(ticker, market)
 
 
@@ -948,7 +959,8 @@ def _load_sentiment_bert():
         mdl = AutoModelForSequenceClassification.from_pretrained(mid)
         mdl.eval()
         return tok, mdl, torch
-    except Exception:
+    except Exception as exc:
+        log.debug("[_load_sentiment_bert] %s", exc)
         return None, None, None
 
 
@@ -963,7 +975,8 @@ def _bert_sentiment(title: str) -> float:
             logits = mdl(**inputs).logits
         probs = torch.softmax(logits, dim=-1)[0]
         return float(probs[1] - probs[0])  # pos - neg
-    except Exception:
+    except Exception as exc:
+        log.debug("[_bert_sentiment] %s", exc)
         return 0.0
 
 
@@ -1079,7 +1092,8 @@ def _fetch_news_google(ticker: str, market: str) -> list:
             if title and link:
                 result.append({"title": title, "link": link, "publisher": pub})
         return result
-    except Exception:
+    except Exception as exc:
+        log.debug("[_fetch_news_google] %s", exc)
         return []
 
 
@@ -1261,7 +1275,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     if v < 50: cnt += 1
                     else: break
                 return cnt if cnt > 0 else 0
-            except Exception:
+            except Exception as exc:
+                log.debug("[fetch_indicators/_t3_pullback_days] %s", exc)
                 return 0
 
         # 🆕 T4 反彈天數：RSI < 35 且連續上升的天數（v9.41 對齊回測值）
@@ -1277,7 +1292,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     else:
                         break
                 return cnt
-            except Exception:
+            except Exception as exc:
+                log.debug("[fetch_indicators/_t4_rising_days] %s", exc)
                 return 0
 
         close_val = last(c)
@@ -1547,10 +1563,10 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                             d['div_yield'] = round(dv * 100, 2)
                         else:
                             d['div_yield'] = round(dv, 2)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as exc:
+                    log.debug("[fetch_indicators/yfinance EPS/PER fallback] %s", exc)
+        except Exception as exc:
+            log.debug("[fetch_indicators/EPS/PER outer] %s", exc)
 
         # 🆕 v9.9t：T3 信心度計算
         try:
@@ -1686,9 +1702,10 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                                 if d.get('rs_rating') is not None: break
                 except Exception as exc:
                     log.debug("[fetch_indicators/rs_rating per_stock_wf] %s", exc)
-            except Exception:
-                pass
-        except Exception:
+            except Exception as exc:
+                log.debug("[fetch_indicators/SEPA+VCP block] %s", exc)
+        except Exception as exc:
+            log.debug("[fetch_indicators/_swing_history outer] %s", exc)
             d['_swing_history'] = None
 
         # 🆕 v9.42 Stage 2c：把市場相依閾值注入 d，讓 classify_action 等下游
@@ -1706,6 +1723,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
 
         return d
     except Exception as e:
+        log.debug("[fetch_indicators/top-level] %s", e)
         return {"_error": str(e)[:120]}
 
 
@@ -5408,20 +5426,20 @@ if st.session_state.get("results_version") != _RESULTS_VERSION:
     # ⭐ 同步清 @st.cache_data 函式快取，讓資料結構變更立即生效（VWAP 等）
     try:
         fetch_indicators.clear()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[cache clear/fetch_indicators] %s", exc)
     try:
         fetch_indicators_range.clear()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[cache clear/fetch_indicators_range] %s", exc)
     # 🆕 v9.9c：清 Portfolio TOP 200 推薦快取（NLP 改進等格式變更需重算）
     try:
         _scan_top200_signals.clear()
         _load_vwap_applicable.clear()
         _load_otc_tickers.clear()
         get_news_sentiment.clear()
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[cache clear/scan+news caches] %s", exc)
     st.session_state["results_version"] = _RESULTS_VERSION
 
 # ── 🔎 市場掃描器處理（v9.0 新增）─────────────────────────────
