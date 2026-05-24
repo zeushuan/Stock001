@@ -543,10 +543,10 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     # 🆕 v9.11：把 _entry_blocked_by_dc 提前算（讓後面所有訊號都可以參考）
     # 注意：此時 t1_ok / t3_ok 還沒算，先用 cross_days/rsi 預估
-    _t1_ok_pre = (cross_days is not None and 0 < cross_days <= 10
+    _t1_ok_pre = (cross_days is not None and 0 < cross_days <= _th.t1_max_days
                   and ema20 is not None and ema60 is not None and ema20 > ema60
                   and adx is not None and adx >= _adx_th)
-    _t3_ok_pre = (rsi is not None and rsi < 50
+    _t3_ok_pre = (rsi is not None and rsi < _th.t3_rsi
                   and ema20 is not None and ema60 is not None and ema20 > ema60
                   and adx is not None and adx >= _adx_th)
     _is_bull_pre = ema20 is not None and ema60 is not None and ema20 > ema60
@@ -879,7 +879,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 # 美股 / Crypto：早鳥越早越好
                 if 1 <= cross_days <= 5:
                     sweet_tag = " <span style='color:#3dbb6a;font-weight:700'>⚡ 早鳥期</span>"
-                elif 6 <= cross_days <= 10:
+                elif 6 <= cross_days <= _th.t1_max_days:
                     sweet_tag = " <span style='color:#e8a020'>⚠️ 已過早鳥（衰減 -17%）</span>"
                 else:
                     sweet_tag = " <span style='color:#7a8899'>（過 T1 窗）</span>"
@@ -901,7 +901,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
                 _psign = '+' if _cross_pct >= 0 else ''
                 _perf_inline = (f" <span style='color:{_pcolor};font-weight:700'>"
                                 f"累計 {_psign}{_cross_pct:.2f}%</span>")
-            if cross_days <= 10:
+            if cross_days <= _th.t1_max_days:
                 cross_info = (f"<b style='color:#3dbb6a'>黃金交叉 {cross_days} {_bu}前 🔥</b>"
                               f"{sweet_tag}{_perf_inline}｜")
             else:
@@ -1175,7 +1175,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     # 🇹🇼 跌深 + T1 王炸組合（最強）
     if (is_bull and adx_ok and not (_is_us or _is_crypto)
             and _drawdown_pct is not None and _drawdown_pct >= 15
-            and cross_days is not None and 0 < cross_days <= 10):
+            and cross_days is not None and 0 < cross_days <= _th.t1_max_days):
         entry_rows.append(
             f'<div style="background:#1a1500;border-left:4px solid #ffd700;'
             f'padding:6px 10px;margin:4px 0;border-radius:3px">'
@@ -1189,7 +1189,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
 
     if is_bull and adx_ok:
         # T1：黃金交叉（距今 ≤ 10 天）——新多頭啟動，積極進場
-        t1_ok = (cross_days is not None and 0 < cross_days <= 10)
+        t1_ok = (cross_days is not None and 0 < cross_days <= _th.t1_max_days)
         # 🆕 v9.11：被 dc 阻擋時，t1_ok 顯示為「條件成立但已否決」
         t1c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t1_ok else "#4a6070"
         t1d   = f"{cross_days} {_bu}前" if (cross_days and cross_days > 0) else "尚未發生"
@@ -1218,7 +1218,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         )
 
         # T3：多頭拉回 RSI < 50——停損後再入場 / 回調機會
-        t3_ok = (rsi is not None and rsi < 50)
+        t3_ok = (rsi is not None and rsi < _th.t3_rsi)
         t3c   = ("#7a8899" if _entry_blocked_by_dc else "#3dbb6a") if t3_ok else "#4a6070"
         if rsi is not None:
             t3_gap = f"（還差 {50 - rsi:.1f} 點）" if not t3_ok else ""
@@ -1525,8 +1525,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     elif t1_ok or t3_ok:
         # 🆕 v9.18.2：細分標籤，與 classify_action（主表格）一致
         _is_strong_a = (adx is not None and adx >= 30)
-        _is_fresh_a  = (cross_days is not None and 0 < cross_days <= 10)
-        _is_pullback_a = (rsi is not None and rsi < 50)
+        _is_fresh_a  = (cross_days is not None and 0 < cross_days <= _th.t1_max_days)
+        _is_pullback_a = (rsi is not None and rsi < _th.t3_rsi)
         if t1_ok and t3_ok:
             trigger = f"T1 黃金交叉 {cross_days} {_bu}前 + T3 RSI {rsi_str}<50 拉回"
         elif t1_ok:
@@ -2982,7 +2982,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         # EMA 差距 → 死亡交叉遠近（所有股票共用）
         # 🆕 v9.10s：剛黃金交叉時 gap 自然小，不該標「即將死叉」
         if ema_gap_pct is not None:
-            _just_crossed_up = (cross_days is not None and 0 < cross_days <= 10)
+            _just_crossed_up = (cross_days is not None and 0 < cross_days <= _th.t1_max_days)
             if ema_gap_pct < 1.0 and _just_crossed_up:
                 # 剛黃金交叉的擴張期
                 gap_color = "#3dbb6a"; gap_icon = "🔥"
@@ -3130,8 +3130,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     else:
         # 多頭 + ADX ≥ 22，根據強度與時機選策略
         _is_strong   = (adx is not None and adx >= 30)
-        _is_fresh    = (cross_days is not None and 0 < cross_days <= 10)
-        _is_pullback = (rsi is not None and rsi < 50)
+        _is_fresh    = (cross_days is not None and 0 < cross_days <= _th.t1_max_days)
+        _is_pullback = (rsi is not None and rsi < _th.t3_rsi)
         _is_hot      = (rsi is not None and rsi >= 70)
         _adx_rising  = (d.get("adx_prev") is not None and adx is not None
                         and adx > d.get("adx_prev", adx))
