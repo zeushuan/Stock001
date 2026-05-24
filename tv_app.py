@@ -1246,8 +1246,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                           and ema20_now > ema20_5d_ago)
                 if e5_up and e20_up:
                     score += 1; hits.append('雙均線都升')
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[fetch_indicators/EMA-up score] %s", exc)
             return score, hits
 
         # 🆕 T3 拉回天數：RSI 連續低於 50 的天數
@@ -1298,8 +1298,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                         ema20_cross_days = _k; break
                     elif d0 > 0 and d1 <= 0:
                         ema20_cross_days = -_k; break
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[fetch_indicators/ema20_cross_days] %s", exc)
 
         # 🆕 v9.11：T1 觸發至今的漲跌（cross day → today）
         cross_day_close = None
@@ -1311,8 +1311,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     cross_day_close = float(c.iloc[-_k - 1])  # cross 發生那天的收盤
                     if cross_day_close and cross_day_close > 0 and close_val is not None:
                         cross_change_pct = (close_val - cross_day_close) / cross_day_close * 100
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("[fetch_indicators/cross_change_pct] %s", exc)
 
         # 週線結構（日線 resample，無需額外 API）
         w_close_v = w_ma10_v = w_ma20_v = None
@@ -1325,8 +1325,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 w_close_v = float(wc.iloc[-1])
                 w_ma10_v  = last(ta.trend.SMAIndicator(wc, 10).sma_indicator())
                 w_ma20_v  = last(ta.trend.SMAIndicator(wc, 20).sma_indicator())
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[fetch_indicators/weekly MA] %s", exc)
 
         d = {
             "name":         name,
@@ -1425,7 +1425,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             })
             kdf.index = c.index
             d['kline_patterns'] = detect_recent(kdf, lookback=5)
-        except Exception:
+        except Exception as exc:
+            log.debug("[fetch_indicators/kline_patterns] %s", exc)
             d['kline_patterns'] = []
 
         # 🆕 VWAP 今日值（盤中執行優化建議）— 僅台股
@@ -1444,8 +1445,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                         vw_df = compute_daily_vwap(last_day)
                         if vw_df is not None and not vw_df.empty:
                             d['vwap_today'] = float(vw_df['VWAP'].iloc[-1])
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("[fetch_indicators/vwap_today] %s", exc)
 
         # 🆕 EPS / PER / PBR / 殖利率（優先 FinMind per_cache，否則 yfinance fallback）
         try:
@@ -1558,7 +1559,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 d.get('ema5_5d_ago'), d.get('ema20_5d_ago'))
             d['t3_confidence'] = score
             d['t3_confidence_hits'] = hits
-        except Exception:
+        except Exception as exc:
+            log.debug("[fetch_indicators/t3_confidence] %s", exc)
             d['t3_confidence'] = 0
             d['t3_confidence_hits'] = []
 
@@ -1583,7 +1585,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 _dates_tail = ([str(x)[:10] for x in _idx_arr[-tail:]]
                                 if _idx_arr is not None and len(_idx_arr) >= tail
                                 else [str(x)[:10] for x in (_idx_arr or [])])
-            except Exception:
+            except Exception as exc:
+                log.debug("[fetch_indicators/_dates_tail] %s", exc)
                 _dates_tail = []
             d['_swing_history'] = {
                 'dates':  _dates_tail,
@@ -1653,7 +1656,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     d['double_bottom_info'] = detect_double_bottom(_df_for_dbl)
                     d['double_top_info'] = detect_double_top(_df_for_dbl)
                     d['vcp_zigzag_info'] = detect_vcp_zigzag(_df_for_dbl)
-                except Exception:
+                except Exception as exc:
+                    log.debug("[fetch_indicators/double_pattern+vcp_zigzag] %s", exc)
                     d['double_bottom_info'] = {'is_double_bottom': False, 'status': 'none'}
                     d['double_top_info'] = {'is_double_top': False, 'status': 'none'}
                     d['vcp_zigzag_info'] = {'is_vcp': False}
@@ -1680,8 +1684,8 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                                             d['rs_rating'] = _r.get('rs_rating')
                                             break
                                 if d.get('rs_rating') is not None: break
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log.debug("[fetch_indicators/rs_rating per_stock_wf] %s", exc)
             except Exception:
                 pass
         except Exception:
