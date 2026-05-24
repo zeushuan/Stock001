@@ -65,6 +65,25 @@ class TestFuseZones:
         # 100 > 現價 95 → resistance
         assert fused[0].kind == 'resistance'
 
+    def test_runaway_chain_prevented(self):
+        """連續 5 個 swing zone 各寬 1，間隔 2，atr=2
+        → 沒寬度上限會合併成 1 個寬 13 的巨大 zone；
+        有 MAX_ZONE_WIDTH_ATR_MULT=3 → 寬度上限 = 6，應保留多個 zone。"""
+        from support_resistance.params import MAX_ZONE_WIDTH_ATR_MULT
+        zones = []
+        for i, ctr in enumerate([100, 102, 104, 106, 108]):
+            zones.append(SRZone(
+                kind='support', low=ctr - 0.5, high=ctr + 0.5, center=ctr,
+                touches=2, source='swing', last_touch_idx=i * 10,
+            ))
+        fused = fuse_zones(zones, [], [], atr=2.0)
+        # 每個 zone 寬度上限 = atr × MAX_ZONE_WIDTH_ATR_MULT = 6
+        for z in fused:
+            assert z.width() <= 2.0 * MAX_ZONE_WIDTH_ATR_MULT + 1e-9, \
+                f'zone width {z.width()} exceeds cap'
+        # 應保留 ≥ 2 個 zone（不是巨大 1 個）
+        assert len(fused) >= 2
+
 
 class TestScoreZones:
     def test_strength_in_range(self):

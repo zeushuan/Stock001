@@ -24,7 +24,7 @@ import pandas as pd
 
 from .params import (
     SWING_WINDOW_DAILY, CLUSTER_ATR_MULT, MIN_TOUCHES,
-    LOOKBACK_BARS, MIN_BARS_FOR_DETECTION,
+    LOOKBACK_BARS, MIN_BARS_FOR_DETECTION, MAX_ZONE_WIDTH_ATR_MULT,
 )
 from .types import Pivot, SRZone
 
@@ -109,6 +109,7 @@ def cluster_pivots(
     eps: float,
     kind: str,
     min_touches: int = MIN_TOUCHES,
+    max_width: float = 0.0,
 ) -> list[SRZone]:
     """一維 gap clustering：依價格排序，相鄰價差 ≤ eps 則併入同一群。
 
@@ -117,6 +118,8 @@ def cluster_pivots(
         eps: 群聚容差（=  median(ATR) × cluster_atr_mult）
         kind: 'high' 或 'low'（決定產出的 SRZone.kind）
         min_touches: 觸及次數低於此值的群捨棄
+        max_width: 群最大寬度（0 = 無限制）；超過則切割成新群,
+                   防 runaway chaining
 
     Returns:
         list[SRZone]：每群一個區，中心為量能加權平均，
@@ -132,8 +135,12 @@ def cluster_pivots(
 
     clusters: list[list[Pivot]] = [[sorted_p[0]]]
     for p in sorted_p[1:]:
-        if p.price - clusters[-1][-1].price <= eps:
-            clusters[-1].append(p)
+        last = clusters[-1]
+        gap_ok = (p.price - last[-1].price <= eps)
+        width_ok = (max_width <= 0
+                    or (p.price - last[0].price) <= max_width)
+        if gap_ok and width_ok:
+            last.append(p)
         else:
             clusters.append([p])
 
@@ -191,8 +198,11 @@ def detect_swing_zones(
     if atr <= 0:
         return []
     eps = atr * cluster_atr_mult
+    max_width = atr * MAX_ZONE_WIDTH_ATR_MULT
 
     highs, lows = find_pivots(df, swing_window=swing_window)
-    res_zones = cluster_pivots(highs, eps=eps, kind='high', min_touches=min_touches)
-    sup_zones = cluster_pivots(lows,  eps=eps, kind='low',  min_touches=min_touches)
+    res_zones = cluster_pivots(highs, eps=eps, kind='high',
+                                min_touches=min_touches, max_width=max_width)
+    sup_zones = cluster_pivots(lows,  eps=eps, kind='low',
+                                min_touches=min_touches, max_width=max_width)
     return res_zones + sup_zones

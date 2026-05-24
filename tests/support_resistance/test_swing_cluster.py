@@ -110,6 +110,25 @@ class TestClusterPivots:
         zones = cluster_pivots(pivots, eps=0.0, kind='high', min_touches=1)
         assert zones == []
 
+    def test_max_width_breaks_chain(self):
+        """連續間隔 1 的 pivot 在 100~110，eps=1.5 會無限連鎖；
+        max_width=3 應該切成多個 cluster（防 runaway chaining）。"""
+        pivots = [Pivot(idx=i, price=100.0 + i, kind='low', volume=100)
+                  for i in range(11)]   # 100, 101, ..., 110
+        # 無 max_width → 全部 chain 成 1 個（11 觸及，寬 10）
+        zones_no_cap = cluster_pivots(
+            pivots, eps=1.5, kind='low', min_touches=1, max_width=0)
+        assert len(zones_no_cap) == 1
+        assert zones_no_cap[0].high - zones_no_cap[0].low == 10
+
+        # max_width=3 → 應該至少切成 3 段以上
+        zones_cap = cluster_pivots(
+            pivots, eps=1.5, kind='low', min_touches=1, max_width=3.0)
+        assert len(zones_cap) >= 3
+        # 每段寬度應 ≤ 3
+        for z in zones_cap:
+            assert z.width() <= 3.0 + 1e-9
+
 
 class TestDetectSwingZonesIntegration:
     def test_double_top_bottom_finds_both(self, synth_double_top_bottom):

@@ -16,6 +16,11 @@ CLUSTER_ATR_MULT     = 1.0   # 區寬 = median(ATR) × k；k 預設 1.0
 MIN_TOUCHES          = 2     # 觸及次數低於此值的區捨棄
 LOOKBACK_BARS        = 250   # 回看 bar 數（規格 §7 預設 250）
 
+# 🆕 防 runaway chaining：若合併後寬度 > ATR × 此值，不合併
+# （規格 §3.1 用 gap clustering，但長期區間多 pivot 會無限連鎖；
+#  真實資料上 3×ATR 是經驗值，可讓上升趨勢的多個歷史支撐區保持分離）
+MAX_ZONE_WIDTH_ATR_MULT = 3.0
+
 # ── 子系統 B：Volume Profile（規格 §3.2）────────────────────────
 N_BINS                = 50     # 預設 50 bin；或用 ATR×0.5 動態 bin 寬
 BIN_WIDTH_ATR_MULT    = 0.5    # 若用動態 bin 寬，bin_width = median(ATR) × 此值

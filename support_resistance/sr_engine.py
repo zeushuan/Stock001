@@ -30,6 +30,7 @@ from .params import (
     PROXIMITY_PCT, T3_ADJUSTMENT_CAP,
     ADX_TREND_DAMPING, ADX_DAMPING_REFERENCE,
     MIN_BARS_FOR_DETECTION, CLUSTER_ATR_MULT,
+    MAX_ZONE_WIDTH_ATR_MULT,
 )
 from .types import SRZone
 from .swing_cluster import compute_atr, detect_swing_zones
@@ -59,15 +60,18 @@ def round_number_zones(
     if atr <= 0 or high <= low:
         return []
     zones: list[SRZone] = []
-    halfw = max(atr * 0.25, (high - low) * 0.001)
+    # 規格 §1.4「權重應小，輔助性質」→ round zones 必須窄：
+    #   - 上限 atr*0.10（不要比真實波動更寬）
+    #   - 同 step 內彼此不重疊：halfw ≤ step*0.4
     # 較大 step 優先（.00 比 .50 重要）
     for step in steps:
+        halfw = min(max(atr * 0.10, (high - low) * 0.001), step * 0.4)
         # 從 ceil(low/step)*step 往上跑到 high
         n0 = int(np.ceil(low / step))
         p = n0 * step
         while p <= high:
             # 跳過 .00 同時在 .50 步長時產生的重複（.00 已包在 1.00 步）
-            if not any(abs(p - z.center) < halfw * 0.5 for z in zones):
+            if not any(abs(p - z.center) < z.width() * 0.5 + halfw for z in zones):
                 zones.append(SRZone(
                     kind='support',                  # 暫定，融合時重判
                     low=p - halfw, high=p + halfw, center=float(p),
@@ -108,6 +112,8 @@ def fuse_zones(
             z.kind = 'resistance' if z.center > current_price else 'support'
 
     tol = atr * CLUSTER_ATR_MULT if atr > 0 else 0.0
+    # 防 runaway chaining：合併後寬度上限
+    max_width = atr * MAX_ZONE_WIDTH_ATR_MULT if atr > 0 else 0.0
     all_zones = swing_zones + profile_zones + round_zones
 
     # 為避免合併不同 kind（support 不該併壓力），分組
@@ -116,8 +122,15 @@ def fuse_zones(
         same_kind = [z for z in all_zones if z.kind == kind]
         same_kind.sort(key=lambda z: z.center)
         for z in same_kind:
-            if (fused_by_kind[kind]
-                and fused_by_kind[kind][-1].overlaps(z, tol=tol)):
+            should_merge = False
+            if fused_by_kind[kind] and fused_by_kind[kind][-1].overlaps(z, tol=tol):
+                prev = fused_by_kind[kind][-1]
+                merged_lo_test = min(prev.low, z.low)
+                merged_hi_test = max(prev.high, z.high)
+                # 寬度上限檢查（防多個 swing 經由 HVN 連鎖無限合併）
+                if max_width <= 0 or (merged_hi_test - merged_lo_test) <= max_width:
+                    should_merge = True
+            if should_merge:
                 prev = fused_by_kind[kind][-1]
                 merged_lo  = min(prev.low, z.low)
                 merged_hi  = max(prev.high, z.high)
