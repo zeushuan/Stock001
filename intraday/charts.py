@@ -825,6 +825,12 @@ def build_zigzag_chart_plotly(
                 lo, hi = float(z.low), float(z.high)
                 stren = float(getattr(z, 'strength', 0))
                 src   = getattr(z, 'source', 'swing')
+                # 🆕 v9.47.5：fused zone 顯示實際融的源頭組合
+                # _source_set 在 score_zones 階段保留下來
+                _comp = getattr(z, 'components', None) or {}
+                _src_set = _comp.get('_source_set') if isinstance(_comp, dict) else None
+                if src == 'fused' and _src_set:
+                    src = '+'.join(sorted(_src_set))
                 # 規格 §5.2：透明度 a = 0.10 + 0.20×(strength/100)
                 alpha = 0.10 + 0.20 * max(0, min(100, stren)) / 100
                 if kind == 'resistance':

@@ -6766,17 +6766,23 @@ for item in results:
                         _sr_lbl   = ('追高風險' if _sr_rsn == 'near_resistance'
                                       else '下檔有撐' if _sr_rsn == 'near_support'
                                       else _sr_rsn)
+                        def _src_label(_z):
+                            _c = getattr(_z, 'components', None) or {}
+                            _ss = _c.get('_source_set') if isinstance(_c, dict) else None
+                            if _z.source == 'fused' and _ss:
+                                return '+'.join(sorted(_ss))
+                            return _z.source
                         _sr_detail = ''
                         if _sr_nr is not None and _sr_rsn == 'near_resistance':
                             _sr_detail = (
                                 f'近壓力 [{_sr_nr.low:.2f} – {_sr_nr.high:.2f}] '
                                 f'中心 {_sr_nr.center:.2f} '
-                                f'(強度 {_sr_nr.strength:.0f}, 來源 {_sr_nr.source})')
+                                f'(強度 {_sr_nr.strength:.0f}, 來源 {_src_label(_sr_nr)})')
                         elif _sr_ns is not None and _sr_rsn == 'near_support':
                             _sr_detail = (
                                 f'近支撐 [{_sr_ns.low:.2f} – {_sr_ns.high:.2f}] '
                                 f'中心 {_sr_ns.center:.2f} '
-                                f'(強度 {_sr_ns.strength:.0f}, 來源 {_sr_ns.source})')
+                                f'(強度 {_sr_ns.strength:.0f}, 來源 {_src_label(_sr_ns)})')
                         st.markdown(
                             f'<div style="background:#0a1422;border:1px solid {_sr_color}44;'
                             f'border-radius:6px;padding:6px 12px;margin-top:-6px;margin-bottom:8px;'
@@ -6822,6 +6828,12 @@ for item in results:
                             n_filled = max(1, min(5, int(round(z.strength / 20))))
                             bar = '●' * n_filled + '○' * (5 - n_filled)
                             rr_mark = ' ⇄' if z.role_reversal else ''
+                            # 🆕 v9.47.5：fused zone 展開實際融的源頭組合
+                            _src_disp = z.source
+                            _comp = getattr(z, 'components', None) or {}
+                            _src_set = _comp.get('_source_set') if isinstance(_comp, dict) else None
+                            if z.source == 'fused' and _src_set:
+                                _src_disp = '+'.join(sorted(_src_set))
                             return (
                                 f'<div style="display:flex;gap:8px;align-items:center;'
                                 f'padding:2px 0;font-size:.74rem">'
@@ -6836,7 +6848,7 @@ for item in results:
                                 f'<span style="color:{color};letter-spacing:2px;width:64px">'
                                 f'{bar}</span>'
                                 f'<span style="color:#556677;font-size:.7rem">'
-                                f'{z.source}</span>'
+                                f'{_src_disp}</span>'
                                 f'</div>')
 
                         _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
