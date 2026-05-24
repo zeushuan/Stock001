@@ -283,6 +283,7 @@ def build_zigzag_chart_plotly(
     reentry_events: Optional[List[Dict]] = None,    # 🆕 v9.40
     sr_zones: Optional[List] = None,                # 🆕 v9.47 S/R overlay
     sr_max_show: int = 6,                            # 🆕 v9.47 最多畫幾個 zone
+    sr_nearest_only: bool = True,                    # 🆕 v9.47.10 只畫最近 1R+1S
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -810,35 +811,38 @@ def build_zigzag_chart_plotly(
             _vis_hi += _vis_pad
         except Exception:
             _vis_lo, _vis_hi = -1e18, 1e18
-        # 🆕 v9.47.8：方向過濾 — 只畫與現價方向一致的 zone（避免 stale 顯示）
-        # resistance 必須 center > 現價，support 必須 center < 現價;
-        # role_reversal zones 不受限（兩向都重要）
+        # 方向過濾：fuse_zones v9.47.9 已依現價重分類 kind，這裡直接看 kind
         try:
             _cur_price = float(df_plot['Close'].iloc[-1])
         except Exception:
             _cur_price = None
-        def _direction_ok(z):
-            if _cur_price is None or getattr(z, 'role_reversal', False):
-                return True
-            kind = getattr(z, 'kind', '')
-            ctr = float(getattr(z, 'center', 0))
-            if kind == 'resistance':
-                return ctr > _cur_price
-            if kind == 'support':
-                return ctr < _cur_price
-            return True
-        # 在範圍內 + 方向合理 + 強度 ≥ 30 的 zone 才候選
-        # 強度門檻匹配 detail card 表（避免弱 round-only zone 擠進 top 6）
+        # 在範圍內 + 強度 ≥ 30 的 zone 才候選
         in_range = [z for z in sr_zones
                     if getattr(z, 'high', _vis_lo) >= _vis_lo
                     and getattr(z, 'low', _vis_hi) <= _vis_hi
-                    and _direction_ok(z)
                     and float(getattr(z, 'strength', 0)) >= 30]
-        # 按 strength 降冪取前 N（避免遮蓋）
-        try:
-            top_zones = sorted(in_range, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]
-        except Exception:
-            top_zones = in_range[:sr_max_show]
+        # 🆕 v9.47.10：依用戶反饋簡化 — 只畫最接近現價的 1 壓力 + 1 支撐
+        # （原本 top 6 by strength 太亂；trader 實務上只需知道下一個關卡）
+        if sr_nearest_only and _cur_price is not None:
+            res_above = [z for z in in_range
+                         if z.kind == 'resistance' and z.center > _cur_price]
+            sup_below = [z for z in in_range
+                         if z.kind == 'support' and z.center < _cur_price]
+            top_zones = []
+            if res_above:
+                top_zones.append(min(res_above,
+                                      key=lambda z: z.center - _cur_price))
+            if sup_below:
+                top_zones.append(min(sup_below,
+                                      key=lambda z: _cur_price - z.center))
+        else:
+            # 舊行為（保留作為非預設選項）：按 strength 降冪取前 N
+            try:
+                top_zones = sorted(
+                    in_range, key=lambda z: -getattr(z, 'strength', 0)
+                )[:sr_max_show]
+            except Exception:
+                top_zones = in_range[:sr_max_show]
         # 🆕 v9.47.6：透明化 fused/round/profile 的判斷依據
         # 用 _origins 列出 swing×N pivot 數 / HVN 原範圍 / round 整數價
         try:

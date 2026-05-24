@@ -6812,17 +6812,16 @@ for item in results:
                             if z.high >= _vis_lo and z.low <= _vis_hi
                             and z.strength >= 30
                         ]
-                        # 分壓力／支撐：必須在現價對應方向才有意義
-                        #   壓力必須 center > 現價（不然就是「已突破舊壓力」，stale）
-                        #   支撐必須 center < 現價（不然就是「已跌破舊支撐」，stale）
+                        # 🆕 v9.47.10：依用戶反饋簡化 — 只顯示最接近的 1R+1S
+                        # （原本 5 個 R + 5 個 S 太亂，trader 實務上只需下一個關卡）
                         _res = sorted(
                             [z for z in _in_range
                              if z.kind == 'resistance' and z.center > _cur_p_tv],
-                            key=lambda z: z.center - _cur_p_tv)[:5]
+                            key=lambda z: z.center - _cur_p_tv)[:1]
                         _sup = sorted(
                             [z for z in _in_range
                              if z.kind == 'support' and z.center < _cur_p_tv],
-                            key=lambda z: _cur_p_tv - z.center)[:5]
+                            key=lambda z: _cur_p_tv - z.center)[:1]
 
                         # 🆕 v9.47.6：透明化 fused zone 的來源細節
                         try:
