@@ -281,6 +281,8 @@ def build_zigzag_chart_plotly(
     theme: str = 'dark',
     swing_trades: Optional[List[Dict]] = None,
     reentry_events: Optional[List[Dict]] = None,    # 🆕 v9.40
+    sr_zones: Optional[List] = None,                # 🆕 v9.47 S/R overlay
+    sr_max_show: int = 6,                            # 🆕 v9.47 最多畫幾個 zone
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -295,6 +297,10 @@ def build_zigzag_chart_plotly(
         theme: 'dark' / 'light'
         swing_trades: 戰法歷史交易（給 entry/exit marker 用）
         reentry_events: 🆕 v9.40 歷史加碼事件（黃色 marker）
+        sr_zones: 🆕 v9.47 support_resistance.SRZone 物件清單（已按
+                  strength 排序），會以半透明橫帶疊在 K 線下層；
+                  strength 越強越不透明，紅=壓力／綠=支撐
+        sr_max_show: 最多畫幾個 zone（避免遮蓋價格，預設 6 = 強度前 6 名）
 
     Returns:
         plotly Figure 物件（給 st.plotly_chart() 用）
@@ -790,5 +796,49 @@ def build_zigzag_chart_plotly(
         fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=3, col=1)
     else:
         fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
+
+    # ── 🆕 v9.47：S/R zones overlay（半透明橫帶，畫在價格 row 1）──
+    # 規格 §5.2 視覺化規範：壓力紅、支撐綠；強度越強越不透明（0.10 + 0.20×strength/100）
+    if sr_zones:
+        # 按 strength 降冪取前 N（避免遮蓋）
+        try:
+            top_zones = sorted(sr_zones, key=lambda z: -getattr(z, 'strength', 0))[:sr_max_show]
+        except Exception:
+            top_zones = list(sr_zones)[:sr_max_show]
+        for z in top_zones:
+            try:
+                kind = getattr(z, 'kind', 'support')
+                lo, hi = float(z.low), float(z.high)
+                stren = float(getattr(z, 'strength', 0))
+                src   = getattr(z, 'source', 'swing')
+                # 規格 §5.2：透明度 a = 0.10 + 0.20×(strength/100)
+                alpha = 0.10 + 0.20 * max(0, min(100, stren)) / 100
+                if kind == 'resistance':
+                    fill = f'rgba(239,68,68,{alpha:.2f})'
+                    border = 'rgba(239,68,68,0.55)'
+                else:
+                    fill = f'rgba(34,197,94,{alpha:.2f})'
+                    border = 'rgba(34,197,94,0.55)'
+                # role_reversal 用虛線描邊（規格 §5.2 表）
+                dash = 'dash' if getattr(z, 'role_reversal', False) else 'solid'
+                fig.add_hrect(
+                    y0=lo, y1=hi,
+                    fillcolor=fill,
+                    line=dict(color=border, width=0.8, dash=dash),
+                    layer='below',     # K 線下層（規格 §5.2 zOrder）
+                    row=1, col=1,
+                    annotation=dict(
+                        text=f'{kind[0].upper()} {stren:.0f} ({src})',
+                        font=dict(size=9,
+                                   color=('#ff8a8a' if kind == 'resistance'
+                                          else '#74e4a0')),
+                        bgcolor='rgba(0,0,0,0.25)',
+                        bordercolor='rgba(0,0,0,0)',
+                        x=0, xanchor='left',
+                    ),
+                    annotation_position='top left',
+                )
+            except Exception:
+                continue
 
     return fig

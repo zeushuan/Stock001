@@ -1724,6 +1724,36 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
         d['adx_th'] = _th_inj.adx_entry
         d['t4_rsi'] = _th_inj.t4_rsi
 
+        # 🆕 v9.47：S/R 偵測（support_resistance package Phase 1）
+        # 從 _swing_history 重建 OHLCV → detect_sr_zones → 寫進 d
+        try:
+            _sh_for_sr = d.get('_swing_history') or {}
+            _closes_sr = _sh_for_sr.get('close') or []
+            if _closes_sr and len(_closes_sr) >= 30:
+                from support_resistance import detect_sr_zones, sr_context_for_t3
+                _sr_df = pd.DataFrame({
+                    'Open':   _sh_for_sr.get('open') or _closes_sr,
+                    'High':   _sh_for_sr.get('high') or _closes_sr,
+                    'Low':    _sh_for_sr.get('low')  or _closes_sr,
+                    'Close':  _closes_sr,
+                    'Volume': _sh_for_sr.get('volume') or [0] * len(_closes_sr),
+                })
+                _zones = detect_sr_zones(_sr_df, swing_window=5)
+                d['sr_zones'] = _zones
+                _cur_p = float(d.get('close') or _closes_sr[-1])
+                _adx_v = d.get('adx')
+                d['sr_context'] = sr_context_for_t3(
+                    _zones, current_price=_cur_p,
+                    adx=float(_adx_v) if _adx_v is not None else None,
+                )
+            else:
+                d['sr_zones'] = []
+                d['sr_context'] = None
+        except Exception as exc:
+            log.debug("[fetch_indicators/sr_zones] %s", exc)
+            d['sr_zones'] = []
+            d['sr_context'] = None
+
         return d
     except Exception as e:
         log.debug("[fetch_indicators/top-level] %s", e)
@@ -6692,6 +6722,7 @@ for item in results:
                             _df_for_chart, market=market, lookback_bars=180, tf='1d')
                     except Exception as exc:
                         log.debug("[detail card/swing+reentry scan] %s", exc)
+                    _sr_zones_tv = d.get('sr_zones') or None
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
@@ -6703,10 +6734,45 @@ for item in results:
                         theme='dark',
                         swing_trades=_swing_trades_tv,
                         reentry_events=_reentry_events_tv,
+                        sr_zones=_sr_zones_tv,  # 🆕 v9.47：S/R 區疊在價格層
                     )
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
                                           key=f'_tvapp_zz_{ticker}')
+
+                    # 🆕 v9.47：S/R 上下文 panel（規格 §4 / §5.2）
+                    _sr_ctx_tv = d.get('sr_context')
+                    if _sr_ctx_tv and _sr_ctx_tv.get('reason') != 'none':
+                        _sr_adj = _sr_ctx_tv.get('adjustment', 0)
+                        _sr_rsn = _sr_ctx_tv.get('reason', '')
+                        _sr_dmp = _sr_ctx_tv.get('adx_damping_applied', 1.0)
+                        _sr_nr  = _sr_ctx_tv.get('nearest_resistance')
+                        _sr_ns  = _sr_ctx_tv.get('nearest_support')
+                        _sr_color = '#ff7755' if _sr_adj < 0 else '#3dbb6a'
+                        _sr_icon  = '⚠️' if _sr_adj < 0 else '✓'
+                        _sr_lbl   = ('追高風險' if _sr_rsn == 'near_resistance'
+                                      else '下檔有撐' if _sr_rsn == 'near_support'
+                                      else _sr_rsn)
+                        _sr_detail = ''
+                        if _sr_nr is not None and _sr_rsn == 'near_resistance':
+                            _sr_detail = (
+                                f'近壓力 @ {_sr_nr.center:.2f} '
+                                f'(强度 {_sr_nr.strength:.0f}, 來源 {_sr_nr.source})')
+                        elif _sr_ns is not None and _sr_rsn == 'near_support':
+                            _sr_detail = (
+                                f'近支撐 @ {_sr_ns.center:.2f} '
+                                f'(強度 {_sr_ns.strength:.0f}, 來源 {_sr_ns.source})')
+                        st.markdown(
+                            f'<div style="background:#0a1422;border:1px solid {_sr_color}44;'
+                            f'border-radius:6px;padding:6px 12px;margin-top:-6px;margin-bottom:8px;'
+                            f'font-size:.78rem">'
+                            f'<span style="color:{_sr_color};font-weight:700">'
+                            f'{_sr_icon} S/R → T3 修正 {_sr_adj:+d} 分 ({_sr_lbl})'
+                            f'</span>'
+                            f'<span style="color:#7a8899;margin-left:8px">{_sr_detail}</span>'
+                            f'<span style="color:#556677;margin-left:8px;font-size:.7rem">'
+                            f'ADX damping {_sr_dmp:.2f}</span></div>',
+                            unsafe_allow_html=True)
 
                     # 🆕 v9.38：波段戰法訊號 banner
                     try:
