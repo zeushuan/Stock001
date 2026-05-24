@@ -116,7 +116,7 @@ def _load_clusters() -> dict:
 
 
 # ───── _get_proximity_alerts ─────
-def _get_proximity_alerts(d: dict) -> list:
+def _get_proximity_alerts(d: dict, adx_th: int = 22) -> list:
     """
     產生「接近條件」的預警字串清單（HTML 已格式化）
 
@@ -167,7 +167,7 @@ def _get_proximity_alerts(d: dict) -> list:
 
     # ── T3 拉回預警（多頭中）──
     if is_bull:
-        adx_ok = adx is not None and adx >= 22
+        adx_ok = adx is not None and adx >= adx_th
         if adx_ok and rsi is not None and rsi_prev is not None:
             if 50 < rsi < 55 and rsi < rsi_prev:
                 alerts.append(('info',
@@ -225,7 +225,8 @@ def _get_proximity_alerts(d: dict) -> list:
 
 # ───── _get_inverse_etf_advice ─────
 def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
-                             rsi_prev2, atr14, close, cross_days) -> str:
+                             rsi_prev2, atr14, close, cross_days,
+                             adx_th: int = 22) -> str:
     """
     反向ETF專屬操作建議卡片。
     邏輯：對此標的自身K線套用 ⑦T1/T3，但：
@@ -236,7 +237,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
     EMA黃金交叉在反向ETF上 = 大盤進入空頭，是持有反向ETF的最佳時機。
     """
     is_bull  = ema20 > ema60
-    adx_ok   = (adx is not None and adx >= 22)
+    adx_ok   = (adx is not None and adx >= adx_th)
     rsi_str  = f"{rsi:.1f}" if rsi is not None else "N/A"
     adx_str  = f"{adx:.1f}" if adx is not None else "N/A"
     # 🆕 v9.31：bar 單位（intraday 自動換）
@@ -388,7 +389,7 @@ def _get_inverse_etf_advice(d, tk, ema20, ema60, adx, rsi, rsi_prev,
     val_style = "font-size:.78rem;line-height:1.8;color:#c8dff0"
 
     # 反向ETF 預警（用相同函式，但邏輯仍適用：黃金交叉預警 = 大盤死叉預警）
-    inv_proximity = _get_proximity_alerts(d)
+    inv_proximity = _get_proximity_alerts(d, adx_th=adx_th)
     inv_alert_html = ""
     if inv_proximity:
         ainv_lines = []
@@ -525,14 +526,26 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             elif cross_days > 30:
                 _imminent_dc = True
     _knife_dc_zone = _just_dead_cross or _imminent_dc
+    # 🆕 v9.41：ADX 門檻 / 市場標籤提前算（讓 _t1_ok_pre、_get_inverse_etf_advice
+    # 等下游都能用，徹底消除「子模組各寫死 22」造成的美股 18/22 不一致）
+    _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
+    _tk_clean = _tk_upper.replace('-USD', '').replace('-', '')
+    _is_us = _tk_clean.isalpha() and _tk_clean.isupper() and \
+             _tk_upper not in _INVERSE_ETF_TICKERS
+    _is_crypto = _tk_upper.endswith('-USD')
+    # 美股 / 加密：ADX 18（依美股研究 P10+POS+ADX18 RR 0.496 局部最佳）
+    # 台股：ADX 22（依台股 P5+VWAPEXEC 預設）
+    _adx_th = 18 if (_is_us or _is_crypto) else 22
+    _market_tag = '🇺🇸 US' if _is_us else ('🪙 Crypto' if _is_crypto else '🇹🇼 TW')
+
     # 🆕 v9.11：把 _entry_blocked_by_dc 提前算（讓後面所有訊號都可以參考）
     # 注意：此時 t1_ok / t3_ok 還沒算，先用 cross_days/rsi 預估
     _t1_ok_pre = (cross_days is not None and 0 < cross_days <= 10
                   and ema20 is not None and ema60 is not None and ema20 > ema60
-                  and adx is not None and adx >= 22)
+                  and adx is not None and adx >= _adx_th)
     _t3_ok_pre = (rsi is not None and rsi < 50
                   and ema20 is not None and ema60 is not None and ema20 > ema60
-                  and adx is not None and adx >= 22)
+                  and adx is not None and adx >= _adx_th)
     _is_bull_pre = ema20 is not None and ema60 is not None and ema20 > ema60
     _entry_blocked_by_dc = (_is_bull_pre and _imminent_dc and (_t1_ok_pre or _t3_ok_pre))
     _drawdown_pct = ((high60 - close) / high60 * 100) if (high60 and close and high60 > 0) else None
@@ -567,7 +580,8 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     # 反向ETF → 直接轉入專屬建議，不走一般 ⑦ 邏輯
     if _is_inverse:
         return _get_inverse_etf_advice(d, _tk_upper, ema20, ema60, adx, rsi, rsi_prev,
-                                       rsi_prev2, atr14, close, cross_days)
+                                       rsi_prev2, atr14, close, cross_days,
+                                       adx_th=_adx_th)
 
     if _tk_upper in _SPECIAL_TICKER_WARN:
         _kind, _warn_msg = _SPECIAL_TICKER_WARN[_tk_upper]
@@ -579,16 +593,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'</div>'
         )
 
-    # 🆕 v9.10i：偵測 US vs TW，套用各自最佳閾值
-    _tk_upper = ticker.upper().replace(".TW", "").replace(".TWO", "")
-    _tk_clean = _tk_upper.replace('-USD', '').replace('-', '')
-    _is_us = _tk_clean.isalpha() and _tk_clean.isupper() and \
-             _tk_upper not in _INVERSE_ETF_TICKERS
-    _is_crypto = _tk_upper.endswith('-USD')
-    # 美股 / 加密：ADX 18（依美股研究 P10+POS+ADX18 RR 0.496 局部最佳）
-    # 台股：ADX 22（依台股 P5+VWAPEXEC 預設）
-    _adx_th = 18 if (_is_us or _is_crypto) else 22
-    _market_tag = '🇺🇸 US' if _is_us else ('🪙 Crypto' if _is_crypto else '🇹🇼 TW')
+    # (_adx_th / _is_us / _market_tag 已於上方提前算 — v9.41)
 
     is_bull  = ema20 > ema60
     adx_ok   = (adx is not None and adx >= _adx_th)
@@ -1494,7 +1499,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
     if not is_bull:
         if _t4_rising:
             action_label = "🟡 T4 反彈條件達成（空頭中）"
-            action_reason = (f"原因：EMA20 < EMA60（空頭排列）但 RSI {rsi_str} < 32 + "
+            action_reason = (f"原因：EMA20 < EMA60（空頭排列）但 RSI {rsi_str} < 35 + "
                               f"連續上升 → T4 反彈訊號，可短線觀察")
             action_bg, action_fg = "#2a1500", "#ff9944"
         else:
@@ -1922,7 +1927,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<br>📌 持倉者可考慮減碼一半，或設緊停損；激進派可等 RSI≥80 再賣'
             f'</div></div>'
         )
-    elif (_adx_v >= 22 and _from_high_pct < 1 and _vol_ratio > 1.5 and _rsi_v < 70):
+    elif (_adx_v >= _adx_th and _from_high_pct < 1 and _vol_ratio > 1.5 and _rsi_v < 70):
         # ③ Strategy B 入場條件達成（OOS 驗證）
         swing_state = 'B_entry'
         swing_rows.append(
@@ -1940,7 +1945,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
             f'<br>　⏰ 安全網：最長持 90 天'
             f'</div></div>'
         )
-    elif (_adx_v >= 22 and 1 <= _from_high_pct <= 3 and _vol_ratio > 1.2 and _rsi_v < 70):
+    elif (_adx_v >= _adx_th and 1 <= _from_high_pct <= 3 and _vol_ratio > 1.2 and _rsi_v < 70):
         # ④ 接近突破（候選）
         swing_state = 'B_near'
         swing_rows.append(
@@ -3383,7 +3388,7 @@ def get_operation_advice(d: dict, ticker: str = "") -> str:
         )
 
     # ── ✨ 接近條件預警（即使尚未觸發 T1/T3/停損也提示）──
-    proximity_alerts = _get_proximity_alerts(d)
+    proximity_alerts = _get_proximity_alerts(d, adx_th=_adx_th)
     alert_html = ""
     if proximity_alerts:
         alert_lines = []

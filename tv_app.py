@@ -1256,7 +1256,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             except Exception:
                 return 0
 
-        # 🆕 T4 反彈天數：RSI < 32 且連續上升的天數
+        # 🆕 T4 反彈天數：RSI < 35 且連續上升的天數（v9.41 對齊回測值）
         def _t4_rising_days(rsi_series):
             try:
                 arr = rsi_series.dropna().values
@@ -1264,7 +1264,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 # 從最後一天往前數連續上升
                 cnt = 1  # 包含當天
                 for i in range(len(arr) - 1, 0, -1):
-                    if arr[i] > arr[i-1] and arr[i] < 32:
+                    if arr[i] > arr[i-1] and arr[i] < 35:    # v9.41: 32→35 對齊回測
                         cnt += 1
                     else:
                         break
@@ -1331,7 +1331,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             "rsi_prev2":    prev(rsi_s, 2),             # T4連續2天上升判斷用
             # 🆕 T3/T4 天數計算
             "t3_pullback_days": _t3_pullback_days(rsi_s),  # RSI<50 連續多少天
-            "t4_rising_days":   _t4_rising_days(rsi_s),    # RSI<32 且上升多少天
+            "t4_rising_days":   _t4_rising_days(rsi_s),    # RSI<35 且上升多少天
             # 🆕 EMA5 + T3 信心度（v9.9t）
             "ema5":         last(ema5_s),
             "ema5_5d_ago":  prev(ema5_s, 5),
@@ -2082,7 +2082,7 @@ def classify_action(d: dict) -> str:
 
     # 空頭：唯一進場 = T4 反彈
     if not is_bull:
-        t4_rising = (rsi is not None and rsi < 32 and
+        t4_rising = (rsi is not None and rsi < 35 and    # v9.41: 32→35 對齊回測
                      rsi_prev is not None and rsi > rsi_prev and
                      rsi_prev2 is not None and rsi_prev > rsi_prev2)
         if t4_rising:
@@ -2142,7 +2142,7 @@ def get_exit_signal(d: dict) -> tuple:
     is_bull = ema20 > ema60
 
     if not is_bull:
-        _t4 = (rsi is not None and rsi < 32 and
+        _t4 = (rsi is not None and rsi < 35 and    # v9.41: 32→35 對齊回測
                rsi_prev is not None and rsi > rsi_prev and
                rsi_prev2 is not None and rsi_prev > rsi_prev2)
         if _t4:
@@ -2716,11 +2716,11 @@ def build_pdf(results) -> bytes:
             story.append(Paragraph("② 進場判斷", h2_st))
             t1_ok = is_bull and adx_ok and 0 < cd <= 10
             t3_ok = is_bull and adx_ok and rsi < 50
-            t4_ok = (not is_bull) and rsi < 32 and rsi > rsi_prev
+            t4_ok = (not is_bull) and rsi < 35 and rsi > rsi_prev    # v9.41: 32→35
             entry_lines = [
                 f"T1 黃金交叉 (≤10d): {'✅' if t1_ok else '☐'} (cross={cd}d)",
                 f"T3 多頭拉回 (RSI<50): {'✅' if t3_ok else '☐'} (RSI={rsi:.1f})",
-                f"T4 空頭反彈 (RSI<32+上升): {'✅' if t4_ok else '☐'}",
+                f"T4 空頭反彈 (RSI<35+上升): {'✅' if t4_ok else '☐'}",
             ]
             t3_conf = d.get('t3_confidence', 0) or 0
             if t3_conf > 0:
