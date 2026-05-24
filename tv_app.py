@@ -1734,6 +1734,7 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             if _closes_sr and len(_closes_sr) >= 30:
                 from support_resistance import (
                     detect_sr_zones, sr_context_for_t3, latest_pivot_levels,
+                    luxalgo_sr,
                 )
                 _sr_df = pd.DataFrame({
                     'Open':   _sh_for_sr.get('open') or _closes_sr,
@@ -1751,10 +1752,17 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                     adx=float(_adx_v) if _adx_v is not None else None,
                 )
                 d['sr_context'] = _sr_ctx
-                # 🆕 v9.48：LuxAlgo-style 最近 pivot R / S
+                # 🆕 v9.48：LuxAlgo-style 最近 pivot R / S (legacy 簡化版)
                 _lux = latest_pivot_levels(_sr_df, _cur_p, swing_window=5)
                 d['sr_pivot_r'] = _lux.get('resistance')
                 d['sr_pivot_s'] = _lux.get('support')
+                # 🆕 v9.49：完整 LuxAlgo「Support and Resistance Levels with Breaks」
+                # pivot 圓點 + R/S 線 + B 標籤 + volume oscillator 確認
+                d['sr_luxalgo'] = luxalgo_sr(
+                    _sr_df, left_bars=15, right_bars=15,
+                    volume_threshold=20.0,
+                )
+                d['sr_luxalgo_df_len'] = len(_sr_df)
                 # 規格 §4：T3' = clip(T3 + adjustment, 0, 100)
                 _sr_adj = int(_sr_ctx.get('adjustment', 0)) if _sr_ctx else 0
                 if _sr_adj != 0:
@@ -1771,12 +1779,16 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
                 d['sr_context'] = None
                 d['sr_pivot_r'] = None
                 d['sr_pivot_s'] = None
+                d['sr_luxalgo'] = None
+                d['sr_luxalgo_df_len'] = 0
         except Exception as exc:
             log.debug("[fetch_indicators/sr_zones] %s", exc)
             d['sr_zones'] = []
             d['sr_context'] = None
             d['sr_pivot_r'] = None
             d['sr_pivot_s'] = None
+            d['sr_luxalgo'] = None
+            d['sr_luxalgo_df_len'] = 0
 
         return d
     except Exception as e:
@@ -6746,20 +6758,21 @@ for item in results:
                             _df_for_chart, market=market, lookback_bars=180, tf='1d')
                     except Exception as exc:
                         log.debug("[detail card/swing+reentry scan] %s", exc)
-                    # 🆕 v9.48：用 LuxAlgo-style pivot lines 取代 band overlay
+                    # 🆕 v9.49：完整 LuxAlgo SR Levels with Breaks
+                    # pivot 圓點 + R/S 線 (從 pivot bar 延伸) + B 標籤
+                    # offset 讓 chart 自動算（df_full vs df_plot 內部 slice）
                     _fig = build_zigzag_chart_plotly(
                         _df_for_chart,
                         atr_mult=_atr_v,
                         title=f'{ticker} 1d — ZigZag (ATR×{_atr_v:.2f}, {_maxb_v} bars) + BB + EMA  ｜ hover 看 OHLC',
-                        max_bars=_maxb_v,    # 🆕 v9.47: 改可調（intraday.settings.get_zigzag_max_bars）
+                        max_bars=_maxb_v,
                         show_bb=True,
                         show_emas=[5, 20, 60, 150, 200],
                         show_macd=True,
                         theme='dark',
                         swing_trades=_swing_trades_tv,
                         reentry_events=_reentry_events_tv,
-                        sr_pivot_r=d.get('sr_pivot_r'),  # LuxAlgo 風格水平線
-                        sr_pivot_s=d.get('sr_pivot_s'),
+                        sr_luxalgo=d.get('sr_luxalgo'),
                     )
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
@@ -6809,11 +6822,15 @@ for item in results:
                             f'ADX damping {_sr_dmp:.2f}</span></div>',
                             unsafe_allow_html=True)
 
-                    # 🆕 v9.48：LuxAlgo-style 最近壓力/支撐 — 簡潔單行顯示
-                    # （取代原本 zone-based 區間總表，太複雜）
+                    # 🆕 v9.49：LuxAlgo SR Levels — detail card 顯示 current R/S
+                    # 「壓力 = 最新 pivot high」「支撐 = 最新 pivot low」
+                    # （不依現價方向；若已突破，顯示 ✓ 突破中 = 該位轉支撐）
                     _cur_p_tv = float(d.get('close') or _closes[-1])
-                    _pv_r = d.get('sr_pivot_r')
-                    _pv_s = d.get('sr_pivot_s')
+                    _lux_card = d.get('sr_luxalgo') or {}
+                    _pv_r = _lux_card.get('current_r')
+                    _pv_s = _lux_card.get('current_s')
+                    _br_up = len(_lux_card.get('breaks_up') or [])
+                    _br_dn = len(_lux_card.get('breaks_down') or [])
                     if (_pv_r is not None or _pv_s is not None) and _cur_p_tv > 0:
                         _html = ['<div style="background:#0a1422;border:1px solid #1f3550;'
                                   'border-radius:6px;padding:8px 14px;margin-bottom:10px">'
@@ -6822,8 +6839,14 @@ for item in results:
                                   'text-transform:uppercase;margin-bottom:6px">'
                                   f'⛳ 最近壓力支撐 ｜ 現價 {_cur_p_tv:.2f}'
                                   '</div>']
+                        # 壓力 = 最新 pivot high；標示是否已被突破
                         if _pv_r is not None:
                             _pct_r = (_pv_r - _cur_p_tv) / _cur_p_tv * 100
+                            _broken_r = _cur_p_tv > _pv_r
+                            _note_r = (f'<span style="color:#ffd060">✓ 已突破，轉支撐參考</span>'
+                                        if _broken_r else
+                                        '<span style="color:#556677;font-size:.7rem">'
+                                        '最新 pivot high (L/R=15)</span>')
                             _html.append(
                                 f'<div style="display:flex;gap:10px;align-items:center;'
                                 f'padding:3px 0;font-size:.85rem">'
@@ -6831,16 +6854,16 @@ for item in results:
                                 f'<span style="color:#c8dff0;font-family:monospace;'
                                 f'font-size:1.0rem;font-weight:700">${_pv_r:.2f}</span>'
                                 f'<span style="color:#ff7755">({_pct_r:+.1f}%)</span>'
-                                f'<span style="color:#556677;font-size:.7rem;margin-left:8px">'
-                                f'最近 swing high above</span>'
+                                f'<span style="margin-left:8px">{_note_r}</span>'
                                 f'</div>')
-                        else:
-                            _html.append(
-                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
-                                '⬆ 壓力：<b style="color:#ffd060">無</b>（已突破近期高點 / breakout）'
-                                '</div>')
+                        # 支撐 = 最新 pivot low；標示是否已被跌破
                         if _pv_s is not None:
                             _pct_s = (_pv_s - _cur_p_tv) / _cur_p_tv * 100
+                            _broken_s = _cur_p_tv < _pv_s
+                            _note_s = (f'<span style="color:#ffd060">✗ 已跌破，轉壓力參考</span>'
+                                        if _broken_s else
+                                        '<span style="color:#556677;font-size:.7rem">'
+                                        '最新 pivot low (L/R=15)</span>')
                             _html.append(
                                 f'<div style="display:flex;gap:10px;align-items:center;'
                                 f'padding:3px 0;font-size:.85rem">'
@@ -6848,14 +6871,16 @@ for item in results:
                                 f'<span style="color:#c8dff0;font-family:monospace;'
                                 f'font-size:1.0rem;font-weight:700">${_pv_s:.2f}</span>'
                                 f'<span style="color:#3dbb6a">({_pct_s:+.1f}%)</span>'
-                                f'<span style="color:#556677;font-size:.7rem;margin-left:8px">'
-                                f'最近 swing low below</span>'
+                                f'<span style="margin-left:8px">{_note_s}</span>'
                                 f'</div>')
-                        else:
+                        # Breaks 數量提示
+                        if _br_up or _br_dn:
                             _html.append(
-                                '<div style="color:#7a8899;font-size:.78rem;padding:3px 0">'
-                                '⬇ 支撐：<b style="color:#ffd060">無</b>（跌破近期低點 / breakdown）'
-                                '</div>')
+                                f'<div style="color:#7a8899;font-size:.7rem;'
+                                f'padding:4px 0 0;border-top:1px solid #1a2a40;margin-top:4px">'
+                                f'近 250 bar 內 confirmed 突破：⬆{_br_up} 次 / ⬇{_br_dn} 次'
+                                f'（已含 volume oscillator 確認，閾值 20%）'
+                                f'</div>')
                         _html.append('</div>')
                         st.markdown('\n'.join(_html), unsafe_allow_html=True)
 

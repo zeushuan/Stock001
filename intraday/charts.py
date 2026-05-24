@@ -284,8 +284,10 @@ def build_zigzag_chart_plotly(
     sr_zones: Optional[List] = None,                # 🆕 v9.47 S/R overlay
     sr_max_show: int = 6,                            # 🆕 v9.47 最多畫幾個 zone
     sr_nearest_only: bool = True,                    # 🆕 v9.47.10 只畫最近 1R+1S
-    sr_pivot_r: Optional[float] = None,              # 🆕 v9.48 LuxAlgo R level
-    sr_pivot_s: Optional[float] = None,              # 🆕 v9.48 LuxAlgo S level
+    sr_pivot_r: Optional[float] = None,              # 🆕 v9.48 (deprecated) 單純 R 線
+    sr_pivot_s: Optional[float] = None,              # 🆕 v9.48 (deprecated) 單純 S 線
+    sr_luxalgo: Optional[Dict] = None,               # 🆕 v9.49 完整 LuxAlgo data
+    sr_luxalgo_full_offset: Optional[int] = None,    # 🆕 v9.49 None=auto (df_full vs df_plot)
 ):
     """互動 plotly 版 ZigZag chart（hover 顯示 OHLC + 指標）
 
@@ -800,9 +802,130 @@ def build_zigzag_chart_plotly(
     else:
         fig.update_yaxes(gridcolor=grid_color, title_text='Volume', row=2, col=1)
 
-    # ── 🆕 v9.48：LuxAlgo-style 水平線（簡潔，取代 band overlay）──
+    # ── 🆕 v9.49：完整 LuxAlgo「Support and Resistance Levels with Breaks」──
+    # pivot 圓點 (歷史 pivot) + R/S 線 (從 pivot idx 延伸到右側) + B 標籤
+    if sr_luxalgo:
+        # auto-compute offset: pivot idx 是基於 df_full (含所有 bars)，
+        # chart 只畫 df_plot (last max_bars 根)。offset = len(df_full) - N
+        if sr_luxalgo_full_offset is None:
+            _lux_offset = len(df_full) - N
+        else:
+            _lux_offset = sr_luxalgo_full_offset
+        def _full_to_chart_x(full_idx: int) -> int:
+            """df 全索引 → df_plot 中的 x 位置"""
+            cx = full_idx - _lux_offset
+            return max(0, min(N - 1, cx))
+        # 1) Pivot 圓點：紅 ▼ 在 pivot high 上方；綠 ▲ 在 pivot low 下方
+        ph_list = sr_luxalgo.get('pivot_highs') or []
+        pl_list = sr_luxalgo.get('pivot_lows') or []
+        ph_x, ph_y = [], []
+        for full_idx, price in ph_list:
+            cx = _full_to_chart_x(full_idx)
+            if 0 <= cx < N:
+                ph_x.append(cx); ph_y.append(price)
+        pl_x, pl_y = [], []
+        for full_idx, price in pl_list:
+            cx = _full_to_chart_x(full_idx)
+            if 0 <= cx < N:
+                pl_x.append(cx); pl_y.append(price)
+        if ph_x:
+            fig.add_trace(go.Scatter(
+                x=ph_x, y=ph_y, mode='markers',
+                marker=dict(symbol='triangle-down', color='#ef4444',
+                            size=11, line=dict(color='#ffffff', width=0.6)),
+                name='Pivot High', hovertemplate='Pivot High: %{y:.2f}<extra></extra>',
+                showlegend=False,
+            ), row=1, col=1)
+        if pl_x:
+            fig.add_trace(go.Scatter(
+                x=pl_x, y=pl_y, mode='markers',
+                marker=dict(symbol='triangle-up', color='#22c55e',
+                            size=11, line=dict(color='#ffffff', width=0.6)),
+                name='Pivot Low', hovertemplate='Pivot Low: %{y:.2f}<extra></extra>',
+                showlegend=False,
+            ), row=1, col=1)
+
+        # 2) R 線：從 current_r_idx (轉成 chart x) 延伸到右側
+        cur_r = sr_luxalgo.get('current_r')
+        cur_r_idx = sr_luxalgo.get('current_r_idx')
+        if cur_r is not None and cur_r_idx is not None:
+            cx_r = _full_to_chart_x(cur_r_idx)
+            try:
+                _cur_p_chart = float(df_plot['Close'].iloc[-1])
+                _pct = (cur_r - _cur_p_chart) / _cur_p_chart * 100 if _cur_p_chart > 0 else 0
+            except Exception:
+                _pct = 0
+            fig.add_shape(
+                type='line', x0=cx_r, x1=N - 1, y0=cur_r, y1=cur_r,
+                line=dict(color='#ef4444', width=1.8, dash='solid'),
+                row=1, col=1,
+            )
+            fig.add_annotation(
+                x=N - 1, y=cur_r, xanchor='right', yanchor='bottom',
+                text=f'R {cur_r:.2f}  ({_pct:+.1f}%)',
+                font=dict(color='#ff8a8a', size=11),
+                bgcolor='rgba(0,0,0,0.5)',
+                bordercolor='rgba(239,68,68,0.5)',
+                borderwidth=0.5,
+                showarrow=False,
+                row=1, col=1,
+            )
+
+        # 3) S 線
+        cur_s = sr_luxalgo.get('current_s')
+        cur_s_idx = sr_luxalgo.get('current_s_idx')
+        if cur_s is not None and cur_s_idx is not None:
+            cx_s = _full_to_chart_x(cur_s_idx)
+            try:
+                _cur_p_chart = float(df_plot['Close'].iloc[-1])
+                _pct = (cur_s - _cur_p_chart) / _cur_p_chart * 100 if _cur_p_chart > 0 else 0
+            except Exception:
+                _pct = 0
+            fig.add_shape(
+                type='line', x0=cx_s, x1=N - 1, y0=cur_s, y1=cur_s,
+                line=dict(color='#22c55e', width=1.8, dash='solid'),
+                row=1, col=1,
+            )
+            fig.add_annotation(
+                x=N - 1, y=cur_s, xanchor='right', yanchor='top',
+                text=f'S {cur_s:.2f}  ({_pct:+.1f}%)',
+                font=dict(color='#74e4a0', size=11),
+                bgcolor='rgba(0,0,0,0.5)',
+                bordercolor='rgba(34,197,94,0.5)',
+                borderwidth=0.5,
+                showarrow=False,
+                row=1, col=1,
+            )
+
+        # 4) B 標籤：突破事件（已用 volume oscillator 確認）
+        for full_idx, price in (sr_luxalgo.get('breaks_up') or []):
+            cx = _full_to_chart_x(full_idx)
+            if 0 <= cx < N:
+                fig.add_annotation(
+                    x=cx, y=price, xanchor='center', yanchor='top',
+                    text='<b>B</b>',
+                    font=dict(color='#ffffff', size=10),
+                    bgcolor='#22c55e',
+                    bordercolor='#22c55e',
+                    showarrow=False,
+                    row=1, col=1,
+                )
+        for full_idx, price in (sr_luxalgo.get('breaks_down') or []):
+            cx = _full_to_chart_x(full_idx)
+            if 0 <= cx < N:
+                fig.add_annotation(
+                    x=cx, y=price, xanchor='center', yanchor='bottom',
+                    text='<b>B</b>',
+                    font=dict(color='#ffffff', size=10),
+                    bgcolor='#ef4444',
+                    bordercolor='#ef4444',
+                    showarrow=False,
+                    row=1, col=1,
+                )
+
+    # ── 🆕 v9.48：LuxAlgo-style 水平線（簡潔，取代 band overlay）── (legacy)
     # 用最近一個 pivot high 在現價之上 = R；最近一個 pivot low 在現價之下 = S
-    if sr_pivot_r is not None or sr_pivot_s is not None:
+    elif sr_pivot_r is not None or sr_pivot_s is not None:
         try:
             _cur = float(df_plot['Close'].iloc[-1])
         except Exception:

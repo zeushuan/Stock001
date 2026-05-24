@@ -8,7 +8,7 @@ import pytest
 from support_resistance.sr_engine import (
     round_number_zones, fuse_zones, score_zones,
     detect_role_reversal, detect_sr_zones, sr_context_for_t3,
-    latest_pivot_levels,
+    latest_pivot_levels, luxalgo_sr,
 )
 from support_resistance.types import SRZone
 
@@ -423,6 +423,105 @@ class TestLatestPivotLevels:
         levels = latest_pivot_levels(df, current_price=10.0, swing_window=5)
         assert levels['resistance'] is None
         assert levels['support'] is None
+
+
+class TestLuxAlgoSR:
+    """完整 LuxAlgo「Support and Resistance Levels with Breaks」測試。"""
+
+    def test_returns_empty_for_short_data(self):
+        import pandas as pd
+        df = pd.DataFrame({
+            'High': [10] * 10, 'Low': [9] * 10,
+            'Close': [9.5] * 10, 'Volume': [100] * 10,
+        })
+        res = luxalgo_sr(df, left_bars=15, right_bars=15)
+        assert res['current_r'] is None
+        assert res['current_s'] is None
+        assert res['pivot_highs'] == []
+        assert res['pivot_lows'] == []
+
+    def test_double_top_bottom(self, synth_double_top_bottom):
+        res = luxalgo_sr(synth_double_top_bottom, left_bars=3, right_bars=3)
+        assert len(res['pivot_highs']) >= 2
+        assert len(res['pivot_lows']) >= 2
+        # current_r 是「最新」pivot high；current_s 是「最新」pivot low
+        assert res['current_r'] is not None
+        assert res['current_s'] is not None
+
+    def test_asymmetric_left_right(self):
+        """left=10 / right=20 應該找出比對稱版更少（更嚴格）的 pivot。"""
+        import numpy as np
+        import pandas as pd
+        np.random.seed(42)
+        n = 100
+        closes = 100 + 5 * np.sin(2 * np.pi * np.arange(n) / 20)
+        highs = closes + 0.5
+        lows = closes - 0.5
+        df = pd.DataFrame({
+            'High': highs, 'Low': lows, 'Close': closes,
+            'Volume': np.full(n, 1000.0),
+        })
+        sym = luxalgo_sr(df, left_bars=5, right_bars=5)
+        asym = luxalgo_sr(df, left_bars=5, right_bars=15)
+        assert len(asym['pivot_highs']) <= len(sym['pivot_highs'])
+
+    def test_break_with_volume_oscillator(self):
+        """構造明確的 pivot + break 場景：
+        一個 pivot high 形成後價格下跌再上漲突破，量在突破前夕增加.
+        """
+        import numpy as np
+        import pandas as pd
+        np.random.seed(123)
+        n = 80
+        closes = np.concatenate([
+            np.linspace(100, 110, 15) + np.random.normal(0, 0.3, 15),
+            np.linspace(110, 95, 20) + np.random.normal(0, 0.3, 20),
+            np.linspace(95, 115, 25) + np.random.normal(0, 0.3, 25),
+            np.linspace(115, 108, 20) + np.random.normal(0, 0.3, 20),
+        ])
+        highs = closes + np.random.uniform(0.2, 0.5, n)
+        lows = closes - np.random.uniform(0.2, 0.5, n)
+        volume = np.full(n, 1000.0)
+        # 量從 idx 50 開始增加（在 break 即將發生時，讓 osc 上升）
+        volume[50:60] *= 3.0
+        df = pd.DataFrame({
+            'High': highs, 'Low': lows, 'Close': closes, 'Volume': volume,
+        })
+        # threshold=1.0 → 任何 EMA5 > EMA10 都算量增（鬆綁，避免合成資料 timing 卡邊界）
+        res = luxalgo_sr(df, left_bars=3, right_bars=3, volume_threshold=1.0)
+        # 應該偵測到 pivot
+        assert len(res['pivot_highs']) >= 1
+        assert isinstance(res['breaks_up'], list)
+        assert isinstance(res['breaks_down'], list)
+        # 量增配合上漲突破，預期至少 1 次向上突破
+        assert len(res['breaks_up']) > 0, (
+            f"expected >0 breaks_up; pivots={res['pivot_highs']}, "
+            f"current_r={res['current_r']}")
+
+    def test_persistent_r_s_updates(self):
+        """新 pivot 形成時 current_r/s 應該更新到最新值。"""
+        import numpy as np
+        import pandas as pd
+        n = 60
+        # 兩個 pivot high：idx 10 高度 105，idx 40 高度 115
+        closes = np.full(n, 100.0)
+        highs = closes + 0.5
+        lows = closes - 0.5
+        highs[10] = 105
+        highs[40] = 115
+        lows[25] = 92
+        lows[50] = 88
+        df = pd.DataFrame({
+            'High': highs, 'Low': lows, 'Close': closes,
+            'Volume': np.full(n, 1000.0),
+        })
+        res = luxalgo_sr(df, left_bars=3, right_bars=3, volume_threshold=999)
+        # current_r 應是「最後一個 confirmed pivot high」= idx 40 高度 115
+        assert res['current_r'] == 115
+        assert res['current_r_idx'] == 40
+        # current_s 應是「最後一個」= idx 50 高度 88
+        assert res['current_s'] == 88
+        assert res['current_s_idx'] == 50
 
 
 class TestDetectSRZonesIntegration:

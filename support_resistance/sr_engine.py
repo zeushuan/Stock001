@@ -43,45 +43,180 @@ def latest_pivot_levels(
     current_price: float,
     swing_window: int = 5,
 ) -> dict:
-    """LuxAlgo「Support and Resistance Levels with Breaks」風格：
-    最近一個 confirmed pivot high 在現價之上 = 壓力；
-    最近一個 confirmed pivot low 在現價之下  = 支撐。
+    """簡化版 LuxAlgo 風格（已被 luxalgo_sr 取代，保留向後相容）。
 
-    與我們的 detect_sr_zones 並存：
-      - detect_sr_zones: 多源 confluence 帶 (給 T3 context 用)
-      - latest_pivot_levels: 給 chart / detail card 「乾淨」單線顯示用
+    回傳最近一個在現價方向的 pivot high/low。
 
     Args:
-        df: OHLCV DataFrame（High/Low/Close 必有）
+        df: OHLCV
         current_price: 現在價
-        swing_window: 左右視窗。LuxAlgo 原作預設 15 抓的是「年度級」主要 pivot;
-            日線交易實務通常 5 即可（recent swing），15 給 weekly 用
+        swing_window: 左右視窗
 
     Returns:
-        {
-            'resistance':     float | None  最近 pivot high 在現價之上
-            'resistance_idx': int   | None  該 pivot 的 bar 索引（畫線起點）
-            'support':        float | None  最近 pivot low  在現價之下
-            'support_idx':    int   | None
-        }
+        {resistance, resistance_idx, support, support_idx}
     """
     out = {'resistance': None, 'resistance_idx': None,
            'support': None, 'support_idx': None}
     if df is None or len(df) < 2 * swing_window + 1 or current_price <= 0:
         return out
     highs, lows = find_pivots(df, swing_window=swing_window)
-    # 由後往前找，第一個在現價之上的 pivot high
     for p in reversed(highs):
         if p.price > current_price:
             out['resistance'] = float(p.price)
             out['resistance_idx'] = int(p.idx)
             break
-    # 第一個在現價之下的 pivot low
     for p in reversed(lows):
         if p.price < current_price:
             out['support'] = float(p.price)
             out['support_idx'] = int(p.idx)
             break
+    return out
+
+
+def luxalgo_sr(
+    df: pd.DataFrame,
+    left_bars: int = 15,
+    right_bars: int = 15,
+    volume_threshold: float = 20.0,
+) -> dict:
+    """完整版 LuxAlgo「Support and Resistance Levels with Breaks」實作。
+
+    對應 Pine Script 演算法:
+        ph = ta.pivothigh(leftBars, rightBars)
+        pl = ta.pivotlow(leftBars, rightBars)
+        short = ta.ema(volume, 5)
+        long  = ta.ema(volume, 10)
+        osc = 100 * (short - long) / long
+        var float r = na; var float s = na
+        if not na(ph): r := ph
+        if not na(pl): s := pl
+        breakBull = ta.crossover(close, r)   // (+ vol confirm)
+        breakBear = ta.crossunder(close, s)
+
+    Args:
+        df: OHLCV (High, Low, Close, Volume；index 任意)
+        left_bars:        pivot 左視窗（LuxAlgo 預設 15）
+        right_bars:       pivot 右視窗（LuxAlgo 預設 15）
+        volume_threshold: volume oscillator 突破門檻 %（LuxAlgo 預設 20）
+
+    Returns:
+        {
+            'pivot_highs':   [(idx, price), ...]   全部偵測到的 pivot high
+            'pivot_lows':    [(idx, price), ...]
+            'current_r':     float | None          最新 pivot high 價
+            'current_r_idx': int   | None          該 pivot 的 bar idx
+            'current_s':     float | None
+            'current_s_idx': int   | None
+            'breaks_up':     [(idx, price), ...]   每次向上突破事件
+            'breaks_down':   [(idx, price), ...]
+            'left_bars':     int                   參數（給 chart 用）
+            'right_bars':    int
+        }
+
+    Notes:
+        - left/right 可以不同（如 left=10 right=20）。LuxAlgo 預設兩邊都 15。
+        - breaks 已含 volume oscillator 確認（osc > volume_threshold）。
+        - current_r/s 是「最新」pivot 的價位，會在每個新 pivot 形成時更新。
+          線在圖上會「從 pivot idx 延伸到右側」，這是 LuxAlgo 視覺特徵。
+    """
+    out = {
+        'pivot_highs': [], 'pivot_lows': [],
+        'current_r': None, 'current_r_idx': None,
+        'current_s': None, 'current_s_idx': None,
+        'breaks_up': [], 'breaks_down': [],
+        'left_bars': left_bars, 'right_bars': right_bars,
+    }
+    if df is None or len(df) < left_bars + right_bars + 5:
+        return out
+
+    n = len(df)
+    high = df['High'].astype(float).values
+    low  = df['Low'].astype(float).values
+    close = df['Close'].astype(float).values
+    volume = (df['Volume'].astype(float).values
+              if 'Volume' in df.columns else np.zeros(n))
+
+    # ── 1. 非對稱 pivot 偵測 ─────────────────────────────────────
+    # LuxAlgo: ta.pivothigh(left, right) 在 i 確認 high 為 pivot 若
+    #   i 的 high > 左邊 left 根 high 且 > 右邊 right 根 high
+    # 該 pivot 在 bar (i + right) 「確認」（因為要看到右邊 right 根才知道）
+    pivot_highs: list[tuple[int, float]] = []
+    pivot_lows:  list[tuple[int, float]] = []
+    for i in range(left_bars, n - right_bars):
+        h_i = high[i]
+        l_i = low[i]
+        left_h_max = high[i - left_bars:i].max()
+        right_h_max = high[i + 1:i + right_bars + 1].max()
+        if h_i > left_h_max and h_i > right_h_max:
+            pivot_highs.append((i, float(h_i)))
+
+        left_l_min = low[i - left_bars:i].min()
+        right_l_min = low[i + 1:i + right_bars + 1].min()
+        if l_i < left_l_min and l_i < right_l_min:
+            pivot_lows.append((i, float(l_i)))
+
+    out['pivot_highs'] = pivot_highs
+    out['pivot_lows']  = pivot_lows
+
+    # ── 2. Volume oscillator（5/10 EMA）─────────────────────────
+    # osc = 100 * (EMA5 - EMA10) / EMA10
+    def _ema(arr: np.ndarray, span: int) -> np.ndarray:
+        alpha = 2.0 / (span + 1)
+        out_arr = np.empty(len(arr))
+        out_arr[0] = arr[0]
+        for k in range(1, len(arr)):
+            out_arr[k] = alpha * arr[k] + (1 - alpha) * out_arr[k - 1]
+        return out_arr
+
+    if volume.sum() > 0:
+        ema5  = _ema(volume, 5)
+        ema10 = _ema(volume, 10)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            osc = 100 * (ema5 - ema10) / np.where(ema10 == 0, 1, ema10)
+    else:
+        osc = np.zeros(n)
+
+    # ── 3. 持續追蹤 current R / S（var float r/s 模擬）+ break 偵測 ─
+    # 走訪每根 bar i，在 i + right_bars 「確認」當下的 pivot
+    cur_r: float | None = None
+    cur_r_idx: int | None = None
+    cur_s: float | None = None
+    cur_s_idx: int | None = None
+    # 建 idx→pivot 對照（用 confirm 時點 i + right_bars）
+    ph_confirm = {idx + right_bars: price for idx, price in pivot_highs}
+    pl_confirm = {idx + right_bars: price for idx, price in pivot_lows}
+
+    breaks_up:   list[tuple[int, float]] = []
+    breaks_down: list[tuple[int, float]] = []
+
+    for i in range(n):
+        # 更新 pivot（在 confirm 時點）
+        if i in ph_confirm:
+            cur_r = ph_confirm[i]
+            # 找回原 pivot bar idx
+            cur_r_idx = i - right_bars
+        if i in pl_confirm:
+            cur_s = pl_confirm[i]
+            cur_s_idx = i - right_bars
+
+        # 突破判定（需有前一根 close，且 vol osc > threshold）
+        if i >= 1 and cur_r is not None:
+            prev_c = close[i - 1]
+            curr_c = close[i]
+            if prev_c <= cur_r < curr_c and osc[i] > volume_threshold:
+                breaks_up.append((i, float(curr_c)))
+        if i >= 1 and cur_s is not None:
+            prev_c = close[i - 1]
+            curr_c = close[i]
+            if prev_c >= cur_s > curr_c and osc[i] > volume_threshold:
+                breaks_down.append((i, float(curr_c)))
+
+    out['current_r'] = cur_r
+    out['current_r_idx'] = cur_r_idx
+    out['current_s'] = cur_s
+    out['current_s_idx'] = cur_s_idx
+    out['breaks_up'] = breaks_up
+    out['breaks_down'] = breaks_down
     return out
 
 
