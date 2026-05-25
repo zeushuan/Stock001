@@ -1239,65 +1239,13 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
             idx = -(n+1)
             return float(s.iloc[idx]) if len(s) >= abs(idx) and pd.notna(s.iloc[idx]) else None
 
-        # 🆕 T3 信心度：5 個指標加總（每命中 1 分）
-        def _t3_confidence(close_now, ema5_now, ema20_now,
-                           ema5_5d_ago, ema20_5d_ago):
-            score = 0
-            hits = []
-            try:
-                # C1: close > EMA20
-                if close_now is not None and ema20_now is not None and close_now > ema20_now:
-                    score += 1; hits.append('close>EMA20')
-                # C3: EMA20 5d 斜率為正
-                if ema20_now is not None and ema20_5d_ago is not None and ema20_now > ema20_5d_ago:
-                    score += 1; hits.append('EMA20上升')
-                # E5: EMA5 5d 斜率為正
-                e5_up = (ema5_now is not None and ema5_5d_ago is not None and ema5_now > ema5_5d_ago)
-                if e5_up:
-                    score += 1; hits.append('EMA5上升')
-                # E5>E20: 多頭排列
-                if ema5_now is not None and ema20_now is not None and ema5_now > ema20_now:
-                    score += 1; hits.append('EMA5>EMA20')
-                # 雙均線都升
-                e20_up = (ema20_now is not None and ema20_5d_ago is not None
-                          and ema20_now > ema20_5d_ago)
-                if e5_up and e20_up:
-                    score += 1; hits.append('雙均線都升')
-            except Exception as exc:
-                log.debug("[fetch_indicators/EMA-up score] %s", exc)
-            return score, hits
-
-        # 🆕 T3 拉回天數：RSI 連續低於 50 的天數
-        def _t3_pullback_days(rsi_series):
-            try:
-                arr = rsi_series.dropna().values
-                if len(arr) == 0 or arr[-1] >= 50: return 0
-                # 倒數，看連續 < 50 多少天
-                cnt = 0
-                for v in reversed(arr):
-                    if v < 50: cnt += 1
-                    else: break
-                return cnt if cnt > 0 else 0
-            except Exception as exc:
-                log.debug("[fetch_indicators/_t3_pullback_days] %s", exc)
-                return 0
-
-        # 🆕 T4 反彈天數：RSI < 35 且連續上升的天數（v9.41 對齊回測值）
-        def _t4_rising_days(rsi_series):
-            try:
-                arr = rsi_series.dropna().values
-                if len(arr) < 3 or arr[-1] >= 32: return 0
-                # 從最後一天往前數連續上升
-                cnt = 1  # 包含當天
-                for i in range(len(arr) - 1, 0, -1):
-                    if arr[i] > arr[i-1] and arr[i] < 35:    # v9.41: 32→35 對齊回測
-                        cnt += 1
-                    else:
-                        break
-                return cnt
-            except Exception as exc:
-                log.debug("[fetch_indicators/_t4_rising_days] %s", exc)
-                return 0
+        # 🆕 v9.51 (SMS P2)：T3 / T4 計算邏輯抽到 t3_scoring 模組，
+        # 此處保留 wrapper 給本 function 既有呼叫端使用（行為一致）
+        from t3_scoring import (
+            compute_t3_confidence as _t3_confidence,
+            compute_t3_pullback_days as _t3_pullback_days,
+            compute_t4_rising_days as _t4_rising_days,
+        )
 
         close_val = last(c)
         prev_close_val = prev(c)
