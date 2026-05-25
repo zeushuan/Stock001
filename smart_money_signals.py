@@ -160,20 +160,36 @@ def institutional_score(
     bearish_matches = [m for m in matches
                        if str(m['status']).upper() in ('CLOSED', 'DECREASED')]
 
-    # ── 子項 1：信念度（取 bullish 中最大 portfolio_pct）──
+    # ── 子項 1：信念度（v9.51.B 雙軌）─────────────────────
+    # 規格 §3.4 原本只看 portfolio %，但 BlackRock/STT 等巨型分散基金
+    # 任何個股都 < 1%，導致小型股「信念度」永遠卡 2 分。改雙軌取 max:
+    #   abs   : 該股佔該 fund 該季 holdings 比例 (集中型 fund 才會高)
+    #   chg   : ShareChangePct (任何 fund 大幅加碼都算強訊號)
+    # 例：BRK-A AAPL 9.5% → abs=10，但 BlackRock 對小型股新建倉 +200% → chg=15
     max_pct = max((m['portfolio_pct'] for m in bullish_matches), default=0)
-    if max_pct >= 10:
-        s_belief = 15
-    elif max_pct >= 5:
-        s_belief = 10
-    elif max_pct >= 2:
-        s_belief = 5
-    elif max_pct > 0:
-        s_belief = 2
-    else:
-        s_belief = 0
-    if max_pct > 0:
-        reasons.append(f'信念度: 最高 portfolio% = {max_pct:.2f}%')
+    max_chg = max((m['share_change_pct'] for m in bullish_matches), default=0)
+
+    def _belief_from_abs(p):
+        if p >= 10: return 15
+        if p >= 5:  return 10
+        if p >= 2:  return 5
+        if p > 0:   return 2
+        return 0
+
+    def _belief_from_chg(p):
+        if p >= 100: return 15   # 新建倉 / 翻倍以上 = 強烈重押
+        if p >= 50:  return 12
+        if p >= 25:  return 8
+        if p >= 10:  return 5
+        if p > 0:    return 2
+        return 0
+
+    s_belief = max(_belief_from_abs(max_pct), _belief_from_chg(max_chg))
+    if max_pct > 0 or max_chg > 0:
+        reasons.append(
+            f'信念度: 最高 portfolio%={max_pct:.2f}% ｜ '
+            f'最大 Δshares={max_chg:+.1f}%'
+        )
 
     # ── 子項 2：共識度（bullish 不同基金數）──
     distinct_bullish = len({m['fund'] for m in bullish_matches})
@@ -448,16 +464,24 @@ def insider_score(
 
 # ── 行動分級（規格 §6.2）─────────────────────────────────────
 def action_level(sms: float) -> dict:
-    """SMS 0-100 → 行動分級 + 表情符號 + 建議。"""
-    if sms >= 75:
+    """SMS 0-100 → 行動分級 + 表情符號 + 建議。
+
+    v9.51.B 重新校準（規格原 ≥75 在實務難達成 — 巨型分散基金信念度
+    天花板限制 + 內部人 P 罕見）。新門檻基於真實資料分布:
+      ≥55  🟢 強烈關注 = 機構共識 + 內部人買 + 技術配合
+      ≥40  🟡 觀察候選 = 三項中至少兩項成立
+      ≥25  ⚪ 關注候選 = 至少有訊號（如機構或內部人單邊）
+      < 25 🔴 迴避     = 無實質訊號 / 紅旗
+    """
+    if sms >= 55:
         return {'level': 'strong', 'icon': '🟢',
                 'label': '強烈關注', 'action': '優先納入加碼候選'}
-    if sms >= 55:
+    if sms >= 40:
         return {'level': 'watch', 'icon': '🟡',
                 'label': '觀察候選', 'action': '訊號成立但時機未滿，列入觀察名單'}
-    if sms >= 35:
-        return {'level': 'neutral', 'icon': '⚪',
-                'label': '中性', 'action': '資訊不足或訊號分歧，持續追蹤'}
+    if sms >= 25:
+        return {'level': 'mild', 'icon': '⚪',
+                'label': '關注候選', 'action': '部分訊號成立，可加入長期觀察清單'}
     return {'level': 'avoid', 'icon': '🔴',
             'label': '迴避/警戒', 'action': '派發階段、紅旗或無實質買入'}
 

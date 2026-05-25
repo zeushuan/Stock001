@@ -165,22 +165,27 @@ class TestInsiderScore:
 
 
 class TestActionLevel:
-    def test_strong_at_75(self):
-        a = action_level(80)
-        assert a['level'] == 'strong'
-        assert a['icon'] == '🟢'
+    """v9.51.B 新門檻：≥55 strong / ≥40 watch / ≥25 mild / <25 avoid"""
 
-    def test_watch_55(self):
-        a = action_level(60)
-        assert a['level'] == 'watch'
+    def test_strong_at_55(self):
+        assert action_level(60)['level'] == 'strong'
+        assert action_level(55)['level'] == 'strong'
+        assert action_level(80)['level'] == 'strong'
 
-    def test_neutral_35(self):
-        a = action_level(40)
-        assert a['level'] == 'neutral'
+    def test_watch_40_to_54(self):
+        assert action_level(40)['level'] == 'watch'
+        assert action_level(45)['level'] == 'watch'
+        assert action_level(54)['level'] == 'watch'
 
-    def test_avoid_below_35(self):
-        a = action_level(20)
-        assert a['level'] == 'avoid'
+    def test_mild_25_to_39(self):
+        assert action_level(25)['level'] == 'mild'
+        assert action_level(35)['level'] == 'mild'
+        assert action_level(39)['level'] == 'mild'
+
+    def test_avoid_below_25(self):
+        assert action_level(0)['level'] == 'avoid'
+        assert action_level(20)['level'] == 'avoid'
+        assert action_level(24)['level'] == 'avoid'
 
 
 class TestComputeSmsIntegration:
