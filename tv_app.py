@@ -229,6 +229,31 @@ import thresholds
 # 開發期 logging.basicConfig(level=logging.DEBUG) 即可看到所有被吞的錯
 
 
+# 🆕 v9.52 (SMS Group C)：聰明錢評分 — on-demand 快取版
+# 首次計算約 10-20s（要打 SEC 多個 endpoint）；快取後即時
+@st.cache_data(ttl=7 * 86400, show_spinner=False)
+def _compute_sms_cached(ticker: str, close: float | None = None,
+                        rsi: float | None = None, adx: float | None = None,
+                        sma20: float | None = None, sma50: float | None = None,
+                        sma200: float | None = None,
+                        ema5: float | None = None, ema20: float | None = None,
+                        ema5_5d_ago: float | None = None,
+                        ema20_5d_ago: float | None = None) -> dict | None:
+    """SMS 計算 + 7 天快取。出錯回 None 不爆。"""
+    try:
+        from smart_money_signals import compute_sms
+        d_ind = {
+            'close': close, 'rsi': rsi, 'adx': adx,
+            'sma20': sma20, 'sma50': sma50, 'sma200': sma200,
+            'ema5': ema5, 'ema20': ema20,
+            'ema5_5d_ago': ema5_5d_ago, 'ema20_5d_ago': ema20_5d_ago,
+        } if close else None
+        return compute_sms(ticker, d_indicators=d_ind)
+    except Exception as exc:
+        log.debug("[_compute_sms_cached/%s] %s", ticker, exc)
+        return None
+
+
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
     """tv_app 版 render_detail wrapper — 把 get_operation_advice callback
     注入 detail_card_render.render_detail。
@@ -6655,6 +6680,149 @@ for item in results:
                     if _fig is not None:
                         st.plotly_chart(_fig, use_container_width=True,
                                           key=f'_tvapp_zz_{ticker}')
+
+                    # 🆕 v9.52 (SMS Group C)：聰明錢 SMS panel — 僅美股、Expander 收摺
+                    # 規格《Smart Money》§6 整合視圖；首次點開 ~10-20s，之後快取
+                    if d.get('is_us'):
+                        with st.expander(
+                                '💰 聰明錢 SMS (13F + Form 4) — 點開計算',
+                                expanded=False):
+                            _sms = _compute_sms_cached(
+                                ticker,
+                                close=d.get('close'),
+                                rsi=d.get('rsi'),
+                                adx=d.get('adx'),
+                                sma20=d.get('sma20'),
+                                sma50=d.get('sma50'),
+                                sma200=d.get('sma200'),
+                                ema5=d.get('ema5'),
+                                ema20=d.get('ema20'),
+                                ema5_5d_ago=d.get('ema5_5d_ago'),
+                                ema20_5d_ago=d.get('ema20_5d_ago'),
+                            )
+                            if _sms is None:
+                                st.markdown(
+                                    '<div style="color:#7a8899;font-size:.78rem">'
+                                    'SMS 計算失敗（網路 / SEC API 問題）'
+                                    '</div>', unsafe_allow_html=True)
+                            else:
+                                _act = _sms.get('action', {})
+                                _inst = _sms.get('institutional', {})
+                                _ins  = _sms.get('insider', {})
+                                _tech = _sms.get('technical') or {}
+                                _icon = _act.get('icon', '⚪')
+                                _label = _act.get('label', '?')
+                                _sms_color = (
+                                    '#3dbb6a' if _sms['sms'] >= 75 else
+                                    '#e8a020' if _sms['sms'] >= 55 else
+                                    '#7a8899' if _sms['sms'] >= 35 else
+                                    '#ff5555'
+                                )
+                                # 主分數
+                                st.markdown(
+                                    f'<div style="background:#0a1422;border:1px solid {_sms_color}55;'
+                                    f'border-radius:6px;padding:10px 14px;margin-bottom:8px">'
+                                    f'<div style="font-size:1.4rem;font-weight:700;'
+                                    f'color:{_sms_color}">{_icon} SMS {_sms["sms"]}/100 ｜ {_label}</div>'
+                                    f'<div style="color:#7a8899;font-size:.75rem;margin-top:2px">'
+                                    f'{_act.get("action","")}'
+                                    f'</div>'
+                                    f'<div style="color:#9ab0c5;font-size:.72rem;margin-top:6px">'
+                                    f'計算: ({_inst.get("score",0)} 機構 + '
+                                    f'{_ins.get("score",0)} 內部人) × '
+                                    f'{_sms.get("multiplier",0.7):.1f} 技術 = '
+                                    f'{_sms.get("fundamental",0)} × '
+                                    f'{_sms.get("multiplier",0.7):.1f} = {_sms["sms"]}'
+                                    f'</div></div>',
+                                    unsafe_allow_html=True)
+                                # 子分數三欄
+                                _c1, _c2, _c3 = st.columns(3)
+                                with _c1:
+                                    st.markdown(
+                                        f'<div style="background:#0d1830;border:1px solid #1a2f48;'
+                                        f'border-radius:6px;padding:8px 10px;font-size:.74rem">'
+                                        f'<b style="color:#5a8ab0">🏛 機構 {_inst.get("score",0)}/50</b><br>'
+                                        f'<span style="color:#7a8899">追蹤 {_inst.get("tracked",0)} 家</span><br>'
+                                        f'信念 {_inst.get("sub_scores",{}).get("belief",0)}/15 ｜ '
+                                        f'共識 {_inst.get("sub_scores",{}).get("consensus",0)}/15<br>'
+                                        f'方向 {_inst.get("sub_scores",{}).get("direction",0)}/10 ｜ '
+                                        f'成本 {_inst.get("sub_scores",{}).get("cost",0)}/10<br>'
+                                        f'紅旗 {_inst.get("sub_scores",{}).get("red_flag",0)}'
+                                        f'</div>',
+                                        unsafe_allow_html=True)
+                                with _c2:
+                                    cluster_size = _ins.get("cluster_size", 0)
+                                    has_cfo = _ins.get("has_cfo", False)
+                                    cs = _ins.get("cluster_sells", 0)
+                                    _cfo_mark = ' 🎯CFO' if has_cfo else ''
+                                    st.markdown(
+                                        f'<div style="background:#0d1830;border:1px solid #1a2f48;'
+                                        f'border-radius:6px;padding:8px 10px;font-size:.74rem">'
+                                        f'<b style="color:#74e4a0">👔 內部人 {_ins.get("score",0)}/50</b>'
+                                        f'<span style="color:#ffd060">{_cfo_mark}</span><br>'
+                                        f'<span style="color:#7a8899">cluster={cluster_size} 人 ｜ '
+                                        f'sells={cs}</span><br>'
+                                        f'金額 {_ins.get("sub_scores",{}).get("amount",0)}/15 ｜ '
+                                        f'集群 {_ins.get("sub_scores",{}).get("cluster",0)}/20<br>'
+                                        f'職位 {_ins.get("sub_scores",{}).get("position",0)}/15<br>'
+                                        f'紅旗 {_ins.get("sub_scores",{}).get("red_flag",0)}'
+                                        f'</div>',
+                                        unsafe_allow_html=True)
+                                with _c3:
+                                    _phase = _tech.get('phase', 'N/A')
+                                    _t3 = _tech.get('t3_score', 0) or 0
+                                    _phase_color = (
+                                        '#3dbb6a' if _phase == 'accumulation' else
+                                        '#ff5555' if _phase == 'distribution' else
+                                        '#7a8899'
+                                    )
+                                    _phase_zh = {
+                                        'accumulation': '吸籌',
+                                        'neutral': '盤整',
+                                        'distribution': '派發',
+                                    }.get(_phase, _phase)
+                                    st.markdown(
+                                        f'<div style="background:#0d1830;border:1px solid #1a2f48;'
+                                        f'border-radius:6px;padding:8px 10px;font-size:.74rem">'
+                                        f'<b style="color:#5dccdd">📊 技術閘門</b><br>'
+                                        f'階段：<b style="color:{_phase_color}">{_phase_zh}</b> '
+                                        f'(×{_tech.get("multiplier",0.7):.1f})<br>'
+                                        f'T3 信心：{_t3}/5<br>'
+                                        f'dev_sma20: '
+                                        f'{_tech.get("dev_sma20","?")}'
+                                        + (f'{_tech["dev_sma20"]:+.1f}%' if isinstance(_tech.get("dev_sma20"), (int, float)) else '')
+                                        + f'</div>',
+                                        unsafe_allow_html=True)
+                                # 機構 matches 細表
+                                _matches = _inst.get('matches', [])
+                                if _matches:
+                                    _rows = []
+                                    for _m in _matches[:7]:
+                                        _stat_color = {
+                                            'NEW': '#3dbb6a', 'INCREASED': '#74e4a0',
+                                            'DECREASED': '#e8a020', 'CLOSED': '#ff5555',
+                                            'UNCHANGED': '#7a8899',
+                                        }.get(_m.get('status'), '#9ab0c5')
+                                        _rows.append(
+                                            f'<div style="display:flex;gap:8px;'
+                                            f'padding:2px 0;font-size:.72rem">'
+                                            f'<span style="color:{_stat_color};font-weight:700;width:80px">'
+                                            f'{_m.get("status","?")}</span>'
+                                            f'<span style="color:#c8dff0;width:60px">'
+                                            f'{_m.get("fund","?")}</span>'
+                                            f'<span style="color:#9ab0c5;width:160px">'
+                                            f'port% {_m.get("portfolio_pct",0):.2f}%</span>'
+                                            f'<span style="color:#7a8899">'
+                                            f'Δshares {_m.get("share_change_pct",0):+.1f}%</span>'
+                                            f'</div>')
+                                    st.markdown(
+                                        '<div style="margin-top:10px">'
+                                        '<div style="color:#5a8ab0;font-size:.72rem;'
+                                        'font-weight:700;letter-spacing:.05em;'
+                                        'text-transform:uppercase;margin-bottom:4px">'
+                                        '機構持倉變動明細</div>'
+                                        + ''.join(_rows) +
+                                        '</div>', unsafe_allow_html=True)
 
                     # 🆕 v9.38：波段戰法訊號 banner
                     try:
