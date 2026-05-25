@@ -5562,6 +5562,94 @@ with st.sidebar:
                 },
             )
 
+        # ── 💾 存成自選股 (規格 §7 週末工作流最後一步) ──
+        # 條件：候選池或 SMS 結果至少有一個存在
+        _has_candidates = (st.session_state.get('_sms_candidates') is not None
+                           and not st.session_state['_sms_candidates'].empty)
+        _has_sms = (_sms_results is not None and not _sms_results.empty)
+        if _has_candidates or _has_sms:
+            st.markdown('<hr style="margin:10px 0;border-color:#1a2f48">',
+                          unsafe_allow_html=True)
+            st.markdown(
+                '<div style="color:#5a8ab0;font-size:.72rem;'
+                'font-weight:700;letter-spacing:.05em;'
+                'text-transform:uppercase;margin-bottom:4px">'
+                '💾 存成自選股</div>',
+                unsafe_allow_html=True
+            )
+            _save_name = st.text_input(
+                '清單名稱', value='聰明錢候選',
+                key='_sms_save_name',
+                help='已存在的同名清單會合併（不會覆蓋）'
+            )
+            # 篩選條件
+            if _has_sms:
+                _filter_opts = {
+                    'all':    f'全部候選（{len(_sms_results)} 檔）',
+                    'mild':   f'SMS ≥ 25 關注以上（{(_sms_results["SMS"] >= 25).sum()} 檔）',
+                    'watch':  f'SMS ≥ 40 觀察以上（{(_sms_results["SMS"] >= 40).sum()} 檔）',
+                    'strong': f'SMS ≥ 55 強烈以上（{(_sms_results["SMS"] >= 55).sum()} 檔）',
+                }
+                _filter_key = st.radio(
+                    '篩選條件', options=list(_filter_opts.keys()),
+                    format_func=lambda k: _filter_opts[k],
+                    key='_sms_save_filter',
+                    horizontal=False,
+                )
+            else:
+                st.caption(
+                    f'尚未跑 SMS 批次 → 將存入全部 '
+                    f'{len(st.session_state.get("_sms_candidates", []))} 檔候選'
+                )
+                _filter_key = 'all'
+
+            _save_cols = st.columns([2, 1])
+            with _save_cols[0]:
+                _do_save = st.button(
+                    '💾 存成自選股', use_container_width=True,
+                    type='primary', key='_sms_save_btn')
+            with _save_cols[1]:
+                _replace_mode = st.checkbox(
+                    '覆蓋', value=False, key='_sms_save_replace',
+                    help='打勾 = 完全取代既有同名清單；不勾 = 合併')
+
+            if _do_save:
+                # 決定要存的 tickers
+                if _has_sms:
+                    _threshold = {
+                        'all': 0, 'mild': 25, 'watch': 40, 'strong': 55,
+                    }.get(_filter_key, 0)
+                    _to_save = _sms_results[
+                        _sms_results['SMS'] >= _threshold]['Ticker'].astype(str).tolist()
+                else:
+                    _to_save = st.session_state['_sms_candidates'][
+                        'Ticker'].astype(str).tolist()
+
+                if not _to_save:
+                    st.warning('沒有符合條件的 ticker 可存')
+                else:
+                    try:
+                        _wls_now = _load_watchlists()
+                        _name = (_save_name or '聰明錢候選').strip()
+                        if _replace_mode or _name not in _wls_now:
+                            _wls_now[_name] = '\n'.join(sorted(set(_to_save)))
+                            _msg = f'✓ 已建立/取代「{_name}」（{len(_to_save)} 檔）'
+                        else:
+                            _existing = _wls_now.get(_name, '')
+                            _existing_set = (
+                                set(s.strip() for s in _existing.split('\n')
+                                    if s.strip())
+                                if isinstance(_existing, str) else set())
+                            _merged = _existing_set | set(_to_save)
+                            _wls_now[_name] = '\n'.join(sorted(_merged))
+                            _msg = (f'➕ 已合併進「{_name}」'
+                                    f'（{len(_to_save)} 新增, 共 {len(_merged)} 檔）')
+                        _save_watchlists(_wls_now)
+                        st.session_state['_wl_pending_msg'] = (_msg, 'success')
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(f'存檔失敗：{type(exc).__name__}: {exc}')
+
     # ── 🆕 v9.47：ZigZag 圖表設定（bar 數可調） ─────────────────
     with st.expander("🎨 ZigZag 圖表設定", expanded=False):
         from intraday.settings import (
