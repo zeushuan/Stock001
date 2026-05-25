@@ -5413,6 +5413,155 @@ with st.sidebar:
     )
     st.session_state['active_strategy'] = style_info
 
+    # ── 🆕 v9.52 (SMS 掃描器)：聰明錢候選池掃描（OpenInsider + SMS）─────
+    with st.expander("💰 聰明錢掃描器（OpenInsider 集群買入）",
+                      expanded=False):
+        st.caption(
+            '從 OpenInsider 全市場抓「公開市場買入 (P)」集群，再對候選池'
+            '逐一算 SMS。第一階段「掃描候選池」< 10s；第二階段「批次算 SMS」每檔約 10-20s。'
+        )
+        _sms_scan_days = st.number_input(
+            '回看天數', min_value=7, max_value=90,
+            value=30, step=7, key='_sms_scan_days',
+            help='OpenInsider P 買入回看視窗（規格 §4 預設 30）'
+        )
+        _sms_scan_minval = st.number_input(
+            '單筆金額下限 (USD)',
+            min_value=10_000, max_value=10_000_000,
+            value=100_000, step=50_000, key='_sms_scan_minval',
+            help='過濾掉「做秀型」小額買入（規格 §4.1.2 預設 $100K）'
+        )
+        _sms_scan_mincluster = st.number_input(
+            '集群人數下限', min_value=1, max_value=10,
+            value=2, step=1, key='_sms_scan_mincluster',
+            help='ticker 至少幾位 insider 才視為集群'
+        )
+
+        _scan_cols = st.columns(2)
+        with _scan_cols[0]:
+            _scan_btn = st.button(
+                '🔍 掃描候選池', use_container_width=True,
+                type='primary', key='_sms_scan_btn')
+        with _scan_cols[1]:
+            _sms_btn = st.button(
+                '📊 批次算 SMS（慢）', use_container_width=True,
+                key='_sms_compute_btn',
+                help='對所有候選跑 compute_sms，按分數排序',
+                disabled=('_sms_candidates' not in st.session_state))
+
+        if _scan_btn:
+            try:
+                from data_sources.openinsider import (
+                    scan_cluster_buys, top_clusters_by_value)
+                with st.spinner('掃描 OpenInsider（< 10 秒）...'):
+                    _scan_df = scan_cluster_buys(
+                        days=int(_sms_scan_days),
+                        min_value=float(_sms_scan_minval),
+                        min_cluster=int(_sms_scan_mincluster),
+                    )
+                if _scan_df is None or _scan_df.empty:
+                    st.warning(
+                        f'近 {int(_sms_scan_days)} 天無符合條件的集群買入'
+                    )
+                else:
+                    _top = top_clusters_by_value(_scan_df, n=30)
+                    st.session_state['_sms_candidates'] = _top
+                    st.success(f'✓ 找到 {len(_top)} 個候選 ticker')
+            except Exception as exc:
+                st.error(f'掃描失敗：{type(exc).__name__}: {exc}')
+
+        # 顯示候選池（第一階段結果）
+        _candidates = st.session_state.get('_sms_candidates')
+        if _candidates is not None and not _candidates.empty:
+            st.markdown(
+                '<div style="color:#5a8ab0;font-size:.72rem;'
+                'font-weight:700;letter-spacing:.05em;'
+                'text-transform:uppercase;margin-top:10px">'
+                '🎯 候選池</div>',
+                unsafe_allow_html=True
+            )
+            _disp = _candidates.copy()
+            if 'TotalValue' in _disp.columns:
+                _disp['TotalValue'] = _disp['TotalValue'].apply(
+                    lambda v: f'${v:,.0f}')
+            if 'MaxValue' in _disp.columns:
+                _disp['MaxValue'] = _disp['MaxValue'].apply(
+                    lambda v: f'${v:,.0f}')
+            for col in ('FirstBuy', 'LastBuy'):
+                if col in _disp.columns:
+                    _disp[col] = pd.to_datetime(_disp[col]).dt.strftime('%m-%d')
+            _show_cols = [c for c in
+                          ['Ticker', 'CompanyName', 'ClusterSize',
+                           'TotalValue', 'MaxValue', 'LastBuy',
+                           'Insiders', 'Titles']
+                          if c in _disp.columns]
+            st.dataframe(
+                _disp[_show_cols],
+                use_container_width=True,
+                hide_index=True,
+                height=300,
+            )
+
+        # 第二階段：批次算 SMS
+        if _sms_btn and st.session_state.get('_sms_candidates') is not None:
+            _cands = st.session_state['_sms_candidates']
+            if not _cands.empty:
+                _tickers = _cands['Ticker'].astype(str).tolist()
+                _progress = st.progress(0.0, text=f'算 SMS 中 (0/{len(_tickers)})...')
+                _results = []
+                from smart_money_signals import compute_sms
+                for i, _tk in enumerate(_tickers):
+                    try:
+                        _r = compute_sms(_tk)  # 不傳 d_indicators → mult=0.7
+                        _ins = _r.get('institutional', {})
+                        _isd = _r.get('insider', {})
+                        _results.append({
+                            'Ticker': _tk,
+                            'SMS': _r.get('sms', 0),
+                            '機構': _ins.get('score', 0),
+                            '內部人': _isd.get('score', 0),
+                            'cluster': _isd.get('cluster_size', 0),
+                            'CFO': '✓' if _isd.get('has_cfo') else '',
+                            'sells': _isd.get('cluster_sells', 0),
+                            '行動': _r.get('action', {}).get('label', ''),
+                        })
+                    except Exception as exc:
+                        log.debug("[scan/sms/%s] %s", _tk, exc)
+                        _results.append({
+                            'Ticker': _tk, 'SMS': -1,
+                            '機構': 0, '內部人': 0, 'cluster': 0,
+                            'CFO': '', 'sells': 0, '行動': 'ERROR',
+                        })
+                    _progress.progress(
+                        (i + 1) / len(_tickers),
+                        text=f'算 SMS 中 ({i+1}/{len(_tickers)}) {_tk}...')
+                _progress.empty()
+                _sms_df = pd.DataFrame(_results).sort_values(
+                    'SMS', ascending=False).reset_index(drop=True)
+                st.session_state['_sms_scan_results'] = _sms_df
+                st.success(f'✓ 完成 {len(_results)} 檔 SMS 計算')
+
+        # 顯示 SMS 結果（第二階段）
+        _sms_results = st.session_state.get('_sms_scan_results')
+        if _sms_results is not None and not _sms_results.empty:
+            st.markdown(
+                '<div style="color:#5a8ab0;font-size:.72rem;'
+                'font-weight:700;letter-spacing:.05em;'
+                'text-transform:uppercase;margin-top:10px">'
+                '📊 SMS 結果（按分數排序）</div>',
+                unsafe_allow_html=True
+            )
+            st.dataframe(
+                _sms_results,
+                use_container_width=True,
+                hide_index=True,
+                height=350,
+                column_config={
+                    'SMS': st.column_config.ProgressColumn(
+                        'SMS', min_value=0, max_value=100, format='%d'),
+                },
+            )
+
     # ── 🆕 v9.47：ZigZag 圖表設定（bar 數可調） ─────────────────
     with st.expander("🎨 ZigZag 圖表設定", expanded=False):
         from intraday.settings import (
