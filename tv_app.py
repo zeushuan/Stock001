@@ -6815,6 +6815,9 @@ for item in results:
                                         'neutral': '盤整',
                                         'distribution': '派發',
                                     }.get(_phase, _phase)
+                                    _dev = _tech.get('dev_sma20')
+                                    _dev_str = (f'{_dev:+.1f}%'
+                                                 if isinstance(_dev, (int, float)) else '?')
                                     st.markdown(
                                         f'<div style="background:#0d1830;border:1px solid #1a2f48;'
                                         f'border-radius:6px;padding:8px 10px;font-size:.74rem">'
@@ -6822,21 +6825,30 @@ for item in results:
                                         f'階段：<b style="color:{_phase_color}">{_phase_zh}</b> '
                                         f'(×{_tech.get("multiplier",0.7):.1f})<br>'
                                         f'T3 信心：{_t3}/5<br>'
-                                        f'dev_sma20: '
-                                        f'{_tech.get("dev_sma20","?")}'
-                                        + (f'{_tech["dev_sma20"]:+.1f}%' if isinstance(_tech.get("dev_sma20"), (int, float)) else '')
-                                        + f'</div>',
+                                        f'dev_sma20: {_dev_str}'
+                                        f'</div>',
                                         unsafe_allow_html=True)
                                 # 機構 matches 細表
                                 _matches = _inst.get('matches', [])
                                 if _matches:
                                     _rows = []
+                                    import math as _math
                                     for _m in _matches[:7]:
                                         _stat_color = {
                                             'NEW': '#3dbb6a', 'INCREASED': '#74e4a0',
                                             'DECREASED': '#e8a020', 'CLOSED': '#ff5555',
                                             'UNCHANGED': '#7a8899',
                                         }.get(_m.get('status'), '#9ab0c5')
+                                        # CLOSED 部位 portfolio_pct / share_change_pct 常為 nan
+                                        # → 統一顯示 '—' 而非 'nan%'
+                                        _pct = _m.get('portfolio_pct', 0)
+                                        _pct_str = (
+                                            '—' if (_pct is None or _math.isnan(_pct))
+                                            else f'{_pct:.2f}%')
+                                        _chg = _m.get('share_change_pct', 0)
+                                        _chg_str = (
+                                            '—' if (_chg is None or _math.isnan(_chg))
+                                            else f'{_chg:+.1f}%')
                                         _rows.append(
                                             f'<div style="display:flex;gap:8px;'
                                             f'padding:2px 0;font-size:.72rem">'
@@ -6845,9 +6857,9 @@ for item in results:
                                             f'<span style="color:#c8dff0;width:60px">'
                                             f'{_m.get("fund","?")}</span>'
                                             f'<span style="color:#9ab0c5;width:160px">'
-                                            f'port% {_m.get("portfolio_pct",0):.2f}%</span>'
+                                            f'port% {_pct_str}</span>'
                                             f'<span style="color:#7a8899">'
-                                            f'Δshares {_m.get("share_change_pct",0):+.1f}%</span>'
+                                            f'Δshares {_chg_str}</span>'
                                             f'</div>')
                                     st.markdown(
                                         '<div style="margin-top:10px">'
