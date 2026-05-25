@@ -232,26 +232,49 @@ import thresholds
 # 🆕 v9.52 (SMS Group C)：聰明錢評分 — on-demand 快取版
 # 首次計算約 10-20s（要打 SEC 多個 endpoint）；快取後即時
 @st.cache_data(ttl=7 * 86400, show_spinner=False)
-def _compute_sms_cached(ticker: str, close: float | None = None,
-                        rsi: float | None = None, adx: float | None = None,
-                        sma20: float | None = None, sma50: float | None = None,
-                        sma200: float | None = None,
-                        ema5: float | None = None, ema20: float | None = None,
-                        ema5_5d_ago: float | None = None,
-                        ema20_5d_ago: float | None = None) -> dict | None:
-    """SMS 計算 + 7 天快取。出錯回 None 不爆。"""
+def _compute_sms_cached(ticker, close=None, rsi=None, adx=None,
+                        sma20=None, sma50=None, sma200=None,
+                        ema5=None, ema20=None,
+                        ema5_5d_ago=None, ema20_5d_ago=None):
+    """SMS 計算 + 7 天快取。
+
+    出錯時回傳 {'_error': str, '_traceback': str} 給 UI 顯示，不爆。
+    成功時回傳完整 SMS dict。
+    """
     try:
+        # 標準化所有數值為 native float (避免 numpy/pandas 物件破壞快取鍵)
+        def _safe_float(v):
+            if v is None:
+                return None
+            try:
+                fv = float(v)
+                # NaN 視為 None
+                return fv if fv == fv else None  # NaN != NaN
+            except (TypeError, ValueError):
+                return None
+        d_ind = None
+        c = _safe_float(close)
+        if c:
+            d_ind = {
+                'close': c,
+                'rsi':   _safe_float(rsi),
+                'adx':   _safe_float(adx),
+                'sma20': _safe_float(sma20),
+                'sma50': _safe_float(sma50),
+                'sma200': _safe_float(sma200),
+                'ema5':  _safe_float(ema5),
+                'ema20': _safe_float(ema20),
+                'ema5_5d_ago':  _safe_float(ema5_5d_ago),
+                'ema20_5d_ago': _safe_float(ema20_5d_ago),
+            }
         from smart_money_signals import compute_sms
-        d_ind = {
-            'close': close, 'rsi': rsi, 'adx': adx,
-            'sma20': sma20, 'sma50': sma50, 'sma200': sma200,
-            'ema5': ema5, 'ema20': ema20,
-            'ema5_5d_ago': ema5_5d_ago, 'ema20_5d_ago': ema20_5d_ago,
-        } if close else None
-        return compute_sms(ticker, d_indicators=d_ind)
+        return compute_sms(str(ticker), d_indicators=d_ind)
     except Exception as exc:
-        log.debug("[_compute_sms_cached/%s] %s", ticker, exc)
-        return None
+        import traceback as _tb
+        err = f'{type(exc).__name__}: {exc}'
+        tb = _tb.format_exc()
+        log.debug("[_compute_sms_cached/%s] %s\n%s", ticker, err, tb)
+        return {'_error': err, '_traceback': tb}
 
 
 def render_detail(ticker, d, groups, group_summs, tsumm, cap, market: str = "") -> str:
@@ -6700,11 +6723,22 @@ for item in results:
                                 ema5_5d_ago=d.get('ema5_5d_ago'),
                                 ema20_5d_ago=d.get('ema20_5d_ago'),
                             )
-                            if _sms is None:
+                            if _sms is None or _sms.get('_error'):
+                                _err_msg = (_sms.get('_error') if _sms
+                                             else '(unknown error)')
+                                _tb_msg = (_sms.get('_traceback', '') if _sms
+                                            else '')
                                 st.markdown(
-                                    '<div style="color:#7a8899;font-size:.78rem">'
-                                    'SMS 計算失敗（網路 / SEC API 問題）'
-                                    '</div>', unsafe_allow_html=True)
+                                    f'<div style="color:#ff7755;font-size:.78rem;'
+                                    f'background:#1a0a0a;padding:8px 12px;'
+                                    f'border-radius:6px;border:1px solid #5a2020">'
+                                    f'<b>⚠️ SMS 計算失敗</b><br>'
+                                    f'<code style="color:#ffaaaa;font-size:.72rem">'
+                                    f'{_err_msg}</code>'
+                                    f'</div>', unsafe_allow_html=True)
+                                if _tb_msg:
+                                    with st.expander('完整 traceback', expanded=False):
+                                        st.code(_tb_msg)
                             else:
                                 _act = _sms.get('action', {})
                                 _inst = _sms.get('institutional', {})
