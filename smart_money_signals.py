@@ -76,19 +76,21 @@ def institutional_score(
           - red_flag_puts: bool
           - reasons: list[str]
     """
-    from data_sources.edgar_13f import fetch_13f_compare
+    from data_sources.edgar_13f import fetch_13f_compare, fetch_13f_holdings
+    from data_sources.cache import cached_13f_compare, cached_13f_holdings
 
     funds = tracked_funds or DEFAULT_TRACKED_FUNDS
     matches: list[dict] = []
     reasons: list[str] = []
     red_flag_puts = False
+    red_flag_put_funds: list[str] = []
     target_upper = ticker.upper()
 
     for fund in funds:
         try:
             cmp = (compare_cache or {}).get(fund)
             if cmp is None:
-                cmp = fetch_13f_compare(fund)
+                cmp = cached_13f_compare(fund)
             if 'error' in cmp:
                 continue
             delta = cmp.get('delta')
@@ -122,6 +124,33 @@ def institutional_score(
                     'is_new': status == 'NEW',
                     'is_increased': status == 'INCREASED',
                 })
+
+            # 🆕 紅旗偵測：掃 13F infotable 看有沒有 PUT 在此 ticker 上
+            # （規格 §3.3：頂級基金大量買入 Puts → 對沖/做空訊號）
+            # 若 caller 提供 compare_cache（測試 / 預抓資料），跳過 Put 偵測
+            # 避免多餘網路請求
+            if compare_cache is not None:
+                continue
+            try:
+                holdings_recs = cached_13f_holdings(fund, n=1)
+                if holdings_recs:
+                    htbl = holdings_recs[0].get('holdings')
+                    if isinstance(htbl, pd.DataFrame) and 'PutCall' in htbl.columns:
+                        # 過濾此 ticker 且 PutCall=='Put'
+                        if 'Ticker' in htbl.columns:
+                            tk = htbl['Ticker'].astype(str).str.upper()
+                            mask = (tk == target_upper) & (
+                                htbl['PutCall'].astype(str).str.upper() == 'PUT')
+                        else:
+                            mask = (htbl.get('Issuer', '').astype(str).str.upper()
+                                    .str.contains(target_upper, na=False)
+                                    ) & (htbl['PutCall'].astype(str).str.upper() == 'PUT')
+                        if mask.any():
+                            put_value = float(htbl.loc[mask, 'Value'].sum())
+                            red_flag_puts = True
+                            red_flag_put_funds.append(f'{fund}(${put_value:,.0f})')
+            except Exception as exc:
+                log.debug("[institutional_score/puts/%s] %s", fund, exc)
         except Exception as exc:
             log.debug("[institutional_score/%s] %s", fund, exc)
             continue
@@ -177,20 +206,42 @@ def institutional_score(
     if n_bull + n_bear > 0:
         reasons.append(f'淨方向: {n_bull} 加 / {n_bear} 減')
 
-    # ── 子項 4：成本距離（需季度 OHLC，本 MVP 暫設 0）──
+    # ── 子項 4：成本距離（規格 §3.4） ──
+    # 用 yfinance 抓估算建倉季度的 high+low，cost ≈ (H+L)/2
+    # 現價 ≤ cost → 10；+0~10% → 7；+10~25% → 3；>+25% → 0
     s_cost = 0
+    cost_estimate = None
     if current_price is not None and bullish_matches:
-        reasons.append('成本距離: P3 暫未實作（需季度 OHLC）')
+        try:
+            cost_estimate = _estimate_avg_purchase_cost(
+                ticker, bullish_matches)
+            if cost_estimate is not None and cost_estimate > 0:
+                dev = (current_price - cost_estimate) / cost_estimate * 100
+                if dev <= 0:
+                    s_cost = 10
+                elif dev <= 10:
+                    s_cost = 7
+                elif dev <= 25:
+                    s_cost = 3
+                else:
+                    s_cost = 0
+                reasons.append(
+                    f'成本距離: 估算 ${cost_estimate:.2f} → 現價 '
+                    f'${current_price:.2f} ({dev:+.1f}%)'
+                )
+        except Exception as exc:
+            log.debug("[institutional_score/cost] %s", exc)
 
-    # ── 紅旗：Put 部位 ──
-    # 檢查 matches 內 Issuer 是否帶 Put 標示（13F infotable 有 PutCall 欄）
-    # 注意：compare 表沒帶 PutCall，紅旗 detection 需另寫——MVP 暫跳過
-    # 集體清倉（多家同步 CLOSED）也算紅旗
+    # ── 紅旗：(1) Put 部位 (2) 集體 CLOSED ──
     n_closed = sum(1 for m in matches if m['status'] == 'CLOSED')
     red_flag_penalty = 0
+    if red_flag_puts:
+        red_flag_penalty -= 10
+        reasons.append(f'🚨 紅旗: 機構買 Puts: {", ".join(red_flag_put_funds)}')
     if n_closed >= 3:
-        red_flag_penalty = -15
+        red_flag_penalty -= 10
         reasons.append(f'🚨 紅旗: {n_closed} 家集體 CLOSED')
+    red_flag_penalty = max(red_flag_penalty, -20)
 
     raw_score = s_belief + s_consensus + s_direction + s_cost + red_flag_penalty
     score = max(0, min(50, raw_score))
@@ -207,8 +258,55 @@ def institutional_score(
         'tracked': len(funds),
         'matches': matches,
         'red_flag_puts': red_flag_puts,
+        'red_flag_put_funds': red_flag_put_funds,
+        'cost_estimate': cost_estimate,
         'reasons': reasons,
     }
+
+
+# ── 成本估算 helper ────────────────────────────────────────────
+def _estimate_avg_purchase_cost(
+    ticker: str,
+    bullish_matches: list[dict],
+) -> Optional[float]:
+    """規格 §3.4 第 4 子項：估算建倉均價 ≈ 該季度 (H + L) / 2。
+
+    用 bullish_matches 第一筆的 fund 推算其當季 13F reporting_period,
+    抓 yfinance 該季度 OHLC，計算 (period_high + period_low) / 2。
+
+    若多檔機構在不同季度建倉，取最新的那筆作為估算依據。
+    """
+    if not bullish_matches:
+        return None
+    # 用第一個 bullish match 對應的 fund 抓最新一季 13F 取 reporting_period
+    fund = bullish_matches[0]['fund']
+    try:
+        from data_sources.cache import cached_13f_holdings
+        recs = cached_13f_holdings(fund, n=1)
+        if not recs:
+            return None
+        period = recs[0].get('reporting_period') or ''
+        if not period:
+            return None
+        # 用 yfinance 抓該季資料
+        import yfinance as yf
+        from datetime import datetime, timedelta
+        # period 通常是季末，例如 '2026-03-31'
+        end_dt = datetime.fromisoformat(period[:10])
+        start_dt = end_dt - timedelta(days=95)   # 抓整季
+        df = yf.Ticker(ticker).history(
+            start=start_dt.strftime('%Y-%m-%d'),
+            end=(end_dt + timedelta(days=1)).strftime('%Y-%m-%d'),
+            auto_adjust=True,
+        )
+        if df is None or df.empty:
+            return None
+        h = float(df['High'].max())
+        l = float(df['Low'].min())
+        return (h + l) / 2
+    except Exception as exc:
+        log.debug("[_estimate_avg_purchase_cost] %s", exc)
+        return None
 
 
 # ── 內部人分數 (規格 §4.3，0-50) ────────────────────────────────

@@ -82,14 +82,14 @@ class TestInstitutionalScore:
         assert res['sub_scores']['belief'] == 0
 
     def test_red_flag_cluster_closed(self):
-        """3 家集體 CLOSED → red flag -15"""
+        """3 家集體 CLOSED → red flag -10 (v9.51.A 後改值)"""
         cache = {f: self._make_compare(
             'NVDA', 'CLOSED', 1_000_000, fund_name=f)
             for f in ['BRK-A', 'BLK', 'BX']}
         res = institutional_score('NVDA',
                                    tracked_funds=['BRK-A', 'BLK', 'BX'],
                                    compare_cache=cache)
-        assert res['sub_scores']['red_flag'] == -15
+        assert res['sub_scores']['red_flag'] == -10
 
 
 class TestInsiderScore:
