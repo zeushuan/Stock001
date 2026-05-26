@@ -1720,6 +1720,14 @@ def fetch_indicators(ticker: str, market: str, end_date: str = "", _cache_ver: s
         d['adx_th'] = _th_inj.adx_entry
         d['t4_rsi'] = _th_inj.t4_rsi
 
+        # 🆕 v9.53：訊號觸發預測（T1/T3/T4 各自所需 close）
+        try:
+            from signal_predictor import predict_signal_triggers
+            d['signal_triggers'] = predict_signal_triggers(d)
+        except Exception as exc:
+            log.debug("[fetch_indicators/signal_triggers] %s", exc)
+            d['signal_triggers'] = None
+
         return d
     except Exception as e:
         log.debug("[fetch_indicators/top-level] %s", e)
@@ -2246,6 +2254,7 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
                      f'<td class="j-na">—</td><td class="j-na">—</td>'
                      f'<td class="j-na">—</td>'
                      f'<td class="j-na">—</td>'  # 🆕 v9.11：T1累計欄
+                     f'<td class="j-na">—</td>'  # 🆕 v9.53：達 T1/T3/T4 欄
                      f'<td class="j-na">— 無資料 —</td><td class="j-na">—</td>'
                      f'<td>{err_concept_html}</td></tr>')
             continue
@@ -2384,17 +2393,63 @@ def render_table(results, platform_url_tpl: str = "https://www.perplexity.ai/sea
             )
         # OK tier 不顯示徽章（保持簡潔）
 
+        # 🆕 v9.53：達 T1/T3/T4 觸發距離預測
+        _tg = d.get('signal_triggers') or {}
+
+        def _fmt_trigger(key: str, label: str) -> str:
+            info = _tg.get(key) or {}
+            status = info.get('status', 'unknown')
+            pct = info.get('target_pct')
+            tgt = info.get('target_close')
+            reason = info.get('reason', '')
+            if status == 'triggered':
+                color = '#3dbb6a'
+                txt = f'{label}<span style="color:#74e4a0">✓</span>'
+            elif status == 'past_event':
+                # 過去已觸發但不在「fresh」視窗（T1>10天）
+                color = '#5dccdd'
+                txt = f'{label}<span style="color:#5dccdd">●</span>'
+            elif status == 'not_applicable':
+                color = '#556677'
+                txt = f'{label}<span style="color:#556677">—</span>'
+            elif status == 'reachable' and pct is not None:
+                # 漲 = 紅；跌 = 綠 (T1 需要漲, T3/T4 需要跌；用色表示方向)
+                color = '#ff8a8a' if pct > 0 else '#74e4a0'
+                sign = '+' if pct > 0 else ''
+                txt = (f'{label}<span style="color:{color};font-weight:600">'
+                       f'{sign}{pct:.1f}%</span>')
+            else:
+                color = '#7a8899'
+                txt = f'{label}<span style="color:#7a8899">?</span>'
+            # tooltip 帶 reason / target_close
+            tip_parts = [reason]
+            if tgt is not None:
+                tip_parts.append(f'@ ${tgt:.2f}')
+            return (f'<div title="{(" | ".join(tip_parts))}">'
+                    f'{txt}</div>')
+
+        trigger_cell = (
+            f'<td style="font-family:\'IBM Plex Mono\',monospace;'
+            f'font-size:.7rem;text-align:left;line-height:1.4">'
+            f'{_fmt_trigger("t1", "T1 ")}'
+            f'{_fmt_trigger("t3", "T3 ")}'
+            f'{_fmt_trigger("t4", "T4 ")}'
+            f'</td>'
+        )
+
         rows += (f'<tr>'
                  f'<td class="ticker-cell">{tier_badge}{ticker_link}</td>'
                  f'<td style="color:#a8cce8;font-size:.78rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">'
                  f'<a href="{tv_url}" target="_blank" style="color:#a8cce8;text-decoration:none;">{name}</a></td>'
-                 f'{price_cell}{chg_cell}{pe_cell}{cross_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
+                 f'{price_cell}{chg_cell}{pe_cell}{cross_cell}{trigger_cell}{tot_cell}{exit_cell}{concept_cell}</tr>')
 
     return (f'<div style="background:#060c18;border-radius:12px;border:1px solid #1e3a5f;padding:4px">'
             f'<table class="res-table"><thead><tr>'
             f'<th>代號</th><th>名稱</th><th>現價</th><th>漲跌幅</th>'
             f'<th title="本益比（顏色：綠合理 / 黃合理偏高 / 橘偏高 / 紅虧損或過熱；▼=PER 60日下降=盈餘上修)">P/E</th>'
             f'<th title="T1 黃金交叉至今的累計漲跌（綠=漲 紅=跌；DC=死亡交叉至今）">T1累計</th>'
+            f'<th title="今日 close 需漲跌多少 % 才會觸發各訊號買點 (✓=已觸發, —=不適用)" '
+            f'style="min-width:100px">達 T1/T3/T4</th>'
             f'<th style="background:#060c18;min-width:140px">操作建議</th>'
             f'<th style="background:#060c18;min-width:120px">④出場獲利</th>'
             f'<th style="background:#060c18;min-width:140px">概念股</th>'
