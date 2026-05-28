@@ -4152,10 +4152,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 6.49,
+          "crossed": true,
+          "ret_pct": 4.09,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -4185,10 +4186,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 129.25,
+          "crossed": false,
+          "ret_pct": 0.2,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -4218,10 +4220,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 27.38,
+          "crossed": true,
+          "ret_pct": 2.78,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -5292,17 +5295,83 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-05-28",
+      "ticker": "TROX",
+      "name": "Tronox Holdings plc",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 8.27,
+      "ema20": 8.43,
+      "dist_pct": 1.94,
+      "adx": 24.6,
+      "rsi": 46.5,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-05-28",
+      "ticker": "TSHA",
+      "name": "Taysha Gene Therapies, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 5.89,
+      "ema20": 5.92,
+      "dist_pct": 0.39,
+      "adx": 29.2,
+      "rsi": 50.0,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-05-28 13:02:52",
-  "total_candidates": 156,
+  "last_updated": "2026-05-28 17:37:40",
+  "total_candidates": 158,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
-        "n": 28,
-        "cross_rate": 39.3,
-        "mean_ret": 0.3,
-        "win_rate": 46.4
+        "n": 29,
+        "cross_rate": 41.4,
+        "mean_ret": 0.38,
+        "win_rate": 48.3
       },
       "15d": {
         "n": 9,
@@ -5344,10 +5413,10 @@
     },
     "us_L2_medium_dc": {
       "5d": {
-        "n": 16,
-        "cross_rate": 50.0,
-        "mean_ret": 1.0,
-        "win_rate": 62.5
+        "n": 17,
+        "cross_rate": 52.9,
+        "mean_ret": 1.18,
+        "win_rate": 64.7
       },
       "15d": {
         "n": 3,
@@ -5374,9 +5443,9 @@
     },
     "us_L2_medium": {
       "5d": {
-        "n": 9,
-        "cross_rate": 100.0,
-        "mean_ret": 11.72,
+        "n": 10,
+        "cross_rate": 90.0,
+        "mean_ret": 10.57,
         "win_rate": 100.0
       },
       "15d": null,
@@ -5403,5 +5472,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-28 13:03:00"
+  "last_outcomes_update": "2026-05-28 17:37:46"
 }
