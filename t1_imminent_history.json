@@ -4050,10 +4050,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 48.95,
+          "crossed": false,
+          "ret_pct": -4.21,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -4083,10 +4084,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 270.5,
+          "crossed": true,
+          "ret_pct": 0.0,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -4116,10 +4118,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 237.0,
+          "crossed": true,
+          "ret_pct": 5.57,
+          "actual_date": "2026-05-28",
+          "checked_at": "2026-05-28"
         },
         "15d": {
           "close": null,
@@ -5190,10 +5193,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-05-28",
+      "ticker": "CARS",
+      "name": "Cars.com Inc.",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 10.06,
+      "ema20": 10.22,
+      "dist_pct": 1.58,
+      "adx": 23.6,
+      "rsi": 47.3,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-05-28",
+      "ticker": "LAC",
+      "name": "Lithium Americas Corp.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 5.03,
+      "ema20": 5.06,
+      "dist_pct": 0.66,
+      "adx": 23.4,
+      "rsi": 49.9,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-05-28",
+      "ticker": "SQM",
+      "name": "Sociedad Quimica y Minera S.A.",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 83.94,
+      "ema20": 85.28,
+      "dist_pct": 1.57,
+      "adx": 23.0,
+      "rsi": 46.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-05-28 00:40:06",
-  "total_candidates": 153,
+  "last_updated": "2026-05-28 05:52:10",
+  "total_candidates": 156,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -5282,10 +5384,10 @@
     },
     "tw_L1_strict": {
       "5d": {
-        "n": 14,
-        "cross_rate": 85.7,
-        "mean_ret": 8.96,
-        "win_rate": 85.7
+        "n": 17,
+        "cross_rate": 82.4,
+        "mean_ret": 7.46,
+        "win_rate": 76.5
       },
       "15d": null,
       "30d": null
@@ -5301,5 +5403,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-28 00:40:12"
+  "last_outcomes_update": "2026-05-28 05:52:22"
 }
