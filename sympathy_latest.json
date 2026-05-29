@@ -1,6 +1,52 @@
 {
   "date": "2026-05-29",
-  "computed_at": "2026-05-29 00:46:10",
-  "leaders": [],
-  "candidates": []
+  "computed_at": "2026-05-29 06:02:43",
+  "leaders": [
+    {
+      "ticker": "6669.TW",
+      "group": "TW_IC_Design",
+      "return_pct": 0.1,
+      "volume_ratio": 1.55,
+      "close": 5445.0,
+      "detected_at": "2026-05-29"
+    },
+    {
+      "ticker": "2317.TW",
+      "group": "AI_Server_TW",
+      "return_pct": 0.0989,
+      "volume_ratio": 3.25,
+      "close": 289.0,
+      "detected_at": "2026-05-29"
+    },
+    {
+      "ticker": "3231.TW",
+      "group": "AI_Server_TW",
+      "return_pct": 0.0969,
+      "volume_ratio": 2.42,
+      "close": 158.5,
+      "detected_at": "2026-05-29"
+    },
+    {
+      "ticker": "2376.TW",
+      "group": "AI_Server_TW",
+      "return_pct": 0.0963,
+      "volume_ratio": 2.01,
+      "close": 370.0,
+      "detected_at": "2026-05-29"
+    }
+  ],
+  "candidates": [
+    {
+      "ticker": "2313.TW",
+      "leader": "2376.TW",
+      "group": "AI_Server_TW",
+      "score": 0.961,
+      "corr_60d": 0.996,
+      "spread_pctile": 0.09,
+      "lag_today": 0.0966,
+      "leader_today_pct": 0.015,
+      "peer_today_pct": -0.0816,
+      "signal_date": "2026-05-28"
+    }
+  ]
 }
