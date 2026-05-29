@@ -4356,10 +4356,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 6.47,
+          "crossed": true,
+          "ret_pct": 3.69,
+          "actual_date": "2026-05-29",
+          "checked_at": "2026-05-29"
         },
         "15d": {
           "close": null,
@@ -4389,10 +4390,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 124.99,
+          "crossed": false,
+          "ret_pct": -3.1,
+          "actual_date": "2026-05-29",
+          "checked_at": "2026-05-29"
         },
         "15d": {
           "close": null,
@@ -4422,10 +4424,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 27.81,
+          "crossed": true,
+          "ret_pct": 4.39,
+          "actual_date": "2026-05-29",
+          "checked_at": "2026-05-29"
         },
         "15d": {
           "close": null,
@@ -5628,17 +5631,83 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-05-29",
+      "ticker": "KOD",
+      "name": "Kodiak Sciences Inc",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 37.37,
+      "ema20": 38.12,
+      "dist_pct": 1.97,
+      "adx": 22.8,
+      "rsi": 46.9,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-05-29",
+      "ticker": "SGML",
+      "name": "Sigma Lithium Corporation",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 17.15,
+      "ema20": 17.27,
+      "dist_pct": 0.72,
+      "adx": 28.8,
+      "rsi": 48.6,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-05-29 12:56:06",
-  "total_candidates": 166,
+  "last_updated": "2026-05-29 17:11:40",
+  "total_candidates": 168,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
-        "n": 29,
-        "cross_rate": 41.4,
-        "mean_ret": 0.38,
-        "win_rate": 48.3
+        "n": 30,
+        "cross_rate": 43.3,
+        "mean_ret": 0.52,
+        "win_rate": 50.0
       },
       "15d": {
         "n": 9,
@@ -5680,10 +5749,10 @@
     },
     "us_L2_medium_dc": {
       "5d": {
-        "n": 17,
-        "cross_rate": 52.9,
-        "mean_ret": 1.18,
-        "win_rate": 64.7
+        "n": 18,
+        "cross_rate": 55.6,
+        "mean_ret": 1.32,
+        "win_rate": 66.7
       },
       "15d": {
         "n": 3,
@@ -5710,10 +5779,10 @@
     },
     "us_L2_medium": {
       "5d": {
-        "n": 10,
-        "cross_rate": 90.0,
-        "mean_ret": 10.57,
-        "win_rate": 100.0
+        "n": 11,
+        "cross_rate": 81.8,
+        "mean_ret": 9.33,
+        "win_rate": 90.9
       },
       "15d": null,
       "30d": null
@@ -5739,5 +5808,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-05-29 12:56:12"
+  "last_outcomes_update": "2026-05-29 17:11:47"
 }
