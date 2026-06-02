@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-01",
-  "computed_at": "2026-06-01 23:40:27",
+  "computed_at": "2026-06-02 09:44:48",
   "top_total": 200,
   "entry": [
     {
@@ -786,6 +786,24 @@
       "alerts": []
     },
     {
+      "ticker": "BK",
+      "name": "The Bank of New York Mellon Corporation",
+      "close": 142.59,
+      "rsi": 69.7,
+      "ema20_cross_days": 41,
+      "delta": 23.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "MNST",
       "name": "Monster Beverage Corporation",
       "close": 89.1,
@@ -954,24 +972,6 @@
       "rsi": 63.7,
       "ema20_cross_days": null,
       "delta": 61.8,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "BK",
-      "name": "The Bank of New York Mellon Corporation",
-      "close": 139.43,
-      "rsi": 63.6,
-      "ema20_cross_days": 40,
-      "delta": 19.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1443,16 +1443,6 @@
       "tag": "BB %B -0.08<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
       "quality_score": 57.55382688171681
-    },
-    {
-      "ticker": "FDX",
-      "name": "FedEx Corporation",
-      "close": 338.49,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 57.450381558872905
     },
     {
       "ticker": "BLK",
