@@ -896,10 +896,11 @@
           "checked_at": "2026-05-21"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 105.27,
+          "crossed": true,
+          "ret_pct": 3.11,
+          "actual_date": "2026-06-01",
+          "checked_at": "2026-06-02"
         },
         "30d": {
           "close": null,
@@ -965,10 +966,11 @@
           "checked_at": "2026-05-22"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 105.27,
+          "crossed": true,
+          "ret_pct": 3.11,
+          "actual_date": "2026-06-01",
+          "checked_at": "2026-06-02"
         },
         "30d": {
           "close": null,
@@ -999,10 +1001,11 @@
           "checked_at": "2026-05-25"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 86.9,
+          "crossed": true,
+          "ret_pct": 5.85,
+          "actual_date": "2026-06-02",
+          "checked_at": "2026-06-02"
         },
         "30d": {
           "close": null,
@@ -1067,10 +1070,11 @@
           "checked_at": "2026-05-25"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 124.0,
+          "crossed": true,
+          "ret_pct": 18.66,
+          "actual_date": "2026-06-02",
+          "checked_at": "2026-06-02"
         },
         "30d": {
           "close": null,
@@ -1101,10 +1105,11 @@
           "checked_at": "2026-05-25"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 124.0,
+          "crossed": true,
+          "ret_pct": 18.66,
+          "actual_date": "2026-06-02",
+          "checked_at": "2026-06-02"
         },
         "30d": {
           "close": null,
@@ -6415,10 +6420,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-02",
+      "ticker": "4720",
+      "name": "德淵",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 25.5,
+      "ema20": 25.51,
+      "dist_pct": 0.05,
+      "adx": 34.5,
+      "rsi": 51.7,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-02 00:52:21",
-  "total_candidates": 189,
+  "last_updated": "2026-06-02 06:30:54",
+  "total_candidates": 190,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -6443,10 +6481,10 @@
         "win_rate": 83.3
       },
       "15d": {
-        "n": 5,
-        "cross_rate": 60.0,
+        "n": 6,
+        "cross_rate": 66.7,
         "mean_ret": NaN,
-        "win_rate": 60.0
+        "win_rate": 66.7
       },
       "30d": null
     },
@@ -6473,10 +6511,10 @@
         "win_rate": 60.9
       },
       "15d": {
-        "n": 3,
-        "cross_rate": 0.0,
-        "mean_ret": -2.68,
-        "win_rate": 0.0
+        "n": 5,
+        "cross_rate": 40.0,
+        "mean_ret": -0.36,
+        "win_rate": 40.0
       },
       "30d": null
     },
@@ -6517,7 +6555,12 @@
         "mean_ret": 7.14,
         "win_rate": 72.0
       },
-      "15d": null,
+      "15d": {
+        "n": 1,
+        "cross_rate": 100.0,
+        "mean_ret": 18.66,
+        "win_rate": 100.0
+      },
       "30d": null
     },
     "tw_L2_medium": {
@@ -6527,9 +6570,14 @@
         "mean_ret": 9.2,
         "win_rate": 100.0
       },
-      "15d": null,
+      "15d": {
+        "n": 1,
+        "cross_rate": 100.0,
+        "mean_ret": 18.66,
+        "win_rate": 100.0
+      },
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-06-02 00:52:27"
+  "last_outcomes_update": "2026-06-02 06:31:09"
 }
