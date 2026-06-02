@@ -1,15 +1,56 @@
 {
   "date": "2026-06-02",
-  "computed_at": "2026-06-02 18:00:20",
+  "computed_at": "2026-06-02 20:41:02",
   "leaders": [
     {
       "ticker": "MRVL",
       "group": "AI_Chip_US",
-      "return_pct": 0.2921,
-      "volume_ratio": 2.67,
-      "close": 283.52,
+      "return_pct": 0.3252,
+      "volume_ratio": 3.55,
+      "close": 290.79,
+      "detected_at": "2026-06-02"
+    },
+    {
+      "ticker": "OKLO",
+      "group": "AI_Power_US",
+      "return_pct": 0.0984,
+      "volume_ratio": 1.51,
+      "close": 73.47,
+      "detected_at": "2026-06-02"
+    },
+    {
+      "ticker": "3231.TW",
+      "group": "AI_Server_TW",
+      "return_pct": 0.0977,
+      "volume_ratio": 5.14,
+      "close": 191.0,
       "detected_at": "2026-06-02"
     }
   ],
-  "candidates": []
+  "candidates": [
+    {
+      "ticker": "2317.TW",
+      "leader": "3231.TW",
+      "group": "AI_Server_TW",
+      "score": 0.671,
+      "corr_60d": 0.626,
+      "spread_pctile": 0.304,
+      "lag_today": 0.0704,
+      "leader_today_pct": 0.0977,
+      "peer_today_pct": 0.0273,
+      "signal_date": "2026-06-02"
+    },
+    {
+      "ticker": "CCJ",
+      "leader": "OKLO",
+      "group": "AI_Power_US",
+      "score": 0.644,
+      "corr_60d": 0.737,
+      "spread_pctile": 0.116,
+      "lag_today": 0.028,
+      "leader_today_pct": 0.0984,
+      "peer_today_pct": 0.0703,
+      "signal_date": "2026-06-02"
+    }
+  ]
 }
