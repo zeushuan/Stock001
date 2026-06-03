@@ -1036,10 +1036,11 @@
           "checked_at": "2026-05-26"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 104.85,
+          "crossed": true,
+          "ret_pct": 2.7,
+          "actual_date": "2026-06-02",
+          "checked_at": "2026-06-03"
         },
         "30d": {
           "close": null,
@@ -6748,10 +6749,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-03",
+      "ticker": "ETR",
+      "name": "Entergy Corporation",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 109.89,
+      "ema20": 110.67,
+      "dist_pct": 0.71,
+      "adx": 24.8,
+      "rsi": 47.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-03",
+      "ticker": "GLNG",
+      "name": "Golar LNG Limited",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 51.84,
+      "ema20": 52.84,
+      "dist_pct": 1.88,
+      "adx": 24.0,
+      "rsi": 44.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-03",
+      "ticker": "PM",
+      "name": "Philip Morris International Inc",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 176.96,
+      "ema20": 178.78,
+      "dist_pct": 1.02,
+      "adx": 26.7,
+      "rsi": 49.1,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-03 13:57:24",
-  "total_candidates": 198,
+  "last_updated": "2026-06-03 18:40:13",
+  "total_candidates": 201,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -6806,10 +6906,10 @@
         "win_rate": 59.3
       },
       "15d": {
-        "n": 7,
-        "cross_rate": 42.9,
-        "mean_ret": 0.03,
-        "win_rate": 42.9
+        "n": 8,
+        "cross_rate": 50.0,
+        "mean_ret": 0.36,
+        "win_rate": 50.0
       },
       "30d": null
     },
@@ -6874,5 +6974,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-06-03 13:57:34"
+  "last_outcomes_update": "2026-06-03 18:40:20"
 }
