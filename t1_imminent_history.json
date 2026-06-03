@@ -1280,10 +1280,11 @@
           "checked_at": "2026-05-25"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 123.5,
+          "crossed": true,
+          "ret_pct": 18.18,
+          "actual_date": "2026-06-03",
+          "checked_at": "2026-06-03"
         },
         "30d": {
           "close": null,
@@ -1416,10 +1417,11 @@
           "checked_at": "2026-05-25"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 382.5,
+          "crossed": true,
+          "ret_pct": 16.62,
+          "actual_date": "2026-06-03",
+          "checked_at": "2026-06-03"
         },
         "30d": {
           "close": null,
@@ -5621,10 +5623,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 115.5,
+          "crossed": true,
+          "ret_pct": 3.59,
+          "actual_date": "2026-06-03",
+          "checked_at": "2026-06-03"
         },
         "15d": {
           "close": null,
@@ -5654,10 +5657,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 48.4,
+          "crossed": false,
+          "ret_pct": -0.21,
+          "actual_date": "2026-06-03",
+          "checked_at": "2026-06-03"
         },
         "15d": {
           "close": null,
@@ -6563,10 +6567,76 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-03",
+      "ticker": "ACHC",
+      "name": "Acadia Healthcare Company, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 24.42,
+      "ema20": 24.6,
+      "dist_pct": 0.75,
+      "adx": 28.6,
+      "rsi": 47.8,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-03",
+      "ticker": "AMBA",
+      "name": "Ambarella, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 78.38,
+      "ema20": 79.04,
+      "dist_pct": 0.84,
+      "adx": 34.6,
+      "rsi": 51.6,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-02 23:47:44",
-  "total_candidates": 193,
+  "last_updated": "2026-06-03 01:22:22",
+  "total_candidates": 195,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -6585,10 +6655,10 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 12,
-        "cross_rate": 75.0,
-        "mean_ret": 2.94,
-        "win_rate": 83.3
+        "n": 14,
+        "cross_rate": 71.4,
+        "mean_ret": 2.76,
+        "win_rate": 78.6
       },
       "15d": {
         "n": 6,
@@ -6666,9 +6736,9 @@
         "win_rate": 72.0
       },
       "15d": {
-        "n": 1,
+        "n": 3,
         "cross_rate": 100.0,
-        "mean_ret": 18.66,
+        "mean_ret": 17.82,
         "win_rate": 100.0
       },
       "30d": null
@@ -6689,5 +6759,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-06-02 23:47:54"
+  "last_outcomes_update": "2026-06-03 01:22:31"
 }
