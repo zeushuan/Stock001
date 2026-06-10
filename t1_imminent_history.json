@@ -856,10 +856,11 @@
           "checked_at": "2026-05-26"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 25.55,
+          "crossed": false,
+          "ret_pct": -4.49,
+          "actual_date": "2026-06-09",
+          "checked_at": "2026-06-10"
         }
       }
     },
@@ -8272,10 +8273,76 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-10",
+      "ticker": "CMBT",
+      "name": "CMB.TECH NV",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 14.88,
+      "ema20": 15.07,
+      "dist_pct": 1.31,
+      "adx": 23.7,
+      "rsi": 48.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-10",
+      "ticker": "CODI",
+      "name": "D/B/A Compass Diversified Holdings Share",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 10.92,
+      "ema20": 11.1,
+      "dist_pct": 1.6,
+      "adx": 28.8,
+      "rsi": 46.7,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-10 17:37:26",
-  "total_candidates": 239,
+  "last_updated": "2026-06-10 20:20:51",
+  "total_candidates": 241,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -8351,9 +8418,9 @@
         "win_rate": 38.1
       },
       "30d": {
-        "n": 2,
+        "n": 3,
         "cross_rate": 0.0,
-        "mean_ret": -4.53,
+        "mean_ret": -4.52,
         "win_rate": 0.0
       }
     },
@@ -8423,5 +8490,5 @@
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-06-10 17:37:34"
+  "last_outcomes_update": "2026-06-10 20:21:03"
 }
