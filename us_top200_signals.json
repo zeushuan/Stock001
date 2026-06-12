@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-11",
-  "computed_at": "2026-06-11 23:44:27",
+  "computed_at": "2026-06-12 09:40:34",
   "top_total": 200,
   "entry": [
     {
@@ -562,6 +562,24 @@
       "rsi": 74.0,
       "ema20_cross_days": 45,
       "delta": 65.7,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "KLAC",
+      "name": "KLA Corporation ",
+      "close": 241.16,
+      "rsi": 72.3,
+      "ema20_cross_days": null,
+      "delta": 62.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1345,7 +1363,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 116,
+  "wait_count": 115,
   "alerts": [
     {
       "ticker": "OPEN",
@@ -1356,16 +1374,6 @@
       "tag": "倒鎚 + 距 SMA200 -27%",
       "expect": "+7.85% 30d (64.5% 漲)",
       "quality_score": 26.894491185506496
-    },
-    {
-      "ticker": "KLAC",
-      "name": "KLA Corporation ",
-      "close": 2411.64,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=154.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 154.8126021787339
     },
     {
       "ticker": "MSTR",
