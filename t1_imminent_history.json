@@ -963,10 +963,11 @@
           "checked_at": "2026-06-01"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 75.5,
+          "crossed": false,
+          "ret_pct": -8.04,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         }
       }
     },
@@ -6171,10 +6172,11 @@
           "checked_at": "2026-06-08"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 29.25,
+          "crossed": true,
+          "ret_pct": 7.34,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         },
         "30d": {
           "close": null,
@@ -6205,10 +6207,11 @@
           "checked_at": "2026-06-08"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 1345.0,
+          "crossed": false,
+          "ret_pct": 1.51,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         },
         "30d": {
           "close": null,
@@ -6239,10 +6242,11 @@
           "checked_at": "2026-06-08"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 37.35,
+          "crossed": false,
+          "ret_pct": -17.91,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         },
         "30d": {
           "close": null,
@@ -6307,10 +6311,11 @@
           "checked_at": "2026-06-08"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 432.0,
+          "crossed": true,
+          "ret_pct": -4.64,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         },
         "30d": {
           "close": null,
@@ -6341,10 +6346,11 @@
           "checked_at": "2026-06-08"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 37.35,
+          "crossed": false,
+          "ret_pct": -17.91,
+          "actual_date": "2026-06-16",
+          "checked_at": "2026-06-16"
         },
         "30d": {
           "close": null,
@@ -13409,10 +13415,76 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-16",
+      "ticker": "6451",
+      "name": "訊芯-KY",
+      "market": "tw",
+      "tier": "L2_medium",
+      "entry_price": 549.0,
+      "ema20": 554.59,
+      "dist_pct": 1.01,
+      "adx": 24.2,
+      "rsi": 50.6,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-16",
+      "ticker": "7750",
+      "name": "新代",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 2275.0,
+      "ema20": 2285.68,
+      "dist_pct": 0.47,
+      "adx": 23.8,
+      "rsi": 49.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-16 01:16:46",
-  "total_candidates": 393,
+  "last_updated": "2026-06-16 07:33:43",
+  "total_candidates": 395,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -13442,16 +13514,16 @@
         "win_rate": 85.7
       },
       "15d": {
-        "n": 18,
-        "cross_rate": 72.2,
+        "n": 19,
+        "cross_rate": 73.7,
         "mean_ret": NaN,
-        "win_rate": 88.9
+        "win_rate": 89.5
       },
       "30d": {
-        "n": 4,
-        "cross_rate": 100.0,
-        "mean_ret": 5.2,
-        "win_rate": 100.0
+        "n": 5,
+        "cross_rate": 80.0,
+        "mean_ret": 2.55,
+        "win_rate": 80.0
       }
     },
     "us_L1_strict": {
@@ -13537,10 +13609,10 @@
         "win_rate": 62.5
       },
       "15d": {
-        "n": 25,
-        "cross_rate": 40.0,
-        "mean_ret": 1.97,
-        "win_rate": 56.0
+        "n": 28,
+        "cross_rate": 39.3,
+        "mean_ret": 1.0,
+        "win_rate": 53.6
       },
       "30d": null
     },
@@ -13552,13 +13624,13 @@
         "win_rate": 70.0
       },
       "15d": {
-        "n": 7,
-        "cross_rate": 28.6,
-        "mean_ret": 2.98,
-        "win_rate": 71.4
+        "n": 8,
+        "cross_rate": 25.0,
+        "mean_ret": 0.36,
+        "win_rate": 62.5
       },
       "30d": null
     }
   },
-  "last_outcomes_update": "2026-06-16 01:16:55"
+  "last_outcomes_update": "2026-06-16 07:33:52"
 }
