@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-17",
-  "computed_at": "2026-06-17 10:11:34",
+  "computed_at": "2026-06-17 23:45:03",
   "top200_total": 200,
   "entry": [
     {
@@ -347,7 +347,7 @@
       "close": 337.5,
       "rsi": 47.0,
       "ema20_cross_days": null,
-      "delta": 116.3,
+      "delta": 140.2,
       "sig": "T3 RSI47",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -1323,6 +1323,24 @@
       "alerts": []
     },
     {
+      "ticker": "1605",
+      "name": "華新",
+      "close": 38.7,
+      "rsi": 54.8,
+      "ema20_cross_days": 26,
+      "delta": 28.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "1560",
       "name": "中砂",
       "close": 687.0,
@@ -1521,6 +1539,16 @@
   "wait_count": 106,
   "alerts": [
     {
+      "ticker": "6830",
+      "name": "汎銓",
+      "close": 513.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=63.3%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 63.254699972356356
+    },
+    {
       "ticker": "1476",
       "name": "儒鴻",
       "close": 323.5,
@@ -1529,16 +1557,6 @@
       "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
       "quality_score": 53.459011711717324
-    },
-    {
-      "ticker": "6873",
-      "name": "泓德能源",
-      "close": 77.6,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 51.683232093499555
     },
     {
       "ticker": "3563",
@@ -1599,6 +1617,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=20.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 20.599668696066193
+    },
+    {
+      "ticker": "7780",
+      "name": "大研生醫*",
+      "close": 19.3,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=12.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 12.231999733967692
     },
     {
       "ticker": "2504",
@@ -1759,16 +1787,6 @@
       "tag": "空頭+%B 1.03>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
       "quality_score": 2.764662071569518
-    },
-    {
-      "ticker": "7780",
-      "name": "大研生醫*",
-      "close": 19.3,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "空頭+%B 1.01>1（假突破，反彈將失敗）",
-      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 0.8657418115572284
     }
   ],
   "source": "cloud (yfinance live)"
