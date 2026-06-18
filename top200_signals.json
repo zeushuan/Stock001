@@ -1,8 +1,35 @@
 {
   "updated_at": "2026-06-18",
-  "computed_at": "2026-06-18 09:50:00",
+  "computed_at": "2026-06-18 23:52:29",
   "top200_total": 200,
   "entry": [
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 1710.0,
+      "rsi": 18.1,
+      "ema20_cross_days": 40,
+      "delta": -54.1,
+      "sig": "T3 RSI18",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.50<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 100.18582774626276
+        },
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
+    },
     {
       "ticker": "4571",
       "name": "鈞興-KY",
@@ -1530,8 +1557,18 @@
       ]
     }
   ],
-  "wait_count": 109,
+  "wait_count": 108,
   "alerts": [
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 1710.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.50<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 100.18582774626276
+    },
     {
       "ticker": "6830",
       "name": "汎銓",
@@ -1725,7 +1762,7 @@
     {
       "ticker": "6669",
       "name": "緯穎",
-      "close": 5130.0,
+      "close": 1710.0,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
