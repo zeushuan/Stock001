@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-18",
-  "computed_at": "2026-06-19 09:56:59",
+  "computed_at": "2026-06-19 23:06:52",
   "top_total": 200,
   "entry": [
     {
@@ -410,26 +410,6 @@
       ]
     },
     {
-      "ticker": "MPWR",
-      "name": "Monolithic Power Systems, Inc.",
-      "close": NaN,
-      "rsi": 43.8,
-      "ema20_cross_days": null,
-      "delta": NaN,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 2,
-          "side": "bull",
-          "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
-          "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
-          "quality_score": 30.0
-        }
-      ]
-    },
-    {
       "ticker": "TRGP",
       "name": "Targa Resources, Inc.",
       "close": 258.58,
@@ -813,24 +793,6 @@
       "alerts": []
     },
     {
-      "ticker": "ONTO",
-      "name": "Onto Innovation Inc.",
-      "close": 333.76,
-      "rsi": 65.6,
-      "ema20_cross_days": null,
-      "delta": 51.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "GS",
       "name": "Goldman Sachs Group, Inc. (The)",
       "close": 1096.56,
@@ -993,6 +955,31 @@
       "alerts": []
     },
     {
+      "ticker": "ONTO",
+      "name": "Onto Innovation Inc.",
+      "close": NaN,
+      "rsi": 62.0,
+      "ema20_cross_days": null,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
+    },
+    {
       "ticker": "TXN",
       "name": "Texas Instruments Incorporated",
       "close": 322.86,
@@ -1007,22 +994,6 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "FROG",
-      "name": "JFrog Ltd.",
-      "close": 82.72,
-      "rsi": 61.8,
-      "ema20_cross_days": 31,
-      "delta": 75.5,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1059,6 +1030,21 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "FROG",
+      "name": "JFrog Ltd.",
+      "close": NaN,
+      "rsi": 60.1,
+      "ema20_cross_days": 31,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1119,13 +1105,14 @@
     {
       "ticker": "FITB",
       "name": "Fifth Third Bancorp",
-      "close": NaN,
-      "rsi": 57.3,
+      "close": 52.74,
+      "rsi": 58.0,
       "ema20_cross_days": 45,
-      "delta": NaN,
+      "delta": 15.1,
       "sig": "—",
-      "t3_confidence": 4,
+      "t3_confidence": 5,
       "t3_confidence_hits": [
+        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -1275,6 +1262,20 @@
       ]
     },
     {
+      "ticker": "MPWR",
+      "name": "Monolithic Power Systems, Inc.",
+      "close": 1563.7,
+      "rsi": 50.7,
+      "ema20_cross_days": null,
+      "delta": 39.8,
+      "sig": "—",
+      "t3_confidence": 1,
+      "t3_confidence_hits": [
+        "close>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "RMBS",
       "name": "Rambus, Inc.",
       "close": 141.17,
@@ -1310,16 +1311,6 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=90.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 90.13540064924548
-    },
-    {
-      "ticker": "WLK",
-      "name": "Westlake Corporation",
-      "close": 80.28,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.24<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 73.93539296077604
     },
     {
       "ticker": "HAL",
@@ -1542,13 +1533,13 @@
       "quality_score": 30.0
     },
     {
-      "ticker": "MPWR",
-      "name": "Monolithic Power Systems, Inc.",
+      "ticker": "ONTO",
+      "name": "Onto Innovation Inc.",
       "close": NaN,
       "level": 2,
-      "side": "bull",
-      "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
-      "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
       "quality_score": 30.0
     },
     {
