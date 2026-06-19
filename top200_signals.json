@@ -1,35 +1,8 @@
 {
   "updated_at": "2026-06-18",
-  "computed_at": "2026-06-18 23:52:29",
+  "computed_at": "2026-06-19 09:56:46",
   "top200_total": 200,
   "entry": [
-    {
-      "ticker": "6669",
-      "name": "緯穎",
-      "close": 1710.0,
-      "rsi": 18.1,
-      "ema20_cross_days": 40,
-      "delta": -54.1,
-      "sig": "T3 RSI18",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.50<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 100.18582774626276
-        },
-        {
-          "level": 2,
-          "side": "bear",
-          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-          "quality_score": 30.0
-        }
-      ]
-    },
     {
       "ticker": "4571",
       "name": "鈞興-KY",
@@ -300,6 +273,33 @@
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
+    },
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 1710.0,
+      "rsi": 21.4,
+      "ema20_cross_days": -5,
+      "delta": -54.1,
+      "sig": "T3 RSI21",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "底部十字星 + RSI 21≤25 + ADX↑",
+          "expect": "+7.02% 30d (67.4% 漲)",
+          "quality_score": 28.55164227318926
+        },
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB Expansion 突放（空頭末段反轉）BW=180.0%",
+          "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+          "quality_score": 180.03641947835231
+        }
+      ]
     }
   ],
   "exit": [],
@@ -1565,9 +1565,9 @@
       "close": 1710.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.50<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 100.18582774626276
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=180.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 180.03641947835231
     },
     {
       "ticker": "6830",
@@ -1598,6 +1598,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=36.5%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 36.46520639230434
+    },
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 1710.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "底部十字星 + RSI 21≤25 + ADX↑",
+      "expect": "+7.02% 30d (67.4% 漲)",
+      "quality_score": 28.55164227318926
     },
     {
       "ticker": "6438",
@@ -1753,16 +1763,6 @@
       "ticker": "6442",
       "name": "光聖",
       "close": 1945.0,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
-    },
-    {
-      "ticker": "6669",
-      "name": "緯穎",
-      "close": 1710.0,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
