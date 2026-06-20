@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-20",
-  "computed_at": "2026-06-20 00:02:39",
+  "computed_at": "2026-06-20 05:16:52",
   "description": "全市場 T1 即將上穿掃描（unified）",
   "tw": [
     {
@@ -372,5 +372,54 @@
       "gap_atr": 1.0
     }
   ],
-  "us": []
+  "us": [
+    {
+      "ticker": "ADTN",
+      "name": "ADTRAN Holdings, Inc.",
+      "market": "us",
+      "tier": "L3_loose",
+      "close": 15.18,
+      "ema20": 15.64,
+      "dist_pct": 2.95,
+      "adx": 14.9,
+      "rsi": 47.1,
+      "quality_score": -17.1,
+      "date": "2026-06-18",
+      "cross_days": 114,
+      "imminent_dc": true,
+      "gap_atr": 0.58
+    },
+    {
+      "ticker": "CWAN",
+      "name": "Clearwater Analytics Holdings, Inc. Clas",
+      "market": "us",
+      "tier": "L3_loose",
+      "close": 24.29,
+      "ema20": 24.32,
+      "dist_pct": 0.12,
+      "adx": 20.3,
+      "rsi": 48.6,
+      "quality_score": 1.4,
+      "date": "2026-06-18",
+      "cross_days": 144,
+      "imminent_dc": false,
+      "gap_atr": 2.87
+    },
+    {
+      "ticker": "GSAT",
+      "name": "Globalstar, Inc.",
+      "market": "us",
+      "tier": "L2_medium",
+      "close": 80.41,
+      "ema20": 81.29,
+      "dist_pct": 1.08,
+      "adx": 23.9,
+      "rsi": 46.0,
+      "quality_score": 4.0,
+      "date": "2026-06-18",
+      "cross_days": 64,
+      "imminent_dc": false,
+      "gap_atr": 2.41
+    }
+  ]
 }
