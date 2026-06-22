@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-18",
-  "computed_at": "2026-06-19 23:06:52",
+  "computed_at": "2026-06-22 11:09:51",
   "top_total": 200,
   "entry": [
     {
@@ -793,6 +793,24 @@
       "alerts": []
     },
     {
+      "ticker": "ONTO",
+      "name": "Onto Innovation Inc.",
+      "close": 333.76,
+      "rsi": 65.6,
+      "ema20_cross_days": null,
+      "delta": 51.0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "GS",
       "name": "Goldman Sachs Group, Inc. (The)",
       "close": 1096.56,
@@ -937,49 +955,6 @@
       "alerts": []
     },
     {
-      "ticker": "BK",
-      "name": "The Bank of New York Mellon Corporation",
-      "close": 143.98,
-      "rsi": 62.1,
-      "ema20_cross_days": 50,
-      "delta": 25.3,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "ONTO",
-      "name": "Onto Innovation Inc.",
-      "close": NaN,
-      "rsi": 62.0,
-      "ema20_cross_days": null,
-      "delta": NaN,
-      "sig": "—",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": [
-        {
-          "level": 2,
-          "side": "bear",
-          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-          "quality_score": 30.0
-        }
-      ]
-    },
-    {
       "ticker": "TXN",
       "name": "Texas Instruments Incorporated",
       "close": 322.86,
@@ -994,6 +969,22 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "FROG",
+      "name": "JFrog Ltd.",
+      "close": 82.72,
+      "rsi": 61.8,
+      "ema20_cross_days": 31,
+      "delta": 75.5,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1030,21 +1021,6 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "FROG",
-      "name": "JFrog Ltd.",
-      "close": NaN,
-      "rsi": 60.1,
-      "ema20_cross_days": 31,
-      "delta": NaN,
-      "sig": "—",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1109,6 +1085,24 @@
       "rsi": 58.0,
       "ema20_cross_days": 45,
       "delta": 15.1,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "BK",
+      "name": "The Bank of New York Mellon Corporation",
+      "close": 143.63,
+      "rsi": 57.7,
+      "ema20_cross_days": 54,
+      "delta": 21.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1311,6 +1305,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=90.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 90.13540064924548
+    },
+    {
+      "ticker": "WLK",
+      "name": "Westlake Corporation",
+      "close": 80.28,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.24<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 73.93539296077604
     },
     {
       "ticker": "HAL",
@@ -1526,16 +1530,6 @@
       "ticker": "MPC",
       "name": "Marathon Petroleum Corporation",
       "close": 242.91,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
-    },
-    {
-      "ticker": "ONTO",
-      "name": "Onto Innovation Inc.",
-      "close": NaN,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
