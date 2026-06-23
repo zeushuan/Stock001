@@ -4600,10 +4600,11 @@
           "checked_at": "2026-06-08"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 5.54,
+          "crossed": false,
+          "ret_pct": -11.22,
+          "actual_date": "2026-06-23",
+          "checked_at": "2026-06-23"
         }
       }
     },
@@ -17634,10 +17635,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-23",
+      "ticker": "CNI",
+      "name": "Canadian National Railway Company",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 114.89,
+      "ema20": 116.47,
+      "dist_pct": 1.36,
+      "adx": 24.3,
+      "rsi": 45.7,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-23 16:35:11",
-  "total_candidates": 510,
+  "last_updated": "2026-06-23 20:07:13",
+  "total_candidates": 511,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -17713,10 +17747,10 @@
         "win_rate": 39.0
       },
       "30d": {
-        "n": 17,
-        "cross_rate": 41.2,
-        "mean_ret": -0.41,
-        "win_rate": 41.2
+        "n": 18,
+        "cross_rate": 38.9,
+        "mean_ret": -1.01,
+        "win_rate": 38.9
       }
     },
     "tw_L2_medium_dc": {
@@ -17800,5 +17834,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-06-23 16:35:19"
+  "last_outcomes_update": "2026-06-23 20:07:16"
 }
