@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-06-26",
-  "computed_at": "2026-06-26 23:15:24",
+  "computed_at": "2026-06-29 10:03:06",
   "top_total": 200,
   "entry": [
     {
@@ -18,7 +18,7 @@
     {
       "ticker": "TXN",
       "name": "Texas Instruments Incorporated",
-      "close": 285.42,
+      "close": 285.43,
       "rsi": 44.7,
       "ema20_cross_days": 55,
       "delta": 45.4,
@@ -501,24 +501,6 @@
   ],
   "exit": [],
   "hold": [
-    {
-      "ticker": "DD",
-      "name": "DuPont de Nemours, Inc.",
-      "close": 137.22,
-      "rsi": 87.9,
-      "ema20_cross_days": null,
-      "delta": 196.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
     {
       "ticker": "ACLX",
       "name": "Arcellx, Inc.",
@@ -1012,24 +994,6 @@
       "alerts": []
     },
     {
-      "ticker": "BK",
-      "name": "The Bank of New York Mellon Corporation",
-      "close": 143.63,
-      "rsi": 57.7,
-      "ema20_cross_days": 54,
-      "delta": 21.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "EWBC",
       "name": "East West Bancorp, Inc.",
       "close": 129.47,
@@ -1174,6 +1138,24 @@
       "rsi": 54.2,
       "ema20_cross_days": null,
       "delta": 36.0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "BK",
+      "name": "The Bank of New York Mellon Corporation",
+      "close": 143.56,
+      "rsi": 53.7,
+      "ema20_cross_days": 59,
+      "delta": 18.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1339,7 +1321,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 121,
+  "wait_count": 122,
   "alerts": [
     {
       "ticker": "ORCL",
