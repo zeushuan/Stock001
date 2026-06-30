@@ -6292,10 +6292,11 @@
           "checked_at": "2026-06-15"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 13.27,
+          "crossed": false,
+          "ret_pct": -39.65,
+          "actual_date": "2026-06-30",
+          "checked_at": "2026-06-30"
         }
       }
     },
@@ -19690,10 +19691,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-30",
+      "ticker": "DOCN",
+      "name": "DigitalOcean Holdings, Inc.",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 157.34,
+      "ema20": 159.12,
+      "dist_pct": 1.12,
+      "adx": 26.8,
+      "rsi": 50.0,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-30",
+      "ticker": "RKLB",
+      "name": "Rocket Lab Corporation",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 101.33,
+      "ema20": 102.65,
+      "dist_pct": 1.29,
+      "adx": 27.2,
+      "rsi": 48.3,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-06-30",
+      "ticker": "SEM",
+      "name": "Select Medical Holdings Corporation",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 16.53,
+      "ema20": 16.55,
+      "dist_pct": 0.08,
+      "adx": 28.9,
+      "rsi": 49.5,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-30 16:08:04",
-  "total_candidates": 564,
+  "last_updated": "2026-06-30 19:05:58",
+  "total_candidates": 567,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -19749,10 +19849,10 @@
         "win_rate": 42.4
       },
       "30d": {
-        "n": 31,
-        "cross_rate": 64.5,
-        "mean_ret": 5.34,
-        "win_rate": 58.1
+        "n": 32,
+        "cross_rate": 62.5,
+        "mean_ret": 3.94,
+        "win_rate": 56.2
       }
     },
     "us_L2_medium_dc": {
@@ -19856,5 +19956,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-06-30 16:08:17"
+  "last_outcomes_update": "2026-06-30 19:06:05"
 }
