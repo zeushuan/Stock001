@@ -6220,10 +6220,11 @@
           "checked_at": "2026-06-15"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 116.5,
+          "crossed": false,
+          "ret_pct": 4.48,
+          "actual_date": "2026-06-30",
+          "checked_at": "2026-06-30"
         }
       }
     },
@@ -19493,10 +19494,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-06-30",
+      "ticker": "9934",
+      "name": "成霖",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 10.1,
+      "ema20": 10.15,
+      "dist_pct": 0.5,
+      "adx": 23.0,
+      "rsi": 49.8,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-06-30 08:40:46",
-  "total_candidates": 559,
+  "last_updated": "2026-06-30 09:31:04",
+  "total_candidates": 560,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -19532,10 +19566,10 @@
         "win_rate": 77.8
       },
       "30d": {
-        "n": 17,
-        "cross_rate": 52.9,
-        "mean_ret": 3.39,
-        "win_rate": 64.7
+        "n": 18,
+        "cross_rate": 50.0,
+        "mean_ret": 3.45,
+        "win_rate": 66.7
       }
     },
     "us_L1_strict": {
@@ -19659,5 +19693,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-06-30 08:40:55"
+  "last_outcomes_update": "2026-06-30 09:31:15"
 }
