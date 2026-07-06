@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-02",
-  "computed_at": "2026-07-03 23:13:11",
+  "computed_at": "2026-07-06 09:15:16",
   "top_total": 200,
   "entry": [
     {
@@ -484,20 +484,6 @@
       "sig": "T3 RSI46",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "CTRA",
-      "name": "Coterra Energy Inc.",
-      "close": 32.56,
-      "rsi": 43.5,
-      "ema20_cross_days": null,
-      "delta": 2.9,
-      "sig": "T3 RSI43",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
       "alerts": []
     },
     {
@@ -1127,6 +1113,24 @@
       "alerts": []
     },
     {
+      "ticker": "BK",
+      "name": "The Bank of New York Mellon Corporation",
+      "close": 146.62,
+      "rsi": 59.6,
+      "ema20_cross_days": null,
+      "delta": 14.6,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "SYF",
       "name": "Synchrony Financial",
       "close": 76.33,
@@ -1235,24 +1239,6 @@
       "rsi": 54.0,
       "ema20_cross_days": null,
       "delta": 56.3,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "BK",
-      "name": "The Bank of New York Mellon Corporation",
-      "close": 143.56,
-      "rsi": 53.7,
-      "ema20_cross_days": 59,
-      "delta": 18.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
