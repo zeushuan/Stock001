@@ -1,27 +1,15 @@
 {
-  "updated_at": "2026-07-09",
-  "computed_at": "2026-07-10 08:46:14",
+  "updated_at": "2026-07-10",
+  "computed_at": "2026-07-10 23:05:10",
   "top200_total": 200,
   "entry": [
-    {
-      "ticker": "3312",
-      "name": "弘憶股",
-      "close": 55.6,
-      "rsi": 45.6,
-      "ema20_cross_days": 59,
-      "delta": 37.5,
-      "sig": "T3 RSI46",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
     {
       "ticker": "2882",
       "name": "國泰金",
       "close": 96.3,
       "rsi": 47.5,
-      "ema20_cross_days": 56,
-      "delta": 32.1,
+      "ema20_cross_days": 57,
+      "delta": 29.8,
       "sig": "T3 RSI48",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -32,8 +20,8 @@
       "name": "力成",
       "close": 320.0,
       "rsi": 48.4,
-      "ema20_cross_days": 48,
-      "delta": 52.4,
+      "ema20_cross_days": 49,
+      "delta": 50.6,
       "sig": "T3 RSI48",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -44,13 +32,11 @@
       "name": "同泰",
       "close": 21.8,
       "rsi": 46.7,
-      "ema20_cross_days": 30,
-      "delta": 37.1,
+      "ema20_cross_days": 31,
+      "delta": 36.2,
       "sig": "T3 RSI47",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -58,13 +44,11 @@
       "name": "長榮航",
       "close": 39.6,
       "rsi": 43.1,
-      "ema20_cross_days": 28,
-      "delta": 14.0,
+      "ema20_cross_days": 29,
+      "delta": 12.3,
       "sig": "T3 RSI43",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -72,14 +56,11 @@
       "name": "台灣虎航",
       "close": 58.2,
       "rsi": 47.9,
-      "ema20_cross_days": 18,
-      "delta": 17.0,
+      "ema20_cross_days": 19,
+      "delta": 16.2,
       "sig": "T3 RSI48",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -87,13 +68,12 @@
       "name": "歐格",
       "close": 20.45,
       "rsi": 49.0,
-      "ema20_cross_days": 15,
-      "delta": 8.2,
+      "ema20_cross_days": 16,
+      "delta": 4.9,
       "sig": "T3 RSI49",
-      "t3_confidence": 2,
+      "t3_confidence": 1,
       "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
+        "EMA20上升"
       ],
       "alerts": []
     },
@@ -102,16 +82,14 @@
       "name": "材料*-KY",
       "close": 47.6,
       "rsi": 54.5,
-      "ema20_cross_days": 9,
-      "delta": 3.3,
-      "sig": "T1 9d",
-      "t3_confidence": 5,
+      "ema20_cross_days": 10,
+      "delta": 0.8,
+      "sig": "T1 10d",
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -120,9 +98,9 @@
       "name": "台中銀",
       "close": 20.6,
       "rsi": 65.4,
-      "ema20_cross_days": 5,
-      "delta": -0.5,
-      "sig": "T1 5d",
+      "ema20_cross_days": 6,
+      "delta": -0.2,
+      "sig": "T1 6d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -138,9 +116,9 @@
       "name": "亞聚",
       "close": 14.65,
       "rsi": 54.3,
-      "ema20_cross_days": 4,
+      "ema20_cross_days": 5,
       "delta": -8.2,
-      "sig": "T1 4d",
+      "sig": "T1 5d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -156,9 +134,27 @@
       "name": "柏文",
       "close": 159.0,
       "rsi": 75.0,
-      "ema20_cross_days": 4,
-      "delta": 13.2,
-      "sig": "T1 4d",
+      "ema20_cross_days": 5,
+      "delta": 12.0,
+      "sig": "T1 5d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "3005",
+      "name": "神基",
+      "close": 112.0,
+      "rsi": 62.9,
+      "ema20_cross_days": 1,
+      "delta": 13.8,
+      "sig": "T1 1d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -175,7 +171,7 @@
       "close": 48.6,
       "rsi": 47.2,
       "ema20_cross_days": null,
-      "delta": 78.0,
+      "delta": 79.3,
       "sig": "T3 RSI47",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -187,7 +183,7 @@
       "close": 900.0,
       "rsi": 48.3,
       "ema20_cross_days": null,
-      "delta": 179.5,
+      "delta": 176.9,
       "sig": "T3 RSI48",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -211,7 +207,7 @@
       "close": 200.0,
       "rsi": 50.0,
       "ema20_cross_days": null,
-      "delta": 65.3,
+      "delta": 63.9,
       "sig": "T3 RSI50",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -226,25 +222,10 @@
       "close": 684.0,
       "rsi": 41.3,
       "ema20_cross_days": null,
-      "delta": 17.1,
+      "delta": 16.1,
       "sig": "T3 RSI41",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "2460",
-      "name": "建通",
-      "close": 34.3,
-      "rsi": 46.7,
-      "ema20_cross_days": null,
-      "delta": -2.8,
-      "sig": "T3 RSI47",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
       "alerts": []
     },
     {
@@ -253,15 +234,10 @@
       "close": 200.0,
       "rsi": 48.3,
       "ema20_cross_days": null,
-      "delta": 53.3,
+      "delta": 42.9,
       "sig": "T3 RSI48",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -270,7 +246,7 @@
       "close": 172.0,
       "rsi": 39.1,
       "ema20_cross_days": null,
-      "delta": 37.6,
+      "delta": 41.0,
       "sig": "T3 RSI39",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
@@ -282,20 +258,20 @@
       "close": 58.8,
       "rsi": 41.9,
       "ema20_cross_days": null,
-      "delta": 27.8,
+      "delta": 25.1,
       "sig": "T3 RSI42",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
     },
     {
-      "ticker": "4722",
-      "name": "國精化",
-      "close": 256.5,
-      "rsi": 46.7,
+      "ticker": "3312",
+      "name": "弘憶股",
+      "close": 55.6,
+      "rsi": 45.6,
       "ema20_cross_days": null,
-      "delta": 40.9,
-      "sig": "T3 RSI47",
+      "delta": 32.9,
+      "sig": "T3 RSI46",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -306,19 +282,11 @@
       "close": 73.2,
       "rsi": 43.1,
       "ema20_cross_days": null,
-      "delta": 49.5,
+      "delta": 39.2,
       "sig": "T3 RSI43",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 51.19881893501625
-        }
-      ]
+      "alerts": []
     },
     {
       "ticker": "6691",
@@ -326,13 +294,10 @@
       "close": 708.0,
       "rsi": 47.8,
       "ema20_cross_days": null,
-      "delta": 11.0,
+      "delta": 7.6,
       "sig": "T3 RSI48",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     }
   ],
@@ -343,8 +308,8 @@
       "name": "泰宗",
       "close": 270.0,
       "rsi": 79.3,
-      "ema20_cross_days": 12,
-      "delta": 73.6,
+      "ema20_cross_days": 13,
+      "delta": 61.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -362,7 +327,7 @@
       "close": 176.0,
       "rsi": 73.0,
       "ema20_cross_days": null,
-      "delta": 40.2,
+      "delta": 35.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -379,8 +344,8 @@
       "name": "彰銀",
       "close": 24.05,
       "rsi": 70.8,
-      "ema20_cross_days": 22,
-      "delta": 12.4,
+      "ema20_cross_days": 23,
+      "delta": 12.6,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -398,7 +363,7 @@
       "close": 8250.0,
       "rsi": 70.2,
       "ema20_cross_days": null,
-      "delta": 139.8,
+      "delta": 139.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -416,7 +381,7 @@
       "close": 325.0,
       "rsi": 69.1,
       "ema20_cross_days": null,
-      "delta": 198.2,
+      "delta": 180.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -433,7 +398,7 @@
       "name": "三商壽",
       "close": 8.86,
       "rsi": 68.0,
-      "ema20_cross_days": 24,
+      "ema20_cross_days": 25,
       "delta": 12.0,
       "sig": "—",
       "t3_confidence": 5,
@@ -452,7 +417,7 @@
       "close": 42.6,
       "rsi": 67.5,
       "ema20_cross_days": null,
-      "delta": 8.7,
+      "delta": 7.3,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -470,7 +435,7 @@
       "close": 385.0,
       "rsi": 66.5,
       "ema20_cross_days": null,
-      "delta": 67.8,
+      "delta": 52.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -488,15 +453,13 @@
       "close": 181.5,
       "rsi": 66.3,
       "ema20_cross_days": null,
-      "delta": 105.1,
+      "delta": 100.6,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -506,7 +469,7 @@
       "close": 58.8,
       "rsi": 66.2,
       "ema20_cross_days": null,
-      "delta": 44.8,
+      "delta": 47.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -523,7 +486,7 @@
       "name": "永豐金",
       "close": 40.45,
       "rsi": 66.2,
-      "ema20_cross_days": 24,
+      "ema20_cross_days": 25,
       "delta": 21.5,
       "sig": "—",
       "t3_confidence": 5,
@@ -542,7 +505,7 @@
       "close": 67.6,
       "rsi": 66.2,
       "ema20_cross_days": null,
-      "delta": 64.1,
+      "delta": 62.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -560,7 +523,7 @@
       "close": 90.7,
       "rsi": 65.3,
       "ema20_cross_days": null,
-      "delta": 147.5,
+      "delta": 125.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -578,7 +541,7 @@
       "close": 213.0,
       "rsi": 64.2,
       "ema20_cross_days": null,
-      "delta": 113.0,
+      "delta": 98.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -596,7 +559,7 @@
       "close": 23.8,
       "rsi": 63.9,
       "ema20_cross_days": null,
-      "delta": 13.1,
+      "delta": 12.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -614,7 +577,7 @@
       "close": 298.0,
       "rsi": 63.3,
       "ema20_cross_days": null,
-      "delta": 91.6,
+      "delta": 86.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -632,7 +595,7 @@
       "close": 61.6,
       "rsi": 62.6,
       "ema20_cross_days": null,
-      "delta": 36.7,
+      "delta": 34.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -650,7 +613,7 @@
       "close": 423.5,
       "rsi": 62.5,
       "ema20_cross_days": null,
-      "delta": 118.9,
+      "delta": 118.3,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -667,8 +630,8 @@
       "name": "臺企銀",
       "close": 17.95,
       "rsi": 61.1,
-      "ema20_cross_days": 57,
-      "delta": 15.8,
+      "ema20_cross_days": 58,
+      "delta": 10.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -686,7 +649,7 @@
       "close": 117.0,
       "rsi": 60.6,
       "ema20_cross_days": null,
-      "delta": 74.6,
+      "delta": 58.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -704,13 +667,15 @@
       "close": 31.45,
       "rsi": 59.8,
       "ema20_cross_days": null,
-      "delta": 56.9,
+      "delta": 51.9,
       "sig": "—",
-      "t3_confidence": 3,
+      "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5>EMA20"
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
       ],
       "alerts": []
     },
@@ -720,7 +685,7 @@
       "close": 68.3,
       "rsi": 59.6,
       "ema20_cross_days": null,
-      "delta": 35.5,
+      "delta": 34.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -738,15 +703,13 @@
       "close": 552.0,
       "rsi": 58.7,
       "ema20_cross_days": null,
-      "delta": 36.6,
+      "delta": 39.7,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -756,7 +719,7 @@
       "close": 65.3,
       "rsi": 58.6,
       "ema20_cross_days": null,
-      "delta": 136.6,
+      "delta": 139.6,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -772,7 +735,7 @@
       "close": 677.0,
       "rsi": 57.5,
       "ema20_cross_days": null,
-      "delta": 51.6,
+      "delta": 50.3,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -788,15 +751,13 @@
       "close": 69.9,
       "rsi": 55.7,
       "ema20_cross_days": null,
-      "delta": 32.4,
+      "delta": 30.9,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -806,7 +767,7 @@
       "close": 795.0,
       "rsi": 55.4,
       "ema20_cross_days": null,
-      "delta": 107.3,
+      "delta": 102.0,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -822,7 +783,7 @@
       "close": 509.0,
       "rsi": 55.3,
       "ema20_cross_days": null,
-      "delta": 23.5,
+      "delta": 21.9,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -838,7 +799,7 @@
       "close": 60.0,
       "rsi": 55.1,
       "ema20_cross_days": null,
-      "delta": 19.0,
+      "delta": 15.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -856,25 +817,7 @@
       "close": 244.5,
       "rsi": 55.1,
       "ema20_cross_days": null,
-      "delta": 36.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "4952",
-      "name": "凌通",
-      "close": 57.8,
-      "rsi": 54.5,
-      "ema20_cross_days": null,
-      "delta": 38.4,
+      "delta": 35.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -892,7 +835,7 @@
       "close": 549.0,
       "rsi": 54.1,
       "ema20_cross_days": null,
-      "delta": 55.5,
+      "delta": 61.5,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -900,15 +843,7 @@
         "EMA20上升",
         "EMA5>EMA20"
       ],
-      "alerts": [
-        {
-          "level": "imm_bear",
-          "side": "bear",
-          "tag": "即將: 三隻烏鴉 + 距高 8.2%（差到 <5%）",
-          "expect": "價再升即達 ★★★★",
-          "quality_score": -8.193979933110368
-        }
-      ]
+      "alerts": []
     },
     {
       "ticker": "6139",
@@ -916,7 +851,7 @@
       "close": 875.0,
       "rsi": 53.7,
       "ema20_cross_days": null,
-      "delta": 39.1,
+      "delta": 30.8,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -932,7 +867,7 @@
       "close": 156.0,
       "rsi": 53.5,
       "ema20_cross_days": null,
-      "delta": 151.2,
+      "delta": 128.4,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -948,7 +883,7 @@
       "close": 37.85,
       "rsi": 53.4,
       "ema20_cross_days": null,
-      "delta": 20.9,
+      "delta": 27.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -966,7 +901,7 @@
       "close": 38.5,
       "rsi": 53.0,
       "ema20_cross_days": null,
-      "delta": 16.5,
+      "delta": 17.4,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -981,8 +916,8 @@
       "name": "吉祥全",
       "close": 36.65,
       "rsi": 52.9,
-      "ema20_cross_days": 44,
-      "delta": 142.7,
+      "ema20_cross_days": 45,
+      "delta": 134.2,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -996,11 +931,13 @@
       "name": "富邦金",
       "close": 124.5,
       "rsi": 52.9,
-      "ema20_cross_days": 44,
-      "delta": 42.3,
+      "ema20_cross_days": 45,
+      "delta": 41.6,
       "sig": "—",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
+      "t3_confidence": 1,
+      "t3_confidence_hits": [
+        "EMA5上升"
+      ],
       "alerts": []
     },
     {
@@ -1009,7 +946,7 @@
       "close": 252.0,
       "rsi": 51.2,
       "ema20_cross_days": null,
-      "delta": 37.7,
+      "delta": 36.2,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1024,13 +961,10 @@
       "close": 376.0,
       "rsi": 51.1,
       "ema20_cross_days": null,
-      "delta": 107.2,
+      "delta": 110.1,
       "sig": "—",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -1038,16 +972,14 @@
       "name": "聯德",
       "close": 21.6,
       "rsi": 51.0,
-      "ema20_cross_days": 14,
-      "delta": 4.1,
+      "ema20_cross_days": 15,
+      "delta": 2.9,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1057,7 +989,7 @@
       "close": 93.8,
       "rsi": 50.3,
       "ema20_cross_days": null,
-      "delta": 6.5,
+      "delta": 9.6,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1072,17 +1004,14 @@
       "close": 5295.0,
       "rsi": 50.1,
       "ema20_cross_days": null,
-      "delta": 39.0,
+      "delta": 38.1,
       "sig": "—",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
       "alerts": []
     }
   ],
-  "wait_count": 133,
+  "wait_count": 135,
   "alerts": [
     {
       "ticker": "3010",
@@ -1090,99 +1019,39 @@
       "close": 117.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.12<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 62.37055560836774
+      "quality_score": 51.67143160005507
     },
     {
-      "ticker": "2360",
-      "name": "致茂",
-      "close": 1820.0,
+      "ticker": "3535",
+      "name": "晶彩科",
+      "close": 104.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.09<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 59.201541008011986
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=32.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 32.71527020782734
     },
     {
-      "ticker": "5284",
-      "name": "jpp-KY",
-      "close": 330.0,
+      "ticker": "6184",
+      "name": "大豐電",
+      "close": 42.95,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.06<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 55.689337818887005
+      "tag": "底部十字星 + RSI 23≤25 + ADX↑",
+      "expect": "+7.02% 30d (67.4% 漲)",
+      "quality_score": 26.91533481025546
     },
     {
-      "ticker": "4967",
-      "name": "十銓",
-      "close": 233.0,
+      "ticker": "3715",
+      "name": "定穎投控",
+      "close": 151.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.05<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 54.71549677765005
-    },
-    {
-      "ticker": "3645",
-      "name": "達邁",
-      "close": 82.9,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.04<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 54.499510988422784
-    },
-    {
-      "ticker": "4739",
-      "name": "康普",
-      "close": 99.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 53.81677011144841
-    },
-    {
-      "ticker": "1519",
-      "name": "華城",
-      "close": 721.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 53.086537413250596
-    },
-    {
-      "ticker": "6155",
-      "name": "鈞寶",
-      "close": 73.2,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 51.19881893501625
-    },
-    {
-      "ticker": "2368",
-      "name": "金像電",
-      "close": 1075.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 51.004116287764255
-    },
-    {
-      "ticker": "3044",
-      "name": "健鼎",
-      "close": 448.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 50.90395044916874
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.3%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 26.262384458307857
     },
     {
       "ticker": "6184",
@@ -1192,7 +1061,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=16.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 16.06696284751025
+      "quality_score": 16.07636392469623
     },
     {
       "ticker": "1795",
@@ -1200,9 +1069,9 @@
       "close": 204.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=13.8%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=14.4%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 13.83507104815433
+      "quality_score": 14.397886917862468
     },
     {
       "ticker": "2607",
@@ -1210,9 +1079,9 @@
       "close": 46.35,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=12.8%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=13.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 12.836874706406535
+      "quality_score": 13.129983716531706
     },
     {
       "ticker": "1727",
@@ -1263,46 +1132,6 @@
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
       "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
       "quality_score": 30.0
-    },
-    {
-      "ticker": "9927",
-      "name": "泰銘",
-      "close": 68.3,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
-    },
-    {
-      "ticker": "3005",
-      "name": "神基",
-      "close": 112.0,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "空頭+%B 1.02>1（假突破，反彈將失敗）",
-      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 2.186917395162766
-    },
-    {
-      "ticker": "3543",
-      "name": "州巧",
-      "close": 33.4,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "空頭+%B 1.00>1（假突破，反彈將失敗）",
-      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 0.2864983154060212
-    },
-    {
-      "ticker": "6196",
-      "name": "帆宣",
-      "close": 549.0,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "即將: 三隻烏鴉 + 距高 8.2%（差到 <5%）",
-      "expect": "價再升即達 ★★★★",
-      "quality_score": -8.193979933110368
     }
   ],
   "source": "cloud (yfinance live)"
