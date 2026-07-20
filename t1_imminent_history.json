@@ -15400,10 +15400,11 @@
           "checked_at": "2026-07-06"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 12.1,
+          "crossed": false,
+          "ret_pct": -1.59,
+          "actual_date": "2026-07-20",
+          "checked_at": "2026-07-20"
         }
       }
     },
@@ -26138,10 +26139,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 12.1,
+          "crossed": false,
+          "ret_pct": 0.04,
+          "actual_date": "2026-07-20",
+          "checked_at": "2026-07-20"
         },
         "15d": {
           "close": null,
@@ -28032,10 +28034,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-07-20",
+      "ticker": "OSCR",
+      "name": "Oscar Health, Inc. Class A",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 29.58,
+      "ema20": 29.64,
+      "dist_pct": 0.19,
+      "adx": 36.6,
+      "rsi": 52.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-07-20 15:45:49",
-  "total_candidates": 794,
+  "last_updated": "2026-07-20 19:24:57",
+  "total_candidates": 795,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -28091,10 +28126,10 @@
         "win_rate": 48.7
       },
       "30d": {
-        "n": 92,
-        "cross_rate": 53.3,
-        "mean_ret": -0.25,
-        "win_rate": 51.1
+        "n": 93,
+        "cross_rate": 52.7,
+        "mean_ret": -0.27,
+        "win_rate": 50.5
       }
     },
     "us_L2_medium_dc": {
@@ -28139,10 +28174,10 @@
     },
     "us_L2_medium": {
       "5d": {
-        "n": 103,
-        "cross_rate": 44.7,
-        "mean_ret": 0.58,
-        "win_rate": 54.4
+        "n": 104,
+        "cross_rate": 44.2,
+        "mean_ret": 0.57,
+        "win_rate": 54.8
       },
       "15d": {
         "n": 80,
@@ -28198,5 +28233,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-07-20 15:46:08"
+  "last_outcomes_update": "2026-07-20 19:25:07"
 }
