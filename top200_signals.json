@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-22",
-  "computed_at": "2026-07-22 07:44:39",
+  "computed_at": "2026-07-22 23:10:48",
   "top200_total": 200,
   "entry": [
     {
@@ -559,24 +559,6 @@
       "alerts": []
     },
     {
-      "ticker": "2890",
-      "name": "永豐金",
-      "close": 40.4,
-      "rsi": 62.9,
-      "ema20_cross_days": 33,
-      "delta": 26.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "1303",
       "name": "南亞",
       "close": 208.0,
@@ -693,6 +675,22 @@
       "alerts": []
     },
     {
+      "ticker": "2890",
+      "name": "永豐金",
+      "close": 39.61,
+      "rsi": 56.5,
+      "ema20_cross_days": 33,
+      "delta": 24.2,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "2618",
       "name": "長榮航",
       "close": 42.1,
@@ -762,6 +760,16 @@
   ],
   "wait_count": 147,
   "alerts": [
+    {
+      "ticker": "1720",
+      "name": "生達",
+      "close": 57.73,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.51<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 101.13677365823668
+    },
     {
       "ticker": "6861",
       "name": "睿生光電",
@@ -961,16 +969,6 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=17.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 17.10564856213905
-    },
-    {
-      "ticker": "1720",
-      "name": "生達",
-      "close": 63.5,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
     },
     {
       "ticker": "2441",
