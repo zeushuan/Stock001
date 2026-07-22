@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-21",
-  "computed_at": "2026-07-21 23:04:15",
+  "computed_at": "2026-07-22 07:44:55",
   "top_total": 200,
   "entry": [
     {
@@ -883,15 +883,7 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": [
-        {
-          "level": 4,
-          "side": "bear",
-          "tag": "三隻烏鴉 + 距高 3.4% + 量縮",
-          "expect": "-1.26% 30d (71% 跌)",
-          "quality_score": -3.400893761452285
-        }
-      ]
+      "alerts": []
     },
     {
       "ticker": "GD",
@@ -1051,16 +1043,6 @@
   "wait_count": 132,
   "alerts": [
     {
-      "ticker": "AXP",
-      "name": "American Express Company",
-      "close": 350.79,
-      "level": 4,
-      "side": "bear",
-      "tag": "三隻烏鴉 + 距高 3.4% + 量縮",
-      "expect": "-1.26% 30d (71% 跌)",
-      "quality_score": -3.400893761452285
-    },
-    {
       "ticker": "WMS",
       "name": "Advanced Drainage Systems, Inc.",
       "close": 138.85,
@@ -1164,6 +1146,16 @@
       "ticker": "FLEX",
       "name": "Flex Ltd.",
       "close": 127.39,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "NVS",
+      "name": "Novartis AG",
+      "close": 153.87,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
