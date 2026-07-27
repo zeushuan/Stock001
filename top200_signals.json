@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-27",
-  "computed_at": "2026-07-27 08:50:23",
+  "computed_at": "2026-07-27 23:12:10",
   "top200_total": 200,
   "entry": [
     {
@@ -472,22 +472,6 @@
       "alerts": []
     },
     {
-      "ticker": "2890",
-      "name": "永豐金",
-      "close": 39.6,
-      "rsi": 59.6,
-      "ema20_cross_days": 36,
-      "delta": 32.2,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "2881",
       "name": "富邦金",
       "close": 130.0,
@@ -602,6 +586,21 @@
       "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "2890",
+      "name": "永豐金",
+      "close": NaN,
+      "rsi": 53.3,
+      "ema20_cross_days": 36,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
         "EMA20上升",
         "EMA5>EMA20"
       ],
