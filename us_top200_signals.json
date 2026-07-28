@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-27",
-  "computed_at": "2026-07-27 23:12:28",
+  "computed_at": "2026-07-28 07:57:52",
   "top_total": 200,
   "entry": [
     {
@@ -322,20 +322,6 @@
       "alerts": []
     },
     {
-      "ticker": "EWBC",
-      "name": "East West Bancorp, Inc.",
-      "close": 129.89,
-      "rsi": 48.0,
-      "ema20_cross_days": null,
-      "delta": 2.7,
-      "sig": "T3 RSI48",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "FLEX",
       "name": "Flex Ltd.",
       "close": 116.07,
@@ -395,18 +381,6 @@
       "t3_confidence_hits": [
         "EMA5上升"
       ],
-      "alerts": []
-    },
-    {
-      "ticker": "NVT",
-      "name": "nVent Electric plc",
-      "close": 149.29,
-      "rsi": 40.1,
-      "ema20_cross_days": null,
-      "delta": 4.5,
-      "sig": "T3 RSI40",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
       "alerts": []
     },
     {
@@ -721,12 +695,12 @@
       "alerts": []
     },
     {
-      "ticker": "MTD",
-      "name": "Mettler-Toledo International, Inc.",
-      "close": 1336.29,
-      "rsi": 62.2,
-      "ema20_cross_days": 17,
-      "delta": 4.7,
+      "ticker": "CTRE",
+      "name": "CareTrust REIT, Inc.",
+      "close": 42.96,
+      "rsi": 61.3,
+      "ema20_cross_days": 18,
+      "delta": 8.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -739,16 +713,15 @@
       "alerts": []
     },
     {
-      "ticker": "CTRE",
-      "name": "CareTrust REIT, Inc.",
-      "close": 42.96,
-      "rsi": 61.3,
-      "ema20_cross_days": 18,
-      "delta": 8.9,
+      "ticker": "MTD",
+      "name": "Mettler-Toledo International, Inc.",
+      "close": NaN,
+      "rsi": 60.9,
+      "ema20_cross_days": 17,
+      "delta": NaN,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 4,
       "t3_confidence_hits": [
-        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -1041,6 +1014,21 @@
       "alerts": []
     },
     {
+      "ticker": "EWBC",
+      "name": "East West Bancorp, Inc.",
+      "close": NaN,
+      "rsi": 51.2,
+      "ema20_cross_days": null,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "LNG",
       "name": "Cheniere Energy, Inc.",
       "close": 255.88,
@@ -1075,7 +1063,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 130,
+  "wait_count": 131,
   "alerts": [
     {
       "ticker": "WMB",
