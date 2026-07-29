@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-07-28",
-  "computed_at": "2026-07-28 23:08:26",
+  "computed_at": "2026-07-29 08:01:58",
   "top_total": 200,
   "entry": [
     {
@@ -186,13 +186,13 @@
       "alerts": []
     },
     {
-      "ticker": "FANG",
-      "name": "Diamondback Energy, Inc.",
-      "close": 190.3,
-      "rsi": 48.1,
-      "ema20_cross_days": 5,
-      "delta": -8.4,
-      "sig": "T1 5d",
+      "ticker": "PR",
+      "name": "Permian Resources Corporation Class A",
+      "close": 19.73,
+      "rsi": 48.5,
+      "ema20_cross_days": 6,
+      "delta": -10.7,
+      "sig": "T1 6d",
       "t3_confidence": 4,
       "t3_confidence_hits": [
         "EMA20上升",
@@ -203,12 +203,12 @@
       "alerts": []
     },
     {
-      "ticker": "PR",
-      "name": "Permian Resources Corporation Class A",
-      "close": 19.73,
-      "rsi": 49.6,
+      "ticker": "FANG",
+      "name": "Diamondback Energy, Inc.",
+      "close": 190.31,
+      "rsi": 48.1,
       "ema20_cross_days": 5,
-      "delta": -8.7,
+      "delta": -8.4,
       "sig": "T1 5d",
       "t3_confidence": 4,
       "t3_confidence_hits": [
@@ -512,9 +512,9 @@
       "ticker": "GD",
       "name": "General Dynamics Corporation",
       "close": 393.19,
-      "rsi": 73.2,
-      "ema20_cross_days": 31,
-      "delta": 14.2,
+      "rsi": 73.5,
+      "ema20_cross_days": 32,
+      "delta": 13.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -656,7 +656,7 @@
       "ticker": "MTD",
       "name": "Mettler-Toledo International, Inc.",
       "close": 1388.38,
-      "rsi": 68.8,
+      "rsi": 68.4,
       "ema20_cross_days": 17,
       "delta": 8.8,
       "sig": "—",
@@ -779,24 +779,6 @@
       "alerts": []
     },
     {
-      "ticker": "MPC",
-      "name": "Marathon Petroleum Corporation",
-      "close": 306.05,
-      "rsi": 64.5,
-      "ema20_cross_days": null,
-      "delta": 23.3,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "XYL",
       "name": "Xylem Inc.",
       "close": 124.97,
@@ -829,6 +811,22 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "MPC",
+      "name": "Marathon Petroleum Corporation",
+      "close": 306.05,
+      "rsi": 63.0,
+      "ema20_cross_days": null,
+      "delta": 24.3,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1004,12 +1002,12 @@
       "alerts": []
     },
     {
-      "ticker": "FITB",
-      "name": "Fifth Third Bancorp",
-      "close": 57.8,
-      "rsi": 58.9,
-      "ema20_cross_days": null,
-      "delta": 13.9,
+      "ticker": "DLTR",
+      "name": "Dollar Tree, Inc.",
+      "close": 126.76,
+      "rsi": 58.7,
+      "ema20_cross_days": 33,
+      "delta": 33.9,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -1020,12 +1018,12 @@
       "alerts": []
     },
     {
-      "ticker": "DLTR",
-      "name": "Dollar Tree, Inc.",
-      "close": 126.76,
-      "rsi": 58.2,
-      "ema20_cross_days": 32,
-      "delta": 30.5,
+      "ticker": "FITB",
+      "name": "Fifth Third Bancorp",
+      "close": 57.8,
+      "rsi": 58.5,
+      "ema20_cross_days": null,
+      "delta": 14.6,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -1352,9 +1350,9 @@
       "close": 96.34,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=25.9%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.853149903834378
+      "quality_score": 26.588943588940317
     },
     {
       "ticker": "CDNS",
@@ -1462,9 +1460,9 @@
       "close": 96.34,
       "level": "imm_bear",
       "side": "bear",
-      "tag": "空頭+%B 1.15>1（假突破，反彈將失敗）",
+      "tag": "空頭+%B 1.12>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
-      "quality_score": 14.513897613873567
+      "quality_score": 11.575705173928185
     },
     {
       "ticker": "INTU",
