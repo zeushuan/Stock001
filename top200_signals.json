@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-04",
-  "computed_at": "2026-08-04 07:58:04",
+  "computed_at": "2026-08-04 23:10:10",
   "top200_total": 200,
   "entry": [
     {
@@ -19,19 +19,22 @@
       "ticker": "2812",
       "name": "台中銀",
       "close": 18.9,
-      "rsi": 26.3,
+      "rsi": 44.8,
       "ema20_cross_days": 23,
-      "delta": -3.6,
-      "sig": "T3 RSI26",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
+      "delta": 2.9,
+      "sig": "T3 RSI45",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
       "alerts": [
         {
           "level": 3,
           "side": "bull",
-          "tag": "BB %B -0.31<0 過冷反彈（多頭）",
+          "tag": "BB %B -0.04<0 過冷反彈（多頭）",
           "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 81.23542890487946
+          "quality_score": 54.47458474376329
         }
       ]
     },
@@ -276,24 +279,6 @@
       "alerts": []
     },
     {
-      "ticker": "2801",
-      "name": "彰銀",
-      "close": 25.2,
-      "rsi": 68.2,
-      "ema20_cross_days": 40,
-      "delta": 22.3,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "2885",
       "name": "元大金",
       "close": 69.0,
@@ -318,6 +303,24 @@
       "rsi": 59.7,
       "ema20_cross_days": 22,
       "delta": 11.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "2801",
+      "name": "彰銀",
+      "close": 24.59,
+      "rsi": 57.3,
+      "ema20_cross_days": 40,
+      "delta": 19.3,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -471,16 +474,6 @@
       "quality_score": 81.94037519747722
     },
     {
-      "ticker": "2812",
-      "name": "台中銀",
-      "close": 18.9,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.31<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 81.23542890487946
-    },
-    {
       "ticker": "8438",
       "name": "昶昕",
       "close": 62.9,
@@ -519,16 +512,6 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=70.3%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 70.28213989089133
-    },
-    {
-      "ticker": "2834",
-      "name": "臺企銀",
-      "close": 16.9,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.20<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 70.17698811611719
     },
     {
       "ticker": "6271",
@@ -579,6 +562,16 @@
       "tag": "BB %B -0.06<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
       "quality_score": 55.73537713311601
+    },
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 18.9,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 54.47458474376329
     },
     {
       "ticker": "1802",
@@ -768,6 +761,16 @@
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
       "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "2834",
+      "name": "臺企銀",
+      "close": 16.9,
+      "level": 2,
+      "side": "bull",
+      "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
+      "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
       "quality_score": 30.0
     },
     {
