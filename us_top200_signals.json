@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-07",
-  "computed_at": "2026-08-07 22:45:44",
+  "computed_at": "2026-08-10 06:47:46",
   "top_total": 200,
   "entry": [
     {
@@ -281,33 +281,6 @@
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
-    },
-    {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 90.36,
-      "rsi": 37.0,
-      "ema20_cross_days": null,
-      "delta": 5.2,
-      "sig": "T3 RSI37",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.10<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 60.12477045703816
-        },
-        {
-          "level": 2,
-          "side": "bear",
-          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-          "quality_score": 30.0
-        }
-      ]
     },
     {
       "ticker": "MU",
@@ -762,6 +735,23 @@
       "alerts": []
     },
     {
+      "ticker": "MNST",
+      "name": "Monster Beverage Corporation",
+      "close": NaN,
+      "rsi": 59.0,
+      "ema20_cross_days": 49,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "ANET",
       "name": "Arista Networks, Inc.",
       "close": 188.67,
@@ -813,15 +803,7 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": [
-        {
-          "level": 4,
-          "side": "bear",
-          "tag": "三隻烏鴉 + 距高 4.8% + 量縮",
-          "expect": "-1.26% 30d (71% 跌)",
-          "quality_score": -4.836295454409742
-        }
-      ]
+      "alerts": []
     },
     {
       "ticker": "FROG",
@@ -1186,26 +1168,6 @@
   "wait_count": 128,
   "alerts": [
     {
-      "ticker": "WAB",
-      "name": "Westinghouse Air Brake Technologies Corp",
-      "close": 291.81,
-      "level": 4,
-      "side": "bear",
-      "tag": "三隻烏鴉 + 距高 4.8% + 量縮",
-      "expect": "-1.26% 30d (71% 跌)",
-      "quality_score": -4.836295454409742
-    },
-    {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 90.36,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.10<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 60.12477045703816
-    },
-    {
       "ticker": "APP",
       "name": "Applovin Corporation",
       "close": 346.8,
@@ -1259,16 +1221,6 @@
       "ticker": "HBAN",
       "name": "Huntington Bancshares Incorporated",
       "close": 17.55,
-      "level": 2,
-      "side": "bear",
-      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
-      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
-      "quality_score": 30.0
-    },
-    {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 90.36,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
