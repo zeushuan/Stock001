@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-10",
-  "computed_at": "2026-08-10 22:47:07",
+  "computed_at": "2026-08-11 06:11:50",
   "top_total": 200,
   "entry": [
     {
@@ -14,29 +14,6 @@
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
-    },
-    {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 91.43,
-      "rsi": 41.4,
-      "ema20_cross_days": 49,
-      "delta": 17.9,
-      "sig": "T3 RSI41",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.13<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 63.10008014926461
-        }
-      ]
     },
     {
       "ticker": "HOOD",
@@ -309,6 +286,26 @@
         "雙均線都升"
       ],
       "alerts": []
+    },
+    {
+      "ticker": "MNST",
+      "name": "Monster Beverage Corporation",
+      "close": 45.72,
+      "rsi": 40.8,
+      "ema20_cross_days": null,
+      "delta": 6.5,
+      "sig": "T3 RSI41",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
     },
     {
       "ticker": "MU",
@@ -1196,16 +1193,6 @@
       "quality_score": -4.069922511788439
     },
     {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 91.43,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.13<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 63.10008014926461
-    },
-    {
       "ticker": "EXC",
       "name": "Exelon Corporation",
       "close": 44.5,
@@ -1309,6 +1296,16 @@
       "ticker": "HBAN",
       "name": "Huntington Bancshares Incorporated",
       "close": 17.6,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "MNST",
+      "name": "Monster Beverage Corporation",
+      "close": 45.72,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1424,16 +1421,6 @@
       "tag": "即將: 三隻烏鴉 + 距高 5.7%（差到 <5%）",
       "expect": "價再升即達 ★★★★",
       "quality_score": -5.693854628992531
-    },
-    {
-      "ticker": "DD",
-      "name": "DuPont de Nemours, Inc.",
-      "close": 141.55,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "即將: 三隻烏鴉 + 距高 8.6%（差到 <5%）",
-      "expect": "價再升即達 ★★★★",
-      "quality_score": -8.630257729933023
     }
   ],
   "source": "cloud (yfinance live)"
