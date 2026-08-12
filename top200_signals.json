@@ -1,20 +1,8 @@
 {
   "updated_at": "2026-08-12",
-  "computed_at": "2026-08-12 06:49:57",
+  "computed_at": "2026-08-12 22:50:13",
   "top200_total": 200,
   "entry": [
-    {
-      "ticker": "2812",
-      "name": "台中銀",
-      "close": 18.65,
-      "rsi": 42.7,
-      "ema20_cross_days": 29,
-      "delta": 5.3,
-      "sig": "T3 RSI43",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
     {
       "ticker": "2889",
       "name": "國票金",
@@ -468,7 +456,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 173,
+  "wait_count": 174,
   "alerts": [
     {
       "ticker": "3653",
@@ -539,6 +527,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=20.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 20.218568618427852
+    },
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 18.65,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=18.4%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 18.371822736755973
     },
     {
       "ticker": "2890",
