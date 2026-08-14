@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-13",
-  "computed_at": "2026-08-13 22:52:03",
+  "computed_at": "2026-08-14 06:50:19",
   "top_total": 200,
   "entry": [
     {
@@ -36,10 +36,10 @@
       "ticker": "VRSK",
       "name": "Verisk Analytics, Inc.",
       "close": 185.94,
-      "rsi": 45.4,
-      "ema20_cross_days": 28,
-      "delta": 8.9,
-      "sig": "T3 RSI45",
+      "rsi": 46.0,
+      "ema20_cross_days": 25,
+      "delta": 18.6,
+      "sig": "T3 RSI46",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -70,10 +70,28 @@
       "ticker": "DLR",
       "name": "Digital Realty Trust, Inc.",
       "close": 197.58,
-      "rsi": 60.6,
+      "rsi": 60.5,
       "ema20_cross_days": 10,
-      "delta": 6.1,
+      "delta": 4.8,
       "sig": "T1 10d",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "HAS",
+      "name": "Hasbro, Inc.",
+      "close": 96.7,
+      "rsi": 66.7,
+      "ema20_cross_days": 9,
+      "delta": 1.1,
+      "sig": "T1 9d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -88,9 +106,9 @@
       "ticker": "SAP",
       "name": "SAP  SE ADS",
       "close": 209.28,
-      "rsi": 72.1,
+      "rsi": 71.8,
       "ema20_cross_days": 8,
-      "delta": 17.0,
+      "delta": 19.8,
       "sig": "T1 8d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -288,10 +306,10 @@
       "ticker": "RIO",
       "name": "Rio Tinto Plc",
       "close": 98.2,
-      "rsi": 53.2,
-      "ema20_cross_days": 3,
-      "delta": -2.7,
-      "sig": "T1 3d",
+      "rsi": 52.9,
+      "ema20_cross_days": 2,
+      "delta": -10.4,
+      "sig": "T1 2d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -416,12 +434,12 @@
       "alerts": []
     },
     {
-      "ticker": "PSX",
-      "name": "Phillips 66",
-      "close": 232.61,
-      "rsi": 76.5,
-      "ema20_cross_days": null,
-      "delta": 27.5,
+      "ticker": "GRMN",
+      "name": "Garmin Ltd.",
+      "close": 311.93,
+      "rsi": 77.4,
+      "ema20_cross_days": 25,
+      "delta": 33.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -434,12 +452,12 @@
       "alerts": []
     },
     {
-      "ticker": "GRMN",
-      "name": "Garmin Ltd.",
-      "close": 311.93,
-      "rsi": 75.7,
-      "ema20_cross_days": 28,
-      "delta": 36.4,
+      "ticker": "PSX",
+      "name": "Phillips 66",
+      "close": 232.61,
+      "rsi": 76.5,
+      "ema20_cross_days": null,
+      "delta": 27.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -473,9 +491,9 @@
       "ticker": "LPLA",
       "name": "LPL Financial Holdings Inc.",
       "close": 374.96,
-      "rsi": 74.8,
-      "ema20_cross_days": 23,
-      "delta": 30.5,
+      "rsi": 74.3,
+      "ema20_cross_days": 20,
+      "delta": 25.7,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -524,6 +542,24 @@
       "alerts": []
     },
     {
+      "ticker": "BLK",
+      "name": "BlackRock, Inc.",
+      "close": 1182.84,
+      "rsi": 73.0,
+      "ema20_cross_days": 17,
+      "delta": 7.1,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "ABT",
       "name": "Abbott Laboratories",
       "close": 111.27,
@@ -545,27 +581,9 @@
       "ticker": "LH",
       "name": "Labcorp Holdings Inc.",
       "close": 322.59,
-      "rsi": 72.4,
-      "ema20_cross_days": 33,
-      "delta": 27.2,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "BLK",
-      "name": "BlackRock, Inc.",
-      "close": 1182.84,
-      "rsi": 72.3,
-      "ema20_cross_days": 20,
-      "delta": 14.1,
+      "rsi": 72.2,
+      "ema20_cross_days": 30,
+      "delta": 27.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -599,9 +617,9 @@
       "ticker": "USFD",
       "name": "US Foods Holding Corp.",
       "close": 110.09,
-      "rsi": 70.1,
-      "ema20_cross_days": 41,
-      "delta": 35.5,
+      "rsi": 69.1,
+      "ema20_cross_days": 38,
+      "delta": 31.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -740,42 +758,6 @@
       "alerts": []
     },
     {
-      "ticker": "HAS",
-      "name": "Hasbro, Inc.",
-      "close": 96.7,
-      "rsi": 65.8,
-      "ema20_cross_days": 11,
-      "delta": -0.5,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "AME",
-      "name": "AMETEK, Inc.",
-      "close": 256.22,
-      "rsi": 65.5,
-      "ema20_cross_days": null,
-      "delta": 15.8,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "SAN",
       "name": "Banco Santander, S.A. Sponsored ADR (Spa",
       "close": 14.78,
@@ -794,12 +776,30 @@
       "alerts": []
     },
     {
+      "ticker": "AME",
+      "name": "AMETEK, Inc.",
+      "close": 256.22,
+      "rsi": 65.0,
+      "ema20_cross_days": null,
+      "delta": 10.4,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "EWBC",
       "name": "East West Bancorp, Inc.",
       "close": 135.96,
-      "rsi": 64.8,
+      "rsi": 63.9,
       "ema20_cross_days": null,
-      "delta": 12.4,
+      "delta": 13.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -905,9 +905,9 @@
       "ticker": "WAB",
       "name": "Westinghouse Air Brake Technologies Corp",
       "close": 297.98,
-      "rsi": 61.0,
+      "rsi": 61.4,
       "ema20_cross_days": null,
-      "delta": 16.7,
+      "delta": 10.6,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -974,6 +974,24 @@
       "alerts": []
     },
     {
+      "ticker": "DLTR",
+      "name": "Dollar Tree, Inc.",
+      "close": 129.53,
+      "rsi": 58.4,
+      "ema20_cross_days": 42,
+      "delta": 44.0,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "SU",
       "name": "Suncor Energy  Inc.",
       "close": 65.43,
@@ -1008,30 +1026,12 @@
       "alerts": []
     },
     {
-      "ticker": "DLTR",
-      "name": "Dollar Tree, Inc.",
-      "close": 129.53,
-      "rsi": 58.0,
-      "ema20_cross_days": 45,
-      "delta": 43.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "STLD",
       "name": "Steel Dynamics, Inc.",
       "close": 260.53,
-      "rsi": 57.4,
+      "rsi": 57.1,
       "ema20_cross_days": null,
-      "delta": 16.6,
+      "delta": 11.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1127,9 +1127,9 @@
       "ticker": "OSK",
       "name": "Oshkosh Corporation (Holding Company)Com",
       "close": 152.35,
-      "rsi": 54.3,
-      "ema20_cross_days": 32,
-      "delta": 27.9,
+      "rsi": 54.1,
+      "ema20_cross_days": 29,
+      "delta": 20.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1138,22 +1138,6 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "VRSN",
-      "name": "VeriSign, Inc.",
-      "close": 287.15,
-      "rsi": 54.1,
-      "ema20_cross_days": 12,
-      "delta": -5.1,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1169,6 +1153,22 @@
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA5上升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "VRSN",
+      "name": "VeriSign, Inc.",
+      "close": 287.15,
+      "rsi": 54.0,
+      "ema20_cross_days": 12,
+      "delta": -2.0,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1333,6 +1333,16 @@
       "quality_score": 20.597320311187023
     },
     {
+      "ticker": "VAL",
+      "name": "Valaris Limited",
+      "close": 85.13,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 19.57362040844563
+    },
+    {
       "ticker": "RIG",
       "name": "Transocean Ltd (Switzerland)",
       "close": 5.72,
@@ -1341,16 +1351,6 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=19.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 19.195314541974863
-    },
-    {
-      "ticker": "VAL",
-      "name": "Valaris Limited",
-      "close": 85.13,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.2%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 19.192697794604243
     },
     {
       "ticker": "OKE",
