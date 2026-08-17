@@ -1,8 +1,20 @@
 {
   "updated_at": "2026-08-17",
-  "computed_at": "2026-08-17 05:55:42",
+  "computed_at": "2026-08-17 22:31:24",
   "top200_total": 200,
   "entry": [
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 18.8,
+      "rsi": 47.6,
+      "ema20_cross_days": 32,
+      "delta": 7.0,
+      "sig": "T3 RSI48",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
     {
       "ticker": "3017",
       "name": "奇鋐",
@@ -204,24 +216,6 @@
   ],
   "exit": [],
   "hold": [
-    {
-      "ticker": "6225",
-      "name": "天瀚",
-      "close": 44.4,
-      "rsi": 86.5,
-      "ema20_cross_days": 29,
-      "delta": 77.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
     {
       "ticker": "2364",
       "name": "倫飛",
@@ -471,6 +465,24 @@
       "alerts": []
     },
     {
+      "ticker": "6225",
+      "name": "天瀚",
+      "close": 31.96,
+      "rsi": 58.5,
+      "ema20_cross_days": 29,
+      "delta": 27.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "8271",
       "name": "宇瞻",
       "close": 228.0,
@@ -544,7 +556,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 169,
+  "wait_count": 168,
   "alerts": [
     {
       "ticker": "5225",
@@ -567,24 +579,14 @@
       "quality_score": 28.668216972330217
     },
     {
-      "ticker": "2812",
-      "name": "台中銀",
-      "close": 18.8,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.5%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 19.450497702100094
-    },
-    {
       "ticker": "2834",
       "name": "臺企銀",
       "close": 16.3,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=18.3%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 18.274895395111983
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
     },
     {
       "ticker": "2882",
