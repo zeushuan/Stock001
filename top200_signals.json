@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-19",
-  "computed_at": "2026-08-19 05:52:38",
+  "computed_at": "2026-08-19 22:31:33",
   "top200_total": 200,
   "entry": [
     {
@@ -519,21 +519,6 @@
       "alerts": []
     },
     {
-      "ticker": "2812",
-      "name": "台中銀",
-      "close": 19.0,
-      "rsi": 53.3,
-      "ema20_cross_days": 34,
-      "delta": 7.8,
-      "sig": "—",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA5上升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "2890",
       "name": "永豐金",
       "close": 39.4,
@@ -575,7 +560,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 167,
+  "wait_count": 168,
   "alerts": [
     {
       "ticker": "6550",
@@ -596,6 +581,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=34.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 34.185593188375904
+    },
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 19.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=18.8%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 18.803536031102823
     },
     {
       "ticker": "1476",
