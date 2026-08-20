@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-19",
-  "computed_at": "2026-08-19 22:31:50",
+  "computed_at": "2026-08-20 05:52:49",
   "top_total": 200,
   "entry": [
     {
@@ -349,19 +349,19 @@
       "ticker": "STLD",
       "name": "Steel Dynamics, Inc.",
       "close": 231.01,
-      "rsi": 34.8,
+      "rsi": 35.5,
       "ema20_cross_days": null,
-      "delta": -7.8,
-      "sig": "T3 RSI35",
+      "delta": 1.2,
+      "sig": "T3 RSI36",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": [
         {
           "level": 3,
           "side": "bull",
-          "tag": "BB %B -0.17<0 過冷反彈（多頭）",
+          "tag": "BB %B -0.05<0 過冷反彈（多頭）",
           "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 67.19701634216646
+          "quality_score": 55.017169685650096
         }
       ]
     },
@@ -522,12 +522,12 @@
       "alerts": []
     },
     {
-      "ticker": "COP",
-      "name": "ConocoPhillips",
-      "close": 130.58,
-      "rsi": 69.5,
-      "ema20_cross_days": 16,
-      "delta": 12.0,
+      "ticker": "THC",
+      "name": "Tenet Healthcare Corporation",
+      "close": 268.52,
+      "rsi": 69.8,
+      "ema20_cross_days": 29,
+      "delta": 43.3,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -540,12 +540,12 @@
       "alerts": []
     },
     {
-      "ticker": "THC",
-      "name": "Tenet Healthcare Corporation",
-      "close": 268.52,
+      "ticker": "COP",
+      "name": "ConocoPhillips",
+      "close": 130.58,
       "rsi": 69.5,
-      "ema20_cross_days": 32,
-      "delta": 52.2,
+      "ema20_cross_days": 16,
+      "delta": 12.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -615,9 +615,9 @@
       "ticker": "DASH",
       "name": "DoorDash, Inc.",
       "close": 220.22,
-      "rsi": 67.9,
-      "ema20_cross_days": 38,
-      "delta": 43.0,
+      "rsi": 67.8,
+      "ema20_cross_days": 37,
+      "delta": 37.4,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -669,9 +669,9 @@
       "ticker": "OVV",
       "name": "Ovintiv Inc. (DE)",
       "close": 65.56,
-      "rsi": 65.6,
-      "ema20_cross_days": 23,
-      "delta": 16.1,
+      "rsi": 66.1,
+      "ema20_cross_days": 20,
+      "delta": 10.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -792,6 +792,24 @@
       "alerts": []
     },
     {
+      "ticker": "AXON",
+      "name": "Axon Enterprise, Inc.",
+      "close": 645.72,
+      "rsi": 62.5,
+      "ema20_cross_days": 39,
+      "delta": 67.6,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "MTD",
       "name": "Mettler-Toledo International, Inc.",
       "close": 1425.09,
@@ -804,24 +822,6 @@
         "close>EMA20",
         "EMA20上升",
         "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "AXON",
-      "name": "Axon Enterprise, Inc.",
-      "close": 645.72,
-      "rsi": 61.9,
-      "ema20_cross_days": 36,
-      "delta": 62.1,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
       ],
       "alerts": []
     },
@@ -929,9 +929,9 @@
       "ticker": "SYF",
       "name": "Synchrony Financial",
       "close": 79.62,
-      "rsi": 58.6,
-      "ema20_cross_days": 44,
-      "delta": 10.7,
+      "rsi": 58.3,
+      "ema20_cross_days": 42,
+      "delta": 10.6,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -964,8 +964,8 @@
       "name": "BridgeBio Pharma, Inc.",
       "close": 83.95,
       "rsi": 57.5,
-      "ema20_cross_days": 32,
-      "delta": 23.1,
+      "ema20_cross_days": 35,
+      "delta": 23.9,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -1044,9 +1044,9 @@
       "ticker": "COR",
       "name": "Cencora, Inc.",
       "close": 317.1,
-      "rsi": 54.6,
-      "ema20_cross_days": 27,
-      "delta": 17.1,
+      "rsi": 54.9,
+      "ema20_cross_days": 24,
+      "delta": 19.8,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -1106,12 +1106,27 @@
       "alerts": []
     },
     {
+      "ticker": "NET",
+      "name": "Cloudflare, Inc. Class A",
+      "close": 291.88,
+      "rsi": 51.8,
+      "ema20_cross_days": null,
+      "delta": 35.0,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "DLR",
       "name": "Digital Realty Trust, Inc.",
       "close": 192.35,
-      "rsi": 51.8,
+      "rsi": 51.7,
       "ema20_cross_days": 14,
-      "delta": -0.7,
+      "delta": 0.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1120,21 +1135,6 @@
         "EMA5上升",
         "EMA5>EMA20",
         "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "NET",
-      "name": "Cloudflare, Inc. Class A",
-      "close": 291.88,
-      "rsi": 51.7,
-      "ema20_cross_days": null,
-      "delta": 34.2,
-      "sig": "—",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -1171,12 +1171,27 @@
       "alerts": []
     },
     {
+      "ticker": "HSBC",
+      "name": "HSBC Holdings, plc.",
+      "close": 102.3,
+      "rsi": 51.2,
+      "ema20_cross_days": null,
+      "delta": 11.2,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "ADM",
       "name": "Archer-Daniels-Midland Company",
       "close": 80.76,
-      "rsi": 50.6,
+      "rsi": 50.9,
       "ema20_cross_days": null,
-      "delta": 3.5,
+      "delta": 4.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -1204,7 +1219,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 129,
+  "wait_count": 128,
   "alerts": [
     {
       "ticker": "FDX",
@@ -1237,16 +1252,6 @@
       "quality_score": 78.48028730603335
     },
     {
-      "ticker": "STLD",
-      "name": "Steel Dynamics, Inc.",
-      "close": 231.01,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.17<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 67.19701634216646
-    },
-    {
       "ticker": "TJX",
       "name": "TJX Companies, Inc. (The)",
       "close": 144.5,
@@ -1255,6 +1260,16 @@
       "tag": "BB %B -0.14<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
       "quality_score": 63.921753137880906
+    },
+    {
+      "ticker": "STLD",
+      "name": "Steel Dynamics, Inc.",
+      "close": 231.01,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.05<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 55.017169685650096
     },
     {
       "ticker": "TXN",
@@ -1287,6 +1302,16 @@
       "quality_score": 33.64968459312621
     },
     {
+      "ticker": "VAL",
+      "name": "Valaris Limited",
+      "close": 86.92,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=23.8%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 23.816564212993224
+    },
+    {
       "ticker": "RIG",
       "name": "Transocean Ltd (Switzerland)",
       "close": 5.84,
@@ -1295,16 +1320,6 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=23.4%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 23.41817037998868
-    },
-    {
-      "ticker": "VAL",
-      "name": "Valaris Limited",
-      "close": 86.92,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=22.9%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 22.868317976092285
     },
     {
       "ticker": "MO",
@@ -1425,16 +1440,6 @@
       "tag": "空頭+%B 1.01>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
       "quality_score": 1.3449497378806683
-    },
-    {
-      "ticker": "UNM",
-      "name": "Unum Group",
-      "close": 87.64,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "即將: 三隻烏鴉 + 距高 7.3%（差到 <5%）",
-      "expect": "價再升即達 ★★★★",
-      "quality_score": -7.308306122768453
     }
   ],
   "source": "cloud (yfinance live)"
