@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-20",
-  "computed_at": "2026-08-20 22:34:46",
+  "computed_at": "2026-08-21 05:54:23",
   "top_total": 200,
   "entry": [
     {
@@ -104,21 +104,6 @@
           "quality_score": 51.181932906741416
         }
       ]
-    },
-    {
-      "ticker": "MCK",
-      "name": "McKesson Corporation",
-      "close": 838.75,
-      "rsi": 47.8,
-      "ema20_cross_days": 22,
-      "delta": 9.4,
-      "sig": "T3 RSI48",
-      "t3_confidence": 2,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
     },
     {
       "ticker": "AVGO",
@@ -398,14 +383,15 @@
     {
       "ticker": "RY",
       "name": "Royal Bank Of Canada",
-      "close": 205.21,
-      "rsi": 41.2,
+      "close": NaN,
+      "rsi": 45.0,
       "ema20_cross_days": null,
-      "delta": 8.5,
-      "sig": "T3 RSI41",
-      "t3_confidence": 1,
+      "delta": NaN,
+      "sig": "T3 RSI45",
+      "t3_confidence": 2,
       "t3_confidence_hits": [
-        "EMA20上升"
+        "EMA20上升",
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
@@ -432,13 +418,16 @@
     {
       "ticker": "TD",
       "name": "Toronto Dominion Bank (The)",
-      "close": 116.85,
-      "rsi": 38.8,
+      "close": NaN,
+      "rsi": 42.3,
       "ema20_cross_days": null,
-      "delta": 4.5,
-      "sig": "T3 RSI39",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
+      "delta": NaN,
+      "sig": "T3 RSI42",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
       "alerts": [
         {
           "level": 2,
@@ -446,33 +435,6 @@
           "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
           "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
           "quality_score": 30.0
-        }
-      ]
-    },
-    {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 47.49,
-      "rsi": 15.4,
-      "ema20_cross_days": -8,
-      "delta": -45.3,
-      "sig": "T3 RSI15",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "底部十字星 + RSI 15≤25 + ADX↑",
-          "expect": "+7.02% 30d (67.4% 漲)",
-          "quality_score": 34.598888378218575
-        },
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB Expansion 突放（空頭末段反轉）BW=128.7%",
-          "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-          "quality_score": 128.69265850356408
         }
       ]
     }
@@ -848,6 +810,21 @@
       "alerts": []
     },
     {
+      "ticker": "MTD",
+      "name": "Mettler-Toledo International, Inc.",
+      "close": NaN,
+      "rsi": 62.5,
+      "ema20_cross_days": 32,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "USFD",
       "name": "US Foods Holding Corp.",
       "close": 108.46,
@@ -1091,31 +1068,15 @@
       "alerts": []
     },
     {
-      "ticker": "MTD",
-      "name": "Mettler-Toledo International, Inc.",
-      "close": 1393.23,
-      "rsi": 53.9,
-      "ema20_cross_days": 32,
-      "delta": 27.8,
+      "ticker": "WAB",
+      "name": "Westinghouse Air Brake Technologies Corp",
+      "close": NaN,
+      "rsi": 53.8,
+      "ema20_cross_days": null,
+      "delta": NaN,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "WAB",
-      "name": "Westinghouse Air Brake Technologies Corp",
-      "close": 292.31,
-      "rsi": 53.9,
-      "ema20_cross_days": null,
-      "delta": 14.6,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
         "EMA20上升",
         "EMA5>EMA20"
       ],
@@ -1213,6 +1174,21 @@
       ]
     },
     {
+      "ticker": "MCK",
+      "name": "McKesson Corporation",
+      "close": NaN,
+      "rsi": 51.5,
+      "ema20_cross_days": 22,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "EMR",
       "name": "Emerson Electric Company",
       "close": 154.72,
@@ -1258,7 +1234,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 126,
+  "wait_count": 127,
   "alerts": [
     {
       "ticker": "APP",
@@ -1273,12 +1249,12 @@
     {
       "ticker": "MNST",
       "name": "Monster Beverage Corporation",
-      "close": 47.49,
+      "close": NaN,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=128.7%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=124.8%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 128.69265850356408
+      "quality_score": 124.80602521668887
     },
     {
       "ticker": "WMT",
@@ -1391,26 +1367,6 @@
       "quality_score": 35.27037729371181
     },
     {
-      "ticker": "MNST",
-      "name": "Monster Beverage Corporation",
-      "close": 47.49,
-      "level": 3,
-      "side": "bull",
-      "tag": "底部十字星 + RSI 15≤25 + ADX↑",
-      "expect": "+7.02% 30d (67.4% 漲)",
-      "quality_score": 34.598888378218575
-    },
-    {
-      "ticker": "RIG",
-      "name": "Transocean Ltd (Switzerland)",
-      "close": 6.01,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=25.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.08367217868386
-    },
-    {
       "ticker": "VAL",
       "name": "Valaris Limited",
       "close": 89.0,
@@ -1419,6 +1375,16 @@
       "tag": "BB Expansion 突放（空頭末段反轉）BW=24.3%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
       "quality_score": 24.31804878190751
+    },
+    {
+      "ticker": "RIG",
+      "name": "Transocean Ltd (Switzerland)",
+      "close": NaN,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=24.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 23.96567876770948
     },
     {
       "ticker": "TJX",
@@ -1503,7 +1469,7 @@
     {
       "ticker": "TD",
       "name": "Toronto Dominion Bank (The)",
-      "close": 116.85,
+      "close": NaN,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
