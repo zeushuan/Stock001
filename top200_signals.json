@@ -1,8 +1,24 @@
 {
   "updated_at": "2026-08-21",
-  "computed_at": "2026-08-21 05:54:05",
+  "computed_at": "2026-08-21 22:32:01",
   "top200_total": 200,
   "entry": [
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 18.85,
+      "rsi": 48.9,
+      "ema20_cross_days": 36,
+      "delta": 9.0,
+      "sig": "T3 RSI49",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
     {
       "ticker": "6177",
       "name": "達麗",
@@ -401,8 +417,8 @@
       "name": "三商壽",
       "close": 9.7,
       "rsi": 59.6,
-      "ema20_cross_days": 54,
-      "delta": 30.4,
+      "ema20_cross_days": 55,
+      "delta": 29.0,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -569,7 +585,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 167,
+  "wait_count": 166,
   "alerts": [
     {
       "ticker": "5225",
@@ -605,11 +621,11 @@
       "ticker": "2834",
       "name": "臺企銀",
       "close": 16.55,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.0%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 16.964424083623815
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
     },
     {
       "ticker": "2881",
