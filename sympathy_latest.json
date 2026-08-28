@@ -1,6 +1,40 @@
 {
   "date": "2026-08-28",
-  "computed_at": "2026-08-28 01:47:04",
-  "leaders": [],
-  "candidates": []
+  "computed_at": "2026-08-28 05:53:09",
+  "leaders": [
+    {
+      "ticker": "2449.TW",
+      "group": "TW_Semi_OSAT",
+      "return_pct": 0.0909,
+      "volume_ratio": 3.22,
+      "close": 270.0,
+      "detected_at": "2026-08-28"
+    }
+  ],
+  "candidates": [
+    {
+      "ticker": "2369.TW",
+      "leader": "2449.TW",
+      "group": "TW_Semi_OSAT",
+      "score": 0.744,
+      "corr_60d": 0.757,
+      "spread_pctile": 0.152,
+      "lag_today": 0.0623,
+      "leader_today_pct": 0.0909,
+      "peer_today_pct": 0.0286,
+      "signal_date": "2026-08-28"
+    },
+    {
+      "ticker": "2441.TW",
+      "leader": "2449.TW",
+      "group": "TW_Semi_OSAT",
+      "score": 0.71,
+      "corr_60d": 0.835,
+      "spread_pctile": 0.259,
+      "lag_today": 0.0514,
+      "leader_today_pct": 0.0909,
+      "peer_today_pct": 0.0395,
+      "signal_date": "2026-08-28"
+    }
+  ]
 }
