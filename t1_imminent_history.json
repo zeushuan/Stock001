@@ -40855,10 +40855,11 @@
           "checked_at": "2026-08-19"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 120.5,
+          "crossed": true,
+          "ret_pct": 1.69,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "30d": {
           "close": null,
@@ -44958,10 +44959,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 126.0,
+          "crossed": false,
+          "ret_pct": -4.18,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "15d": {
           "close": null,
@@ -44991,10 +44993,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 42.8,
+          "crossed": false,
+          "ret_pct": -3.6,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "15d": {
           "close": null,
@@ -45123,10 +45126,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 126.0,
+          "crossed": false,
+          "ret_pct": -4.18,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "15d": {
           "close": null,
@@ -46080,10 +46084,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 138.0,
+          "crossed": false,
+          "ret_pct": -1.08,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "15d": {
           "close": null,
@@ -46443,10 +46448,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 138.0,
+          "crossed": false,
+          "ret_pct": -1.08,
+          "actual_date": "2026-08-31",
+          "checked_at": "2026-08-31"
         },
         "15d": {
           "close": null,
@@ -47814,10 +47820,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-08-31",
+      "ticker": "GLBE",
+      "name": "Global-E Online Ltd.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 39.95,
+      "ema20": 40.06,
+      "dist_pct": 0.27,
+      "adx": 22.9,
+      "rsi": 51.4,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-08-31",
+      "ticker": "NXTC",
+      "name": "NextCure, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 6.09,
+      "ema20": 6.13,
+      "dist_pct": 0.57,
+      "adx": 31.1,
+      "rsi": 51.6,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-08-31",
+      "ticker": "SF",
+      "name": "Stifel Financial Corporation",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 81.29,
+      "ema20": 81.67,
+      "dist_pct": 0.46,
+      "adx": 25.8,
+      "rsi": 49.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-08-30 06:45:24",
-  "total_candidates": 1348,
+  "last_updated": "2026-08-31 07:22:01",
+  "total_candidates": 1351,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -47841,16 +47946,16 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 87,
-        "cross_rate": 54.0,
-        "mean_ret": 0.67,
-        "win_rate": 56.3
+        "n": 90,
+        "cross_rate": 52.2,
+        "mean_ret": 0.58,
+        "win_rate": 54.4
       },
       "15d": {
-        "n": 85,
-        "cross_rate": 52.9,
+        "n": 86,
+        "cross_rate": 53.5,
         "mean_ret": NaN,
-        "win_rate": 57.6
+        "win_rate": 58.1
       },
       "30d": {
         "n": 73,
@@ -47901,10 +48006,10 @@
     },
     "tw_L2_medium_dc": {
       "5d": {
-        "n": 76,
-        "cross_rate": 40.8,
-        "mean_ret": 0.22,
-        "win_rate": 53.9
+        "n": 77,
+        "cross_rate": 40.3,
+        "mean_ret": 0.16,
+        "win_rate": 53.2
       },
       "15d": {
         "n": 69,
@@ -47941,10 +48046,10 @@
     },
     "tw_L1_strict": {
       "5d": {
-        "n": 129,
-        "cross_rate": 49.6,
-        "mean_ret": 1.96,
-        "win_rate": 53.5
+        "n": 130,
+        "cross_rate": 49.2,
+        "mean_ret": 1.92,
+        "win_rate": 53.1
       },
       "15d": {
         "n": 129,
@@ -47980,5 +48085,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-08-30 06:45:34"
+  "last_outcomes_update": "2026-08-31 07:22:19"
 }
