@@ -42375,10 +42375,11 @@
           "checked_at": "2026-08-24"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 35.25,
+          "crossed": true,
+          "ret_pct": 5.54,
+          "actual_date": "2026-09-01",
+          "checked_at": "2026-09-01"
         },
         "30d": {
           "close": null,
@@ -42409,10 +42410,11 @@
           "checked_at": "2026-08-24"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 49.55,
+          "crossed": true,
+          "ret_pct": -3.22,
+          "actual_date": "2026-09-01",
+          "checked_at": "2026-09-01"
         },
         "30d": {
           "close": null,
@@ -42443,10 +42445,11 @@
           "checked_at": "2026-08-24"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 8.78,
+          "crossed": false,
+          "ret_pct": -6.2,
+          "actual_date": "2026-09-01",
+          "checked_at": "2026-09-01"
         },
         "30d": {
           "close": null,
@@ -47015,10 +47018,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 20.3,
+          "crossed": false,
+          "ret_pct": -1.69,
+          "actual_date": "2026-09-01",
+          "checked_at": "2026-09-01"
         },
         "15d": {
           "close": null,
@@ -48056,10 +48060,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-09-01",
+      "ticker": "WEN",
+      "name": "Wendy's Company (The)",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 8.3,
+      "ema20": 8.34,
+      "dist_pct": 0.5,
+      "adx": 24.1,
+      "rsi": 50.9,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-09-01 01:01:56",
-  "total_candidates": 1352,
+  "last_updated": "2026-09-01 02:08:12",
+  "total_candidates": 1353,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -48089,10 +48126,10 @@
         "win_rate": 54.4
       },
       "15d": {
-        "n": 86,
-        "cross_rate": 53.5,
+        "n": 87,
+        "cross_rate": 54.0,
         "mean_ret": NaN,
-        "win_rate": 58.1
+        "win_rate": 57.5
       },
       "30d": {
         "n": 73,
@@ -48149,10 +48186,10 @@
         "win_rate": 53.2
       },
       "15d": {
-        "n": 69,
-        "cross_rate": 47.8,
-        "mean_ret": 3.64,
-        "win_rate": 55.1
+        "n": 70,
+        "cross_rate": 47.1,
+        "mean_ret": 3.5,
+        "win_rate": 54.3
       },
       "30d": {
         "n": 55,
@@ -48183,10 +48220,10 @@
     },
     "tw_L1_strict": {
       "5d": {
-        "n": 130,
-        "cross_rate": 49.2,
-        "mean_ret": 1.92,
-        "win_rate": 53.1
+        "n": 131,
+        "cross_rate": 48.9,
+        "mean_ret": 1.89,
+        "win_rate": 52.7
       },
       "15d": {
         "n": 129,
@@ -48209,10 +48246,10 @@
         "win_rate": 55.7
       },
       "15d": {
-        "n": 76,
-        "cross_rate": 35.5,
-        "mean_ret": -0.36,
-        "win_rate": 44.7
+        "n": 77,
+        "cross_rate": 36.4,
+        "mean_ret": -0.28,
+        "win_rate": 45.5
       },
       "30d": {
         "n": 72,
@@ -48222,5 +48259,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-09-01 01:02:07"
+  "last_outcomes_update": "2026-09-01 02:08:27"
 }
