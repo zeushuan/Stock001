@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-09-01",
-  "computed_at": "2026-09-01 10:15:36",
+  "computed_at": "2026-09-01 23:57:24",
   "top200_total": 200,
   "entry": [
     {
@@ -122,28 +122,30 @@
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
+    },
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 2615.0,
+      "rsi": 23.0,
+      "ema20_cross_days": null,
+      "delta": -50.7,
+      "sig": "T3 RSI23",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.48<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 98.19923986502134
+        }
+      ]
     }
   ],
   "exit": [],
   "hold": [
-    {
-      "ticker": "6669",
-      "name": "緯穎",
-      "close": 7800.0,
-      "rsi": 77.5,
-      "ema20_cross_days": null,
-      "delta": 47.2,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
     {
       "ticker": "2421",
       "name": "建準",
@@ -526,7 +528,7 @@
       "close": 9.7,
       "rsi": 59.6,
       "ema20_cross_days": null,
-      "delta": 21.7,
+      "delta": 17.3,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -680,6 +682,16 @@
   ],
   "wait_count": 161,
   "alerts": [
+    {
+      "ticker": "6669",
+      "name": "緯穎",
+      "close": 2615.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.48<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 98.19923986502134
+    },
     {
       "ticker": "6919",
       "name": "康霈*",
