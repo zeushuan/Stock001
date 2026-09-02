@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-09-01",
-  "computed_at": "2026-09-01 23:57:38",
+  "computed_at": "2026-09-02 09:45:02",
   "top_total": 200,
   "entry": [
     {
@@ -506,15 +506,7 @@
       "sig": "T3 RSI39",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": "imm_bear",
-          "side": "bear",
-          "tag": "即將: 三隻烏鴉 + 距高 6.9%（差到 <5%）",
-          "expect": "價再升即達 ★★★★",
-          "quality_score": -6.903971766947747
-        }
-      ]
+      "alerts": []
     }
   ],
   "exit": [],
@@ -1186,16 +1178,6 @@
   "wait_count": 130,
   "alerts": [
     {
-      "ticker": "OPEN",
-      "name": "Opendoor Technologies Inc ",
-      "close": 3.04,
-      "level": 4,
-      "side": "bull",
-      "tag": "倒鎚 + 距 SMA200 -41%",
-      "expect": "+7.85% 30d (64.5% 漲)",
-      "quality_score": 40.86408559780814
-    },
-    {
       "ticker": "WAB",
       "name": "Westinghouse Air Brake Technologies Corp",
       "close": 279.8,
@@ -1614,16 +1596,6 @@
       "tag": "空頭+%B 1.13>1（假突破，反彈將失敗）",
       "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
       "quality_score": 13.318114515880808
-    },
-    {
-      "ticker": "RY",
-      "name": "Royal Bank Of Canada",
-      "close": 203.48,
-      "level": "imm_bear",
-      "side": "bear",
-      "tag": "即將: 三隻烏鴉 + 距高 6.9%（差到 <5%）",
-      "expect": "價再升即達 ★★★★",
-      "quality_score": -6.903971766947747
     }
   ],
   "source": "cloud (yfinance live)"
