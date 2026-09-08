@@ -1,6 +1,28 @@
 {
   "date": "2026-09-08",
-  "computed_at": "2026-09-08 14:01:16",
-  "leaders": [],
-  "candidates": []
+  "computed_at": "2026-09-08 17:37:06",
+  "leaders": [
+    {
+      "ticker": "BE",
+      "group": "AI_Power_US",
+      "return_pct": 0.1202,
+      "volume_ratio": 1.66,
+      "close": 283.26,
+      "detected_at": "2026-09-08"
+    }
+  ],
+  "candidates": [
+    {
+      "ticker": "PWR",
+      "leader": "BE",
+      "group": "AI_Power_US",
+      "score": 0.792,
+      "corr_60d": 0.66,
+      "spread_pctile": 0.103,
+      "lag_today": 0.0864,
+      "leader_today_pct": 0.1202,
+      "peer_today_pct": 0.0338,
+      "signal_date": "2026-09-08"
+    }
+  ]
 }
