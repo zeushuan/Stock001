@@ -1,27 +1,47 @@
 {
   "date": "2026-09-08",
-  "computed_at": "2026-09-08 17:37:06",
+  "computed_at": "2026-09-08 20:12:41",
   "leaders": [
     {
       "ticker": "BE",
       "group": "AI_Power_US",
-      "return_pct": 0.1202,
-      "volume_ratio": 1.66,
-      "close": 283.26,
+      "return_pct": 0.0958,
+      "volume_ratio": 2.17,
+      "close": 277.09,
+      "detected_at": "2026-09-08"
+    },
+    {
+      "ticker": "AMD",
+      "group": "AI_Chip_US",
+      "return_pct": 0.059,
+      "volume_ratio": 1.53,
+      "close": 505.74,
       "detected_at": "2026-09-08"
     }
   ],
   "candidates": [
     {
-      "ticker": "PWR",
+      "ticker": "GEV",
       "leader": "BE",
       "group": "AI_Power_US",
-      "score": 0.792,
-      "corr_60d": 0.66,
-      "spread_pctile": 0.103,
-      "lag_today": 0.0864,
-      "leader_today_pct": 0.1202,
-      "peer_today_pct": 0.0338,
+      "score": 0.724,
+      "corr_60d": 0.666,
+      "spread_pctile": 0.119,
+      "lag_today": 0.0645,
+      "leader_today_pct": 0.0958,
+      "peer_today_pct": 0.0312,
+      "signal_date": "2026-09-08"
+    },
+    {
+      "ticker": "ARM",
+      "leader": "AMD",
+      "group": "AI_Chip_US",
+      "score": 0.637,
+      "corr_60d": 0.735,
+      "spread_pctile": 0.073,
+      "lag_today": 0.0215,
+      "leader_today_pct": 0.059,
+      "peer_today_pct": 0.0374,
       "signal_date": "2026-09-08"
     }
   ]
