@@ -39042,10 +39042,11 @@
           "checked_at": "2026-08-26"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 18.0,
+          "crossed": true,
+          "ret_pct": 1.69,
+          "actual_date": "2026-09-10",
+          "checked_at": "2026-09-10"
         }
       }
     },
@@ -46791,10 +46792,11 @@
           "checked_at": "2026-08-31"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 137.0,
+          "crossed": false,
+          "ret_pct": -1.79,
+          "actual_date": "2026-09-10",
+          "checked_at": "2026-09-10"
         },
         "30d": {
           "close": null,
@@ -53141,10 +53143,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-09-10",
+      "ticker": "2108",
+      "name": "南帝",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 29.5,
+      "ema20": 29.68,
+      "dist_pct": 0.6,
+      "adx": 24.5,
+      "rsi": 49.6,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-09-09 23:47:43",
-  "total_candidates": 1495,
+  "last_updated": "2026-09-10 01:31:27",
+  "total_candidates": 1496,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -53174,16 +53209,16 @@
         "win_rate": 55.4
       },
       "15d": {
-        "n": 89,
-        "cross_rate": 52.8,
+        "n": 90,
+        "cross_rate": 52.2,
         "mean_ret": NaN,
-        "win_rate": 56.2
+        "win_rate": 55.6
       },
       "30d": {
-        "n": 82,
-        "cross_rate": 37.8,
-        "mean_ret": -0.89,
-        "win_rate": 45.1
+        "n": 83,
+        "cross_rate": 38.6,
+        "mean_ret": -0.86,
+        "win_rate": 45.8
       }
     },
     "us_L1_strict": {
@@ -53307,5 +53342,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-09-09 23:47:51"
+  "last_outcomes_update": "2026-09-10 01:31:40"
 }
