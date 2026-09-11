@@ -39654,10 +39654,11 @@
           "checked_at": "2026-08-27"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 17.8,
+          "crossed": false,
+          "ret_pct": 0.28,
+          "actual_date": "2026-09-11",
+          "checked_at": "2026-09-11"
         }
       }
     },
@@ -47295,10 +47296,11 @@
           "checked_at": "2026-09-01"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 20.1,
+          "crossed": false,
+          "ret_pct": -2.66,
+          "actual_date": "2026-09-11",
+          "checked_at": "2026-09-11"
         },
         "30d": {
           "close": null,
@@ -53378,10 +53380,76 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-09-11",
+      "ticker": "HMC",
+      "name": "Honda Motor Company, Ltd.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 31.62,
+      "ema20": 31.69,
+      "dist_pct": 0.23,
+      "adx": 22.5,
+      "rsi": 51.6,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-09-11",
+      "ticker": "PEB",
+      "name": "Pebblebrook Hotel Trust",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 18.08,
+      "ema20": 18.15,
+      "dist_pct": 0.38,
+      "adx": 24.5,
+      "rsi": 48.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-09-11 01:19:48",
-  "total_candidates": 1501,
+  "last_updated": "2026-09-11 06:24:55",
+  "total_candidates": 1503,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -53417,10 +53485,10 @@
         "win_rate": 55.6
       },
       "30d": {
-        "n": 83,
-        "cross_rate": 38.6,
-        "mean_ret": -0.86,
-        "win_rate": 45.8
+        "n": 84,
+        "cross_rate": 38.1,
+        "mean_ret": -0.85,
+        "win_rate": 46.4
       }
     },
     "us_L1_strict": {
@@ -53511,10 +53579,10 @@
         "win_rate": 52.3
       },
       "15d": {
-        "n": 130,
-        "cross_rate": 38.5,
-        "mean_ret": 0.18,
-        "win_rate": 47.7
+        "n": 131,
+        "cross_rate": 38.2,
+        "mean_ret": 0.16,
+        "win_rate": 47.3
       },
       "30d": {
         "n": 129,
@@ -53544,5 +53612,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-09-11 01:20:04"
+  "last_outcomes_update": "2026-09-11 06:25:10"
 }
