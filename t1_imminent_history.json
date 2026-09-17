@@ -42964,10 +42964,11 @@
           "checked_at": "2026-09-02"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 8.88,
+          "crossed": true,
+          "ret_pct": -5.13,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         }
       }
     },
@@ -43069,10 +43070,11 @@
           "checked_at": "2026-09-02"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 40.15,
+          "crossed": true,
+          "ret_pct": 19.14,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         }
       }
     },
@@ -43104,10 +43106,11 @@
           "checked_at": "2026-09-02"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 27.35,
+          "crossed": true,
+          "ret_pct": 9.62,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         }
       }
     },
@@ -48722,10 +48725,11 @@
           "checked_at": "2026-09-07"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 52.6,
+          "crossed": false,
+          "ret_pct": 1.74,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         },
         "30d": {
           "close": null,
@@ -48824,10 +48828,11 @@
           "checked_at": "2026-09-07"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 76.5,
+          "crossed": false,
+          "ret_pct": -2.92,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         },
         "30d": {
           "close": null,
@@ -54699,10 +54704,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 60.6,
+          "crossed": true,
+          "ret_pct": 4.3,
+          "actual_date": "2026-09-17",
+          "checked_at": "2026-09-17"
         },
         "15d": {
           "close": null,
@@ -58380,10 +58386,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-09-17",
+      "ticker": "2491",
+      "name": "吉祥全",
+      "market": "tw",
+      "tier": "L2_medium",
+      "entry_price": 40.55,
+      "ema20": 41.34,
+      "dist_pct": 1.91,
+      "adx": 22.8,
+      "rsi": 49.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-09-17",
+      "ticker": "3008",
+      "name": "大立光",
+      "market": "tw",
+      "tier": "L2_medium",
+      "entry_price": 6225.0,
+      "ema20": 6325.32,
+      "dist_pct": 1.59,
+      "adx": 30.2,
+      "rsi": 51.4,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-09-17",
+      "ticker": "5607",
+      "name": "遠雄港",
+      "market": "tw",
+      "tier": "L2_medium",
+      "entry_price": 52.6,
+      "ema20": 53.32,
+      "dist_pct": 1.35,
+      "adx": 23.2,
+      "rsi": 48.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-09-17 00:08:06",
-  "total_candidates": 1646,
+  "last_updated": "2026-09-17 01:51:30",
+  "total_candidates": 1649,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -58407,16 +58512,16 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 95,
-        "cross_rate": 51.6,
-        "mean_ret": 0.57,
-        "win_rate": 53.7
+        "n": 96,
+        "cross_rate": 52.1,
+        "mean_ret": 0.61,
+        "win_rate": 54.2
       },
       "15d": {
-        "n": 91,
-        "cross_rate": 51.6,
+        "n": 92,
+        "cross_rate": 51.1,
         "mean_ret": NaN,
-        "win_rate": 56.0
+        "win_rate": 56.5
       },
       "30d": {
         "n": 87,
@@ -58473,16 +58578,16 @@
         "win_rate": 53.2
       },
       "15d": {
-        "n": 77,
-        "cross_rate": 45.5,
-        "mean_ret": 3.0,
-        "win_rate": 51.9
+        "n": 78,
+        "cross_rate": 44.9,
+        "mean_ret": 2.93,
+        "win_rate": 51.3
       },
       "30d": {
-        "n": 70,
-        "cross_rate": 27.1,
-        "mean_ret": 1.06,
-        "win_rate": 37.1
+        "n": 72,
+        "cross_rate": 29.2,
+        "mean_ret": 1.1,
+        "win_rate": 37.5
       }
     },
     "us_L2_medium": {
@@ -58539,12 +58644,12 @@
         "win_rate": 46.8
       },
       "30d": {
-        "n": 77,
-        "cross_rate": 37.7,
-        "mean_ret": -2.67,
-        "win_rate": 42.9
+        "n": 78,
+        "cross_rate": 38.5,
+        "mean_ret": -2.39,
+        "win_rate": 43.6
       }
     }
   },
-  "last_outcomes_update": "2026-09-17 00:08:16"
+  "last_outcomes_update": "2026-09-17 01:51:41"
 }
