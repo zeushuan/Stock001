@@ -1,13 +1,29 @@
 {
   "date": "2026-09-21",
-  "computed_at": "2026-09-21 16:14:35",
+  "computed_at": "2026-09-21 19:06:13",
   "leaders": [
     {
       "ticker": "ARM",
       "group": "AI_Chip_US",
-      "return_pct": 0.1562,
-      "volume_ratio": 1.86,
-      "close": 318.65,
+      "return_pct": 0.1679,
+      "volume_ratio": 2.51,
+      "close": 321.9,
+      "detected_at": "2026-09-21"
+    },
+    {
+      "ticker": "AMD",
+      "group": "AI_Chip_US",
+      "return_pct": 0.0913,
+      "volume_ratio": 1.74,
+      "close": 610.92,
+      "detected_at": "2026-09-21"
+    },
+    {
+      "ticker": "3443.TW",
+      "group": "TW_IC_Design",
+      "return_pct": 0.065,
+      "volume_ratio": 1.7,
+      "close": 7615.0,
       "detected_at": "2026-09-21"
     }
   ],
@@ -16,24 +32,24 @@
       "ticker": "AVGO",
       "leader": "ARM",
       "group": "AI_Chip_US",
-      "score": 0.825,
+      "score": 0.827,
       "corr_60d": 0.646,
-      "spread_pctile": 0.109,
-      "lag_today": 0.1502,
-      "leader_today_pct": 0.1562,
-      "peer_today_pct": 0.006,
+      "spread_pctile": 0.105,
+      "lag_today": 0.1541,
+      "leader_today_pct": 0.1679,
+      "peer_today_pct": 0.0138,
       "signal_date": "2026-09-21"
     },
     {
       "ticker": "MRVL",
       "leader": "ARM",
       "group": "AI_Chip_US",
-      "score": 0.815,
+      "score": 0.808,
       "corr_60d": 0.773,
-      "spread_pctile": 0.315,
-      "lag_today": 0.1136,
-      "leader_today_pct": 0.1562,
-      "peer_today_pct": 0.0426,
+      "spread_pctile": 0.338,
+      "lag_today": 0.106,
+      "leader_today_pct": 0.1679,
+      "peer_today_pct": 0.062,
       "signal_date": "2026-09-21"
     }
   ]
