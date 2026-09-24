@@ -46614,10 +46614,11 @@
           "checked_at": "2026-09-09"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 138.0,
+          "crossed": false,
+          "ret_pct": -1.08,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         }
       }
     },
@@ -53467,10 +53468,11 @@
           "checked_at": "2026-09-14"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 28.65,
+          "crossed": false,
+          "ret_pct": -2.88,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         },
         "30d": {
           "close": null,
@@ -60158,10 +60160,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 47.2,
+          "crossed": false,
+          "ret_pct": -0.32,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         },
         "15d": {
           "close": null,
@@ -60191,10 +60194,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 12245.0,
+          "crossed": false,
+          "ret_pct": -2.0,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         },
         "15d": {
           "close": null,
@@ -60224,10 +60228,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 279.5,
+          "crossed": false,
+          "ret_pct": -0.89,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         },
         "15d": {
           "close": null,
@@ -60257,10 +60262,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 17.6,
+          "crossed": false,
+          "ret_pct": -0.85,
+          "actual_date": "2026-09-24",
+          "checked_at": "2026-09-24"
         },
         "15d": {
           "close": null,
@@ -62090,10 +62096,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-09-24",
+      "ticker": "ABT",
+      "name": "Abbott Laboratories",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 103.49,
+      "ema20": 105.44,
+      "dist_pct": 1.85,
+      "adx": 25.5,
+      "rsi": 41.5,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-09-24 00:18:22",
-  "total_candidates": 1747,
+  "last_updated": "2026-09-24 01:50:13",
+  "total_candidates": 1748,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -62117,22 +62156,22 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 104,
-        "cross_rate": 51.0,
-        "mean_ret": 0.59,
-        "win_rate": 52.9
+        "n": 105,
+        "cross_rate": 50.5,
+        "mean_ret": 0.57,
+        "win_rate": 52.4
       },
       "15d": {
-        "n": 92,
-        "cross_rate": 51.1,
+        "n": 93,
+        "cross_rate": 50.5,
         "mean_ret": NaN,
-        "win_rate": 56.5
+        "win_rate": 55.9
       },
       "30d": {
-        "n": 88,
-        "cross_rate": 39.8,
-        "mean_ret": -0.13,
-        "win_rate": 46.6
+        "n": 89,
+        "cross_rate": 39.3,
+        "mean_ret": -0.15,
+        "win_rate": 46.1
       }
     },
     "us_L1_strict": {
@@ -62217,10 +62256,10 @@
     },
     "tw_L1_strict": {
       "5d": {
-        "n": 137,
-        "cross_rate": 47.4,
-        "mean_ret": 1.73,
-        "win_rate": 51.8
+        "n": 140,
+        "cross_rate": 46.4,
+        "mean_ret": 1.67,
+        "win_rate": 50.7
       },
       "15d": {
         "n": 134,
@@ -62256,5 +62295,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-09-24 00:18:37"
+  "last_outcomes_update": "2026-09-24 01:50:23"
 }
