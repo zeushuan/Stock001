@@ -1,8 +1,20 @@
 {
-  "updated_at": "2026-09-22",
-  "computed_at": "2026-09-23 10:09:19",
+  "updated_at": "2026-09-23",
+  "computed_at": "2026-09-24 00:22:24",
   "top_total": 200,
   "entry": [
+    {
+      "ticker": "OSK",
+      "name": "Oshkosh Corporation (Holding Company)Com",
+      "close": NaN,
+      "rsi": 40.1,
+      "ema20_cross_days": 59,
+      "delta": NaN,
+      "sig": "T3 RSI40",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
     {
       "ticker": "RSG",
       "name": "Republic Services, Inc.",
@@ -167,18 +179,6 @@
       "alerts": []
     },
     {
-      "ticker": "RIG",
-      "name": "Transocean Ltd (Switzerland)",
-      "close": NaN,
-      "rsi": 44.2,
-      "ema20_cross_days": 22,
-      "delta": NaN,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
       "ticker": "BG",
       "name": "Bunge Limited",
       "close": NaN,
@@ -194,10 +194,10 @@
       "ticker": "INTC",
       "name": "Intel Corporation",
       "close": NaN,
-      "rsi": 70.9,
-      "ema20_cross_days": 3,
+      "rsi": 72.1,
+      "ema20_cross_days": 4,
       "delta": NaN,
-      "sig": "T1 3d",
+      "sig": "T1 4d",
       "t3_confidence": 4,
       "t3_confidence_hits": [
         "EMA20上升",
@@ -275,10 +275,10 @@
       "ticker": "BAC",
       "name": "Bank of America Corporation",
       "close": NaN,
-      "rsi": 31.1,
+      "rsi": 25.4,
       "ema20_cross_days": null,
       "delta": NaN,
-      "sig": "T3 RSI31",
+      "sig": "T3 RSI25",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -382,8 +382,8 @@
       "ticker": "AMD",
       "name": "Advanced Micro Devices, Inc.",
       "close": NaN,
-      "rsi": 73.0,
-      "ema20_cross_days": 11,
+      "rsi": 73.9,
+      "ema20_cross_days": 12,
       "delta": NaN,
       "sig": "—",
       "t3_confidence": 4,
@@ -399,25 +399,8 @@
       "ticker": "MSTR",
       "name": "Strategy Inc",
       "close": NaN,
-      "rsi": 70.9,
-      "ema20_cross_days": 16,
-      "delta": NaN,
-      "sig": "—",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "VRSN",
-      "name": "VeriSign, Inc.",
-      "close": NaN,
-      "rsi": 67.3,
-      "ema20_cross_days": 39,
+      "rsi": 70.0,
+      "ema20_cross_days": 17,
       "delta": NaN,
       "sig": "—",
       "t3_confidence": 4,
@@ -447,10 +430,44 @@
       "alerts": []
     },
     {
+      "ticker": "MRVL",
+      "name": "Marvell Technology, Inc.",
+      "close": NaN,
+      "rsi": 64.0,
+      "ema20_cross_days": 27,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
       "ticker": "VLO",
       "name": "Valero Energy Corporation",
       "close": NaN,
       "rsi": 63.4,
+      "ema20_cross_days": null,
+      "delta": NaN,
+      "sig": "—",
+      "t3_confidence": 4,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "HOOD",
+      "name": "Robinhood Markets, Inc.",
+      "close": NaN,
+      "rsi": 62.9,
       "ema20_cross_days": null,
       "delta": NaN,
       "sig": "—",
@@ -481,11 +498,11 @@
       "alerts": []
     },
     {
-      "ticker": "MRVL",
-      "name": "Marvell Technology, Inc.",
+      "ticker": "PLTR",
+      "name": "Palantir Technologies Inc.",
       "close": NaN,
-      "rsi": 62.4,
-      "ema20_cross_days": 26,
+      "rsi": 62.5,
+      "ema20_cross_days": 34,
       "delta": NaN,
       "sig": "—",
       "t3_confidence": 4,
@@ -500,23 +517,6 @@
     {
       "ticker": "FTNT",
       "name": "Fortinet, Inc.",
-      "close": NaN,
-      "rsi": 62.3,
-      "ema20_cross_days": null,
-      "delta": NaN,
-      "sig": "—",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "HOOD",
-      "name": "Robinhood Markets, Inc.",
       "close": NaN,
       "rsi": 62.3,
       "ema20_cross_days": null,
@@ -566,28 +566,11 @@
       "alerts": []
     },
     {
-      "ticker": "PLTR",
-      "name": "Palantir Technologies Inc.",
-      "close": NaN,
-      "rsi": 61.1,
-      "ema20_cross_days": 33,
-      "delta": NaN,
-      "sig": "—",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "SMCI",
       "name": "Super Micro Computer, Inc.",
       "close": NaN,
-      "rsi": 59.6,
-      "ema20_cross_days": 28,
+      "rsi": 60.3,
+      "ema20_cross_days": 29,
       "delta": NaN,
       "sig": "—",
       "t3_confidence": 4,
@@ -725,7 +708,7 @@
       "alerts": []
     }
   ],
-  "wait_count": 150,
+  "wait_count": 151,
   "alerts": [
     {
       "ticker": "CASY",
@@ -753,9 +736,9 @@
       "close": NaN,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=34.5%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=34.6%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 34.506984295159754
+      "quality_score": 34.63490346186347
     },
     {
       "ticker": "CAR",
@@ -765,7 +748,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=34.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 34.153927175003474
+      "quality_score": 34.1539271750026
     },
     {
       "ticker": "CDNS",
@@ -775,7 +758,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=32.5%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 32.46262229218986
+      "quality_score": 32.46262229218994
     },
     {
       "ticker": "UPST",
@@ -785,7 +768,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=29.9%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 29.92561840702172
+      "quality_score": 29.925618407021616
     },
     {
       "ticker": "NVS",
@@ -805,7 +788,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=26.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 26.207176229036687
+      "quality_score": 26.207176229036698
     },
     {
       "ticker": "USFD",
@@ -815,7 +798,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=25.3%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.283467430866136
+      "quality_score": 25.28346743086639
     },
     {
       "ticker": "BBIO",
@@ -828,6 +811,16 @@
       "quality_score": 23.91913718461448
     },
     {
+      "ticker": "NVO",
+      "name": "Novo Nordisk A/S",
+      "close": NaN,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=21.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 20.973814144170333
+    },
+    {
       "ticker": "BKR",
       "name": "Baker Hughes Company",
       "close": NaN,
@@ -835,17 +828,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=20.1%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 20.07755444799799
-    },
-    {
-      "ticker": "NVO",
-      "name": "Novo Nordisk A/S",
-      "close": NaN,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 19.830403764019234
+      "quality_score": 20.077554447999255
     },
     {
       "ticker": "EXE",
@@ -865,7 +848,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=15.0%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 14.966068310769193
+      "quality_score": 14.966068310769543
     },
     {
       "ticker": "EQT",
@@ -875,7 +858,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=14.8%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 14.75608490216411
+      "quality_score": 14.756084902164135
     },
     {
       "ticker": "LIN",
@@ -895,7 +878,7 @@
       "side": "bull",
       "tag": "BB Expansion 突放（空頭末段反轉）BW=9.8%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 9.805344569447376
+      "quality_score": 9.80534456944751
     },
     {
       "ticker": "ASND",
@@ -968,8 +951,8 @@
       "quality_score": 30.0
     },
     {
-      "ticker": "THC",
-      "name": "Tenet Healthcare Corporation",
+      "ticker": "TRGP",
+      "name": "Targa Resources, Inc.",
       "close": NaN,
       "level": 2,
       "side": "bull",
