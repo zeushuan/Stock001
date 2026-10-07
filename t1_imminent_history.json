@@ -53054,10 +53054,11 @@
           "checked_at": "2026-09-22"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 64.4,
+          "crossed": false,
+          "ret_pct": -2.87,
+          "actual_date": "2026-10-07",
+          "checked_at": "2026-10-07"
         }
       }
     },
@@ -61657,10 +61658,11 @@
           "checked_at": "2026-09-29"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 91.3,
+          "crossed": false,
+          "ret_pct": -0.76,
+          "actual_date": "2026-10-07",
+          "checked_at": "2026-10-07"
         },
         "30d": {
           "close": null,
@@ -61691,10 +61693,11 @@
           "checked_at": "2026-09-29"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 37.45,
+          "crossed": true,
+          "ret_pct": 1.9,
+          "actual_date": "2026-10-07",
+          "checked_at": "2026-10-07"
         },
         "30d": {
           "close": null,
@@ -64506,10 +64509,11 @@
       "imminent_dc": false,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 20.25,
+          "crossed": false,
+          "ret_pct": -1.94,
+          "actual_date": "2026-10-07",
+          "checked_at": "2026-10-07"
         },
         "15d": {
           "close": null,
@@ -64539,10 +64543,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 37.45,
+          "crossed": true,
+          "ret_pct": 3.88,
+          "actual_date": "2026-10-07",
+          "checked_at": "2026-10-07"
         },
         "15d": {
           "close": null,
@@ -65613,10 +65618,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-10-07",
+      "ticker": "2887",
+      "name": "台新新光金",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 41.45,
+      "ema20": 41.63,
+      "dist_pct": 0.44,
+      "adx": 32.5,
+      "rsi": 51.8,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-06 21:57:39",
-  "total_candidates": 1838,
+  "last_updated": "2026-10-07 01:23:19",
+  "total_candidates": 1839,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -65640,16 +65678,16 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 111,
-        "cross_rate": 48.6,
-        "mean_ret": 0.45,
-        "win_rate": 50.5
+        "n": 112,
+        "cross_rate": 49.1,
+        "mean_ret": 0.48,
+        "win_rate": 50.9
       },
       "15d": {
-        "n": 108,
-        "cross_rate": 47.2,
+        "n": 110,
+        "cross_rate": 47.3,
         "mean_ret": NaN,
-        "win_rate": 52.8
+        "win_rate": 52.7
       },
       "30d": {
         "n": 92,
@@ -65752,18 +65790,18 @@
         "win_rate": 49.7
       },
       "30d": {
-        "n": 132,
-        "cross_rate": 31.8,
+        "n": 133,
+        "cross_rate": 31.6,
         "mean_ret": NaN,
-        "win_rate": 30.3
+        "win_rate": 30.1
       }
     },
     "tw_L2_medium": {
       "5d": {
-        "n": 92,
-        "cross_rate": 46.7,
-        "mean_ret": 1.35,
-        "win_rate": 56.5
+        "n": 93,
+        "cross_rate": 46.2,
+        "mean_ret": 1.31,
+        "win_rate": 55.9
       },
       "15d": {
         "n": 91,
@@ -65779,5 +65817,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-06 21:57:46"
+  "last_outcomes_update": "2026-10-07 01:23:37"
 }
