@@ -53101,10 +53101,11 @@
           "checked_at": "2026-09-23"
         },
         "30d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 63.1,
+          "crossed": false,
+          "ret_pct": -4.83,
+          "actual_date": "2026-10-08",
+          "checked_at": "2026-10-08"
         }
       }
     },
@@ -64810,10 +64811,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 37.6,
+          "crossed": true,
+          "ret_pct": 3.58,
+          "actual_date": "2026-10-08",
+          "checked_at": "2026-10-08"
         },
         "15d": {
           "close": null,
@@ -65818,10 +65820,142 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-10-08",
+      "ticker": "2427",
+      "name": "三商電",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 22.95,
+      "ema20": 23.08,
+      "dist_pct": 0.56,
+      "adx": 25.9,
+      "rsi": 48.9,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-08",
+      "ticker": "2834",
+      "name": "臺企銀",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 17.55,
+      "ema20": 17.64,
+      "dist_pct": 0.49,
+      "adx": 25.9,
+      "rsi": 49.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-08",
+      "ticker": "2889",
+      "name": "國票金",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 16.3,
+      "ema20": 16.42,
+      "dist_pct": 0.72,
+      "adx": 23.6,
+      "rsi": 48.2,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-08",
+      "ticker": "MTCH",
+      "name": "Match Group, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 40.86,
+      "ema20": 40.95,
+      "dist_pct": 0.23,
+      "adx": 22.1,
+      "rsi": 49.3,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-07 22:16:55",
-  "total_candidates": 1843,
+  "last_updated": "2026-10-08 01:53:21",
+  "total_candidates": 1847,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -65845,10 +65979,10 @@
     },
     "tw_L1_strict_dc": {
       "5d": {
-        "n": 112,
-        "cross_rate": 49.1,
-        "mean_ret": 0.48,
-        "win_rate": 50.9
+        "n": 113,
+        "cross_rate": 49.6,
+        "mean_ret": 0.5,
+        "win_rate": 51.3
       },
       "15d": {
         "n": 110,
@@ -65957,10 +66091,10 @@
         "win_rate": 49.7
       },
       "30d": {
-        "n": 133,
-        "cross_rate": 31.6,
+        "n": 134,
+        "cross_rate": 31.3,
         "mean_ret": NaN,
-        "win_rate": 30.1
+        "win_rate": 29.9
       }
     },
     "tw_L2_medium": {
@@ -65984,5 +66118,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-07 22:17:06"
+  "last_outcomes_update": "2026-10-08 01:53:33"
 }
