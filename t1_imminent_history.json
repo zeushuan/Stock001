@@ -64040,10 +64040,11 @@
           "checked_at": "2026-10-05"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 39.9,
+          "crossed": true,
+          "ret_pct": 11.45,
+          "actual_date": "2026-10-15",
+          "checked_at": "2026-10-15"
         },
         "30d": {
           "close": null,
@@ -66753,10 +66754,11 @@
       "imminent_dc": true,
       "outcomes": {
         "5d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 10.95,
+          "crossed": true,
+          "ret_pct": 2.34,
+          "actual_date": "2026-10-15",
+          "checked_at": "2026-10-15"
         },
         "15d": {
           "close": null,
@@ -67662,10 +67664,43 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-10-15",
+      "ticker": "CTKB",
+      "name": "Cytek Biosciences, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 5.39,
+      "ema20": 5.42,
+      "dist_pct": 0.41,
+      "adx": 23.7,
+      "rsi": 51.6,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-15 00:38:49",
-  "total_candidates": 1892,
+  "last_updated": "2026-10-15 02:08:21",
+  "total_candidates": 1893,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -67749,16 +67784,16 @@
     },
     "tw_L2_medium_dc": {
       "5d": {
-        "n": 85,
-        "cross_rate": 40.0,
-        "mean_ret": 0.3,
-        "win_rate": 54.1
+        "n": 86,
+        "cross_rate": 40.7,
+        "mean_ret": 0.32,
+        "win_rate": 54.7
       },
       "15d": {
-        "n": 81,
-        "cross_rate": 43.2,
-        "mean_ret": 2.77,
-        "win_rate": 49.4
+        "n": 82,
+        "cross_rate": 43.9,
+        "mean_ret": 2.88,
+        "win_rate": 50.0
       },
       "30d": {
         "n": 79,
@@ -67828,5 +67863,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-15 00:39:00"
+  "last_outcomes_update": "2026-10-15 02:08:37"
 }
