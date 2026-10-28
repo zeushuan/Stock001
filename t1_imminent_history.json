@@ -67705,10 +67705,11 @@
           "checked_at": "2026-10-19"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 10.9,
+          "crossed": true,
+          "ret_pct": 0.93,
+          "actual_date": "2026-10-28",
+          "checked_at": "2026-10-28"
         },
         "30d": {
           "close": null,
@@ -67739,10 +67740,11 @@
           "checked_at": "2026-10-19"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 49.4,
+          "crossed": true,
+          "ret_pct": 6.35,
+          "actual_date": "2026-10-28",
+          "checked_at": "2026-10-28"
         },
         "30d": {
           "close": null,
@@ -70522,10 +70524,175 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-10-28",
+      "ticker": "^TWII",
+      "name": "",
+      "market": "tw",
+      "tier": "L2_medium",
+      "entry_price": 46792.61,
+      "ema20": 47305.68,
+      "dist_pct": 1.08,
+      "adx": 23.3,
+      "rsi": 46.2,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-28",
+      "ticker": "AMD",
+      "name": "Advanced Micro Devices, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 560.26,
+      "ema20": 560.38,
+      "dist_pct": 0.02,
+      "adx": 22.6,
+      "rsi": 49.8,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-28",
+      "ticker": "AVT",
+      "name": "Avnet, Inc.",
+      "market": "us",
+      "tier": "L2_medium",
+      "entry_price": 92.95,
+      "ema20": 94.28,
+      "dist_pct": 1.41,
+      "adx": 26.6,
+      "rsi": 46.8,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-28",
+      "ticker": "DELL",
+      "name": "Dell Technologies Inc. Class C",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 501.96,
+      "ema20": 502.69,
+      "dist_pct": 0.15,
+      "adx": 22.6,
+      "rsi": 48.9,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-28",
+      "ticker": "PENG",
+      "name": "Penguin Solutions, Inc.",
+      "market": "us",
+      "tier": "L1_strict",
+      "entry_price": 58.99,
+      "ema20": 59.47,
+      "dist_pct": 0.81,
+      "adx": 22.0,
+      "rsi": 49.6,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-28 01:05:02",
-  "total_candidates": 1968,
+  "last_updated": "2026-10-28 02:39:53",
+  "total_candidates": 1973,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -70555,10 +70722,10 @@
         "win_rate": 52.0
       },
       "15d": {
-        "n": 120,
-        "cross_rate": 49.2,
+        "n": 122,
+        "cross_rate": 50.0,
         "mean_ret": NaN,
-        "win_rate": 55.0
+        "win_rate": 55.7
       },
       "30d": {
         "n": 110,
@@ -70688,5 +70855,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-28 01:05:12"
+  "last_outcomes_update": "2026-10-28 02:40:05"
 }
