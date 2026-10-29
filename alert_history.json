@@ -160189,9 +160189,10 @@
           "checked_at": "2026-10-14"
         },
         "30d": {
-          "close": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 60.3,
+          "actual_date": "2026-10-29",
+          "ret_pct": -13.36,
+          "checked_at": "2026-10-29"
         }
       }
     },
@@ -161645,9 +161646,10 @@
           "checked_at": "2026-10-14"
         },
         "30d": {
-          "close": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 60.3,
+          "actual_date": "2026-10-29",
+          "ret_pct": -13.73,
+          "checked_at": "2026-10-29"
         }
       }
     },
@@ -180180,9 +180182,10 @@
           "checked_at": "2026-10-19"
         },
         "15d": {
-          "close": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 60.3,
+          "actual_date": "2026-10-29",
+          "ret_pct": -0.66,
+          "checked_at": "2026-10-29"
         },
         "30d": {
           "close": null,
@@ -210391,10 +210394,94 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "alert_date": "2026-10-29",
+      "ticker": "7780",
+      "name": "大研生醫*",
+      "market": "tw",
+      "level": 4,
+      "side": "bull",
+      "tag": "倒鎚 + 距 SMA200 -30%",
+      "expect": "+7.85% 30d (64.5% 漲)",
+      "entry_price": 15.45,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "alert_date": "2026-10-29",
+      "ticker": "3702",
+      "name": "大聯大",
+      "market": "tw",
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.14<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "entry_price": 110.0,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "alert_date": "2026-10-29",
+      "ticker": "1720",
+      "name": "生達",
+      "market": "tw",
+      "level": 2,
+      "side": "bull",
+      "tag": "BB W 底（雙觸下軌+二次更高+突破中軌）",
+      "expect": "+2.73% 30d (53.9% 漲, PF 2.10)",
+      "entry_price": 56.9,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-29 01:42:03",
-  "total_alerts": 6887,
+  "last_updated": "2026-10-29 11:37:48",
+  "total_alerts": 6890,
   "stats": {
     "tw_2_bear": {
       "5d": {
@@ -210408,9 +210495,9 @@
         "hit_rate": 47.7
       },
       "30d": {
-        "n": 395,
+        "n": 396,
         "mean_ret": NaN,
-        "hit_rate": 53.7
+        "hit_rate": 53.8
       }
     },
     "tw_imm_bear_bear": {
@@ -210454,9 +210541,9 @@
         "hit_rate": 55.5
       },
       "15d": {
-        "n": 1649,
+        "n": 1650,
         "mean_ret": NaN,
-        "hit_rate": 58.8
+        "hit_rate": 58.7
       },
       "30d": {
         "n": 1519,
@@ -210612,9 +210699,9 @@
         "hit_rate": 40.7
       },
       "30d": {
-        "n": 143,
+        "n": 144,
         "mean_ret": NaN,
-        "hit_rate": 32.2
+        "hit_rate": 31.9
       }
     },
     "tw_imm_bull_bull": {
@@ -210686,5 +210773,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-29 01:42:31"
+  "last_outcomes_update": "2026-10-29 11:38:05"
 }
