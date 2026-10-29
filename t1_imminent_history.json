@@ -67924,10 +67924,11 @@
           "checked_at": "2026-10-19"
         },
         "15d": {
-          "close": null,
-          "crossed": null,
-          "ret_pct": null,
-          "checked_at": null
+          "close": 49.25,
+          "crossed": true,
+          "ret_pct": 5.91,
+          "actual_date": "2026-10-29",
+          "checked_at": "2026-10-29"
         },
         "30d": {
           "close": null,
@@ -70999,10 +71000,109 @@
           "checked_at": null
         }
       }
+    },
+    {
+      "scan_date": "2026-10-29",
+      "ticker": "1563",
+      "name": "巧新",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 78.9,
+      "ema20": 79.11,
+      "dist_pct": 0.26,
+      "adx": 35.2,
+      "rsi": 52.2,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-29",
+      "ticker": "2354",
+      "name": "鴻準",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 62.5,
+      "ema20": 63.04,
+      "dist_pct": 0.86,
+      "adx": 24.7,
+      "rsi": 47.1,
+      "imminent_dc": true,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
+    },
+    {
+      "scan_date": "2026-10-29",
+      "ticker": "^TWII",
+      "name": "",
+      "market": "tw",
+      "tier": "L1_strict",
+      "entry_price": 47010.69,
+      "ema20": 47326.45,
+      "dist_pct": 0.67,
+      "adx": 23.2,
+      "rsi": 47.9,
+      "imminent_dc": false,
+      "outcomes": {
+        "5d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "15d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        },
+        "30d": {
+          "close": null,
+          "crossed": null,
+          "ret_pct": null,
+          "checked_at": null
+        }
+      }
     }
   ],
-  "last_updated": "2026-10-28 22:02:07",
-  "total_candidates": 1982,
+  "last_updated": "2026-10-29 01:29:24",
+  "total_candidates": 1985,
   "stats": {
     "us_L1_strict_dc": {
       "5d": {
@@ -71032,10 +71132,10 @@
         "win_rate": 52.0
       },
       "15d": {
-        "n": 122,
-        "cross_rate": 50.0,
+        "n": 123,
+        "cross_rate": 50.4,
         "mean_ret": NaN,
-        "win_rate": 55.7
+        "win_rate": 56.1
       },
       "30d": {
         "n": 110,
@@ -71165,5 +71265,5 @@
       }
     }
   },
-  "last_outcomes_update": "2026-10-28 22:02:14"
+  "last_outcomes_update": "2026-10-29 01:29:31"
 }
