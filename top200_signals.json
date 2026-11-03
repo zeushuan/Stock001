@@ -1,16 +1,28 @@
 {
-  "updated_at": "2026-11-02",
-  "computed_at": "2026-11-02 13:41:11",
+  "updated_at": "2026-11-03",
+  "computed_at": "2026-11-03 03:24:57",
   "top200_total": 200,
   "entry": [
     {
       "ticker": "3443",
       "name": "創意",
-      "close": 7285.0,
-      "rsi": 46.0,
-      "ema20_cross_days": 56,
-      "delta": 65.9,
-      "sig": "T3 RSI46",
+      "close": 7105.0,
+      "rsi": 43.8,
+      "ema20_cross_days": 57,
+      "delta": 58.6,
+      "sig": "T3 RSI44",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "3543",
+      "name": "州巧",
+      "close": 48.9,
+      "rsi": 47.4,
+      "ema20_cross_days": 55,
+      "delta": 33.6,
+      "sig": "T3 RSI47",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -18,11 +30,11 @@
     {
       "ticker": "3044",
       "name": "健鼎",
-      "close": 527.0,
-      "rsi": 45.3,
-      "ema20_cross_days": 48,
-      "delta": 32.2,
-      "sig": "T3 RSI45",
+      "close": 511.0,
+      "rsi": 41.6,
+      "ema20_cross_days": 49,
+      "delta": 28.6,
+      "sig": "T3 RSI42",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -30,37 +42,23 @@
     {
       "ticker": "3010",
       "name": "華立",
-      "close": 130.5,
-      "rsi": 45.2,
-      "ema20_cross_days": 47,
-      "delta": 9.7,
-      "sig": "T3 RSI45",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "8996",
-      "name": "高力",
-      "close": 1510.0,
-      "rsi": 49.4,
-      "ema20_cross_days": 45,
-      "delta": 45.9,
-      "sig": "T3 RSI49",
+      "close": 130.0,
+      "rsi": 44.2,
+      "ema20_cross_days": 48,
+      "delta": 7.9,
+      "sig": "T3 RSI44",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
     },
     {
-      "ticker": "6271",
-      "name": "同欣電",
-      "close": 216.5,
-      "rsi": 47.3,
-      "ema20_cross_days": 39,
-      "delta": 13.9,
-      "sig": "T3 RSI47",
+      "ticker": "8996",
+      "name": "高力",
+      "close": 1430.0,
+      "rsi": 45.2,
+      "ema20_cross_days": 46,
+      "delta": 26.0,
+      "sig": "T3 RSI45",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -68,11 +66,187 @@
     {
       "ticker": "2347",
       "name": "聯強",
-      "close": 94.5,
-      "rsi": 41.4,
-      "ema20_cross_days": 37,
-      "delta": -2.7,
+      "close": 92.6,
+      "rsi": 37.5,
+      "ema20_cross_days": 38,
+      "delta": -2.2,
+      "sig": "T3 RSI37",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 56.53156322489553
+        }
+      ]
+    },
+    {
+      "ticker": "8021",
+      "name": "尖點",
+      "close": 393.0,
+      "rsi": 31.6,
+      "ema20_cross_days": 36,
+      "delta": -5.9,
+      "sig": "T3 RSI32",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "2413",
+      "name": "環科",
+      "close": 50.8,
+      "rsi": 46.1,
+      "ema20_cross_days": 35,
+      "delta": 20.8,
+      "sig": "T3 RSI46",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "6257",
+      "name": "矽格",
+      "close": 199.5,
+      "rsi": 30.3,
+      "ema20_cross_days": 35,
+      "delta": -3.6,
+      "sig": "T3 RSI30",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "8150",
+      "name": "南茂",
+      "close": 87.7,
+      "rsi": 35.4,
+      "ema20_cross_days": 27,
+      "delta": 0.9,
+      "sig": "T3 RSI35",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "6715",
+      "name": "嘉基",
+      "close": 397.0,
+      "rsi": 39.3,
+      "ema20_cross_days": 26,
+      "delta": 10.3,
+      "sig": "T3 RSI39",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.10<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 59.894825369611524
+        }
+      ]
+    },
+    {
+      "ticker": "3702",
+      "name": "大聯大",
+      "close": 102.5,
+      "rsi": 29.8,
+      "ema20_cross_days": 25,
+      "delta": -18.3,
+      "sig": "T3 RSI30",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.15<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 65.45938216699044
+        }
+      ]
+    },
+    {
+      "ticker": "6691",
+      "name": "洋基工程",
+      "close": 627.0,
+      "rsi": 37.3,
+      "ema20_cross_days": 25,
+      "delta": -4.5,
+      "sig": "T3 RSI37",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "6438",
+      "name": "迅得",
+      "close": 147.5,
+      "rsi": 35.5,
+      "ema20_cross_days": 24,
+      "delta": 0.3,
+      "sig": "T3 RSI35",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.08<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 57.721749632424384
+        }
+      ]
+    },
+    {
+      "ticker": "2368",
+      "name": "金像電",
+      "close": 1020.0,
+      "rsi": 41.9,
+      "ema20_cross_days": 23,
+      "delta": 3.6,
+      "sig": "T3 RSI42",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "1305",
+      "name": "華夏",
+      "close": 11.85,
+      "rsi": 36.3,
+      "ema20_cross_days": 17,
+      "delta": 3.5,
+      "sig": "T3 RSI36",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "1720",
+      "name": "生達",
+      "close": 56.2,
+      "rsi": 40.9,
+      "ema20_cross_days": 13,
+      "delta": 0.0,
       "sig": "T3 RSI41",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "3545",
+      "name": "敦泰",
+      "close": 50.3,
+      "rsi": 44.7,
+      "ema20_cross_days": 7,
+      "delta": -1.0,
+      "sig": "T1 7d",
       "t3_confidence": 2,
       "t3_confidence_hits": [
         "EMA20上升",
@@ -81,182 +255,13 @@
       "alerts": []
     },
     {
-      "ticker": "8021",
-      "name": "尖點",
-      "close": 424.5,
-      "rsi": 36.8,
-      "ema20_cross_days": 35,
-      "delta": 7.2,
-      "sig": "T3 RSI37",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "2413",
-      "name": "環科",
-      "close": 51.0,
-      "rsi": 46.5,
-      "ema20_cross_days": 34,
-      "delta": 26.4,
-      "sig": "T3 RSI47",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "6257",
-      "name": "矽格",
-      "close": 210.5,
-      "rsi": 34.1,
-      "ema20_cross_days": 34,
-      "delta": 4.0,
-      "sig": "T3 RSI34",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "8150",
-      "name": "南茂",
-      "close": 92.0,
-      "rsi": 38.7,
-      "ema20_cross_days": 26,
-      "delta": 6.4,
-      "sig": "T3 RSI39",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "3002",
-      "name": "歐格",
-      "close": 17.85,
-      "rsi": 44.2,
-      "ema20_cross_days": 25,
-      "delta": 8.2,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "6715",
-      "name": "嘉基",
-      "close": 430.0,
-      "rsi": 44.2,
-      "ema20_cross_days": 25,
-      "delta": 15.7,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "3702",
-      "name": "大聯大",
-      "close": 105.5,
-      "rsi": 33.6,
-      "ema20_cross_days": 24,
-      "delta": -18.2,
-      "sig": "T3 RSI34",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.16<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 66.24407319079903
-        }
-      ]
-    },
-    {
-      "ticker": "6691",
-      "name": "洋基工程",
-      "close": 640.0,
-      "rsi": 40.0,
-      "ema20_cross_days": 24,
-      "delta": 0.9,
-      "sig": "T3 RSI40",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "6438",
-      "name": "迅得",
-      "close": 154.5,
-      "rsi": 40.9,
-      "ema20_cross_days": 23,
-      "delta": 5.1,
-      "sig": "T3 RSI41",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "2368",
-      "name": "金像電",
-      "close": 1060.0,
-      "rsi": 44.5,
-      "ema20_cross_days": 22,
-      "delta": 12.8,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "1305",
-      "name": "華夏",
-      "close": 12.1,
-      "rsi": 40.5,
-      "ema20_cross_days": 16,
-      "delta": 6.6,
-      "sig": "T3 RSI41",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "1720",
-      "name": "生達",
-      "close": 56.7,
-      "rsi": 48.4,
-      "ema20_cross_days": 12,
-      "delta": 0.2,
-      "sig": "T3 RSI48",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "3545",
-      "name": "敦泰",
-      "close": 50.9,
-      "rsi": 46.7,
-      "ema20_cross_days": 6,
-      "delta": 0.8,
-      "sig": "T1 6d",
-      "t3_confidence": 4,
-      "t3_confidence_hits": [
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
       "ticker": "1476",
       "name": "儒鴻",
-      "close": 318.5,
-      "rsi": 57.2,
-      "ema20_cross_days": 5,
-      "delta": -10.3,
-      "sig": "T1 5d",
+      "close": 314.5,
+      "rsi": 52.7,
+      "ema20_cross_days": 6,
+      "delta": -13.7,
+      "sig": "T1 6d",
       "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -268,28 +273,26 @@
     {
       "ticker": "2504",
       "name": "國產",
-      "close": 31.8,
-      "rsi": 48.8,
-      "ema20_cross_days": 5,
-      "delta": 4.8,
-      "sig": "T1 5d",
-      "t3_confidence": 4,
+      "close": 31.5,
+      "rsi": 46.4,
+      "ema20_cross_days": 6,
+      "delta": 3.6,
+      "sig": "T1 6d",
+      "t3_confidence": 2,
       "t3_confidence_hits": [
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
     {
-      "ticker": "3321",
-      "name": "同泰",
-      "close": 21.25,
-      "rsi": 68.1,
-      "ema20_cross_days": 1,
-      "delta": 10.7,
-      "sig": "T1 1d",
+      "ticker": "2491",
+      "name": "吉祥全",
+      "close": 43.4,
+      "rsi": 60.4,
+      "ema20_cross_days": 5,
+      "delta": 35.8,
+      "sig": "T1 5d",
       "t3_confidence": 5,
       "t3_confidence_hits": [
         "close>EMA20",
@@ -301,27 +304,58 @@
       "alerts": []
     },
     {
-      "ticker": "1560",
-      "name": "中砂",
-      "close": 864.0,
-      "rsi": 46.7,
-      "ema20_cross_days": null,
-      "delta": 27.1,
-      "sig": "T3 RSI47",
-      "t3_confidence": 1,
+      "ticker": "3321",
+      "name": "同泰",
+      "close": 20.0,
+      "rsi": 59.5,
+      "ema20_cross_days": 2,
+      "delta": -3.1,
+      "sig": "T1 2d",
+      "t3_confidence": 5,
       "t3_confidence_hits": [
-        "EMA5上升"
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
       ],
       "alerts": []
     },
     {
-      "ticker": "1708",
-      "name": "東鹼",
-      "close": 48.9,
-      "rsi": 37.9,
+      "ticker": "1303",
+      "name": "南亞",
+      "close": 280.5,
+      "rsi": 47.7,
       "ema20_cross_days": null,
-      "delta": -2.4,
-      "sig": "T3 RSI38",
+      "delta": 57.1,
+      "sig": "T3 RSI48",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "1326",
+      "name": "台化",
+      "close": 70.0,
+      "rsi": 44.6,
+      "ema20_cross_days": null,
+      "delta": 20.5,
+      "sig": "T3 RSI45",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "1560",
+      "name": "中砂",
+      "close": 806.0,
+      "rsi": 39.0,
+      "ema20_cross_days": null,
+      "delta": 16.3,
+      "sig": "T3 RSI39",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": []
@@ -329,33 +363,36 @@
     {
       "ticker": "2409",
       "name": "友達",
-      "close": 30.75,
-      "rsi": 40.8,
+      "close": 29.8,
+      "rsi": 38.7,
       "ema20_cross_days": null,
-      "delta": 25.8,
-      "sig": "T3 RSI41",
+      "delta": 21.4,
+      "sig": "T3 RSI39",
       "t3_confidence": 0,
       "t3_confidence_hits": [],
       "alerts": [
         {
           "level": 3,
           "side": "bull",
-          "tag": "BB %B -0.02<0 過冷反彈（多頭）",
+          "tag": "BB %B -0.05<0 過冷反彈（多頭）",
           "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 51.60695477645502
+          "quality_score": 54.561184630889166
         }
       ]
     },
     {
-      "ticker": "2484",
-      "name": "希華",
-      "close": 70.4,
-      "rsi": 38.5,
+      "ticker": "2881",
+      "name": "富邦金",
+      "close": 155.5,
+      "rsi": 48.8,
       "ema20_cross_days": null,
-      "delta": -0.1,
-      "sig": "T3 RSI39",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
+      "delta": 23.4,
+      "sig": "T3 RSI49",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
       "alerts": [
         {
           "level": 2,
@@ -367,75 +404,15 @@
       ]
     },
     {
-      "ticker": "3189",
-      "name": "景碩",
-      "close": 910.0,
-      "rsi": 44.3,
+      "ticker": "2882",
+      "name": "國泰金",
+      "close": 113.0,
+      "rsi": 49.9,
       "ema20_cross_days": null,
-      "delta": 9.9,
-      "sig": "T3 RSI44",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "3532",
-      "name": "台勝科",
-      "close": 350.5,
-      "rsi": 34.0,
-      "ema20_cross_days": null,
-      "delta": 10.7,
-      "sig": "T3 RSI34",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "6196",
-      "name": "帆宣",
-      "close": 533.0,
-      "rsi": 37.3,
-      "ema20_cross_days": null,
-      "delta": 4.7,
-      "sig": "T3 RSI37",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": []
-    },
-    {
-      "ticker": "6213",
-      "name": "聯茂",
-      "close": 656.0,
-      "rsi": 43.4,
-      "ema20_cross_days": null,
-      "delta": 92.4,
-      "sig": "T3 RSI43",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
-      "alerts": [
-        {
-          "level": 3,
-          "side": "bull",
-          "tag": "BB %B -0.07<0 過冷反彈（多頭）",
-          "expect": "+3.32% 30d (54.9% 漲, BB research)",
-          "quality_score": 57.4618332269701
-        }
-      ]
-    }
-  ],
-  "exit": [],
-  "hold": [
-    {
-      "ticker": "2801",
-      "name": "彰銀",
-      "close": 30.85,
-      "rsi": 74.0,
-      "ema20_cross_days": null,
-      "delta": 30.4,
-      "sig": "—",
-      "t3_confidence": 5,
+      "delta": 15.9,
+      "sig": "T3 RSI50",
+      "t3_confidence": 4,
       "t3_confidence_hits": [
-        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -444,12 +421,102 @@
       "alerts": []
     },
     {
+      "ticker": "2885",
+      "name": "元大金",
+      "close": 70.1,
+      "rsi": 46.7,
+      "ema20_cross_days": null,
+      "delta": 8.6,
+      "sig": "T3 RSI47",
+      "t3_confidence": 2,
+      "t3_confidence_hits": [
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "3189",
+      "name": "景碩",
+      "close": 860.0,
+      "rsi": 39.9,
+      "ema20_cross_days": null,
+      "delta": 0.8,
+      "sig": "T3 RSI40",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 54.14920441371255
+        }
+      ]
+    },
+    {
+      "ticker": "3532",
+      "name": "台勝科",
+      "close": 329.0,
+      "rsi": 30.7,
+      "ema20_cross_days": null,
+      "delta": 4.1,
+      "sig": "T3 RSI31",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": []
+    },
+    {
+      "ticker": "6196",
+      "name": "帆宣",
+      "close": 500.0,
+      "rsi": 31.9,
+      "ema20_cross_days": null,
+      "delta": -1.6,
+      "sig": "T3 RSI32",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 54.248336800983026
+        }
+      ]
+    },
+    {
+      "ticker": "6213",
+      "name": "聯茂",
+      "close": 647.0,
+      "rsi": 42.4,
+      "ema20_cross_days": null,
+      "delta": 72.5,
+      "sig": "T3 RSI42",
+      "t3_confidence": 0,
+      "t3_confidence_hits": [],
+      "alerts": [
+        {
+          "level": 3,
+          "side": "bull",
+          "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+          "expect": "+3.32% 30d (54.9% 漲, BB research)",
+          "quality_score": 56.71003241873666
+        }
+      ]
+    }
+  ],
+  "exit": [],
+  "hold": [
+    {
       "ticker": "6214",
       "name": "精誠",
-      "close": 202.0,
-      "rsi": 70.7,
+      "close": 201.5,
+      "rsi": 68.6,
       "ema20_cross_days": null,
-      "delta": 32.0,
+      "delta": 38.5,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -464,10 +531,10 @@
     {
       "ticker": "2607",
       "name": "榮運",
-      "close": 58.6,
-      "rsi": 68.7,
-      "ema20_cross_days": 51,
-      "delta": 24.7,
+      "close": 58.2,
+      "rsi": 65.1,
+      "ema20_cross_days": 52,
+      "delta": 23.2,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -482,10 +549,78 @@
     {
       "ticker": "6225",
       "name": "天瀚",
-      "close": 85.6,
-      "rsi": 64.5,
+      "close": 85.2,
+      "rsi": 63.7,
       "ema20_cross_days": null,
-      "delta": 251.5,
+      "delta": 238.1,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "4720",
+      "name": "德淵",
+      "close": 31.4,
+      "rsi": 63.0,
+      "ema20_cross_days": 19,
+      "delta": 60.6,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "4960",
+      "name": "誠美材",
+      "close": 31.2,
+      "rsi": 63.0,
+      "ema20_cross_days": 18,
+      "delta": 48.9,
+      "sig": "—",
+      "t3_confidence": 5,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5上升",
+        "EMA5>EMA20",
+        "雙均線都升"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "1802",
+      "name": "台玻",
+      "close": 69.0,
+      "rsi": 61.7,
+      "ema20_cross_days": 18,
+      "delta": 26.4,
+      "sig": "—",
+      "t3_confidence": 3,
+      "t3_confidence_hits": [
+        "close>EMA20",
+        "EMA20上升",
+        "EMA5>EMA20"
+      ],
+      "alerts": []
+    },
+    {
+      "ticker": "2801",
+      "name": "彰銀",
+      "close": 30.05,
+      "rsi": 61.6,
+      "ema20_cross_days": null,
+      "delta": 29.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -500,28 +635,10 @@
     {
       "ticker": "2891",
       "name": "中信金",
-      "close": 75.0,
-      "rsi": 63.2,
+      "close": 73.6,
+      "rsi": 56.2,
       "ema20_cross_days": null,
-      "delta": 13.6,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "4960",
-      "name": "誠美材",
-      "close": 30.85,
-      "rsi": 62.1,
-      "ema20_cross_days": 17,
-      "delta": 46.9,
+      "delta": 13.9,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -536,10 +653,10 @@
     {
       "ticker": "2609",
       "name": "陽明",
-      "close": 64.0,
-      "rsi": 60.2,
-      "ema20_cross_days": 52,
-      "delta": 26.5,
+      "close": 62.9,
+      "rsi": 54.8,
+      "ema20_cross_days": 53,
+      "delta": 24.8,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -554,10 +671,10 @@
     {
       "ticker": "3005",
       "name": "神基",
-      "close": 124.0,
-      "rsi": 60.2,
+      "close": 122.5,
+      "rsi": 54.4,
       "ema20_cross_days": null,
-      "delta": 7.8,
+      "delta": 6.1,
       "sig": "—",
       "t3_confidence": 3,
       "t3_confidence_hits": [
@@ -568,48 +685,28 @@
       "alerts": []
     },
     {
-      "ticker": "4720",
-      "name": "德淵",
-      "close": 29.7,
-      "rsi": 59.8,
-      "ema20_cross_days": 18,
-      "delta": 51.5,
+      "ticker": "6672",
+      "name": "騰輝電子-KY",
+      "close": 523.0,
+      "rsi": 53.9,
+      "ema20_cross_days": null,
+      "delta": 124.9,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 3,
       "t3_confidence_hits": [
         "close>EMA20",
         "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
+        "EMA5>EMA20"
       ],
       "alerts": []
     },
     {
-      "ticker": "2834",
-      "name": "臺企銀",
-      "close": 18.05,
-      "rsi": 59.4,
-      "ema20_cross_days": null,
-      "delta": 7.8,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "2882",
-      "name": "國泰金",
-      "close": 116.0,
-      "rsi": 58.8,
-      "ema20_cross_days": null,
-      "delta": 15.4,
+      "ticker": "2355",
+      "name": "敬鵬",
+      "close": 49.95,
+      "rsi": 53.6,
+      "ema20_cross_days": 14,
+      "delta": 20.1,
       "sig": "—",
       "t3_confidence": 5,
       "t3_confidence_hits": [
@@ -624,45 +721,9 @@
     {
       "ticker": "6155",
       "name": "鈞寶",
-      "close": 71.4,
-      "rsi": 58.2,
-      "ema20_cross_days": 20,
-      "delta": 30.1,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "2355",
-      "name": "敬鵬",
-      "close": 51.2,
-      "rsi": 57.8,
-      "ema20_cross_days": 13,
-      "delta": 25.0,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "2881",
-      "name": "富邦金",
-      "close": 159.5,
-      "rsi": 56.8,
-      "ema20_cross_days": null,
+      "close": 68.4,
+      "rsi": 52.2,
+      "ema20_cross_days": 21,
       "delta": 23.2,
       "sig": "—",
       "t3_confidence": 5,
@@ -673,87 +734,40 @@
         "EMA5>EMA20",
         "雙均線都升"
       ],
-      "alerts": []
+      "alerts": [
+        {
+          "level": 2,
+          "side": "bear",
+          "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+          "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+          "quality_score": 30.0
+        }
+      ]
     },
     {
-      "ticker": "2890",
-      "name": "永豐金",
-      "close": 45.8,
-      "rsi": 55.6,
+      "ticker": "2851",
+      "name": "中再保",
+      "close": 49.0,
+      "rsi": 52.0,
       "ema20_cross_days": null,
-      "delta": 15.8,
+      "delta": 40.0,
       "sig": "—",
-      "t3_confidence": 5,
+      "t3_confidence": 1,
       "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "6672",
-      "name": "騰輝電子-KY",
-      "close": 529.0,
-      "rsi": 54.9,
-      "ema20_cross_days": null,
-      "delta": 138.8,
-      "sig": "—",
-      "t3_confidence": 3,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
         "EMA5>EMA20"
       ],
       "alerts": []
     },
     {
-      "ticker": "6456",
-      "name": "GIS-KY",
-      "close": 97.0,
-      "rsi": 54.8,
-      "ema20_cross_days": 26,
-      "delta": 60.9,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "1303",
-      "name": "南亞",
-      "close": 301.0,
-      "rsi": 54.3,
+      "ticker": "2834",
+      "name": "臺企銀",
+      "close": 17.85,
+      "rsi": 51.8,
       "ema20_cross_days": null,
-      "delta": 70.1,
+      "delta": 7.9,
       "sig": "—",
-      "t3_confidence": 3,
+      "t3_confidence": 4,
       "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5>EMA20"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "2885",
-      "name": "元大金",
-      "close": 71.5,
-      "rsi": 52.9,
-      "ema20_cross_days": null,
-      "delta": 7.1,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
         "EMA20上升",
         "EMA5上升",
         "EMA5>EMA20",
@@ -764,28 +778,10 @@
     {
       "ticker": "2889",
       "name": "國票金",
-      "close": 16.85,
-      "rsi": 52.8,
+      "close": 16.8,
+      "rsi": 51.2,
       "ema20_cross_days": null,
-      "delta": 10.7,
-      "sig": "—",
-      "t3_confidence": 5,
-      "t3_confidence_hits": [
-        "close>EMA20",
-        "EMA20上升",
-        "EMA5上升",
-        "EMA5>EMA20",
-        "雙均線都升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "2851",
-      "name": "中再保",
-      "close": 49.0,
-      "rsi": 52.0,
-      "ema20_cross_days": null,
-      "delta": 40.0,
+      "delta": 10.8,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -795,60 +791,27 @@
       "alerts": []
     },
     {
-      "ticker": "1802",
-      "name": "台玻",
-      "close": 63.7,
-      "rsi": 51.4,
-      "ema20_cross_days": 17,
-      "delta": 18.2,
+      "ticker": "6456",
+      "name": "GIS-KY",
+      "close": 91.8,
+      "rsi": 50.3,
+      "ema20_cross_days": 27,
+      "delta": 49.5,
       "sig": "—",
-      "t3_confidence": 1,
+      "t3_confidence": 2,
       "t3_confidence_hits": [
+        "EMA20上升",
         "EMA5>EMA20"
       ],
-      "alerts": [
-        {
-          "level": 2,
-          "side": "bull",
-          "tag": "T1 即將上穿（距 EMA20 0.07% + 連2漲 + ADX≥22）",
-          "expect": "🇹🇼 投組 OOS CAGR +14.78%（建議+10%止損，CAGR→+10.87%/MDD-8%）｜避開 hold=60（過擬合）",
-          "quality_score": -1.3877574872491039
-        }
-      ]
-    },
-    {
-      "ticker": "3543",
-      "name": "州巧",
-      "close": 50.3,
-      "rsi": 51.0,
-      "ema20_cross_days": 54,
-      "delta": 51.1,
-      "sig": "—",
-      "t3_confidence": 0,
-      "t3_confidence_hits": [],
       "alerts": []
     },
     {
-      "ticker": "1326",
-      "name": "台化",
-      "close": 73.6,
-      "rsi": 50.8,
+      "ticker": "2890",
+      "name": "永豐金",
+      "close": 45.05,
+      "rsi": 50.0,
       "ema20_cross_days": null,
-      "delta": 25.6,
-      "sig": "—",
-      "t3_confidence": 1,
-      "t3_confidence_hits": [
-        "EMA20上升"
-      ],
-      "alerts": []
-    },
-    {
-      "ticker": "1735",
-      "name": "日勝化",
-      "close": 22.0,
-      "rsi": 50.5,
-      "ema20_cross_days": 18,
-      "delta": 7.6,
+      "delta": 16.4,
       "sig": "—",
       "t3_confidence": 2,
       "t3_confidence_hits": [
@@ -858,552 +821,872 @@
       "alerts": []
     }
   ],
-  "wait_count": 143,
+  "wait_count": 147,
   "alerts": [
     {
-      "ticker": "7780",
-      "name": "大研生醫*",
-      "close": 15.15,
-      "level": 4,
+      "ticker": "1519",
+      "name": "華城",
+      "close": 535.0,
+      "level": 5,
       "side": "bull",
-      "tag": "倒鎚 + 距 SMA200 -31%",
-      "expect": "+7.85% 30d (64.5% 漲)",
-      "quality_score": 31.489040830088555
+      "tag": "倒鎚 + RSI 24≤25 + ADX↑",
+      "expect": "+9.35% 30d (71.8% 漲, OOS 驗證)",
+      "quality_score": 24.22096317280453
     },
     {
       "ticker": "6165",
       "name": "浪凡",
-      "close": 40.5,
+      "close": 40.95,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.47<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.17<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 97.0324259412929
+      "quality_score": 67.28803118685279
+    },
+    {
+      "ticker": "2436",
+      "name": "偉詮電",
+      "close": 63.1,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.17<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 66.5432519106694
     },
     {
       "ticker": "3702",
       "name": "大聯大",
-      "close": 105.5,
+      "close": 102.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.16<0 過冷反彈（多頭）",
+      "tag": "BB %B -0.15<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 66.24407319079903
-    },
-    {
-      "ticker": "5292",
-      "name": "華懋",
-      "close": 232.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.11<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 60.97613478177192
-    },
-    {
-      "ticker": "1795",
-      "name": "美時",
-      "close": 165.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.08<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 58.13387438298042
-    },
-    {
-      "ticker": "6213",
-      "name": "聯茂",
-      "close": 656.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
-      "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 57.4618332269701
+      "quality_score": 65.45938216699044
     },
     {
       "ticker": "8112",
       "name": "至上",
-      "close": 81.7,
+      "close": 80.6,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.07<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.14<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 56.88774113026058
-    },
-    {
-      "ticker": "1582",
-      "name": "信錦",
-      "close": 67.7,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.06<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 56.364970651788724
+      "quality_score": 64.35872001302283
     },
     {
       "ticker": "2351",
       "name": "順德",
-      "close": 179.5,
+      "close": 168.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.06<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.13<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 55.57423666324977
+      "quality_score": 62.56760347209432
+    },
+    {
+      "ticker": "6426",
+      "name": "統新",
+      "close": 273.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.12<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 62.27651914578975
+    },
+    {
+      "ticker": "6715",
+      "name": "嘉基",
+      "close": 397.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.10<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 59.894825369611524
+    },
+    {
+      "ticker": "1582",
+      "name": "信錦",
+      "close": 66.7,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.10<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 59.85221310145971
+    },
+    {
+      "ticker": "4414",
+      "name": "如興",
+      "close": 7.87,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.10<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 59.52150893103301
+    },
+    {
+      "ticker": "2460",
+      "name": "建通",
+      "close": 28.25,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.09<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 59.16721020069241
+    },
+    {
+      "ticker": "2812",
+      "name": "台中銀",
+      "close": 18.35,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.09<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 58.55792001656505
+    },
+    {
+      "ticker": "3715",
+      "name": "定穎投控",
+      "close": 117.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.08<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 58.479076377440165
     },
     {
       "ticker": "3706",
       "name": "神達",
-      "close": 77.0,
+      "close": 75.8,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.05<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.08<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 55.30375576311955
+      "quality_score": 58.098096374178894
     },
     {
-      "ticker": "2357",
-      "name": "華碩",
-      "close": 912.0,
+      "ticker": "6438",
+      "name": "迅得",
+      "close": 147.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+      "tag": "BB %B -0.08<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 54.42933962765973
+      "quality_score": 57.721749632424384
     },
     {
-      "ticker": "3023",
-      "name": "信邦",
-      "close": 247.5,
+      "ticker": "2374",
+      "name": "佳能",
+      "close": 61.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.04<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.08<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 53.514612111314094
+      "quality_score": 57.56695057668081
     },
     {
-      "ticker": "3645",
-      "name": "達邁",
-      "close": 64.7,
+      "ticker": "4919",
+      "name": "新唐",
+      "close": 110.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
+      "tag": "BB %B -0.07<0 過冷反彈（空頭觸底）",
       "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 52.1248395365147
+      "quality_score": 57.067947769670226
     },
     {
-      "ticker": "2409",
-      "name": "友達",
-      "close": 30.75,
+      "ticker": "3312",
+      "name": "弘憶股",
+      "close": 46.1,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.02<0 過冷反彈（多頭）",
+      "tag": "BB %B -0.07<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 56.72381810183905
+    },
+    {
+      "ticker": "6213",
+      "name": "聯茂",
+      "close": 647.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
       "expect": "+3.32% 30d (54.9% 漲, BB research)",
-      "quality_score": 51.60695477645502
+      "quality_score": 56.71003241873666
     },
     {
-      "ticker": "7795",
-      "name": "長廣",
-      "close": 409.5,
+      "ticker": "8422",
+      "name": "可寧衛*",
+      "close": 24.3,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=51.6%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 51.606633107941576
+      "tag": "BB %B -0.07<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 56.55260657484161
+    },
+    {
+      "ticker": "2347",
+      "name": "聯強",
+      "close": 92.6,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.07<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 56.53156322489553
     },
     {
       "ticker": "6873",
       "name": "泓德能源",
-      "close": 45.3,
+      "close": 41.9,
       "level": 3,
       "side": "bull",
-      "tag": "BB %B -0.01<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 50.68349217654674
-    },
-    {
-      "ticker": "3092",
-      "name": "鴻碩",
-      "close": 21.95,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB %B -0.00<0 過冷反彈（空頭觸底）",
-      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
-      "quality_score": 50.13568324371742
-    },
-    {
-      "ticker": "6873",
-      "name": "泓德能源",
-      "close": 45.3,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=49.5%",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=56.4%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 49.46646559621059
-    },
-    {
-      "ticker": "8261",
-      "name": "富鼎",
-      "close": 138.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=48.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 48.767447186233944
-    },
-    {
-      "ticker": "4764",
-      "name": "雙鍵",
-      "close": 144.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=46.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 46.825088025229725
-    },
-    {
-      "ticker": "6442",
-      "name": "光聖",
-      "close": 1265.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=44.5%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 44.49626246479767
-    },
-    {
-      "ticker": "2467",
-      "name": "志聖",
-      "close": 417.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=42.6%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 42.58078046844915
-    },
-    {
-      "ticker": "2303",
-      "name": "聯電",
-      "close": 110.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=42.0%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 41.997644445044294
-    },
-    {
-      "ticker": "3583",
-      "name": "辛耘",
-      "close": 562.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=41.9%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 41.940834508982924
-    },
-    {
-      "ticker": "6531",
-      "name": "愛普*",
-      "close": 775.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=41.9%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 41.91171047084038
-    },
-    {
-      "ticker": "2360",
-      "name": "致茂",
-      "close": 1715.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=38.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 38.092563935372006
-    },
-    {
-      "ticker": "6139",
-      "name": "亞翔",
-      "close": 637.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.6%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 33.63430187442077
-    },
-    {
-      "ticker": "3023",
-      "name": "信邦",
-      "close": 247.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.5%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 33.53190233455597
-    },
-    {
-      "ticker": "1519",
-      "name": "華城",
-      "close": 555.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.0%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 33.022514679609586
-    },
-    {
-      "ticker": "2486",
-      "name": "一詮",
-      "close": 193.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=32.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 32.75740626912008
-    },
-    {
-      "ticker": "6239",
-      "name": "力成",
-      "close": 257.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=32.7%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 32.66831247292367
-    },
-    {
-      "ticker": "2472",
-      "name": "立隆電",
-      "close": 192.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=32.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 32.07170482623195
-    },
-    {
-      "ticker": "2485",
-      "name": "兆赫",
-      "close": 34.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=28.2%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 28.221366471370363
-    },
-    {
-      "ticker": "2301",
-      "name": "光寶科",
-      "close": 243.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=28.0%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 28.021848302265713
-    },
-    {
-      "ticker": "8210",
-      "name": "勤誠",
-      "close": 705.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 26.791667929213986
-    },
-    {
-      "ticker": "6919",
-      "name": "康霈*",
-      "close": 64.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.7%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 26.66403831348221
-    },
-    {
-      "ticker": "6919",
-      "name": "康霈*",
-      "close": 64.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "底部十字星 + RSI 24≤25 + ADX↑",
-      "expect": "+7.02% 30d (67.4% 漲)",
-      "quality_score": 26.177938217604435
-    },
-    {
-      "ticker": "6830",
-      "name": "汎銓",
-      "close": 463.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 26.14201043633761
-    },
-    {
-      "ticker": "2233",
-      "name": "宇隆",
-      "close": 140.0,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=25.4%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 25.422145178787382
-    },
-    {
-      "ticker": "3712",
-      "name": "永崴投控",
-      "close": 17.7,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=20.2%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 20.16385810147227
-    },
-    {
-      "ticker": "1309",
-      "name": "台達化",
-      "close": 12.75,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=18.7%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 18.68634813727449
-    },
-    {
-      "ticker": "1717",
-      "name": "長興",
-      "close": 66.7,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 17.073013429584947
-    },
-    {
-      "ticker": "2329",
-      "name": "華泰",
-      "close": 40.05,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=16.3%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 16.349575867517
-    },
-    {
-      "ticker": "6165",
-      "name": "浪凡",
-      "close": 40.5,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=16.3%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 16.265601418717413
+      "quality_score": 56.4268373588636
     },
     {
       "ticker": "3019",
       "name": "亞光",
-      "close": 123.5,
+      "close": 119.5,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=15.5%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 15.471123829312292
-    },
-    {
-      "ticker": "1308",
-      "name": "亞聚",
-      "close": 13.3,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=15.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 15.121615577107871
-    },
-    {
-      "ticker": "3694",
-      "name": "海華",
-      "close": 45.7,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=14.3%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 14.324019421320964
-    },
-    {
-      "ticker": "3308",
-      "name": "聯德",
-      "close": 20.4,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=12.9%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 12.900324224868164
-    },
-    {
-      "ticker": "1616",
-      "name": "億泰",
-      "close": 17.15,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=11.8%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 11.760430069335008
-    },
-    {
-      "ticker": "3028",
-      "name": "增你強",
-      "close": 58.6,
-      "level": 3,
-      "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=11.2%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 11.190615030721172
+      "tag": "BB %B -0.06<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 55.64505985203122
     },
     {
       "ticker": "1795",
       "name": "美時",
-      "close": 165.0,
+      "close": 163.0,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=10.7%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 10.72813641440023
+      "tag": "BB %B -0.06<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 55.618369344206975
     },
     {
-      "ticker": "7780",
-      "name": "大研生醫*",
-      "close": 15.15,
+      "ticker": "3645",
+      "name": "達邁",
+      "close": 62.6,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=9.1%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 9.141977498694846
+      "tag": "BB %B -0.05<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 54.94558014053969
     },
     {
-      "ticker": "2414",
-      "name": "精技",
-      "close": 49.8,
+      "ticker": "3056",
+      "name": "富華新",
+      "close": 12.4,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=8.9%",
-      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 8.874069794629298
+      "tag": "BB %B -0.05<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 54.786694546006544
     },
     {
-      "ticker": "9911",
-      "name": "櫻花",
-      "close": 78.4,
+      "ticker": "2409",
+      "name": "友達",
+      "close": 29.8,
       "level": 3,
       "side": "bull",
-      "tag": "BB Expansion 突放（空頭末段反轉）BW=5.1%",
+      "tag": "BB %B -0.05<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 54.561184630889166
+    },
+    {
+      "ticker": "6196",
+      "name": "帆宣",
+      "close": 500.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 54.248336800983026
+    },
+    {
+      "ticker": "3189",
+      "name": "景碩",
+      "close": 860.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.04<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 54.14920441371255
+    },
+    {
+      "ticker": "2360",
+      "name": "致茂",
+      "close": 1565.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.04<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 53.8802882584303
+    },
+    {
+      "ticker": "1616",
+      "name": "億泰",
+      "close": 16.7,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 53.17358437847194
+    },
+    {
+      "ticker": "3209",
+      "name": "全科",
+      "close": 43.75,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 53.13463270169967
+    },
+    {
+      "ticker": "8210",
+      "name": "勤誠",
+      "close": 673.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 52.7858667755948
+    },
+    {
+      "ticker": "2367",
+      "name": "燿華",
+      "close": 40.05,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.03<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 52.617728637315636
+    },
+    {
+      "ticker": "4763",
+      "name": "材料*-KY",
+      "close": 44.65,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 52.466826708388496
+    },
+    {
+      "ticker": "7795",
+      "name": "長廣",
+      "close": 392.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=52.2%",
       "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
-      "quality_score": 5.128176954934038
+      "quality_score": 52.17071574769655
+    },
+    {
+      "ticker": "8046",
+      "name": "南電",
+      "close": 1100.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.02<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 52.042046263488615
+    },
+    {
+      "ticker": "6873",
+      "name": "泓德能源",
+      "close": 41.9,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.02<0 過冷反彈（空頭觸底）",
+      "expect": "+2.84% 30d (55.5% 漲, 空頭超賣)",
+      "quality_score": 51.74144331879783
+    },
+    {
+      "ticker": "2357",
+      "name": "華碩",
+      "close": 905.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.01<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 51.231514315295556
+    },
+    {
+      "ticker": "8261",
+      "name": "富鼎",
+      "close": 133.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=50.5%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 50.468467123431395
+    },
+    {
+      "ticker": "3167",
+      "name": "大量",
+      "close": 871.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.00<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 50.328000091508116
     },
     {
       "ticker": "2484",
       "name": "希華",
-      "close": 70.4,
+      "close": 66.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB %B -0.00<0 過冷反彈（多頭）",
+      "expect": "+3.32% 30d (54.9% 漲, BB research)",
+      "quality_score": 50.2281406774619
+    },
+    {
+      "ticker": "4764",
+      "name": "雙鍵",
+      "close": 139.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=49.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 49.65060538424991
+    },
+    {
+      "ticker": "6442",
+      "name": "光聖",
+      "close": 1175.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=49.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 49.173435468288915
+    },
+    {
+      "ticker": "2467",
+      "name": "志聖",
+      "close": 395.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=46.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 46.68364150500202
+    },
+    {
+      "ticker": "3583",
+      "name": "辛耘",
+      "close": 538.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=44.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 44.58878128908809
+    },
+    {
+      "ticker": "2360",
+      "name": "致茂",
+      "close": 1565.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=44.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 44.56301734922837
+    },
+    {
+      "ticker": "6531",
+      "name": "愛普*",
+      "close": 748.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=42.8%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 42.76024077919631
+    },
+    {
+      "ticker": "3023",
+      "name": "信邦",
+      "close": 242.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=38.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 38.063579768999695
+    },
+    {
+      "ticker": "2345",
+      "name": "智邦",
+      "close": 1565.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=36.8%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 36.77865154192822
+    },
+    {
+      "ticker": "1519",
+      "name": "華城",
+      "close": 535.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=35.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 35.73270072501036
+    },
+    {
+      "ticker": "2472",
+      "name": "立隆電",
+      "close": 185.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=35.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 35.07886379049844
+    },
+    {
+      "ticker": "9911",
+      "name": "櫻花",
+      "close": 78.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "底部十字星 + RSI 15≤25 + ADX↑",
+      "expect": "+7.02% 30d (67.4% 漲)",
+      "quality_score": 34.97471234893561
+    },
+    {
+      "ticker": "6139",
+      "name": "亞翔",
+      "close": 626.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 33.63420704411617
+    },
+    {
+      "ticker": "2481",
+      "name": "強茂",
+      "close": 132.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 33.61282875757154
+    },
+    {
+      "ticker": "2486",
+      "name": "一詮",
+      "close": 185.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=33.5%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 33.455583760019465
+    },
+    {
+      "ticker": "2313",
+      "name": "華通",
+      "close": 198.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=31.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 31.233293922454745
+    },
+    {
+      "ticker": "2485",
+      "name": "兆赫",
+      "close": 33.45,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=31.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 31.22451862351866
+    },
+    {
+      "ticker": "8210",
+      "name": "勤誠",
+      "close": 673.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=31.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 30.96578164682684
+    },
+    {
+      "ticker": "2301",
+      "name": "光寶科",
+      "close": 237.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=30.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 29.969485133622655
+    },
+    {
+      "ticker": "6919",
+      "name": "康霈*",
+      "close": 64.1,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=28.5%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 28.523903732026092
+    },
+    {
+      "ticker": "6830",
+      "name": "汎銓",
+      "close": 435.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=27.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 27.11344961893809
+    },
+    {
+      "ticker": "6271",
+      "name": "同欣電",
+      "close": 208.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 26.74481155331029
+    },
+    {
+      "ticker": "2233",
+      "name": "宇隆",
+      "close": 135.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=26.5%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 26.482154799497177
+    },
+    {
+      "ticker": "2303",
+      "name": "聯電",
+      "close": 106.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "底部十字星 + RSI 25≤25 + ADX↑",
+      "expect": "+7.02% 30d (67.4% 漲)",
+      "quality_score": 25.26308667579255
+    },
+    {
+      "ticker": "2421",
+      "name": "建準",
+      "close": 142.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=23.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 23.175196940975155
+    },
+    {
+      "ticker": "3712",
+      "name": "永崴投控",
+      "close": 17.35,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=22.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 22.08474076952914
+    },
+    {
+      "ticker": "3645",
+      "name": "達邁",
+      "close": 62.6,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=22.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 21.96046125175861
+    },
+    {
+      "ticker": "1309",
+      "name": "台達化",
+      "close": 12.4,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=21.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 20.97445943310981
+    },
+    {
+      "ticker": "6165",
+      "name": "浪凡",
+      "close": 40.95,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=20.9%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 20.94341248022864
+    },
+    {
+      "ticker": "1717",
+      "name": "長興",
+      "close": 64.6,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=19.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 18.99459969680106
+    },
+    {
+      "ticker": "3019",
+      "name": "亞光",
+      "close": 119.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 17.723661537523007
+    },
+    {
+      "ticker": "2329",
+      "name": "華泰",
+      "close": 39.2,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=17.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 17.693367449352916
+    },
+    {
+      "ticker": "1308",
+      "name": "亞聚",
+      "close": 13.15,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=16.5%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 16.49482444677644
+    },
+    {
+      "ticker": "3694",
+      "name": "海華",
+      "close": 44.95,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=15.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 15.091096397966966
+    },
+    {
+      "ticker": "1616",
+      "name": "億泰",
+      "close": 16.7,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=13.3%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 13.339670096721722
+    },
+    {
+      "ticker": "3308",
+      "name": "聯德",
+      "close": 20.05,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=13.2%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 13.209794899382429
+    },
+    {
+      "ticker": "1795",
+      "name": "美時",
+      "close": 163.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=12.6%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 12.63935257281241
+    },
+    {
+      "ticker": "3028",
+      "name": "增你強",
+      "close": 57.8,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=11.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 11.745160982059575
+    },
+    {
+      "ticker": "7780",
+      "name": "大研生醫*",
+      "close": 15.05,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=10.1%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 10.067451142669254
+    },
+    {
+      "ticker": "2414",
+      "name": "精技",
+      "close": 49.25,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=9.9%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 9.885736286899691
+    },
+    {
+      "ticker": "2374",
+      "name": "佳能",
+      "close": 61.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=9.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 9.680476044898164
+    },
+    {
+      "ticker": "1582",
+      "name": "信錦",
+      "close": 66.7,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=8.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 8.736121220409371
+    },
+    {
+      "ticker": "6757",
+      "name": "台灣虎航",
+      "close": 55.5,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=7.0%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 6.958934655604835
+    },
+    {
+      "ticker": "9911",
+      "name": "櫻花",
+      "close": 78.0,
+      "level": 3,
+      "side": "bull",
+      "tag": "BB Expansion 突放（空頭末段反轉）BW=5.7%",
+      "expect": "+3.14% 30d (56.1% 漲, 空頭末段反轉)",
+      "quality_score": 5.650192535317957
+    },
+    {
+      "ticker": "2484",
+      "name": "希華",
+      "close": 66.5,
+      "level": 2,
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
+    },
+    {
+      "ticker": "2881",
+      "name": "富邦金",
+      "close": 155.5,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1413,7 +1696,7 @@
     {
       "ticker": "3533",
       "name": "嘉澤",
-      "close": 1820.0,
+      "close": 1770.0,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1423,7 +1706,7 @@
     {
       "ticker": "5292",
       "name": "華懋",
-      "close": 232.0,
+      "close": 233.0,
       "level": 2,
       "side": "bear",
       "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
@@ -1431,24 +1714,54 @@
       "quality_score": 30.0
     },
     {
-      "ticker": "1802",
-      "name": "台玻",
-      "close": 63.7,
+      "ticker": "6155",
+      "name": "鈞寶",
+      "close": 68.4,
       "level": 2,
-      "side": "bull",
-      "tag": "T1 即將上穿（距 EMA20 0.07% + 連2漲 + ADX≥22）",
-      "expect": "🇹🇼 投組 OOS CAGR +14.78%（建議+10%止損，CAGR→+10.87%/MDD-8%）｜避開 hold=60（過擬合）",
-      "quality_score": -1.3877574872491039
+      "side": "bear",
+      "tag": "BB M 頂（雙觸上軌+二次更低+跌破中軌）",
+      "expect": "+2.21% 30d 較弱 (50.4% 漲, 反轉警告)",
+      "quality_score": 30.0
     },
     {
       "ticker": "4764",
       "name": "雙鍵",
-      "close": 144.5,
+      "close": 139.0,
       "level": "imm_bull",
       "side": "bull",
-      "tag": "即將: 倒鎚 + RSI 28（差 3.2 點到極強）",
+      "tag": "即將: 倒鎚 + RSI 26（差 1.4 點到極強）",
       "expect": "RSI 再降到≤25 即達 ★★★★★",
-      "quality_score": 28.641975308641975
+      "quality_score": 33.49282296650718
+    },
+    {
+      "ticker": "6550",
+      "name": "北極星藥業-KY",
+      "close": 14.95,
+      "level": "imm_bull",
+      "side": "bull",
+      "tag": "即將: 倒鎚 + RSI 29（差 4.1 點到極強）",
+      "expect": "RSI 再降到≤25 即達 ★★★★★",
+      "quality_score": 21.70815855332848
+    },
+    {
+      "ticker": "7780",
+      "name": "大研生醫*",
+      "close": 15.05,
+      "level": "imm_bull",
+      "side": "bull",
+      "tag": "即將: 倒鎚 + RSI 26（差 1.1 點到極強）",
+      "expect": "RSI 再降到≤25 即達 ★★★★★",
+      "quality_score": 6.811142128655451
+    },
+    {
+      "ticker": "6757",
+      "name": "台灣虎航",
+      "close": 55.5,
+      "level": "imm_bear",
+      "side": "bear",
+      "tag": "空頭+%B 1.15>1（假突破，反彈將失敗）",
+      "expect": "+0.34% 30d (43.1% 漲, 弱反彈警告)",
+      "quality_score": 15.373622027764242
     }
   ],
   "source": "cloud (yfinance live)"
